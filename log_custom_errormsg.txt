@@ -1,0 +1,431 @@
+
+
+
+Error occured with last batch = 1Number of data per training batch = 10
+Traceback (most recent call last):
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 744, in train_loop
+    df_training_info.to_csv( path_or_buf="/checkpoints/checkpoint_scores_model_{}.csv".format(train_params['model_version']), header=True, index=False )
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\pandas\core\generic.py", line 3229, in to_csv
+    formatter.save()
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\pandas\io\formats\csvs.py", line 183, in save
+    compression=self.compression,
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\pandas\io\common.py", line 397, in _get_handle
+    f = open(path_or_buf, mode, encoding=encoding, newline="")
+FileNotFoundError: [Errno 2] No such file or directory: '/checkpoints/checkpoint_scores_model_1.csv'
+
+
+
+Error occured with last batch = 1Number of data per training batch = 10
+Traceback (most recent call last):
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 679, in train_loop
+    preds = model( feature, tape=tape ) #TODO Debug, remove tape variable from model later
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 891, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+TypeError: call() got an unexpected keyword argument 'tape'
+
+
+
+Error occured with last batch = 4Number of data per training batch = 10
+Traceback (most recent call last):
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 679, in train_loop
+    preds = model( feature, tape=tape ) #TODO Debug, remove tape variable from model later
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 891, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+TypeError: call() got an unexpected keyword argument 'tape'
+
+
+
+Error occured with last batch = 7Number of data per training batch = 10
+Traceback (most recent call last):
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 679, in train_loop
+    preds = model( feature, tape=tape ) #TODO Debug, remove tape variable from model later
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 891, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+TypeError: call() got an unexpected keyword argument 'tape'
+
+
+
+Error occured with last batch = 10Number of data per training batch = 10
+Traceback (most recent call last):
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 679, in train_loop
+    preds = model( feature, tape=tape ) #TODO Debug, remove tape variable from model later
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 891, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+TypeError: call() got an unexpected keyword argument 'tape'
+
+
+
+Error occured with last batch = 13Number of data per training batch = 10
+Traceback (most recent call last):
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 679, in train_loop
+    preds = model( feature, tape=tape ) #TODO Debug, remove tape variable from model later
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 891, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+TypeError: call() got an unexpected keyword argument 'tape'
+
+
+
+Error occured with last batch = 16Number of data per training batch = 10
+Traceback (most recent call last):
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 679, in train_loop
+    preds = model( feature, tape=tape ) #TODO Debug, remove tape variable from model later
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 891, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+TypeError: call() got an unexpected keyword argument 'tape'
+
+
+
+Error occured with last batch = 1Number of data per training batch = 10
+Traceback (most recent call last):
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\ops\gen_math_ops.py", line 10907, in square
+    name, _ctx._post_execution_callbacks, x)
+tensorflow.python.eager.core._FallbackException: This function does not handle the case of the path where all inputs are not already EagerTensors.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 680, in train_loop
+    preds = model( feature, tape=tape ) #TODO Debug, remove tape variable from model later
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 891, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 129, in call
+    x = self.SRCNN_1(inputs, tape=tape)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 891, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 222, in call
+    x = self.conv1( _input )    #( batch, height_lr, width_lr, conv1_filters ) #TODO:(akanni-ade) alot of zero values for x at this output
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 891, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_probability\python\layers\conv_variational.py", line 230, in call
+    outputs = self._apply_variational_kernel(inputs)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_probability\python\layers\conv_variational.py", line 514, in _apply_variational_kernel
+    self.kernel_posterior)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 175, in <lambda>
+    hparams['conv1_output_node_count'], hparams['conv1_params']['kernel_size'], hparams['conv1_inp_channels'] ) )  ,
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 418, in horsehoe_kernel_posterior_tensor_fn
+    model_global_c2 = tf.square( model_global_c )
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\ops\gen_math_ops.py", line 10912, in square
+    x, name=name, ctx=_ctx)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\ops\gen_math_ops.py", line 10957, in square_eager_fallback
+    _attr_T, (x,) = _execute.args_to_matching_eager([x], _ctx)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\eager\execute.py", line 257, in args_to_matching_eager
+    t, dtype, preferred_dtype=default_dtype, ctx=ctx))
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\framework\ops.py", line 1296, in internal_convert_to_tensor
+    ret = conversion_func(value, dtype=dtype, name=name, as_ref=as_ref)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\framework\constant_op.py", line 286, in _constant_tensor_conversion_function
+    return constant(v, dtype=dtype, name=name)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\framework\constant_op.py", line 227, in constant
+    allow_broadcast=True)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\framework\constant_op.py", line 235, in _constant_impl
+    t = convert_to_eager_tensor(value, ctx, dtype)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\framework\constant_op.py", line 96, in convert_to_eager_tensor
+    return ops.EagerTensor(value, ctx.device_name, dtype)
+ValueError: Attempt to convert a value (None) with an unsupported type (<class 'NoneType'>) to a Tensor.
+
+
+
+Error occured with last batch = 1Number of data per training batch = 10
+Traceback (most recent call last):
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 850, in train_loop
+    # Updating record of the last batch to be operated on in training epoch
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\pandas\core\generic.py", line 3229, in to_csv
+    formatter.save()
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\pandas\io\formats\csvs.py", line 183, in save
+    compression=self.compression,
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\pandas\io\common.py", line 397, in _get_handle
+    f = open(path_or_buf, mode, encoding=encoding, newline="")
+FileNotFoundError: [Errno 2] No such file or directory: '/checkpoints/checkpoint_scores_model_1.csv'
+
+
+
+Error occured with last batch = 4Number of data per training batch = 10
+Traceback (most recent call last):
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 850, in train_loop
+    # Updating record of the last batch to be operated on in training epoch
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\pandas\core\generic.py", line 3229, in to_csv
+    formatter.save()
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\pandas\io\formats\csvs.py", line 183, in save
+    compression=self.compression,
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\pandas\io\common.py", line 397, in _get_handle
+    f = open(path_or_buf, mode, encoding=encoding, newline="")
+FileNotFoundError: [Errno 2] No such file or directory: '/checkpoints/checkpoint_scores_model_1.csv'
+
+
+
+Error occured with last batch = 1Number of data per training batch = 10
+Traceback (most recent call last):
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 852, in train_loop
+    df_training_info.loc[ ( df_training_info['Epoch']==epoch) , ['Last_Trained_Batch'] ] = batch
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\pandas\core\generic.py", line 3229, in to_csv
+    formatter.save()
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\pandas\io\formats\csvs.py", line 183, in save
+    compression=self.compression,
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\pandas\io\common.py", line 397, in _get_handle
+    f = open(path_or_buf, mode, encoding=encoding, newline="")
+FileNotFoundError: [Errno 2] No such file or directory: '/checkpoints/checkpoint_scores_model_1.csv'
+
+
+
+Error occured with last batch = 4Number of data per training batch = 10
+Traceback (most recent call last):
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 852, in train_loop
+    df_training_info.loc[ ( df_training_info['Epoch']==epoch) , ['Last_Trained_Batch'] ] = batch
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\pandas\core\generic.py", line 3229, in to_csv
+    formatter.save()
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\pandas\io\formats\csvs.py", line 183, in save
+    compression=self.compression,
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\pandas\io\common.py", line 397, in _get_handle
+    f = open(path_or_buf, mode, encoding=encoding, newline="")
+FileNotFoundError: [Errno 2] No such file or directory: '/checkpoints/checkpoint_scores_model_1.csv'
+
+
+
+Error occured with last batch = 1Number of data per training batch = 10
+Traceback (most recent call last):
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 808, in train_loop
+    preds = model( feature, tape=tape ) #TODO Debug, remove tape variable from model later
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 129, in call
+    x = self.SRCNN_1(inputs, tape=tape)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 252, in call
+    x1 = self.conv2( x )         #(batch, height_hr, width_hr, conv2_filters )
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_probability\python\layers\conv_variational.py", line 233, in call
+    outputs = self._apply_variational_kernel(inputs)
+AttributeError: '_ConvVariational' object has no attribute '_apply_variational_kernel'
+
+
+
+Error occured with last batch = 4Number of data per training batch = 10
+Traceback (most recent call last):
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 808, in train_loop
+    preds = model( feature, tape=tape ) #TODO Debug, remove tape variable from model later
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 129, in call
+    x = self.SRCNN_1(inputs, tape=tape)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 252, in call
+    x1 = self.conv2( x )         #(batch, height_hr, width_hr, conv2_filters )
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_probability\python\layers\conv_variational.py", line 233, in call
+    outputs = self._apply_variational_kernel(inputs)
+AttributeError: '_ConvVariational' object has no attribute '_apply_variational_kernel'
+
+
+
+Error occured with last batch = 1Number of data per training batch = 10
+Traceback (most recent call last):
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 808, in train_loop
+    preds = model( feature, tape=tape ) #TODO Debug, remove tape variable from model later
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 129, in call
+    x = self.SRCNN_1(inputs, tape=tape)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 248, in call
+    x = self.conv1( _input )    #( batch, height_lr, width_lr, conv1_filters ) #TODO:(akanni-ade) alot of zero values for x at this output
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 818, in __call__
+    self._maybe_build(inputs)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 2119, in _maybe_build
+    self.build(input_shapes)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_probability\python\layers\conv_variational.py", line 192, in build
+    self.trainable, self.add_variable)
+TypeError: _fn() missing 1 required positional argument: 'add_variable_fn'
+
+
+
+Error occured with last batch = 1Number of data per training batch = 10
+Traceback (most recent call last):
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 921, in train_loop
+    preds = model( feature, tape=tape ) #TODO Debug, remove tape variable from model later
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 129, in call
+    x = self.SRCNN_1(inputs, tape=tape)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 245, in call
+    x = self.conv1( _input )    #( batch, height_lr, width_lr, conv1_filters ) #TODO:(akanni-ade) alot of zero values for x at this output
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 818, in __call__
+    self._maybe_build(inputs)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 2119, in _maybe_build
+    self.build(input_shapes)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_probability\python\layers\conv_variational.py", line 192, in build
+    self.trainable, self.add_variable)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 545, in _fn
+    conv_taus = tf.case( [ (tf.equal(conv_layer,tf.constant(1)),lambda: self.conv1_taus), (tf.equal(conv_layer,tf.constant(2)), lambda: self.conv2_taus) ] , exclusive=False )
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\ops\control_flow_ops.py", line 3382, in case_v2
+    strict=strict)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\ops\control_flow_ops.py", line 3183, in _case_helper
+    return fn()
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\util\deprecation.py", line 507, in new_func
+    return func(*args, **kwargs)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\ops\control_flow_ops.py", line 1202, in cond
+    result = true_fn()
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 545, in <lambda>
+    conv_taus = tf.case( [ (tf.equal(conv_layer,tf.constant(1)),lambda: self.conv1_taus), (tf.equal(conv_layer,tf.constant(2)), lambda: self.conv2_taus) ] , exclusive=False )
+NameError: name 'self' is not defined
+
+
+
+Error occured with last batch = 4Number of data per training batch = 10
+Traceback (most recent call last):
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 921, in train_loop
+    preds = model( feature, tape=tape ) #TODO Debug, remove tape variable from model later
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 129, in call
+    x = self.SRCNN_1(inputs, tape=tape)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 245, in call
+    x = self.conv1( _input )    #( batch, height_lr, width_lr, conv1_filters ) #TODO:(akanni-ade) alot of zero values for x at this output
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 818, in __call__
+    self._maybe_build(inputs)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 2119, in _maybe_build
+    self.build(input_shapes)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_probability\python\layers\conv_variational.py", line 192, in build
+    self.trainable, self.add_variable)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 545, in _fn
+    conv_taus = tf.case( [ (tf.equal(conv_layer,tf.constant(1)),lambda: self.conv1_taus), (tf.equal(conv_layer,tf.constant(2)), lambda: self.conv2_taus) ] , exclusive=False )
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\ops\control_flow_ops.py", line 3382, in case_v2
+    strict=strict)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\ops\control_flow_ops.py", line 3183, in _case_helper
+    return fn()
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\util\deprecation.py", line 507, in new_func
+    return func(*args, **kwargs)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\ops\control_flow_ops.py", line 1202, in cond
+    result = true_fn()
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 545, in <lambda>
+    conv_taus = tf.case( [ (tf.equal(conv_layer,tf.constant(1)),lambda: self.conv1_taus), (tf.equal(conv_layer,tf.constant(2)), lambda: self.conv2_taus) ] , exclusive=False )
+NameError: name 'self' is not defined
+
+
+
+Error occured with last batch = 1Number of data per training batch = 10
+Traceback (most recent call last):
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 893, in train_loop
+    preds = model( feature, tape=tape ) #TODO Debug, remove tape variable from model later
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 129, in call
+    x = self.SRCNN_1(inputs, tape=tape)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 251, in call
+    x = self.conv3( x1 + x )       #(batch, height_hr, width_hr, 1 )
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 818, in __call__
+    self._maybe_build(inputs)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 2119, in _maybe_build
+    self.build(input_shapes)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_probability\python\layers\conv_variational.py", line 192, in build
+    self.trainable, self.add_variable)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 343, in _fn
+    dist_weights = tfd.MultivariateNormalTriL(0, tf.linalg.cholesky(tf.math.square( self.conv3_kappa)) )
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\ops\gen_linalg_ops.py", line 712, in cholesky
+    _ops.raise_from_not_ok_status(e, name)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\framework\ops.py", line 6609, in raise_from_not_ok_status
+    six.raise_from(core._status_to_exception(e.code, message), None)
+  File "<string>", line 3, in raise_from
+tensorflow.python.framework.errors_impl.InvalidArgumentError: Input matrix must be square. [Op:Cholesky]
+
+
+
+Error occured with last batch = 1Number of data per training batch = 10
+Traceback (most recent call last):
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 893, in train_loop
+    preds = model( feature, tape=tape ) #TODO Debug, remove tape variable from model later
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 129, in call
+    x = self.SRCNN_1(inputs, tape=tape)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 251, in call
+    x = self.conv3( x1 + x )       #(batch, height_hr, width_hr, 1 )
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_probability\python\layers\conv_variational.py", line 233, in call
+    outputs = self._apply_variational_kernel(inputs)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_probability\python\layers\conv_variational.py", line 518, in _apply_variational_kernel
+    self.kernel_posterior)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 230, in <lambda>
+    kernel_posterior_tensor_fn= lambda dist: HalfCauchy_Guassian_posterior_tensor_fn(self, hparams['conv3_params']['kernel_size'], hparams['conv3_inp_channels'] ) ,
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 644, in HalfCauchy_Guassian_posterior_tensor_fn
+    dist_weights = tfd.MultivariateNormalTriL(0, tf.linalg.cholesky(tf.math.square( obj.conv3_kappa)) )
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\ops\gen_linalg_ops.py", line 712, in cholesky
+    _ops.raise_from_not_ok_status(e, name)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\framework\ops.py", line 6609, in raise_from_not_ok_status
+    six.raise_from(core._status_to_exception(e.code, message), None)
+  File "<string>", line 3, in raise_from
+tensorflow.python.framework.errors_impl.InvalidArgumentError: Input matrix must be square. [Op:Cholesky]
+
+
+
+Error occured with last batch = 4Number of data per training batch = 10
+Traceback (most recent call last):
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 893, in train_loop
+    preds = model( feature, tape=tape ) #TODO Debug, remove tape variable from model later
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 129, in call
+    x = self.SRCNN_1(inputs, tape=tape)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 251, in call
+    x = self.conv3( x1 + x )       #(batch, height_hr, width_hr, 1 )
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_probability\python\layers\conv_variational.py", line 233, in call
+    outputs = self._apply_variational_kernel(inputs)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_probability\python\layers\conv_variational.py", line 518, in _apply_variational_kernel
+    self.kernel_posterior)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 230, in <lambda>
+    kernel_posterior_tensor_fn= lambda dist: HalfCauchy_Guassian_posterior_tensor_fn(self, hparams['conv3_params']['kernel_size'], hparams['conv3_inp_channels'] ) ,
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 644, in HalfCauchy_Guassian_posterior_tensor_fn
+    dist_weights = tfd.MultivariateNormalTriL(0, tf.linalg.cholesky(tf.math.square( obj.conv3_kappa)) )
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\ops\gen_linalg_ops.py", line 712, in cholesky
+    _ops.raise_from_not_ok_status(e, name)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\framework\ops.py", line 6609, in raise_from_not_ok_status
+    six.raise_from(core._status_to_exception(e.code, message), None)
+  File "<string>", line 3, in raise_from
+tensorflow.python.framework.errors_impl.InvalidArgumentError: Input matrix must be square. [Op:Cholesky]
+
+
+
+Error occured with last batch = 7Number of data per training batch = 10
+Traceback (most recent call last):
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 893, in train_loop
+    preds = model( feature, tape=tape ) #TODO Debug, remove tape variable from model later
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 129, in call
+    x = self.SRCNN_1(inputs, tape=tape)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 251, in call
+    x = self.conv3( x1 + x )       #(batch, height_hr, width_hr, 1 )
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\keras\engine\base_layer.py", line 822, in __call__
+    outputs = self.call(cast_inputs, *args, **kwargs)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_probability\python\layers\conv_variational.py", line 233, in call
+    outputs = self._apply_variational_kernel(inputs)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_probability\python\layers\conv_variational.py", line 518, in _apply_variational_kernel
+    self.kernel_posterior)
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 230, in <lambda>
+    kernel_posterior_tensor_fn= lambda dist: HalfCauchy_Guassian_posterior_tensor_fn(self, hparams['conv3_params']['kernel_size'], hparams['conv3_inp_channels'] ) ,
+  File "c:\Users\Rilwa\GoogleDrive\Warwick\PhD\ATI\BNN\layers_and_distributions.py", line 644, in HalfCauchy_Guassian_posterior_tensor_fn
+    dist_weights = tfd.MultivariateNormalTriL(0, tf.linalg.cholesky(tf.math.square( obj.conv3_kappa)) )
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\ops\gen_linalg_ops.py", line 712, in cholesky
+    _ops.raise_from_not_ok_status(e, name)
+  File "C:\Users\Rilwa\Anaconda3\lib\site-packages\tensorflow_core\python\framework\ops.py", line 6609, in raise_from_not_ok_status
+    six.raise_from(core._status_to_exception(e.code, message), None)
+  File "<string>", line 3, in raise_from
+tensorflow.python.framework.errors_impl.InvalidArgumentError: Input matrix must be square. [Op:Cholesky]
