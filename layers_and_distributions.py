@@ -661,7 +661,7 @@ def train_loop(train_params):
                                                                     #TODO(akanni-ade): remove (mask) eror for predictions that are water i.e. null
                                 
                                 #likelihood 1 - Independent Normal
-                                noise_std = tfd.HalfNormal(scale=3/4)   #TODO:(akanni-ade) This should decrease exponentially during training #RESEARCH: NOVEL Addition #TODO:(akanni-ade) create tensorflow function to add this
+                                noise_std = tfd.HalfNormal(scale=2)   #TODO:(akanni-ade) This should decrease exponentially during training #RESEARCH: NOVEL Addition #TODO:(akanni-ade) create tensorflow function to add this
                                                                         #NOTE: In the original Model Selection paper they use Guassian Likelihoods for loss with a precision (noise_std) that is Gamma(6,6)
                                 preds = tf.reshape( preds, [-1] )
                                 target = tf.reshape( target, [-1] )
@@ -675,7 +675,7 @@ def train_loop(train_params):
                                 
                                 neg_log_likelihood = -tf.reduce_mean( preds_distribution_norm.log_prob( target ) )    
                                 kl_loss = tf.math.reduce_sum( model.losses ) / hparams['batch_size']
-                                elbo_loss = neg_log_likelihood + kl_loss
+                                elbo_loss = neg_log_likelihood - kl_loss
                                 metric_mse = tf.keras.losses.MSE( target , preds )
                             
                             gradients = tape.gradient( elbo_loss, model.trainable_variables )
@@ -714,7 +714,7 @@ def train_loop(train_params):
 
                             # Updating record of the last batch to be operated on in training epoch
                             df_training_info.loc[ ( df_training_info['Epoch']==epoch) , ['Last_Trained_Batch'] ] = batch
-                            df_training_info.to_csv( path_or_buf="/checkpoints/checkpoint_scores_model_{}.csv".format(train_params['model_version']), header=True, index=False )
+                            df_training_info.to_csv( path_or_buf="checkpoints/checkpoint_scores_model_{}.csv".format(train_params['model_version']), header=True, index=False )
                             # endregion
                             
                             continue  
