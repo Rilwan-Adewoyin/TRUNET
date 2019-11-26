@@ -7,9 +7,11 @@ import utility
 
 import tensorflow as tf
 import tensorflow_probability as tfp
-#import tensorflow_addons as tfa
+try:
+    import tensorflow_addons as tfa
+except:
+    pass
 from tensorflow_probability import layers as tfpl
-import itertools
 from tensorflow_probability import distributions as tfd
 from tensorboard.plugins.hparams import api as hp
 import pandas as pd
@@ -22,89 +24,11 @@ import numpy as np
 import argparse 
 from tqdm import tqdm
 import glob
+import itertools
 
 import traceback
 
 import time
-
-# region Defining Hyperparameters
-    #TODO create new Hparams class to hold these values
-
-#BATCH_SIZE = 1
-_num_parallel_calls =tf.data.experimental.AUTOTUNE 
-checkpoints_to_keep = 10
-model_version =1
-EPOCHS=2
-
-input_dims = [39, 88]
-output_dims = [156,352]
-
-#TODO: (change filter sizes back to the ones used in the paper)
-
-CONV1_params = {    'filters':10 ,
-                    'kernel_size': [3,3] , #TODO:use size from paper later
-                    'activation':'relu',
-                    'padding':'same',
-                    'data_format':'channels_last',
-                    'name':"Conv1" }
-
-conv2_kernel_size = np.ceil( np.ceil( np.array(output_dims)/np.array(input_dims) )*1.5 )  #This makes sure that each filter in conv2, sees at least two of the real non zero values. The zero values occur due to the upscaling
-CONV2_params = {    'filters':10,
-                    'kernel_size':  conv2_kernel_size.astype(np.int32).tolist() , #TODO:use size from paper later
-                    #each kernel covers 2 non original values from the upsampled tensor
-                    'activation':'relu',
-                    'padding':'same',
-                    'data_format':'channels_last',
-                    "name":"Conv2" }
-
-CONV3_params = {
-                    'filters':1,
-                    'kernel_size':[2,2], #TODO:use size from paper later
-                    'activation':'relu',
-                    'padding':'same',
-                    'data_format':'channels_last',
-                    "name":"Conv3"  }
-
-var_model_type = "flipout"
-
-conv1_inp_channels = 17
-conv1_input_weights_count =  CONV1_params['filters'] * np.prod(CONV1_params['kernel_size']) * conv1_inp_channels
-conv1_output_node_count = CONV1_params['filters']
-
-conv2_inp_channels = CONV1_params['filters']
-conv2_input_weights_count = CONV2_params['filters'] * np.prod(CONV2_params['kernel_size']) * conv2_inp_channels
-conv2_output_node_count = CONV2_params['filters']
-
-conv3_inp_channels = CONV2_params['filters']
-conv3_input_weights_count = CONV3_params['filters'] * np.prod(CONV3_params['kernel_size'] ) * conv3_inp_channels
-conv3_output_node_count = CONV3_params['filters']
-
-hparams = {
-    'conv1_params': CONV1_params,
-    'conv2_params': CONV2_params,
-    'conv3_params': CONV3_params,
-
-    'conv1_input_weights_count':conv1_input_weights_count,
-    'conv1_output_node_count':conv1_output_node_count,
-    'conv1_inp_channels':conv1_inp_channels ,
-
-    'conv2_input_weights_count':conv2_input_weights_count,
-    'conv2_output_node_count':conv2_output_node_count,
-    'conv2_inp_channels': conv2_inp_channels,
-
-    'conv3_input_weights_count': conv3_input_weights_count,
-    'conv3_output_node_count':conv3_output_node_count,
-    'conv3_inp_channels':conv3_inp_channels ,
-
-    'var_model_type': var_model_type,
-    'batch_size':10,
-    'checkpoints_to_keep':checkpoints_to_keep,
-    'model_version':model_version,
-    'epochs':EPOCHS
-}
-
-
-# endregion
 
 @tf.function
 def replace_inf_nan(_tensor):
@@ -116,7 +40,6 @@ def replace_inf_nan(_tensor):
     _tensor = tf.where( bool_ind_tf, tf.constant(0.0,dtype=tf.float32), _tensor )
     return tf.dtypes.cast(_tensor, dtype=tf.float32)
 
-
 #region Model
 
 class SuperResolutionModel( tf.keras.Model ):
@@ -127,6 +50,9 @@ class SuperResolutionModel( tf.keras.Model ):
          
     def call(self, inputs, tape):
         x = self.SRCNN_1(inputs, tape=tape)
+        #self.losses += self.SRCNN_1.losses()
+        #self.losses += self.SRCNN_1.posterior_entropy()
+        #self.losses += self.SRCNN_1.prior_cross_entropy()
         return x
     
 class SRCNN( tf.keras.layers.Layer ):
@@ -137,110 +63,52 @@ class SRCNN( tf.keras.layers.Layer ):
     def __init__(self, hparams ):
         super( SRCNN, self ).__init__()
         
-        self.hparams = hparams
-        # region ----- Defining Hyper Variables
-        #TODO improve initialization scheme
-        self.model_global_reglrzr_c_priorshape = tf.Variable( initial_value=1. , trainable=True, name="model_global_reglrzr_c_priorshape" ) #Tracked- YES #TODO: use the initiation strategy used in microsofts github and find correct init params from paper #TODO need to choose a better value, look at new paper you found
-        self.model_global_reglrzr_c_priorscale = tf.Variable( initial_value=1. , trainable=True, name="model_global_reglrzr_c_priorscale" ) #Tracked- YES #TODO: use the initiation strategy used in microsofts github and find correct init params from paper #TODO: These two values may actually be constant
-            
-            #TODO(akanni-ade): These prior initializations should be moved to new layer modules, which also contain the layers update step logic
-        self.conv1_layer_scale_nu_priorscale = tf.Variable( initial_value = 1. , trainable=True, name="conv1_layer_scale_nu_priorscale") #Tracked- YES #TODO: use the initiation strategy used in microsofts github and find correct init params from paper
-        self.conv1_node_beta_priorscales = tf.Variable( initial_value=tf.random.uniform( tf.reshape(hparams['conv1_output_node_count'], [-1]), minval=0.5, maxval=1.5 ), trainable=True, name="conv1_node_beta_priorscales" ) #Tracked- No
-        self.conv1_U_psi = tf.Variable( initial_value= tf.random.uniform( tf.reshape(hparams['conv1_input_weights_count'] + 1*hparams['conv1_output_node_count'], [-1]), minval=0.5, maxval=1.5 ), trainable=True, name="conv1_U_psi") #Tracked- No # TODO: use initializing scheme microsoft used, understand why output_count+2 is used in paper
-        self.conv1_U_h =   tf.Variable( initial_value= tf.random.normal( tf.reshape(hparams['conv1_input_weights_count'] + 1*hparams['conv1_output_node_count'], [-1]) , mean=0.5, stddev=1.5 ), trainable=True, name="conv1_U_h") #Tracked- No # TODO: use initializatiom scheme micorsoft used
+        self.hparams = hparams                
+        
+        self.initialize_priors_dist()
 
-        self.conv2_layer_scale_nu_priorscale = tf.Variable( initial_value = 1. , trainable=True, name="conv2_layer_scale_nu_priorscale") #Tracked- YES #TODO: use the initiation strategy used in microsofts github and find correct init params from paper
-        self.conv2_node_beta_priorscales = tf.Variable( initial_value= tf.random.uniform( tf.reshape( hparams['conv2_output_node_count'], [-1]) , minval=0.5, maxval=1.5 ) , trainable=True, name="conv2_node_beta_priorscales" ) #Tracked- No
-        self.conv2_U_psi = tf.Variable( initial_value= tf.random.uniform( tf.reshape( hparams['conv2_input_weights_count'] + 1*hparams['conv2_output_node_count'], [-1]) , minval=0.5, maxval=1.5 ), trainable=True, name="conv2_U_psi"  ) #Tracked- No # TODO: use initializing scheme microsoft used, understand why output_count+2 is used in paper
-        self.conv2_U_h =   tf.Variable( initial_value= tf.random.normal( tf.reshape(hparams['conv2_input_weights_count'] + 1*hparams['conv2_output_node_count'], [-1]), mean=0.5, stddev=1.5 ), trainable=True, name="conv2_U_h"  ) #Tracked- No #TODO: use initializatiom scheme micorsoft used
+        self.initialize_posteriors_vars()
 
-        self.conv3_kappa_prior_scales = tf.Variable( initial_value= [0.11]*hparams['conv3_input_weights_count'] , trainable=True, name="conv3_kappa_prior_scales") #Tracked- No
-        #self.fixed_point_updates()
-        # endregion
+        self.update_priors_dists()        
+        self.update_posteriors_dists()
 
-        if hparams['var_model_type'] == 'reparam':
-            pass
-
-        elif hparams['var_model_type'] == 'flipout':
-            conv1_kernel_prior_loc = tf.zeros( (hparams['conv1_output_node_count'], 1+int(hparams['conv1_input_weights_count']/hparams['conv1_output_node_count']) ) , dtype=tf.float32  )
-            conv1_kernel_prior_scale_diag = tf.ones_like(conv1_kernel_prior_loc )
-
-            conv2_kernel_prior_loc = tf.zeros( (hparams['conv2_output_node_count'], 1+int(hparams['conv2_input_weights_count']/hparams['conv2_output_node_count']) ) , dtype=tf.float32  )
-            conv2_kernel_prior_scale_diag = tf.ones_like(conv2_kernel_prior_loc )
+        if self.hparams['var_model_type'] == 'reparam':
 
             self.conv1 = tfpl.Convolution2DReparameterization( **self.hparams['conv1_params'] ,
-                    kernel_posterior_fn = horseshoe_kernel_posterior_distribution1( self ,hparams['conv1_input_weights_count'] , hparams['conv1_output_node_count'], 1 ), 
-                    kernel_posterior_tensor_fn= ( lambda dist: horsehoe_kernel_posterior_tensor_fn1(dist, self.conv1_nu , self.c, hparams['conv1_input_weights_count'] ,
-                                                hparams['conv1_output_node_count'], hparams['conv1_params']['kernel_size'], hparams['conv1_inp_channels'],
-                                                self, self.tape, 1, hparams['conv1_output_node_count'] ,hparams['conv1_input_weights_count'] ) )  ,
-
-                kernel_prior_fn = lambda dtype, shape, name, trainble, add_variable_fn: tfd.MultivariateNormalDiag(loc=conv1_kernel_prior_loc, scale_diag=conv1_kernel_prior_scale_diag ) , #TODO:(akanni-ade) look at microsoft horsehoe prior to see what value is actually used here
+                kernel_posterior_fn = horseshoe_kernel_posterior_distribution( self, 1 ), 
+                kernel_posterior_tensor_fn= ( lambda dist: horsehoe_kernel_posterior_tensor_fn(dist, self.conv1_nu , self.c ,
+                                            self.hparams['conv1_output_node_count'], self.hparams['conv1_params']['kernel_size'], self.hparams['conv1_inp_channels'],
+                                            self.tape, 1, self) )  ,
+                kernel_prior_fn = None,
                 
-                kernel_divergence_fn= (lambda q, p, ignore: tfd.kl_divergence(q, p)/hparams['batch_size'] ) ,
-                
-                bias_posterior_fn= tfpl.default_mean_field_normal_fn(is_singular=True), 
-                bias_posterior_tensor_fn = (lambda d: d.sample() ),
-                bias_prior_fn= None ,
-                bias_divergence_fn= None )  #TODO: paper does not state what is used as the kernel_prior_fn so use default values
-                                                                                #TODO: figure out if the paper uses any prior term at all
-                                                                                #TODO:no prior/posterior evaluation used for the bias term in my implelmentation
- 
+                kernel_divergence_fn= None) #TODO: Figure out the appropriate posterior and prior for the bias
+                                            #TODO: Move the calculation for the kl divergence into this constructor
 
-            self.upSample = UpSampler( input_dims, output_dims )
+            self.upSample = UpSampler( self.hparams['input_dims'], self.hparams['output_dims'] )
             
             self.conv2 = tfpl.Convolution2DReparameterization ( **self.hparams['conv2_params'] ,
-                            kernel_posterior_fn = self.horseshoe_kernel_posterior_distribution( hparams['conv2_input_weights_count'] , hparams['conv2_output_node_count'] , 2), 
+                            kernel_posterior_fn = horseshoe_kernel_posterior_distribution( self, 2), 
                             
-                            kernel_posterior_tensor_fn= ( lambda dist: horsehoe_kernel_posterior_tensor_fn1(dist, self.conv2_nu , self.c, hparams['conv2_input_weights_count'],
-                                                        hparams['conv2_output_node_count'], hparams['conv2_params']['kernel_size'], hparams['conv2_inp_channels'],
-                                                        self, self.tape, 2, hparams['conv2_output_node_count'], hparams['conv2_input_weights_count']  ) )  ,
+                            kernel_posterior_tensor_fn= ( lambda dist: horsehoe_kernel_posterior_tensor_fn(dist, self.conv2_nu , self.c,
+                                                        self.hparams['conv2_output_node_count'], self.hparams['conv2_params']['kernel_size'], self.hparams['conv2_inp_channels'],
+                                                        self.tape, 2, self) )  ,
 
-                            kernel_prior_fn = lambda dtype, shape, name, trainble, add_variable_fn: tfd.MultivariateNormalDiag(loc=conv2_kernel_prior_loc, scale_diag=conv2_kernel_prior_scale_diag ),
-                            kernel_divergence_fn= (lambda q, p, ignore: tfd.kl_divergence(q, p)/hparams['batch_size'] ) ,
-                            
-                            bias_posterior_fn= tfpl.default_mean_field_normal_fn(is_singular=True), 
-                            bias_posterior_tensor_fn = (lambda d: d.sample() ),
-                            bias_prior_fn= None ,
-                            bias_divergence_fn= None )
-
-
-            # self.conv2 = Conv2D_hs( self.hparams['conv2_params'], self.conv2_taus, self.conv2_U_psi, self.conv2_U_h, self.conv2_nu, self.c,
-                #             conv2_kernel_prior_loc, conv2_kernel_prior_scale_diag,
-                #             hparams['conv2_input_weights_count'] , hparams['conv2_output_node_count'], hparams['conv2_inp_channels'],
-                #             hparams['batch_size']  )
-
-            # self.conv2 = tfpl.Conv (
-                #     rank = 2,
-                #     **self.hparams['conv2_params'],
-                #     kernel_posterior_fn = self.horseshoe_kernel_posterior_distribution( hparams['conv2_input_weights_count'] , hparams['conv2_output_node_count'] , 2), 
-                    
-                #     kernel_posterior_tensor_fn= ( lambda dist: horsehoe_kernel_posterior_tensor_fn(dist, self.conv2_nu , self.c, hparams['conv2_input_weights_count'],
-                #                                 hparams['conv2_output_node_count'], hparams['conv2_params']['kernel_size'], hparams['conv2_inp_channels'] ) )  ,
-
-                #     kernel_prior_fn = lambda dtype, shape, name, trainble, add_variable_fn: tfd.MultivariateNormalDiag(loc=conv2_kernel_prior_loc, scale_diag=conv2_kernel_prior_scale_diag ),
-                #     kernel_divergence_fn= (lambda q, p, ignore: tfd.kl_divergence(q, p)/hparams['batch_size'] ) ,
-                    
-                #     bias_posterior_fn= tfpl.default_mean_field_normal_fn(is_singular=True), 
-                #     bias_posterior_tensor_fn = (lambda d:d.sample()),
-                #     bias_prior_fn= None ,
-                #     bias_divergence_fn= None )
+                            kernel_prior_fn = None,
+                            kernel_divergence_fn= None)
 
             self.conv3 = tfpl.Convolution2DReparameterization( **self.hparams['conv3_params'] , 
-                    kernel_posterior_fn = self.HalfCauchy_Guassian_posterior_distribution( hparams['conv3_input_weights_count'] , hparams['conv3_output_node_count'] ) , 
-                    kernel_posterior_tensor_fn= lambda dist: HalfCauchy_Guassian_posterior_tensor_fn(self, hparams['conv3_params']['kernel_size'], hparams['conv3_inp_channels'] ) ,
+                    kernel_posterior_fn = HalfCauchy_Guassian_posterior_distribution( self ) , 
+                    kernel_posterior_tensor_fn= lambda dist: HalfCauchy_Guassian_posterior_tensor_fn(self, dist, self.hparams['conv3_params']['kernel_size'], self.hparams['conv3_inp_channels'] ) ,
 
-                    kernel_prior_fn = None , #TODO:(akanni-ade) maybe add regularlization term later
-                    kernel_divergence_fn= None,
-                    
-                    bias_posterior_fn= tfpl.default_mean_field_normal_fn(is_singular=True), 
-                    bias_posterior_tensor_fn = lambda d: d.sample(),
-                    
-                    bias_prior_fn= None ,
-                    bias_divergence_fn= None )    
+                    kernel_prior_fn = None , 
+                    kernel_divergence_fn= None
+                    )   
                 
     def call( self, _input, tape ,upsample_method=tf.constant("zero_padding") ): #( batch, height, width)
         self.tape = tape
-        self.fixed_point_updates()
+        self.update_priors_dists()        
+        self.update_posteriors_dists()
+        self.sample_params()
         
         x = self.conv1( _input )    #( batch, height_lr, width_lr, conv1_filters ) #TODO:(akanni-ade) alot of zero values for x at this output
         
@@ -249,102 +117,170 @@ class SRCNN( tf.keras.layers.Layer ):
         x1 = self.conv2( x )         #(batch, height_hr, width_hr, conv2_filters )
         #TODO:(akanni-ade) add layer norm or batch norm here
         x = self.conv3( x1 + x )       #(batch, height_hr, width_hr, 1 )
+        
+        self.prior_cross_entropy()
+        self.posterior_entropy() #TODO check that layer losses are sent to model losses
+
         return x
     
-    def fixed_point_updates( self ):
-        #TODO: instead of creating new tfds on each call to fixed_point_update, simple update the scale, of the existing distribution and call again
-        c_dist = tfd.InverseGamma(self.model_global_reglrzr_c_priorshape,self.model_global_reglrzr_c_priorscale ) #This should maybe be consant
-        self.c = c_dist.sample(1)
+    def initialize_priors_dist(self):
+        # Global C Prior
+        self.global_c_priorshape = tf.constant( 2.0, name="global_c_priorshape" ) 
+        self.global_c_priorscale = tf.constant( 6.0 , name="global_c_priorscale" )
+        self.c_prior_dist = tfd.InverseGamma(self.global_c_priorshape, self.global_c_priorscale )
 
-        conv1_nu_dist = tfd.HalfCauchy( 0.0, self.conv1_layer_scale_nu_priorscale ) #creates 1 disitrbuiton for the nu shared in 1 convolution set
-        self.conv1_nu = conv1_nu_dist.sample(1)
-        conv1_tau_dist = tfd.HalfCauchy( loc=0.0, scale=self.conv1_node_beta_priorscales ) #creates n independent distributions for each seperate filter within 1 convolution
-        self.conv1_taus = tf.reshape( conv1_tau_dist.sample(1), ( -1 , 1) )
+        # Layerwise nu Prior
+        global_nu_scale = tf.constant(1.0, name="global_nu_scale") #b_g in Soumya paper #This is set to 1 in soumya paper 1, and 1e-5 in Soumya Paper 2
+        self.conv1_nu_prior_dist  = tfd.HalfCauchy( 0.0, global_nu_scale, name="conv1_nu_prior_dist")
+        self.conv2_nu_prior_dist  = tfd.HalfCauchy( 0.0, global_nu_scale, name="conv2_nu_prior_dist")
 
+        # Betas for Nodes Prior
+        conv1_beta_prior_loc = tf.zeros([self.hparams['conv1_output_node_count'],self.hparams['conv1_input_weights_per_filter']], dtype=tf.float32  )
+        conv1_beta_prior_scale_diag = tf.ones( [self.hparams['conv1_input_weights_per_filter']], dtype=tf.float32 )
+        self.conv1_Beta_prior_dist = tfd.MultivariateNormalDiag(conv1_beta_prior_loc, conv1_beta_prior_scale_diag)
+
+        conv2_beta_prior_loc = tf.zeros((self.hparams['conv2_output_node_count'],self.hparams['conv2_input_weights_per_filter']), dtype=tf.float32  )
+        conv2_beta_prior_scale_diag = tf.ones([self.hparams['conv2_input_weights_per_filter']],dtype=tf.float32 )
+        self.conv2_Beta_prior_dist = tfd.MultivariateNormalDiag(conv2_beta_prior_loc, conv2_beta_prior_scale_diag )
+
+        # Taus for Nodes Prior
+        conv1_taus_prior_loc = tf.zeros((self.hparams['conv1_output_node_count']), dtype=tf.float32  )
+        conv1_taus_prior_scale = tf.constant( 1.0 , name="conv1_taus_prior_scale")  #b_0 in Soumya Paper #NOTE: eventually this needs to learn to be learnt(variable)
+        self.conv1_tau_prior_dist = tfd.HalfCauchy(conv1_taus_prior_loc, conv1_taus_prior_scale)
+
+        conv2_taus_prior_loc = tf.zeros((self.hparams['conv2_output_node_count']), dtype=tf.float32  )
+        conv2_taus_prior_scale = tf.constant( 1.0 , name="conv2_taus_prior_scale")  #b_0 in Soumya Paper #NOTE: eventually this needs to learn to be learnt(variable)
+        self.conv2_tau_prior_dist = tfd.HalfCauchy(conv2_taus_prior_loc, conv2_taus_prior_scale)
+
+        self.conv3_weights_prior_loc = tf.Variable( initial_value =tf.zeros( (self.hparams['conv3_input_weights_count']), dtype=tf.float32  ), trainable=True, name="conv3_weights_prior_loc"  )
+        self.conv3_weights_prior_scale = tf.Variable( initial_value =tf.random.uniform( shape=[self.hparams['conv3_input_weights_count']], minval=15, maxval=20.0 ), trainable=True, name="conv3_weights_prior_scale"  )
+
+    def initialize_posteriors_vars(self):
+        #Global C Posterior
+        self.global_c_post_shape = tf.Variable( initial_value=1., trainable=True, name="global_c_post_shape" ) #TODO: Create Initialisation Strategy dependent on size of network. :Base it on the ending size of the network
+        self.global_c_post_scale = tf.Variable( initial_value=1.,  trainable=True, name="global_c_post_scale" ) #TODO: Create Initialisation Strategy dependent on size of network. :Base it on the ending size of the network 
         
-        conv2_nu_dist = tfd.HalfCauchy( 0.0, self.conv2_layer_scale_nu_priorscale )
-        self.conv2_nu = conv2_nu_dist.sample(1)
-        conv2_tau_dist = tfd.HalfCauchy( loc=0.0, scale=self.conv2_node_beta_priorscales )
-        self.conv2_taus = tf.reshape( conv2_tau_dist.sample(1), (-1, 1) )
+        # Layerwise nu Posterior
+        self.conv1_nu_post_mean = tf.Variable( initial_value = tf.random.uniform( [1],0.75,1.25 )[0], trainable=True, name="conv1_nu_post_mean") #TODO: Create reason for why an initialization scheme should be best
+        self.conv1_nu_post_scale = tf.Variable( initial_value = tf.random.uniform( [1],0.75,1.25)[0], trainable=True, name="conv1_nu_post_scale" ) #TODO: Create reason for why an initialization scheme should be best
 
-        conv3_kappa_dist = tfd.HalfCauchy(0.0, self.conv3_kappa_prior_scales )
-        self.conv3_kappa = conv3_kappa_dist.sample(1)
-
-    def horseshoe_kernel_posterior_distribution(self, inp_weights_count, outp_nodes_count, _conv_layer_no ):
-        """
-            Implements the Non-Centred Weight Distribution which is used in the kernels
-            Samples from multi-variate Guassian distribution for values of Beta and tau
-        """
-        inp_weights_count = inp_weights_count
-        filter_count = outp_nodes_count
-        conv_layer = _conv_layer_no
-        #conv_taus = self.conv_taus
-
-        def _fn(dtype, shape, name, trainable, add_variable_fn ):
-            #TODO:(akanni-ade): use one big tf.case to set all variables
-            #TODO:(akanni-ade): Implement the following section using LinearOperators
-            # Creating the Matrix Norm Mean
-            conv_taus = tf.case( [ (tf.equal(conv_layer,tf.constant(1)),lambda: self.conv1_taus), (tf.equal(conv_layer,tf.constant(2)), lambda: self.conv2_taus) ] , exclusive=False )
-
-            matrix_normal_loc_B = tf.zeros( [ filter_count, int(inp_weights_count/filter_count) ] ) #TODO: Check if this is meant to be constantly zero, or whether it is meant to be able to be learnt
-            matrix_normal_loc_logtau = tf.math.log( conv_taus ) 
-            matrix_normal_loc = tf.concat( [matrix_normal_loc_B, matrix_normal_loc_logtau ], axis=-1) #TODO:(akanni-ade ) check if this is concat the correct way
-
-            #region Matrix Normal - Some Relationship between weights in different filters beyond the global shrinking nu
-            # Creating the Matrix Norm U - row corr 
-                #This allows relationships between
-           
-            # U_psi = tf.case( [ (tf.equal(conv_layer, 1 ), lambda: self.conv1_U_psi) , (tf.equal(conv_layer, 2 ), lambda: self.conv2_U_psi) ] ) #Since each row represents the nodes of one convolutional filter, there should be row correlation that exists i.e. U should not be diagonal
-            # U_h = tf.case( [ (tf.equal(conv_layer, 1 ), lambda: self.conv1_U_h) , (tf.equal(conv_layer, 2 ), lambda: self.conv2_U_h) ] )
-            # U = tf.linalg.diag(U_psi)  + tf.einsum('i,j -> ji', U_h , U_h ) 
-            
-            # Creating the Matrix Norm V - col corr
-                #This is relationship between the weights within a filter, which do exists so this should not be diag
-            #V_inner = tf.case( [ (tf.equal(conv_layer,1 ), lambda: self.conv1_V_inner ), (tf.equal(conv_layer,2 ), lambda: self.conv2_V_inner )  ] )
-
-            # Creating the Matrix Norm
-            
-            #linOp_matrix_normal_cov_V = tf.linalg.LinearOperatorDiag(V_inner)
-            #linOp_matrix_normal_cov_U = tf.linalg.LinearOperatorFullMatrix(U)
-            #matrix_normal_cov = tf.linalg.LinearOperatorKronecker( [ linOp_matrix_normal_cov_U, linOp_matrix_normal_cov_V ] ) 
-            #matrix_normal_cov = tf.linalg.LinearOperatorKronecker( [ linOp_matrix_normal_cov_V, linOp_matrix_normal_cov_U ] )
-            
-            #dist_Btau = tfd.MultivariateNormalLinearOperator( loc= tf.reshape(matrix_normal_cov,[-1]) , scale=matrix_normal_cov   )
-            # endregion
-
-            #region Multivariate Normal Version - No Relationship between weights in different filters beyond the global shrinking nu
-            U_psi = tf.case( [ (tf.equal(conv_layer, 1 ), lambda: self.conv1_U_psi) , (tf.equal(conv_layer, 2 ), lambda: self.conv2_U_psi) ] ) #Since each row represents the nodes of one convolutional filter, there should be row correlation that exists i.e. U should not be diagonal
-            U_h = tf.case( [ (tf.equal(conv_layer, 1 ), lambda: self.conv1_U_h) , (tf.equal(conv_layer, 2 ), lambda: self.conv2_U_h) ] )
-            
-            li_U_psi = tf.split( U_psi, filter_count  ) #len 10 shape (filterh*filter2w + 1)
-            li_U_h = tf.split( U_h, filter_count ) #len 10 shape (filterh*filter2w + 1)
-            
-            #li_U_psi_diag = tf.map_fn( tf.linalg.diag, li_U_psi)
-                # li_U_h_matrx = tf.map_fn( lambda U_h: tf.einsum('i,j -> ji',U_h, U_h), li_U_h )
-                # li_U = tf.map_fn( lambda x: x[0] + x[1], tf.concat( [li_U_psi_diag, li_U_h_matrx ], axis=1 ) )
-
-            tf_U = tf.map_fn( lambda x: tf.linalg.diag(x[0]) + tf.einsum('i,j->ji',x[1], x[1]), tf.stack([li_U_psi, li_U_h], axis=1) )
-            
-            # li_matrix_normal_loc = tf.split( matrix_normal_loc, filter_count ,axis=0 ) #len = no. filters #shape (filterH*filterW + 1) #the plus 1 is for the value of tau #TODO:(akanni-ade) These split list lines can be removed, since tf.stack ignores them anyway
-                # li_matrix_normal_cov = tf.split( tf_U, filter_count ,axis=0 )#len = no. filters #shape (filterH*filterW + 1, filterH*filterW + 1 ) #the plus 1 is for the value of tau
-                #dist_Btau = tfd.MultivariateNormalFullCovariance( matrix_normal_loc, tf_U )
-            dist_Btau = tfd.MultivariateNormalTriL(matrix_normal_loc, tf.linalg.cholesky(tf_U))
-            # endregion
-            
-            #Try Matrix Norm version
-            return dist_Btau
+        self.conv2_nu_post_mean = tf.Variable( initial_value = tf.random.uniform( [1],0.75,1.25 )[0], trainable=True, name="conv1_nu_post_mean") #TODO: Create reason for why an initialization scheme should be best
+        self.conv2_nu_post_scale = tf.Variable( initial_value = tf.random.uniform( [1],0.75,1.25)[0], trainable=True, name="conv1_nu_post_scale" ) #TODO: Create reason for why an initialization scheme should be best
         
-        return _fn
+        # Betas_LogTaus for Nodes Posterior
+        self.conv1_beta_post_loc = tf.Variable( initial_value=tf.random.uniform( [self.hparams['conv1_output_node_count'], self.hparams['conv1_input_weights_per_filter']] ,-1, 1), trainable=True, name="conv1_beta_post_loc")  #TODO: change this to use glorot or He initialization strategy
+        self.conv1_tau_post_loc = tf.Variable( initial_value=np.random.lognormal(mean=0.5, sigma=1, size=[self.hparams['conv1_output_node_count']]), trainable=True, name="conv1_tau_post_loc" )
+        self.conv1_U_psi = tf.Variable( initial_value= tf.random.uniform( tf.reshape( self.hparams['conv1_input_weights_count'] + 1*self.hparams['conv1_output_node_count'], [-1]), minval=0.05, maxval=1 ), trainable=True, name="conv1_U_psi") #TODO: Create reason for why an initialization scheme should be best
+        self.conv1_U_h =   tf.Variable( initial_value= tf.random.normal( tf.reshape(self.hparams['conv1_input_weights_count'] + 1*self.hparams['conv1_output_node_count'], [-1]) , mean=0.05, stddev=1 ), trainable=True, name="conv1_U_h") #TODO: Create reason for why an initialization scheme should be best
+        
+        self.conv2_beta_post_loc = tf.Variable( initial_value=tf.random.uniform( [self.hparams['conv2_output_node_count'], self.hparams['conv2_input_weights_per_filter']] ,-1, 1), trainable=True, name="conv2_beta_post_loc")  #TODO: change this to use glorot or He initialization strategy
+        self.conv2_tau_post_loc = tf.Variable( initial_value=np.random.lognormal(mean=0.5, sigma=1, size=[self.hparams['conv2_output_node_count']]), trainable=True, name="conv2_tau_post_loc" )
+        self.conv2_U_psi = tf.Variable( initial_value= tf.random.uniform( tf.reshape( self.hparams['conv2_input_weights_count'] + 1*self.hparams['conv2_output_node_count'], [-1]), minval=0.05, maxval=1 ), trainable=True, name="conv2_U_psi") #TODO: Create reason for why an initialization scheme should be best
+        self.conv2_U_h =   tf.Variable( initial_value= tf.random.normal( tf.reshape(self.hparams['conv2_input_weights_count'] + 1*self.hparams['conv2_output_node_count'], [-1]) , mean=0.05, stddev=1 ), trainable=True, name="conv2_U_h") #TODO: Create reason for why an initialization scheme should be best
+
+        # Output Layer weights Posterior
+        self.conv3_kappa_post_loc = tf.Variable( initial_value = tf.random.uniform([self.hparams['conv3_input_weights_count']],0.25,0.75 ), trainable=True, name="conv3_kappa_posterior_loc" )
+        self.conv3_kappa_post_scale = tf.Variable( initial_value = tf.random.uniform([self.hparams['conv3_input_weights_count']],0.25,0.75 ), trainable=True, name="conv3_kappa_posterior_scale")    
+        self.conv3_post_loc = tf.Variable( initial_value = tf.random.uniform( [self.hparams['conv3_input_weights_count']] ,-1,1 ), trainable=True, name="conv3_post_loc" )
+
+    def update_priors_dists(self):
+        self.conv3_weights_prior_dist = tfd.Normal(self.conv3_weights_prior_loc, self.conv3_weights_prior_scale)
+
+    def update_posteriors_dists(self):
+        #Global C Posterior
+        self.c_post_dist = tfd.LogNormal(self.global_c_post_shape, self.global_c_post_scale)
+        
+        #Layerwise nu Posteriors
+        self.conv1_nu_post_dist = tfd.LogNormal( self.conv1_nu_post_mean, self.conv1_nu_post_scale )
+        self.conv2_nu_post_dist = tfd.LogNormal( self.conv2_nu_post_mean, self.conv2_nu_post_scale )
+
+        #Layer weights
+        conv1_logtau_post_loc = tf.expand_dims(tf.cast(tf.math.log( self.conv1_tau_post_loc) , dtype=tf.float32 ),-1)
+        conv1_li_U_psi = tf.split( self.conv1_U_psi, self.hparams['conv1_params']['filters']  ) #len 10 shape (filterh*filter2w + 1) #TODO: This is new - explain in paper
+        conv1_li_U_h = tf.split( self.conv1_U_h, self.hparams['conv1_params']['filters'] ) #len 10 shape (filterh*filter2w + 1) #TODO: This is new - explain in paper
+        conv1_tf_U = tf.map_fn( lambda x: tf.linalg.diag(x[0]) + tf.einsum('i,j->ji',x[1], x[1]), tf.stack([conv1_li_U_psi, conv1_li_U_h], axis=1) ) #Matrix Normal Structured Variance for Weights connecting to a convolutional layer
+        conv1_betalogtau_post_loc = tf.concat( [self.conv1_beta_post_loc, conv1_logtau_post_loc ], axis=-1) #TODO:(akanni-ade ) check if this is concat the correct way
+        conv1_betalogtau_post_scale = tf.linalg.cholesky(conv1_tf_U)
+        self.conv1_beta_logtau_post_dist = tfd.MultivariateNormalTriL(conv1_betalogtau_post_loc, conv1_betalogtau_post_scale)
+
+        conv2_logtau_post_loc = tf.expand_dims(tf.cast(tf.math.log( self.conv2_tau_post_loc ), dtype=tf.float32),-1)
+        conv2_li_U_psi = tf.split( self.conv2_U_psi, self.hparams['conv2_params']['filters']  ) #len 10 shape (filterh*filter2w + 1) #TODO: This is new - explain in paper
+        conv2_li_U_h = tf.split( self.conv2_U_h, self.hparams['conv2_params']['filters'] ) #len 10 shape (filterh*filter2w + 1) #TODO: This is new - explain in paper
+        conv2_tf_U = tf.map_fn( lambda x: tf.linalg.diag(x[0]) + tf.einsum('i,j->ji',x[1], x[1]), tf.stack([conv2_li_U_psi, conv2_li_U_h], axis=1) ) #Matrix Normal Structured Variance for Weights connecting to a convolutional layer
+        conv2_betalogtau_post_loc = tf.concat( [self.conv2_beta_post_loc, conv2_logtau_post_loc ], axis=-1) #TODO:(akanni-ade ) check if this is concat the correct way
+        conv2_betalogtau_post_scale = tf.linalg.cholesky(conv2_tf_U)
+        self.conv2_beta_logtau_post_dist = tfd.MultivariateNormalTriL(conv2_betalogtau_post_loc, conv2_betalogtau_post_scale)
+
+        self.conv3_kappa_post_dist = tfd.LogNormal(self.conv3_kappa_post_loc, self.conv3_kappa_post_scale )
+        self.conv3_kappa = self.conv3_kappa_post_dist.sample()
+        self.conv3_weights_dist = tfd.Normal( loc=self.conv3_post_loc , scale=self.conv3_kappa )
+
+    def sample_params(self):
+        self.conv1_nu = self.conv1_nu_post_dist.sample()
+        self.conv2_nu = self.conv2_nu_post_dist.sample()
+        self.c = self.c_post_dist.sample()
+
+    def prior_cross_entropy(self):
+        """
+            This calculates the log likelihood of intermediate parameters
+            I.e. equation 11 of Soumya Ghouse Structured Varioation Learning - This accounts for all terms except the KL_Div and the loglik(y|params)
+            
+            This is the prior part of the KL Divergence
+        """
+        #TODO: Check that the sign of all the losses is correct
+        # Global Scale Param c
+        ll_c = self.c_prior_dist.log_prob(self.c)
+
+
+        # Layer-wise variance scaling nus
+        ll_conv1_nu = tf.reduce_sum( self.conv1_nu_prior_dist.log_prob( self.conv1_nu ) )
+        ll_conv2_nu = tf.reduce_sum( self.conv2_nu_prior_dist.log_prob( self.conv2_nu ) )
+        ll_nu = ll_conv1_nu + ll_conv2_nu
+
+        # Node level variaace scaling taus
+        ll_conv1_tau = tf.reduce_sum( self.conv1_tau_prior_dist.log_prob( tf.reshape(self.conv1_taus,[-1]) ) ) 
+        ll_conv2_tau = tf.reduce_sum( self.conv2_tau_prior_dist.log_prob( tf.reshape(self.conv2_taus,[-1]) ) )
+        ll_tau = ll_conv1_tau + ll_conv2_tau
+
+        # Nodel level mean centering Betas
+        ll_conv1_beta = tf.reduce_sum( self.conv1_Beta_prior_dist.log_prob( self.conv1_Beta ) )
+        ll_conv2_beta = tf.reduce_sum( self.conv2_Beta_prior_dist.log_prob(self.conv2_Beta ))  #TODO: come back to do this after you have refactored the beta code
+        ll_conv3_weights = tf.reduce_sum( self.conv3_weights_prior_dist.log_prob( tf.reshape(self.conv3_weights,[-1]) ) ) #TODO: come back to do this after you have refactored the beta code
+
+        ll_beta = ll_conv1_beta + ll_conv2_beta + ll_conv3_weights 
+ 
+        #sum
+        prior_cross_entropy = ll_c + ll_nu + ll_tau + ll_beta
+        batch_avg_prior_cross_entropy = prior_cross_entropy/self.hparams['batch_size']
+        
+        self.add_loss(batch_avg_prior_cross_entropy)
     
-    def HalfCauchy_Guassian_posterior_distribution(self, input_count, output_count ):
+    def posterior_entropy(self):
 
-        def _fn(dtype, shape, name, trainable, add_variable_fn ):
-            dist_weights = tfd.MultivariateNormalDiag( loc=0, scale_diag=tf.math.square( self.conv3_kappa) )
-            #dist_weights = tfd.MultivariateNormalTriL(0, tf.linalg.cholesky(tf.math.square( self.conv3_kappa) ) )
+        # Node level mean: Beta and scale: Taus
+        ll_conv1_beta_logtau = tf.reduce_sum(self.conv1_beta_logtau_post_dist.log_prob( self.conv1_beta_logtau )) #This needs to be made as in the other one
+        ll_conv2_beta_logtau = tf.reduce_sum(self.conv2_beta_logtau_post_dist.log_prob( self.conv2_beta_logtau ))
+        ll_beta_logtau = ll_conv1_beta_logtau + ll_conv2_beta_logtau
 
-            return dist_weights
+        # Node Level Mean: Output Layer
+        ll_conv3_weights = tf.reduce_sum( self.conv3_weights_dist.log_prob( self.conv3_weights ) )
+        
+        # Nodel Level Variance scale: Output Layer
+        #ll_conv3_logkappa = tf.reduce_sum( self.conv3_logkappa_post_dist.log_prob( self.conv3_logkappa )  )
 
-        return _fn
+        # global C
+        ll_c = self.c_post_dist.log_prob(self.c)
+
+        # Layer-wise variance scaling: nus
+        ll_conv1_nu = self.conv1_nu_post_dist.log_prob(self.conv1_nu)
+        ll_conv2_nu = self.conv2_nu_post_dist.log_prob(self.conv2_nu)
+        ll_nu = ll_conv1_nu + ll_conv2_nu 
+
+        # Sum
+        posterior_entropy = ll_beta_logtau + ll_conv3_weights  + ll_c + ll_nu
+        batch_avg_posterior_entropy = posterior_entropy/self.hparams['batch_size']
+        
+        self.add_loss(batch_avg_posterior_entropy)
 
 class UpSampler():
     def __init__(self, input_dims, output_dims, upsample_method="ZeroPadding" , extra_outside_padding_method= "" ):
@@ -354,8 +290,6 @@ class UpSampler():
             :params  output_dims: ( hieght, weight )
             :params extra_outside_padding_method: ['CONSTANT' or ]
         """
-        #TODO: consider building different upsample_method strats
-        #TODO: consider different extra_outside_padding_method strats
 
         self.inp_dim_h = input_dims[0]
         self.inp_dim_w = input_dims[1]
@@ -363,16 +297,13 @@ class UpSampler():
         outp_dim_h = output_dims[0]
         outp_dim_w = output_dims[1]
         
-        self.upsample_h = outp_dim_h - self.inp_dim_h #amount to expand in height dimension
+        self.upsample_h = outp_dim_h - self.inp_dim_h                                   #amount to expand in height dimension
         self.upsample_w = outp_dim_w - self.inp_dim_w
 
-        # tf.assert_equal( self.upsample_h % 2, 0 )
-        # tf.assert_equal( self.upsample_w % 2, 0 )
+        self.upsample_h_inner = outp_dim_h - (self.upsample_h % (self.inp_dim_h-1) )    #amount to expand in height dimension, w/ inner padding
+        self.upsample_w_inner = outp_dim_w - (self.upsample_w % (self.inp_dim_w-1) )    #amount to expand in width dimension, w/ inner padding
 
-        self.upsample_h_inner = outp_dim_h - (self.upsample_h % (self.inp_dim_h-1) ) #amount to expand in height dimension, w/ inner padding
-        self.upsample_w_inner = outp_dim_w - (self.upsample_w % (self.inp_dim_w-1) ) #amount to expand in width dimension, w/ inner padding
-
-        self.create_transformation_matrices() #Creating the transformation matrices
+        self.create_transformation_matrices()                                           #Creating the transformation matrices
         
         self.outside_padding  =  tf.constant( self.upsample_h_inner!=self.upsample_h or self.upsample_w_inner!=self.upsample_w ) #bool representing whether we need outside padding or not
         
@@ -429,155 +360,31 @@ class UpSampler():
         self.T_1 = tf.constant( T_1, dtype=tf.float32)
         self.T_2 = tf.constant( T_2, dtype=tf.float32)
 
-class Conv2D_hs( tf.keras.layers.Layer ):
-    
-    def __init__(self, conv_params, conv_taus, U_psi , U_h, conv_nu, c, 
-                    conv_kernel_prior_loc, conv_kernel_prior_scale_diag,
-                        input_weights_count, output_node_count, inp_channels,
-                        batch_size ):
-        """
-            :param conv_params: dictionary containing hyperparams for conv 
-        """
-        super( Conv2D_hs, self ).__init__()
-        self.conv_taus = conv_taus
-        self.U_psi = U_psi
-        self.U_h = U_h 
-        
-        self.conv_nu = conv_nu
-        self.c = c
-
-        self.conv_kernel_prior_loc = conv_kernel_prior_loc
-        self.conv_kernel_prior_scale_diag = conv_kernel_prior_scale_diag
-
-        self.conv = tfpl.Convolution2DReparameterization( **conv_params,
-                kernel_posterior_fn=self.horseshoe_kernel_posterior_distribution( input_weights_count , output_node_count ),
-                kernel_posterior_tensor_fn= ( lambda dist: horsehoe_kernel_posterior_tensor_fn(dist, self.conv_nu , self.c, input_weights_count ,
-                        output_node_count, conv_params['kernel_size'], inp_channels ) )  ,
- 
-                kernel_prior_fn = lambda dtype, shape, name, trainble, add_variable_fn: tfd.MultivariateNormalDiag(loc=conv_kernel_prior_loc, scale_diag=conv_kernel_prior_scale_diag ),
-                kernel_divergence_fn= (lambda q, p, ignore: tfd.kl_divergence(q, p)/batch_size ) ,
-
-                bias_posterior_fn           = tfpl.default_mean_field_normal_fn(is_singular=True),
-                bias_posterior_tensor_fn    = (lambda d:d.sample()),
-
-                bias_prior_fn       = None ,
-                bias_divergence_fn  = None
-
-                )
-
-    def horseshoe_kernel_posterior_distribution(self, inp_weights_count, outp_nodes_count ):
-        """
-            Implements the Non-Centred Weight Distribution which is used in the kernels
-            Samples from multi-variate Guassian distribution for values of Beta and tau
-        """
-        inp_weights_count = inp_weights_count
-        filter_count = outp_nodes_count
-        #conv_layer = _conv_layer_no
-
-        def _fn(dtype, shape, name, trainable, add_variable_fn ):
-            #TODO:(akanni-ade): use one big tf.case to set all variables
-            #TODO:(akanni-ade): Implement the following section using LinearOperators
-            # Creating the Matrix Norm Mean
-
-            matrix_normal_loc_B = tf.zeros( [ filter_count, int(inp_weights_count/filter_count) ] ) #TODO: Check if this is meant to be constantly zero, or whether it is meant to be able to be learnt
-            matrix_normal_loc_logtau = tf.math.log( self.conv_taus ) 
-            matrix_normal_loc = tf.concat( [matrix_normal_loc_B, matrix_normal_loc_logtau ], axis=-1) #TODO:(akanni-ade ) check if this is concat the correct way
-
-            #region Matrix Normal - Some Relationship between weights in different filters beyond the global shrinking nu
-                # Creating the Matrix Norm U - row corr 
-                    #This allows relationships between
-
-                # U_psi = tf.case( [ (tf.equal(conv_layer, 1 ), lambda: self.conv1_U_psi) , (tf.equal(conv_layer, 2 ), lambda: self.conv2_U_psi) ] ) #Since each row represents the nodes of one convolutional filter, there should be row correlation that exists i.e. U should not be diagonal
-                # U_h = tf.case( [ (tf.equal(conv_layer, 1 ), lambda: self.conv1_U_h) , (tf.equal(conv_layer, 2 ), lambda: self.conv2_U_h) ] )
-                # U = tf.linalg.diag(U_psi)  + tf.einsum('i,j -> ji', U_h , U_h ) 
-                
-                # Creating the Matrix Norm V - col corr
-                    #This is relationship between the weights within a filter, which do exists so this should not be diag
-                #V_inner = tf.case( [ (tf.equal(conv_layer,1 ), lambda: self.conv1_V_inner ), (tf.equal(conv_layer,2 ), lambda: self.conv2_V_inner )  ] )
-
-            # Creating the Matrix Norm
-            
-            #linOp_matrix_normal_cov_V = tf.linalg.LinearOperatorDiag(V_inner)
-            #linOp_matrix_normal_cov_U = tf.linalg.LinearOperatorFullMatrix(U)
-            #matrix_normal_cov = tf.linalg.LinearOperatorKronecker( [ linOp_matrix_normal_cov_U, linOp_matrix_normal_cov_V ] ) 
-            #matrix_normal_cov = tf.linalg.LinearOperatorKronecker( [ linOp_matrix_normal_cov_V, linOp_matrix_normal_cov_U ] )
-            
-            #dist_Btau = tfd.MultivariateNormalLinearOperator( loc= tf.reshape(matrix_normal_cov,[-1]) , scale=matrix_normal_cov   )
-            # endregion
-
-            #region Multivariate Normal Version - No Relationship between weights in different filters beyond the global shrinking nu            
-            li_U_psi = tf.split( self.U_psi, filter_count  ) #len 10 shape (filterh*filter2w + 1)
-            li_U_h = tf.split( self.U_h, filter_count ) #len 10 shape (filterh*filter2w + 1)
-            
-            #li_U_psi_diag = tf.map_fn( tf.linalg.diag, li_U_psi)
-            # li_U_h_matrx = tf.map_fn( lambda U_h: tf.einsum('i,j -> ji',U_h, U_h), li_U_h )
-            # li_U = tf.map_fn( lambda x: x[0] + x[1], tf.concat( [li_U_psi_diag, li_U_h_matrx ], axis=1 ) )
-
-            tf_U = tf.map_fn( lambda x: tf.linalg.diag(x[0]) + tf.einsum('i,j->ji',x[1], x[1]), tf.stack([li_U_psi, li_U_h], axis=1) )
-            
-            # li_matrix_normal_loc = tf.split( matrix_normal_loc, filter_count ,axis=0 ) #len = no. filters #shape (filterH*filterW + 1) #the plus 1 is for the value of tau #TODO:(akanni-ade) These split list lines can be removed, since tf.stack ignores them anyway
-            # li_matrix_normal_cov = tf.split( tf_U, filter_count ,axis=0 )#len = no. filters #shape (filterH*filterW + 1, filterH*filterW + 1 ) #the plus 1 is for the value of tau
-            #dist_Btau = tfd.MultivariateNormalFullCovariance( matrix_normal_loc, tf_U )
-            dist_Btau = tfd.MultivariateNormalTriL(matrix_normal_loc, tf.linalg.cholesky(tf_U))
-            # endregion
-            #Try Matrix Norm version
-            return dist_Btau
-
-        return _fn
-    
-    def call(self, _input):
-        x = self.conv(_input)
-        return x
-
-def horseshoe_kernel_posterior_distribution1(obj, inp_weights_count, outp_nodes_count, _conv_layer_no ):
+def horseshoe_kernel_posterior_distribution(obj, _conv_layer_no ):
     """
         Implements the Non-Centred Weight Distribution which is used in the kernels
         Samples from multi-variate Guassian distribution for values of Beta and tau
     """
-    inp_weights_count = inp_weights_count
-    filter_count = outp_nodes_count
     conv_layer = _conv_layer_no
-    #conv_taus = self.conv_taus
-
     def _fn(dtype, shape, name, trainable, add_variable_fn ):
-        #TODO:(akanni-ade): use one big tf.case to set all variables
-        #TODO:(akanni-ade): Implement the following section using LinearOperators
-        # Creating the Matrix Norm Mean
-        conv_taus = tf.case( [ (tf.equal(conv_layer,tf.constant(1)),lambda: obj.conv1_taus), (tf.equal(conv_layer,tf.constant(2)), lambda: obj.conv2_taus) ] , exclusive=False )
-
-        matrix_normal_loc_B = tf.zeros( [ filter_count, int(inp_weights_count/filter_count) ] ) #TODO: Check if this is meant to be constantly zero, or whether it is meant to be able to be learnt
-        matrix_normal_loc_logtau = tf.math.log( conv_taus ) 
-        matrix_normal_loc = tf.concat( [matrix_normal_loc_B, matrix_normal_loc_logtau ], axis=-1) #TODO:(akanni-ade ) check if this is concat the correct way
-
-        #region Multivariate Normal Version - No Relationship between weights in different filters beyond the global shrinking nu
-        U_psi = tf.case( [ (tf.equal(conv_layer, 1 ), lambda: obj.conv1_U_psi) , (tf.equal(conv_layer, 2 ), lambda: obj.conv2_U_psi) ] ) #Since each row represents the nodes of one convolutional filter, there should be row correlation that exists i.e. U should not be diagonal
-        U_h = tf.case( [ (tf.equal(conv_layer, 1 ), lambda: obj.conv1_U_h) , (tf.equal(conv_layer, 2 ), lambda: obj.conv2_U_h) ] )
-        
-        li_U_psi = tf.split( U_psi, filter_count  ) #len 10 shape (filterh*filter2w + 1)
-        li_U_h = tf.split( U_h, filter_count ) #len 10 shape (filterh*filter2w + 1)
-        
-
-        tf_U = tf.map_fn( lambda x: tf.linalg.diag(x[0]) + tf.einsum('i,j->ji',x[1], x[1]), tf.stack([li_U_psi, li_U_h], axis=1) )
-        
-
-        dist_Btau = tfd.MultivariateNormalTriL(matrix_normal_loc, tf.linalg.cholesky(tf_U))
-        # endregion
-        
-        #Try Matrix Norm version
-        return dist_Btau
+        betalogtau_dist = tf.case( [ (tf.equal(conv_layer,tf.constant(1)),lambda: obj.conv1_beta_logtau_post_dist), (tf.equal(conv_layer,tf.constant(2)), lambda: obj.conv2_beta_logtau_post_dist) ] , exclusive=True )
+        return betalogtau_dist
     
     return _fn
    
-def horsehoe_kernel_posterior_tensor_fn( matrix_norm_dist, layer_nu , model_global_c, input_count, output_count, kernel_shape, inp_channels, tape=None ):
+def horsehoe_kernel_posterior_tensor_fn( betalogtau_dist, layer_nu , model_global_c, output_count, kernel_shape, inp_channels, tape=None, conv_layer=1, obj=None ):
     """
         :param filter_shape list: [h, w]
     """
-    _samples = matrix_norm_dist.sample()
-    #_samples = tf.reshape(_samples, [ input_count+1, output_count] ) # shape( nodes(l-1)+2, nodes(l) ) # These contain samples for the Beta's and tau's used to create the weights
-        #TODO(akanni-ade): This reshape may have to change. Since these weights are being sent to Convolutions not a dense network
+    #TODO: use tf.case methodology here as opposed to passing in layer_nu, input_count, output_count and kernel hape
+    _samples = betalogtau_dist.sample()
 
     beta = _samples[ : , :-1 ]
     taus_local_scale = tf.math.exp(_samples[ : , -1: ])
+
+    def f1(): obj.conv1_Beta, obj.conv1_taus, obj.conv1_beta_logtau = beta,  taus_local_scale, _samples
+    def f2(): obj.conv2_Beta, obj.conv2_taus, obj.conv2_beta_logtau = beta,  taus_local_scale, _samples
+    tf.case( [ (tf.equal(conv_layer,tf.constant(1)),f1), (tf.equal(conv_layer,tf.constant(2)), f2) ], exclusive=True )
 
     #creating the non_centred_version of tau
     model_global_c2 = tf.square( model_global_c )
@@ -587,64 +394,23 @@ def horsehoe_kernel_posterior_tensor_fn( matrix_norm_dist, layer_nu , model_glob
 
     _weights = tf.multiply( tf.multiply( beta,  taus_local_scale_regularlized), layer_nu ) #TODO:(akanni-ade) check this formula is correct #shape(10, 153)
         #shape ([filter_height, filter_width, in_channels, output_channels]) 
-    _weights = tf.transpose( _weights )
+    _weights = tf.transpose( _weights )         #shape
 
-    _weights = tf.reshape( _weights, [kernel_shape[0], kernel_shape[1], inp_channels, output_count] )
+    _weights = tf.reshape( _weights, [kernel_shape[0], kernel_shape[1], inp_channels, output_count] ) #shape
     return _weights
 
-def horsehoe_kernel_posterior_tensor_fn1( matrix_norm_dist, layer_nu , model_global_c, input_count, output_count, kernel_shape, inp_channels, obj ,tape, conv_layer, filter_count, inp_weights_count ):
-    """
-        :param filter_shape list: [h, w]
-    """
+def HalfCauchy_Guassian_posterior_distribution(obj):
     
-    #region -- new method to try to retain grads
-    conv_taus = tf.case( [ (tf.equal(conv_layer,tf.constant(1)),lambda: obj.conv1_taus), (tf.equal(conv_layer,tf.constant(2)), lambda: obj.conv2_taus) ] , exclusive=False )
+    def _fn(dtype, shape, name, trainable, add_variable_fn):
+        dist = obj.conv3_weights_dist
+        return dist
+    return _fn
 
-    matrix_normal_loc_B = tf.zeros( [ filter_count, int(inp_weights_count/filter_count) ] ) #TODO: Check if this is meant to be constantly zero, or whether it is meant to be able to be learnt
-    matrix_normal_loc_logtau = tf.math.log( conv_taus ) 
-    matrix_normal_loc = tf.concat( [matrix_normal_loc_B, matrix_normal_loc_logtau ], axis=-1) #TODO:(akanni-ade ) check if this is concat the correct way
-    # endregion
-
-    #region Multivariate Normal Version - No Relationship between weights in different filters beyond the global shrinking nu
-    U_psi = tf.case( [ (tf.equal(conv_layer, 1 ), lambda: obj.conv1_U_psi) , (tf.equal(conv_layer, 2 ), lambda: obj.conv2_U_psi) ] ) #Since each row represents the nodes of one convolutional filter, there should be row correlation that exists i.e. U should not be diagonal
-    U_h = tf.case( [ (tf.equal(conv_layer, 1 ), lambda: obj.conv1_U_h) , (tf.equal(conv_layer, 2 ), lambda: obj.conv2_U_h) ] )
-    
-    li_U_psi = tf.split( U_psi, filter_count  ) #len 10 shape (filterh*filter2w + 1)
-    li_U_h = tf.split( U_h, filter_count ) #len 10 shape (filterh*filter2w + 1)
-    
-
-    tf_U = tf.map_fn( lambda x: tf.linalg.diag(x[0]) + tf.einsum('i,j->ji',x[1], x[1]), tf.stack([li_U_psi, li_U_h], axis=1) )
-
-    dist_Btau = tfd.MultivariateNormalTriL(matrix_normal_loc, tf.linalg.cholesky(tf_U))
-    # endregion
-
-    _samples = dist_Btau.sample()
-    #_samples = tf.reshape(_samples, [ input_count+1, output_count] ) # shape( nodes(l-1)+2, nodes(l) ) # These contain samples for the Beta's and tau's used to create the weights
-        #TODO(akanni-ade): This reshape may have to change. Since these weights are being sent to Convolutions not a dense network
-
-    beta = _samples[ : , :-1 ]
-    taus_local_scale = tf.math.exp(_samples[ : , -1: ])
-
-    #creating the non_centred_version of tau
-    model_global_c2 = tf.square( model_global_c )
-    taus_local_scale_2 = tf.square( taus_local_scale )
-    layer_nu_2 = tf.square( layer_nu )
-    taus_local_scale_regularlized = tf.math.sqrt( tf.math.divide( model_global_c2 * taus_local_scale_2, model_global_c2 + taus_local_scale_2*layer_nu_2 ) )
-
-    _weights = tf.multiply( tf.multiply( beta,  taus_local_scale_regularlized), layer_nu ) #TODO:(akanni-ade) check this formula is correct #shape(10, 153)
-        #shape ([filter_height, filter_width, in_channels, output_channels]) 
-    _weights = tf.transpose( _weights )
-
-    _weights = tf.reshape( _weights, [kernel_shape[0], kernel_shape[1], inp_channels, output_count] )
-    return _weights
-
-
-
-def HalfCauchy_Guassian_posterior_tensor_fn(obj, kernel_shape, inp_channels):
-    dist_weights = tfd.MultivariateNormalDiag(0, tf.math.square( obj.conv3_kappa) )
+def HalfCauchy_Guassian_posterior_tensor_fn(obj, dist_weights, kernel_shape, inp_channels):    
     _weights = dist_weights.sample()
     _weights = tf.transpose( _weights )
     _weights = tf.reshape( _weights, [kernel_shape[0], kernel_shape[1], inp_channels, 1] )
+    obj.conv3_weights = _weights
     return _weights
 
 # endregion
@@ -772,14 +538,10 @@ def load_data( batches_to_skip, hparams, _num_parallel_calls =tf.data.experiment
     return ds_precip_feat_tar
 
 # region train --- Debugging Eagerly
-def train_loop(hparams):
+def train_loop(train_params):
     print("GPU Available: ", tf.test.is_gpu_available() )
     
-    train_params = {
-        'dataset_trainval_batch_reporting_freq':0.1
-    }
-    train_params.update(hparams)
-    model = SuperResolutionModel( hparams)
+    model = SuperResolutionModel( train_params)
 
     # region ----- Defining Losses and Metrics   
     optimizer = tf.optimizers.Adam(lr=1e-2) 
@@ -854,9 +616,11 @@ def train_loop(hparams):
     batches_to_skip_on_error = 2
     # endregion
 
+    # region --- Tensorboard
     os.makedirs("log_tensboard/{}".format(train_params['model_version']), exist_ok=True )
     writer = tf.summary.create_file_writer( "log_tensboard/{}/tblog".format(train_params['model_version']) )
-    
+    # endregion
+
     # region --- Train and Validation
     for epoch in range(starting_epoch, int(train_params['epochs']+1) ):
         #region metrics, loss, dataset, and standardization
@@ -894,32 +658,27 @@ def train_loop(hparams):
                             with tf.GradientTape(persistent=True) as tape:
                                 preds = model( feature, tape=tape ) #TODO Debug, remove tape variable from model later
 
-                                #TODO(akanni-ade): remove (mask) eror for predictions that are water i.e. null
+                                                                    #TODO(akanni-ade): remove (mask) eror for predictions that are water i.e. null
                                 
                                 #likelihood 1 - Independent Normal
-                                noise_std = tfd.HalfNormal(scale=3/4) #TODO:(akanni-ade) This should decrease exponentially during training #RESEARCH: NOVEL Addition #TODO:(akanni-ade) create tensorflow function to add this
+                                noise_std = tfd.HalfNormal(scale=3/4)   #TODO:(akanni-ade) This should decrease exponentially during training #RESEARCH: NOVEL Addition #TODO:(akanni-ade) create tensorflow function to add this
+                                                                        #NOTE: In the original Model Selection paper they use Guassian Likelihoods for loss with a precision (noise_std) that is Gamma(6,6)
                                 preds = tf.reshape( preds, [-1] )
                                 target = tf.reshape( target, [-1] )
                                 preds_distribution_norm = tfd.Normal( loc=preds, scale=noise_std.sample() )  #Ensure you are drawing independent samples along the batch dimensions #Consider adding Multivariate Normal since within each batch elem there is a degree of corr                                
                                 
-                                    #likelihood 2 - 0 Inflated Log-Normal
+                                #likelihood 2 - 0 Inflated Log-Normal
                                     #preds_distributions_lgnorm = tfd.LogNormal( loc=preds, scale =noise_std.sample() )
                                     #TODO(akanni-ade): To implement this you need to add another value to the value to predict; This will be binary 1, 0 representing probability it rained or not
                                                     #Then we have two likelihoods conditional upon rain. First the zero inflated one, 2nd a log normal one
                                                     # so likelihood is p1 + (1-p1)* 
-                                    
-                                    #likelihood 3 - 0 Inflated w/ Mixture distirbution: Mixture distribution defined for each
-
-                                    #likelihood 4 - Normal Distribution w/ covariance - Enforce the notion that our predictions should produce values that are 
-
+                                
                                 neg_log_likelihood = -tf.reduce_mean( preds_distribution_norm.log_prob( target ) )    
                                 kl_loss = tf.math.reduce_sum( model.losses ) / hparams['batch_size']
                                 elbo_loss = neg_log_likelihood + kl_loss
-
-                                #metric_mse = tf.metrics.mean_squared_error( labels=target , predictions= preds)
                                 metric_mse = tf.keras.losses.MSE( target , preds )
+                            
                             gradients = tape.gradient( elbo_loss, model.trainable_variables )
-
                             optimizer.apply_gradients( zip( gradients, model.trainable_variables ) )
                             
                             #region tensorboard weights
@@ -932,14 +691,15 @@ def train_loop(hparams):
                                     tf.summary.histogram( "Weights: {}".format(_tensor.name), _tensor , step = batch + epoch*train_set_size_batches )
                             #endregion
 
+                            #region loss updates
                             train_loss_elbo_mean_groupbatch( elbo_loss )
                             train_loss_elbo_mean_epoch( elbo_loss )
                             train_metric_mse_mean_groupbatch( metric_mse )
                             train_metric_mse_mean_epoch( metric_mse )
-                            
-                            ckpt_manager_batch.save()
-
+                            # endregion
+                        
                             #region training batch reporting
+                            ckpt_manager_batch.save()
                             if( (batch%train_batch_reporting_freq)==0):
                                 batches_report_time =  time.time() - start_batch_time 
 
@@ -1051,18 +811,96 @@ def train_loop(hparams):
 
     print("Model Training Finished")
 
-                              
-
 # endregion
 
 if __name__ == "__main__":
-    
-        
+# region Defining Hyperparameters
+    #TODO create new Hparams class to hold these values
+
+    _num_parallel_calls =tf.data.experimental.AUTOTUNE 
+    checkpoints_to_keep = 10
+    model_version =1
+    EPOCHS=2
+
+    input_dims = [39, 88]
+    output_dims = [156,352]
+
+    #TODO: (change filter sizes back to the ones used in the paper)
+
+    CONV1_params = {    'filters':10 ,
+                        'kernel_size': [3,3] , #TODO:use size from paper later
+                        'activation':'relu',
+                        'padding':'same',
+                        'data_format':'channels_last',
+                        'name':"Conv1" }
+
+    conv2_kernel_size = np.ceil( np.ceil( np.array(output_dims)/np.array(input_dims) )*1.5 )  #This makes sure that each filter in conv2, sees at least two of the real non zero values. The zero values occur due to the upscaling
+    CONV2_params = {    'filters':10,
+                        'kernel_size':  conv2_kernel_size.astype(np.int32).tolist() , #TODO:use size from paper later
+                        #each kernel covers 2 non original values from the upsampled tensor
+                        'activation':'relu',
+                        'padding':'same',
+                        'data_format':'channels_last',
+                        "name":"Conv2" }
+
+    CONV3_params = {
+                        'filters':1,
+                        'kernel_size':[2,2], #TODO:use size from paper later
+                        'activation':'relu',
+                        'padding':'same',
+                        'data_format':'channels_last',
+                        "name":"Conv3"  }
+
+    var_model_type = "reparam"
+
+    conv1_inp_channels = 17
+    conv1_input_weights_per_filter = np.prod(CONV1_params['kernel_size']) * conv1_inp_channels
+    conv1_input_weights_count =  CONV1_params['filters'] * conv1_input_weights_per_filter
+    conv1_output_node_count = CONV1_params['filters']
+
+    conv2_inp_channels = CONV1_params['filters']
+    conv2_input_weights_per_filter = np.prod(CONV2_params['kernel_size']) * conv2_inp_channels
+    conv2_input_weights_count = CONV2_params['filters'] * conv2_input_weights_per_filter
+    conv2_output_node_count = CONV2_params['filters']
+
+    conv3_inp_channels = CONV2_params['filters']
+    conv3_input_weights_count = CONV3_params['filters'] * np.prod(CONV3_params['kernel_size'] ) * conv3_inp_channels
+    conv3_output_node_count = CONV3_params['filters']
+
+    hparams = {
+        'input_dims':input_dims,
+        'output_dims':output_dims,
+
+        'conv1_params': CONV1_params,
+        'conv2_params': CONV2_params,
+        'conv3_params': CONV3_params,
+
+        'conv1_input_weights_count':conv1_input_weights_count,
+        'conv1_output_node_count':conv1_output_node_count,
+        'conv1_inp_channels':conv1_inp_channels,
+        'conv1_input_weights_per_filter': conv1_input_weights_per_filter,
+
+        'conv2_input_weights_count':conv2_input_weights_count,
+        'conv2_output_node_count':conv2_output_node_count,
+        'conv2_inp_channels': conv2_inp_channels,
+        'conv2_input_weights_per_filter':conv2_input_weights_per_filter,
+
+        'conv3_input_weights_count': conv3_input_weights_count,
+        'conv3_output_node_count':conv3_output_node_count,
+        'conv3_inp_channels':conv3_inp_channels ,
+
+        'var_model_type': var_model_type,
+        'batch_size':10,
+        'checkpoints_to_keep':checkpoints_to_keep,
+        'model_version':model_version,
+        'epochs':EPOCHS,
+        'dataset_trainval_batch_reporting_freq':0.1
+    }
+
     train_loop(hparams)
 
+    # endregion
 
-
-# region predictions -- Debugging
 
 
 # region train -- Actual Implementation
