@@ -1,5 +1,6 @@
 import numpy as np
 import math
+import tensorflow as tf
 
 #precip data import - use in data pipeline
 def read_prism_precip(bil_path, hdr_path=None, hdr_known=True, tensorf = True):
@@ -53,3 +54,44 @@ def read_hdr(hdr_path):
     with open(hdr_path, 'r') as input_f:
         header_list = input_f.readlines()
     return dict(item.strip().split() for item in header_list)
+
+
+# Miscallaneous
+def replace_inf_nan(_tensor):
+    nan_bool_ind_tf = tf.math.is_nan( tf.dtypes.cast(_tensor,dtype=tf.float32 ) )
+    inf_bool_ind_tf = tf.math.is_inf( tf.dtypes.cast( _tensor, dtype=tf.float32 ) )
+
+    bool_ind_tf = tf.math.logical_or( nan_bool_ind_tf, inf_bool_ind_tf )
+    
+    _tensor = tf.where( bool_ind_tf, tf.constant(0.0,dtype=tf.float32), _tensor )
+    return tf.dtypes.cast(_tensor, dtype=tf.float32)
+
+
+# Methods Related to Training
+def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoch, val_metric_mse_mean, ckpt_manager_epoch, train_params, model_params  ):
+
+    df_training_info = df_training_info[ df_training_info['Epoch'] != epoch ] #rmv current batch records for compatability with code below
+    if( ( val_metric_mse_mean.result().numpy() <= max( df_training_info.loc[ : ,'Val_loss_MSE' ], default= val_metric_mse_mean.result().numpy()+1 ) ) ):
+        print('Saving Checkpoint for epoch {}'.format(epoch)) 
+        ckpt_save_path = ckpt_manager_epoch.save()
+
+        
+        # Possibly removing old non top5 records from end of epoch
+        if( len(df_training_info.index) >= train_params['checkpoints_to_keep'] ):
+            df_training_info = df_training_info.sort_values(by=['Val_loss_MSE'], ascending=False)
+            df_training_info = df_training_info.iloc[:-1]
+            df_training_info.reset_index(drop=True)
+
+        
+        df_training_info = df_training_info.append( other={ 'Epoch':epoch,'Train_loss_MSE':train_metric_mse_mean_epoch.result().numpy(), 'Val_loss_MSE':val_metric_mse_mean.result().numpy(),
+                                                            'Checkpoint_Path': ckpt_save_path, 'Last_Trained_Batch':-1 }, ignore_index=True ) #A Train batch of -1 represents final batch of training step was completed
+
+        print("\nTop {} Performance Scores".format(train_params['checkpoints_to_keep']))
+        print(df_training_info[['Epoch','Val_loss_MSE']] )
+        df_training_info = df_training_info.sort_values(by=['Val_loss_MSE'], ascending=True)
+        df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores_model_{}.csv".format(model_params['model_name'],train_params['model_version']), header=True, index=False ) #saving df of scores                      
+    return df_training_info
+
+
+def kl_loss_weighting_scheme( max_batch ):
+    return 1/max_batch
