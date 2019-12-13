@@ -36,9 +36,9 @@ def train_loop(train_params, model_params):
     # region ----- Defining Model /Optimizer / Losses / Metrics / Records
     model = models.model_loader(train_params, model_params) 
     if tfa==None:
-        optimizer = tf.keras.optimizers.Adam( learning_rate=1e-2,beta_1=0.1, beta_2=0.99, epsilon=1e-1 )
+        optimizer = tf.keras.optimizers.Adam( learning_rate=1e-3, beta_1=0.1, beta_2=0.99, epsilon=1e-5 )
     else:
-        radam = tfa.optimizers.RectifiedAdam( learning_rate=2e-2, total_steps=500, warmup_proportion=0.5, min_lr=1e-2, beta1=0.9, beta2=0.99, epsilon=1e-5 )
+        radam = tfa.optimizers.RectifiedAdam( learning_rate=2e-3, total_steps=500, warmup_proportion=0.5, min_lr=1e-2, beta1=0.9, beta2=0.99, epsilon=1e-5 )
         optimizer = tfa.optimizers.Lookahead(radam, sync_period = 5, slow_step_size=0.5)
 
     train_metric_mse_mean_groupbatch = tf.keras.metrics.Mean(name='train_loss_mse_obj')
@@ -140,7 +140,7 @@ def train_loop(train_params, model_params):
                 iter_train = iter(ds_train)
                 iter_val = iter(ds_val)
 
-                for batch in range(1,1+train_set_size_batches):
+                for batch in range(1+batches_to_skip,1+train_set_size_batches):
                     # region Train Loop
                     if(batch<=train_set_size_batches):
                         feature, target = next(iter_train)
@@ -152,7 +152,7 @@ def train_loop(train_params, model_params):
                             preds = tf.reshape( preds, [train_params['batch_size'], -1] )       #TODO:(akanni-ade) This should decrease exponentially during training #RESEARCH: NOVEL Addition #TODO:(akanni-ade) create tensorflow function to add this
                             target = tf.reshape( target, [train_params['batch_size'], -1] )     #NOTE: In the original Model Selection paper they use Guassian Likelihoods for loss with a precision (noise_std) that is Gamma(6,6)
                             
-                            preds_distribution_norm = tfd.Normal( loc=preds, scale= 75)#noise_std.sample() )  #The sample here should be dependent on previous model loss, relative to maybe KL term
+                            preds_distribution_norm = tfd.Normal( loc=preds, scale= 0.5)#noise_std.sample() )  #The sample here should be dependent on previous model loss, relative to maybe KL term
                                                             
                             log_likelihood = tf.reduce_mean( preds_distribution_norm.log_prob( target ),axis=-1 ) #This represents the expected log_likelihood corresponding to each target y_i in the mini batch
 

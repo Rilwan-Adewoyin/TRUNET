@@ -61,7 +61,7 @@ class model_deepsd_hparameters(HParams):
                             'data_format':'channels_last',
                             "name":"Conv3"  }
 
-        var_model_type = "reparam"
+        var_model_type = "reparam_standard"
 
         conv1_inp_channels = 17
         conv1_input_weights_per_filter = np.prod(CONV1_params['kernel_size']) * conv1_inp_channels
