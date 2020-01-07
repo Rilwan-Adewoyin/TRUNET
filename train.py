@@ -34,12 +34,15 @@ def train_loop(train_params, model_params):
     print("GPU Available: ", tf.test.is_gpu_available() )
     
     # region ----- Defining Model /Optimizer / Losses / Metrics / Records
-    model = models.model_loader(train_params, model_params) 
+    model = models.model_loader(train_params, model_params)
+    if type(model_params == list):
+        model_params = model_params[0]
+
     if tfa==None:
         optimizer = tf.keras.optimizers.Adam( learning_rate=1e-3, beta_1=0.1, beta_2=0.99, epsilon=1e-5 )
     else:
-        radam = tfa.optimizers.RectifiedAdam( learning_rate=2e-3, total_steps=500, warmup_proportion=0.5, min_lr=1e-2, beta1=0.9, beta2=0.99, epsilon=1e-5 )
-        optimizer = tfa.optimizers.Lookahead(radam, sync_period = 5, slow_step_size=0.5)
+        radam = tfa.optimizers.RectifiedAdam( learning_rate=2e-3, total_steps=500, warmup_proportion=0.5, min_lr=1e-2, beta_1=0.9, beta_2=0.99, epsilon=1e-5 )
+        optimizer = tfa.optimizers.Lookahead(radam, sync_period = 3, slow_step_size=0.5)
 
     train_metric_mse_mean_groupbatch = tf.keras.metrics.Mean(name='train_loss_mse_obj')
     train_metric_mse_mean_epoch = tf.keras.metrics.Mean(name="train_loss_mse_obj_epoch")
@@ -88,8 +91,8 @@ def train_loop(train_params, model_params):
     train_set_size_batches= train_params['train_set_size_batches']
     val_set_size_batches = train_params['val_set_size_batches'] 
     
-    train_batch_reporting_freq = train_set_size_batches*train_params['dataset_trainval_batch_reporting_freq']
-    val_batch_reporting_freq = val_set_size_batches*train_params['dataset_trainval_batch_reporting_freq']
+    train_batch_reporting_freq = int(train_set_size_batches*train_params['dataset_trainval_batch_reporting_freq'] )
+    val_batch_reporting_freq = int(val_set_size_batches*2*train_params['dataset_trainval_batch_reporting_freq'] )
     #endregion
 
     # region Logic for setting up resume location
@@ -127,8 +130,8 @@ def train_loop(train_params, model_params):
         #endregion
 
         #region Setting up Datasets
-        ds_train = data_generators.load_data( batches_to_skip, train_params  )
-        ds_val = data_generators.load_data( train_set_size_batches, train_params )
+        ds_train = data_generators.load_data( batches_to_skip*train_params['batch_size'], train_params  )
+        ds_val = data_generators.load_data( train_set_size_batches*train_params['batch_size'], train_params )
         #endregion
 
         batch=0
@@ -140,10 +143,10 @@ def train_loop(train_params, model_params):
                 iter_train = iter(ds_train)
                 iter_val = iter(ds_val)
 
-                for batch in range(1+batches_to_skip,1+train_set_size_batches):
+                for batch in range(1+batches_to_skip,2+train_set_size_batches+val_set_size_batches):
                     # region Train Loop
                     if(batch<=train_set_size_batches):
-                        feature, target = next(iter_train)
+                        feature, target = next(iter_train) #shape( (bs, 39, 88, 17 ) (bs,156,352) )
                         
                         with tf.GradientTape(persistent=True) as tape:
                             #tf.summary.trace_on(graph=True, profiler=False )
@@ -152,7 +155,7 @@ def train_loop(train_params, model_params):
                             preds = tf.reshape( preds, [train_params['batch_size'], -1] )       #TODO:(akanni-ade) This should decrease exponentially during training #RESEARCH: NOVEL Addition #TODO:(akanni-ade) create tensorflow function to add this
                             target = tf.reshape( target, [train_params['batch_size'], -1] )     #NOTE: In the original Model Selection paper they use Guassian Likelihoods for loss with a precision (noise_std) that is Gamma(6,6)
                             
-                            preds_distribution_norm = tfd.Normal( loc=preds, scale= 0.5)#noise_std.sample() )  #The sample here should be dependent on previous model loss, relative to maybe KL term
+                            preds_distribution_norm = tfd.Normal( loc=preds, scale= 0.125)#noise_std.sample() )  #The sample here should be dependent on previous model loss, relative to maybe KL term
                                                             
                             log_likelihood = tf.reduce_mean( preds_distribution_norm.log_prob( target ),axis=-1 ) #This represents the expected log_likelihood corresponding to each target y_i in the mini batch
 
@@ -175,7 +178,7 @@ def train_loop(train_params, model_params):
                         
                         #region Tensorboard Update
                         step = batch + (epoch-1)*train_set_size_batches
-                        tf.summary.scalar('train_loss_var_free_nrg', var_free_nrg_loss , step = step )
+                        tf.summary.scalar('train_loss_var_free_nrg', var_free_nrg_loss , step =  step )
                         tf.summary.scalar('kl_loss', kl_loss, step=step )
                         tf.summary.scalar('neg_log_likelihood', - tf.reduce_sum(log_likelihood)/train_params['batch_size'], step=step )
                         tf.summary.scalar('train_metric_mse', metric_mse , step = step )
@@ -197,16 +200,13 @@ def train_loop(train_params, model_params):
                                                     
                         ckpt_manager_batch.save()
                         if( (batch%train_batch_reporting_freq)==0):
-                            batches_report_time =  time.time() - start_batch_time 
+                            batches_report_time =  time.time() - start_batch_time
 
-                            print("\n\tBatch:{}/{}\t\tTrain MSE Loss: {:.4f} \t Time:{:.4f}".format(batch, train_set_size_batches, train_metric_mse_mean_groupbatch.result(), batches_report_time ) )
-                            
                             est_completion_time_seconds = (batches_report_time/train_params['dataset_trainval_batch_reporting_freq']) * (train_set_size_batches - batch)/train_set_size_batches
                             est_completion_time_mins = est_completion_time_seconds/60
-                            est_completion_time_hours = est_completion_time_mins/60
-                            est_completion_time_days = est_completion_time_hours/24
 
-                            print("\tEst.Epoch Time: mins:{:.1f}\t hours:{:.3f}\t days:{:.4f}".format(est_completion_time_mins,est_completion_time_hours,est_completion_time_days ) )
+                            print("\tBatch:{}/{}\tTrain MSE Loss: {:.4f} \t Time:{:.4f}\tEpoch mins left:{:.1f}".format(batch, train_set_size_batches, train_metric_mse_mean_groupbatch.result(), batches_report_time, est_completion_time_mins ) )
+                            
 
                             # Updating record of the last batch to be operated on in training epoch
                         df_training_info.loc[ ( df_training_info['Epoch']==epoch) , ['Last_Trained_Batch'] ] = batch
@@ -219,7 +219,7 @@ def train_loop(train_params, model_params):
                     # region Transition 
                     if(batch==train_set_size_batches+1):
                         print('EPOCH {}:\tVAR_FREE_NRG: {:.3f} \tMSE: {:.3f}\tTime: {:.2f}'.format(epoch, train_loss_var_free_nrg_mean_epoch.result() ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
-                        print("Starting Validation")
+                        print("\nStarting Validation")
                         start_epoch_val = time.time()
                         start_batch_time = time.time()
                     # endregion
@@ -228,30 +228,26 @@ def train_loop(train_params, model_params):
                     if(train_set_size_batches+1<= batch <= train_set_size_batches + val_set_size_batches  ):
                         feature, target = next(iter_val)
                         preds = model( feature )
-                        val_metric_mse_mean( tf.keras.metrics.MSE(  feature, target )  )
+                        val_metric_mse_mean( tf.keras.metrics.MSE( tf.squeeze(preds) , target )  )
                         
-                        if  (batch % val_batch_reporting_freq==0) or batch==(train_set_size_batches + val_set_size_batches) :
-                            batches_report_time =  - time.time() - start_batch_time
-
-                            print("\tCompleted Validation Batch:{}/{} \t Time:{:.4f}".format( batch, val_set_size_batches ,batches_report_time))
-                            start_batch_time = time.time()
-                            
-                            est_completion_time_seconds = (batches_report_time/train_params['dataset_trainval_batch_reporting_freq']) *( 1 -  (batch/val_set_size_batches ) )
+                        if  ( (batch-train_set_size_batches) % val_batch_reporting_freq) ==0 or batch==(train_set_size_batches+ val_set_size_batches) :
+                            batches_report_time =  time.time() - start_batch_time
+                            est_completion_time_seconds = (batches_report_time/train_params['dataset_trainval_batch_reporting_freq']) *( 1 -  ((batch-train_set_size_batches)/val_set_size_batches ) )
                             est_completion_time_mins = est_completion_time_seconds/60
-                            est_completion_time_hours = est_completion_time_mins/60
-                            est_completion_time_days = est_completion_time_hours/24
-                            print("\tEst. Epoch Validation Completion Time: mins:{:.1f}\t hours:{:.1}\t days:{:.2f}".format(est_completion_time_mins,est_completion_time_hours,est_completion_time_days ) )
 
+                            print("\tCompleted Validation Batch:{}/{} \t Time:{:.4f} \tEst Time Left:{:.1f}".format( batch-train_set_size_batches, val_set_size_batches ,batches_report_time,est_completion_time_mins ))
+                                                        
+                            start_batch_time = time.time()
                         continue
                     # endregion
-                    print("Epoch:{}\t Train MSE:{:.3f} Validation Loss: MSE:{:.4f}\tTime:{:.4f}".format(epoch, train_metric_mse_mean_epoch.result(), val_metric_mse_mean.result(), time.time()-start_epoch_val  ) )
+                    print("Epoch:{}\t Train MSE:{:.3f}\tValidation Loss: MSE:{:.4f}\tTime:{:.4f}".format(epoch, train_metric_mse_mean_epoch.result(), val_metric_mse_mean.result(), time.time()-start_epoch_val  ) )
                     epoch_finished = True
                     batches_to_skip = 0  
                     
         df_training_info = utility.update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoch, val_metric_mse_mean, ckpt_manager_epoch, train_params, model_params )
                             
         #region Early iteration Stop Check
-        if( epoch >  max( df_training_info.loc[:, 'Epoch'], default=0 ) + train_params['early_stopping_period'] ):
+        if epoch > ( max( df_training_info.loc[:, 'Epoch'], default=0 ) + train_params['early_stopping_period']) :
             print("Model Early Stopping at EPOCH {}".format(epoch))
             break
         #endregion
@@ -260,17 +256,26 @@ def train_loop(train_params, model_params):
 
     print("Model Training Finished")
 
-# endregion
+# endregion 
 
 
 
 if __name__ == "__main__":
 
+    args_dict = utility.parse_arguments()
 
-    train_params = hparameters.train_hparameters()
-    model_params = hparameters.model_deepsd_hparameters()
+    train_params = hparameters.train_hparameters( **args_dict )
 
-    train_loop(train_params(), model_params() )
+    #stacked DeepSd methodology
+    li_input_output_dims = [ {"input_dims": [39, 88 ], "output_dims": [98, 220 ] , 'var_model_type':'guassian_factorized' } ,
+                 {"input_dims": [98, 220 ] , "output_dims": [ 156, 352 ] , 'conv1_inp_channels':1, 'var_model_type':'guassian_factorized' }  ]
+
+    model_params = [ hparameters.model_deepsd_hparameters(**_dict) for _dict in li_input_output_dims  ]
+    model_params = [ mp() for mp in model_params]
+
+    #TrajGRU Methodology
+
+    train_loop(train_params(), model_params )
 
     
 

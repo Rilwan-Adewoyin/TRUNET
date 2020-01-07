@@ -6,10 +6,10 @@ import glob
 import utility
 
 
-def load_data( batches_to_skip, hparams, _num_parallel_calls =tf.data.experimental.AUTOTUNE):
+def load_data( elements_to_skip, hparams, _num_parallel_calls =tf.data.experimental.AUTOTUNE, data_dir="./Data"):
 
-    # region prepare elevation
-    _path = "Data/Preprocessed/elevation.pkl" #TODO:(akanni-ade) change to value passed in via a h-parameters dictionary
+    # region prepare elevation Preprocess
+    _path = data_dir+"/Preprocessed/elevation.pkl" #TODO:(akanni-ade) change to value passed in via a h-parameters dictionary
     with open(_path,"rb") as f: #TODO:(akanni-ade) change to value passed in via a h-parameters dictionary
         arr_elev = pickle.load(f)
         
@@ -18,7 +18,7 @@ def load_data( batches_to_skip, hparams, _num_parallel_calls =tf.data.experiment
             ##take cell i,j in 2d array. each cell in the square matrix around cell i,j is stacked underneath i,j. 
             ## The square has dimensions (rel to i,j): 2 to the right, 2 down, 1 left, 1 right
             ## This achieves a dimension reduction of 4
-    #region Elevation Preprocess
+
     AVG_ELEV = np.nanmean(arr_elev) #TODO: (akanni-ade) Find actual max elev
     arr_elev = arr_elev / AVG_ELEV 
         #now making all elevation values above 1, then converting all nan values to 0
@@ -76,11 +76,13 @@ def load_data( batches_to_skip, hparams, _num_parallel_calls =tf.data.experiment
 
     # endregion
 
-
     # region features, targets
-    _dir_precip = "./Data/PRISM/daily_precip"
+    _dir_precip = data_dir+"/PRISM/daily_precip"
     file_paths_bil = list( glob.glob(_dir_precip+"/*/*.bil" ) )
     file_paths_bil.sort(reverse=False)
+
+    if elements_to_skip !=None:
+        file_paths_bil =  file_paths_bil[elements_to_skip: ]
 
     ds_fns_precip = tf.data.Dataset.from_tensor_slices(file_paths_bil)
 
@@ -124,4 +126,4 @@ def load_data( batches_to_skip, hparams, _num_parallel_calls =tf.data.experiment
 
     ds_precip_feat_tar = ds_precip_feat_tar.prefetch(buffer_size=_num_parallel_calls)
 
-    return ds_precip_feat_tar
+    return ds_precip_feat_tar #shape( (bs, 39, 88, 17 ) (bs,156,352) )

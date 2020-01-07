@@ -35,7 +35,7 @@ class SRCNN( tf.keras.layers.Layer ):
         self.model_params = model_params
         self.train_params = train_params                            
         
-        if self.model_params['var_model_type'] == 'reparam':
+        if self.model_params['var_model_type'] == 'horseshoe_structured':
             self.initialize_priors_dist()
             self.initialize_posteriors_vars()
             self.update_posteriors_dists() 
@@ -67,10 +67,44 @@ class SRCNN( tf.keras.layers.Layer ):
                     kernel_posterior_tensor_fn= lambda dist: HalfCauchy_Guassian_posterior_tensor_fn(self, dist, self.model_params['conv3_params']['kernel_size'], self.model_params['conv3_inp_channels'] ) ,
 
                     kernel_prior_fn = None , 
-                    kernel_divergence_fn= None
-                    )   
+                    kernel_divergence_fn= None )
+        
+        if self.model_params['var_model_type'] == 'horseshoe_factorized':
+            self.initialize_priors_dist()
+            self.initialize_posteriors_vars()
+            self.update_posteriors_dists() 
+            self.update_priors_dists()
+            self.sample_variational_params()  
 
-        if self.model_params['var_model_type'] == 'reparam_standard':
+            self.conv1 = tfpl.Convolution2DReparameterization( **self.model_params['conv1_params'] ,
+                kernel_posterior_fn = horseshoe_kernel_posterior_distribution( self, 1 ), 
+                kernel_posterior_tensor_fn= ( lambda dist: horsehoe_kernel_posterior_tensor_fn(dist, None , self.c ,
+                                            self.model_params['conv1_output_node_count'], self.model_params['conv1_params']['kernel_size'], self.model_params['conv1_inp_channels'],
+                                            self.tape, 1, self, self.conv1_beta, self.conv1_taus, self.conv1_nu) )  ,
+                kernel_prior_fn = None,
+                
+                kernel_divergence_fn= None) #TODO: Figure out the appropriate posterior and prior for the bias
+                                            #TODO: Move the calculation for the kl divergence into this constructor
+
+            self.upSample = UpSampler( self.model_params['input_dims'], self.model_params['output_dims'] )
+            
+            self.conv2 = tfpl.Convolution2DReparameterization ( **self.model_params['conv2_params'] ,
+                kernel_posterior_fn = horseshoe_kernel_posterior_distribution( self, 2), 
+                
+                kernel_posterior_tensor_fn= ( lambda dist: horsehoe_kernel_posterior_tensor_fn(dist, None , self.c ,
+                                            self.model_params['conv2_output_node_count'], self.model_params['conv2_params']['kernel_size'], self.model_params['conv2_inp_channels'],
+                                            self.tape, 1, self, self.conv2_beta, self.conv2_taus, self.conv2_nu) )  ,
+                kernel_prior_fn = None,
+                kernel_divergence_fn= None)
+
+            self.conv3 = tfpl.Convolution2DReparameterization( **self.model_params['conv3_params'] , 
+                    kernel_posterior_fn = HalfCauchy_Guassian_posterior_distribution( self ) , 
+                    kernel_posterior_tensor_fn= lambda dist: HalfCauchy_Guassian_posterior_tensor_fn(self, dist, self.model_params['conv3_params']['kernel_size'], self.model_params['conv3_inp_channels'] ) ,
+
+                    kernel_prior_fn = None , 
+                    kernel_divergence_fn= None )   
+
+        if self.model_params['var_model_type'] == 'guassian_factorized':
 
             self.conv1 = tfpl.Convolution2DFlipout( **self.model_params['conv1_params'] )
 
@@ -80,13 +114,25 @@ class SRCNN( tf.keras.layers.Layer ):
 
             self.conv3 = tfpl.Convolution2DFlipout( **self.model_params['conv3_params'] )                  
     
-    def call( self, _input, tape ,upsample_method=tf.constant("zero_padding") ): #( batch, height, width)
+    def call( self, _input, tape=None ,upsample_method=tf.constant("zero_padding"), pred=False ): #( batch, height, width)
         self.tape = tape
         
-        if self.model_params['var_model_type'] == 'reparam':
-            self.update_posteriors_dists()
-            self.update_priors_dists()        
-            self.sample_variational_params()
+        if pred==False and self.model_params['var_model_type'] in ['guassian_factorized']:
+            self.conv1._built_kernel_divergence = False
+            self.conv1._built_bias_divergence = False
+            self.conv2._built_kernel_divergence = False
+            self.conv2._built_bias_divergence = False
+            self.conv3._built_kernel_divergence = False
+            self.conv3._built_bias_divergence = False
+
+
+
+        if self.model_params['var_model_type'] in ['horseshoe_factorized','horseshoe_structured']:
+            if pred==False:
+                self.update_posteriors_dists()
+                self.update_priors_dists()        
+            if pred==True:
+                self.sample_variational_params()
         
         x = self.conv1( _input )    #( batch, height_lr, width_lr, conv1_filters ) #TODO:(akanni-ade) alot of zero values for x at this output
         
@@ -96,9 +142,10 @@ class SRCNN( tf.keras.layers.Layer ):
         #TODO:(akanni-ade) add layer norm or batch norm here
         x = self.conv3( x )       #(batch, height_hr, width_hr, 1 )
         
-        if self.model_params['var_model_type'] == 'reparam':
-            self.prior_cross_entropy()
-            self.posterior_entropy() #TODO check that layer losses are sent to model losses
+        if self.model_params['var_model_type'] in ['horseshoe_factorized','horseshoe_structured']:
+            if pred==False:
+                self.prior_cross_entropy()
+                self.posterior_entropy() #TODO check that layer losses are sent to model losses
 
         return x
     
@@ -110,7 +157,6 @@ class SRCNN( tf.keras.layers.Layer ):
         self.global_c2_priorscale = tf.constant( 6.0 , name="global_c_priorscale" ) # ? in bayesina compression,  6 in Soumya Paper 2
         self.c2_prior_dist = tfd.InverseGamma(self.global_c2_priorshape, self.global_c2_priorscale )
         
-
         # Layerwise nu Prior #NOTE: here we put one nu per filter which has 153 weights
         conv1_nu_shape = tf.constant( 0.0, dtype=tf.float32  ) #This value of 0 used in the microsoft paper
         conv1_nu_scale = tf.constant(tf.ones_like(conv1_nu_shape, dtype=tf.float32 ))/2 #b_g in Soumya paper #This is set to 1 in soumya paper 1, and 1 in microoft paper
@@ -143,79 +189,148 @@ class SRCNN( tf.keras.layers.Layer ):
         #self.conv3_weights_prior_dist = tfd.Normal(self.conv3_weights_prior_loc, self.conv3_kappa )
 
     def initialize_posteriors_vars(self):
-        #NOTE: I think we treat c as a value that changes during training, but that doesnt have a distribution. In fact it just gets updated at each step
-        #TODO: create an initialization method for all these params
-        #Global C Posterior
-        self.global_c_post_shape = tf.Variable( initial_value=1.0, trainable=True, name="global_c_post_shape",dtype=tf.float32) 
-        self.global_c_post_scale = tf.Variable( initial_value=0.2,  trainable=True, name="global_c_post_scale",dtype=tf.float32) 
         
-        # Layerwise nu Posterior
-        
-        self.conv1_nu_post_mean = tf.Variable( initial_value = tfd.HalfCauchy(loc=self.conv1_nu_prior_dist.mode(), scale=0.1).sample(), trainable=True, dtype=tf.float32, name="conv1_nu_post_mean") 
-        self.conv1_nu_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv1_nu_post_mean.shape, 0.05 ,0.2), trainable=True, dtype=tf.float32, name="conv1_nu_post_scale")  #TODO: In the future this should be based on the variance used in the HS prior half Cauchy be relating the Half Cuachy scale to the Lognormal variance
+        if(self.model_params['var_model_type'] == "horseshoe_structured"):
+            #NOTE: I think we treat c as a value that changes during training, but that doesnt have a distribution. In fact it just gets updated at each step
+            #TODO: create an initialization method for all these params
+            #Global C Posterior
+            self.global_c_post_shape = tf.Variable( initial_value=1.0, trainable=True, name="global_c_post_shape",dtype=tf.float32) 
+            self.global_c_post_scale = tf.Variable( initial_value=0.2,  trainable=True, name="global_c_post_scale",dtype=tf.float32) 
+            
+            # Layerwise nu Posterior
+            self.conv1_nu_post_mean = tf.Variable( initial_value = tfd.HalfCauchy(loc=self.conv1_nu_prior_dist.mode(), scale=0.1).sample(), trainable=True, dtype=tf.float32, name="conv1_nu_post_mean") 
+            self.conv1_nu_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv1_nu_post_mean.shape, 0.05 ,0.2), trainable=True, dtype=tf.float32, name="conv1_nu_post_scale")  #TODO: In the future this should be based on the variance used in the HS prior half Cauchy be relating the Half Cuachy scale to the Lognormal variance
 
-        self.conv2_nu_post_mean = tf.Variable( initial_value = tfd.HalfCauchy(loc=self.conv2_nu_prior_dist.mode(), scale=0.1).sample(), trainable=True, name="conv2_nu_post_mean",dtype=tf.float32) 
-        self.conv2_nu_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv2_nu_post_mean.shape, .05, 0.2), trainable=True, name="conv2_nu_post_scale",dtype=tf.float32) #TODO: change this intialization back
-        
-        # Betas_LogTaus for Nodes Posterior
-        conv1_scale = tf.constant(tf.cast(1.0 *tf.sqrt( 6. / (self.model_params['conv1_output_node_count'] + self.model_params['conv1_input_weights_per_filter'] )), dtype=tf.float32)) #glorot uniform used in microsoft horeshoe
-        self.conv1_beta_post_loc = tf.Variable( initial_value=tf.random.uniform( [self.model_params['conv1_output_node_count'], self.model_params['conv1_input_weights_per_filter']] ,-conv1_scale, conv1_scale), trainable=True, name="conv1_beta_post_loc",dtype=tf.float32)  #This uses Xavier init
-        self.conv1_tau_post_loc = tf.Variable( initial_value= tfd.HalfCauchy(loc=self.conv1_tau_prior_dist.mode(),scale=0.1).sample()  , trainable=True, name="conv1_tau_post_loc",dtype=tf.float32 )
-        self.conv1_U_psi = tf.Variable( initial_value= tf.random.uniform( [self.model_params['conv1_output_node_count'], self.model_params['conv1_input_weights_per_filter'] + 1], minval=0.95, maxval=1.05 ), trainable=True, name="conv1_U_psi",dtype=tf.float32) # My init strategy
-        self.conv1_U_h =   tf.Variable( initial_value= tf.random.uniform( [self.model_params['conv1_output_node_count'], self.model_params['conv1_input_weights_per_filter'] + 1] , minval=-0.001, maxval=0.001 ), trainable=True, name="conv1_U_h",dtype=tf.float32) # My init strategy
-        
-        conv2_scale = tf.constant(tf.cast(1.0 * tf.sqrt( 6. / (self.model_params['conv2_output_node_count'] + self.model_params['conv2_input_weights_per_filter'])  ),dtype=tf.float32)) #glorot uniform used in microsoft horeshoe
-        self.conv2_beta_post_loc = tf.Variable( initial_value=tf.random.uniform( [self.model_params['conv2_output_node_count'], self.model_params['conv2_input_weights_per_filter']] ,-conv2_scale, conv2_scale), trainable=True, name="conv2_beta_post_loc",dtype=tf.float32)  #This uses Xavier init
-        self.conv2_tau_post_loc = tf.Variable( initial_value= tfd.HalfCauchy(loc=self.conv2_tau_prior_dist.mode(),scale=0.1).sample()  , trainable=True, name="conv2_tau_post_loc",dtype=tf.float32 )
-        self.conv2_U_psi = tf.Variable( initial_value= tf.random.uniform( [self.model_params['conv2_output_node_count'],self.model_params['conv2_input_weights_per_filter'] + 1], minval=0.95, maxval=1.05 ), trainable=True, name="conv2_U_psi",dtype=tf.float32) # My init strategy
-        self.conv2_U_h =   tf.Variable( initial_value= tf.random.uniform( [self.model_params['conv2_output_node_count'],self.model_params['conv2_input_weights_per_filter'] + 1],  minval=-0.001, maxval=0.001 ), trainable=True, name="conv2_U_h",dtype=tf.float32) # My init strategy
+            self.conv2_nu_post_mean = tf.Variable( initial_value = tfd.HalfCauchy(loc=self.conv2_nu_prior_dist.mode(), scale=0.1).sample(), trainable=True, name="conv2_nu_post_mean",dtype=tf.float32) 
+            self.conv2_nu_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv2_nu_post_mean.shape, .05, 0.2), trainable=True, name="conv2_nu_post_scale",dtype=tf.float32) #TODO: change this intialization back
+            
+            # Betas_LogTaus for Nodes Posterior
+            conv1_scale = tf.constant(tf.cast(1.0 *tf.sqrt( 6. / (self.model_params['conv1_output_node_count'] + self.model_params['conv1_input_weights_per_filter'] )), dtype=tf.float32)) #glorot uniform used in microsoft horeshoe
+            self.conv1_beta_post_loc = tf.Variable( initial_value=tf.random.uniform( [self.model_params['conv1_output_node_count'], self.model_params['conv1_input_weights_per_filter']] ,-conv1_scale, conv1_scale), trainable=True, name="conv1_beta_post_loc",dtype=tf.float32)  #This uses Xavier init
+            self.conv1_tau_post_loc = tf.Variable( initial_value= tfd.HalfCauchy(loc=self.conv1_tau_prior_dist.mode(),scale=0.1).sample()  , trainable=True, name="conv1_tau_post_loc",dtype=tf.float32 )
+            self.conv1_U_psi = tf.Variable( initial_value= tf.random.uniform( [self.model_params['conv1_output_node_count'], self.model_params['conv1_input_weights_per_filter'] + 1], minval=0.95, maxval=1.05 ), trainable=True, name="conv1_U_psi",dtype=tf.float32) # My init strategy
+            self.conv1_U_h =   tf.Variable( initial_value= tf.random.uniform( [self.model_params['conv1_output_node_count'], self.model_params['conv1_input_weights_per_filter'] + 1] , minval=-0.001, maxval=0.001 ), trainable=True, name="conv1_U_h",dtype=tf.float32) # My init strategy
+            
+            conv2_scale = tf.constant(tf.cast(1.0 * tf.sqrt( 6. / (self.model_params['conv2_output_node_count'] + self.model_params['conv2_input_weights_per_filter'])  ),dtype=tf.float32)) #glorot uniform used in microsoft horeshoe
+            self.conv2_beta_post_loc = tf.Variable( initial_value=tf.random.uniform( [self.model_params['conv2_output_node_count'], self.model_params['conv2_input_weights_per_filter']] ,-conv2_scale, conv2_scale), trainable=True, name="conv2_beta_post_loc",dtype=tf.float32)  #This uses Xavier init
+            self.conv2_tau_post_loc = tf.Variable( initial_value= tfd.HalfCauchy(loc=self.conv2_tau_prior_dist.mode(),scale=0.1).sample()  , trainable=True, name="conv2_tau_post_loc",dtype=tf.float32 )
+            self.conv2_U_psi = tf.Variable( initial_value= tf.random.uniform( [self.model_params['conv2_output_node_count'],self.model_params['conv2_input_weights_per_filter'] + 1], minval=0.95, maxval=1.05 ), trainable=True, name="conv2_U_psi",dtype=tf.float32) # My init strategy
+            self.conv2_U_h =   tf.Variable( initial_value= tf.random.uniform( [self.model_params['conv2_output_node_count'],self.model_params['conv2_input_weights_per_filter'] + 1],  minval=-0.001, maxval=0.001 ), trainable=True, name="conv2_U_h",dtype=tf.float32) # My init strategy
 
-        # Output Layer weights Posterior
-        self.conv3_kappa_post_loc = tf.Variable( initial_value = 1.0, trainable=True, name="conv3_kappa_posterior_loc",dtype=tf.float32) #My init strat
-        self.conv3_kappa_post_scale = tf.Variable( initial_value = 0.1 , trainable=True, name="conv3_kappa_posterior_scale",dtype=tf.float32)    #This needs to be low since, log_normal distribution has extrememly large tails, so using a value higher, save above 1, can lead to a large scale term and then exploding gradientss
+            # Output Layer weights Posterior
+            self.conv3_kappa_post_loc = tf.Variable( initial_value = 1.0, trainable=True, name="conv3_kappa_posterior_loc",dtype=tf.float32) #My init strat
+            self.conv3_kappa_post_scale = tf.Variable( initial_value = 0.1 , trainable=True, name="conv3_kappa_posterior_scale",dtype=tf.float32)    #This needs to be low since, log_normal distribution has extrememly large tails, so using a value higher, save above 1, can lead to a large scale term and then exploding gradientss
+            
+            conv3_scale = tf.constant( tf.cast(1.0 * tf.sqrt( 6. / (self.model_params['conv3_output_node_count'] + self.model_params['conv3_input_weights_count'] )  ),dtype=tf.float32))
+            self.conv3_weights_post_loc = tf.Variable( initial_value = tf.random.uniform( [self.model_params['conv3_input_weights_count']] , -conv3_scale, conv3_scale,dtype=tf.float32 ), trainable=True, name="conv3_weights_post_loc",dtype=tf.float32 )
         
-        conv3_scale = tf.constant( tf.cast(1.0 * tf.sqrt( 6. / (self.model_params['conv3_output_node_count'] + self.model_params['conv3_input_weights_count'] )  ),dtype=tf.float32))
-        self.conv3_weights_post_loc = tf.Variable( initial_value = tf.random.uniform( [self.model_params['conv3_input_weights_count']] , -conv3_scale, conv3_scale,dtype=tf.float32 ), trainable=True, name="conv3_weights_post_loc",dtype=tf.float32 )
+        elif(self.model_params['var_model_type'] == "horseshoe_factorized"):
+            #Global C Posterior
+            self.global_c_post_shape = tf.Variable( initial_value=1.0, trainable=True, dtype=tf.float32) 
+            self.global_c_post_scale = tf.Variable( initial_value=0.2,  trainable=True, dtype=tf.float32)
+
+            # Layerwise nu Posterior
+            self.conv1_nu_post_mean = tf.Variable( initial_value = tfd.HalfCauchy(loc=self.conv1_nu_prior_dist.mode(), scale=0.1).sample(), trainable=True, dtype=tf.float32 ) 
+            self.conv1_nu_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv1_nu_post_mean.shape, 0.05 ,0.2), trainable=True, dtype=tf.float32)  #TODO: In the future this should be based on the variance used in the HS prior half Cauchy be relating the Half Cuachy scale to the Lognormal variance
+
+            self.conv2_nu_post_mean = tf.Variable( initial_value = tfd.HalfCauchy(loc=self.conv2_nu_prior_dist.mode(), scale=0.1).sample(), trainable=True, dtype=tf.float32) 
+            self.conv2_nu_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv2_nu_post_mean.shape, .05, 0.2), trainable=True, dtype=tf.float32)
+
+            # Betas_LogTaus for Nodes Posterior
+            conv1_scale = tf.constant(tf.cast(1.0 *tf.sqrt( 6. / (self.model_params['conv1_output_node_count'] + self.model_params['conv1_input_weights_per_filter'])), dtype=tf.float32)) #glorot uniform used in microsoft horeshoe
+            self.conv1_beta_post_loc = tf.Variable( initial_value=tf.random.uniform( [self.model_params['conv1_output_node_count'], self.model_params['conv1_input_weights_per_filter']] ,-conv1_scale, conv1_scale), trainable=True, dtype=tf.float32)  #This uses Xavier init
+            self.conv1_beta_post_scale = tf.Variable( initial_value=tf.random.uniform( self.conv1_beta_post_loc.shape, 0.75, 1.1 ), trainable=True, dtype=tf.float32 )
+            self.conv1_tau_post_loc = tf.Variable( initial_value= tfd.HalfCauchy(loc=self.conv1_tau_prior_dist.mode(),scale=0.1).sample(), trainable=True, name="conv1_tau_post_loc",dtype=tf.float32 )
+            self.conv1_tau_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv1_tau_post_loc.shape, .05, 0.2), trainable=True, dtype=tf.float32)
+            
+            conv2_scale = tf.constant(tf.cast(1.0 * tf.sqrt( 6. / (self.model_params['conv2_output_node_count'] + self.model_params['conv2_input_weights_per_filter'])), dtype=tf.float32)) #glorot uniform used in microsoft horeshoe
+            self.conv2_beta_post_loc = tf.Variable( initial_value=tf.random.uniform( [self.model_params['conv2_output_node_count'], self.model_params['conv2_input_weights_per_filter']] ,-conv2_scale, conv2_scale), trainable=True, dtype=tf.float32)  #This uses Xavier init
+            self.conv2_beta_post_scale = tf.Variable( initial_value=tf.random.uniform( self.conv2_beta_post_loc.shape, 0.75, 1.1 ), trainable=True, dtype=tf.float32 )
+            self.conv2_tau_post_loc = tf.Variable( initial_value= tfd.HalfCauchy(loc=self.conv2_tau_prior_dist.mode(),scale=0.1).sample()  , trainable=True, name="conv2_tau_post_loc",dtype=tf.float32 )
+            self.conv2_tau_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv2_tau_post_loc.shape, .05, 0.2), trainable=True, dtype=tf.float32)
+
+            # Output Layer weights Posterior
+            self.conv3_kappa_post_loc = tf.Variable( initial_value = 1.0, trainable=True, dtype=tf.float32) #My init strat
+            self.conv3_kappa_post_scale = tf.Variable( initial_value = 0.1 , trainable=True, dtype=tf.float32)    #This needs to be low since, log_normal distribution has extrememly large tails, so using a value higher, save above 1, can lead to a large scale term and then exploding gradientss
+
+            conv3_scale = tf.constant( tf.cast(1.0 * tf.sqrt( 6. / (self.model_params['conv3_output_node_count'] + self.model_params['conv3_input_weights_count'] )  ),dtype=tf.float32))
+            self.conv3_weights_post_loc = tf.Variable( initial_value = tf.random.uniform( [self.model_params['conv3_input_weights_count']] , -conv3_scale, conv3_scale,dtype=tf.float32 ), trainable=True, dtype=tf.float32 )
 
     def update_priors_dists(self):
         self.conv3_weights_prior_dist = tfd.Normal(self.conv3_weights_prior_loc, self.conv3_kappa )
 
     def update_posteriors_dists(self):
-        #Global C Posterior
-        #self.global_c_post_dist = tfd.LogNormal(self.global_c_post_shape, self.global_c_post_scale)
-        self.global_c_post_dist = tfd.HalfCauchy(self.global_c_post_shape, self.global_c_post_scale)
+        if(self.model_params['var_model_type'] == "horseshoe_structured"):
+            #Global C Posterior
+            #self.global_c_post_dist = tfd.LogNormal(self.global_c_post_shape, self.global_c_post_scale)
+            self.global_c_post_dist = tfd.HalfCauchy(self.global_c_post_shape, self.global_c_post_scale)
+            
+            #Layerwise nu Posteriors
+            self.conv1_nu_post_dist = tfd.LogNormal( self.conv1_nu_post_mean, self.conv1_nu_post_scale )
+            self.conv2_nu_post_dist = tfd.LogNormal( self.conv2_nu_post_mean, self.conv2_nu_post_scale )
+
+            #Layer weights
+            # conv1_logtau_post_loc = tf.expand_dims(tf.cast(tf.math.log( self.conv1_tau_post_loc) , dtype=tf.float32 ),-1)
+            conv1_logtau_post_loc = tf.math.log( self.conv1_tau_post_loc) 
+            conv1_li_U_psi = tf.split( self.conv1_U_psi, self.model_params['conv1_params']['filters']  ) #len 10 shape (filterh*filter2w + 1) #TODO: This is new - explain in paper
+            conv1_li_U_h = tf.split( self.conv1_U_h, self.model_params['conv1_params']['filters'] ) #len 10 shape (filterh*filter2w + 1) #TODO: This is new - explain in paper
+            conv1_tf_U = tf.map_fn( lambda x: tf.linalg.diag(x[0]) + tf.einsum('i,j->ji',x[1], x[1]), tf.concat([conv1_li_U_psi, conv1_li_U_h], axis=1) ) #Matrix Normal Structured Variance for Weights connecting to a convolutional layer
+            conv1_betalogtau_post_loc = tf.concat( [self.conv1_beta_post_loc, conv1_logtau_post_loc ], axis=-1) #TODO:(akanni-ade ) check if this is concat the correct way
+            conv1_betalogtau_post_scale = tf.linalg.cholesky(conv1_tf_U)
+            self.conv1_beta_logtau_post_dist = tfd.MultivariateNormalTriL(conv1_betalogtau_post_loc, conv1_betalogtau_post_scale)
+
+            conv2_logtau_post_loc = tf.math.log( self.conv2_tau_post_loc )
+            conv2_li_U_psi = tf.split( self.conv2_U_psi, self.model_params['conv2_params']['filters']  ) #len 10 shape (filterh*filter2w + 1) #TODO: This is new - explain in paper
+            conv2_li_U_h = tf.split( self.conv2_U_h, self.model_params['conv2_params']['filters'] ) #len 10 shape (filterh*filter2w + 1) #TODO: This is new - explain in paper
+            conv2_tf_U = tf.map_fn( lambda x: tf.linalg.diag(x[0]) + tf.einsum('i,j->ji',x[1], x[1]), tf.concat([conv2_li_U_psi, conv2_li_U_h], axis=1) ) #Matrix Normal Structured Variance for Weights connecting to a convolutional layer
+            conv2_betalogtau_post_loc = tf.concat( [self.conv2_beta_post_loc, conv2_logtau_post_loc ], axis=-1) #TODO:(akanni-ade ) check if this is concat the correct way
+            conv2_betalogtau_post_scale = tf.linalg.cholesky(conv2_tf_U)
+            self.conv2_beta_logtau_post_dist = tfd.MultivariateNormalTriL(conv2_betalogtau_post_loc, conv2_betalogtau_post_scale, allow_nan_stats=False )
+
+            self.conv3_kappa_post_dist = tfd.LogNormal(self.conv3_kappa_post_loc, self.conv3_kappa_post_scale )
+            self.conv3_kappa = self.conv3_kappa_post_dist.sample() #This should technically be in sample_variational_params
+            self.conv3_weights_dist = tfd.Normal( loc=self.conv3_weights_post_loc , scale=self.conv3_kappa )
         
-        #Layerwise nu Posteriors
-        self.conv1_nu_post_dist = tfd.LogNormal( self.conv1_nu_post_mean, self.conv1_nu_post_scale )
-        self.conv2_nu_post_dist = tfd.LogNormal( self.conv2_nu_post_mean, self.conv2_nu_post_scale )
+        elif(self.model_params['var_model_type'] == "horseshoe_factorized"):
+            #Global C Posterior
+            #self.global_c_post_dist = tfd.LogNormal(self.global_c_post_shape, self.global_c_post_scale)
+            self.global_c_post_dist = tfd.HalfCauchy(self.global_c_post_shape, self.global_c_post_scale)
+            
+            #Layerwise nu Posteriors
+            self.conv1_nu_post_dist = tfd.LogNormal( self.conv1_nu_post_mean, self.conv1_nu_post_scale )
+            self.conv2_nu_post_dist = tfd.LogNormal( self.conv2_nu_post_mean, self.conv2_nu_post_scale )
 
-        #Layer weights
-        # conv1_logtau_post_loc = tf.expand_dims(tf.cast(tf.math.log( self.conv1_tau_post_loc) , dtype=tf.float32 ),-1)
-        conv1_logtau_post_loc = tf.math.log( self.conv1_tau_post_loc) 
-        conv1_li_U_psi = tf.split( self.conv1_U_psi, self.model_params['conv1_params']['filters']  ) #len 10 shape (filterh*filter2w + 1) #TODO: This is new - explain in paper
-        conv1_li_U_h = tf.split( self.conv1_U_h, self.model_params['conv1_params']['filters'] ) #len 10 shape (filterh*filter2w + 1) #TODO: This is new - explain in paper
-        conv1_tf_U = tf.map_fn( lambda x: tf.linalg.diag(x[0]) + tf.einsum('i,j->ji',x[1], x[1]), tf.concat([conv1_li_U_psi, conv1_li_U_h], axis=1) ) #Matrix Normal Structured Variance for Weights connecting to a convolutional layer
-        conv1_betalogtau_post_loc = tf.concat( [self.conv1_beta_post_loc, conv1_logtau_post_loc ], axis=-1) #TODO:(akanni-ade ) check if this is concat the correct way
-        conv1_betalogtau_post_scale = tf.linalg.cholesky(conv1_tf_U)
-        self.conv1_beta_logtau_post_dist = tfd.MultivariateNormalTriL(conv1_betalogtau_post_loc, conv1_betalogtau_post_scale)
+            # Layer local scales
+            # conv1_logtau_post_loc = tf.expand_dims(tf.cast(tf.math.log( self.conv1_tau_post_loc) , dtype=tf.float32 ),-1)
+            self.conv1_tau_post_dist = tfd.LogNormal( loc = self.conv1_tau_post_loc, scale=self.conv1_tau_post_scale )
+            self.conv2_tau_post_dist = tfd.LogNormal( loc = self.conv2_tau_post_loc, scale=self.conv2_tau_post_scale )
 
-        conv2_logtau_post_loc = tf.math.log( self.conv2_tau_post_loc )
-        conv2_li_U_psi = tf.split( self.conv2_U_psi, self.model_params['conv2_params']['filters']  ) #len 10 shape (filterh*filter2w + 1) #TODO: This is new - explain in paper
-        conv2_li_U_h = tf.split( self.conv2_U_h, self.model_params['conv2_params']['filters'] ) #len 10 shape (filterh*filter2w + 1) #TODO: This is new - explain in paper
-        conv2_tf_U = tf.map_fn( lambda x: tf.linalg.diag(x[0]) + tf.einsum('i,j->ji',x[1], x[1]), tf.concat([conv2_li_U_psi, conv2_li_U_h], axis=1) ) #Matrix Normal Structured Variance for Weights connecting to a convolutional layer
-        conv2_betalogtau_post_loc = tf.concat( [self.conv2_beta_post_loc, conv2_logtau_post_loc ], axis=-1) #TODO:(akanni-ade ) check if this is concat the correct way
-        conv2_betalogtau_post_scale = tf.linalg.cholesky(conv2_tf_U)
-        self.conv2_beta_logtau_post_dist = tfd.MultivariateNormalTriL(conv2_betalogtau_post_loc, conv2_betalogtau_post_scale, allow_nan_stats=False )
+            # Layer local means
+            self.conv1_beta_post_dist = tfd.Normal( loc=self.conv1_beta_post_loc, scale=self.conv1_beta_post_scale  )
+            self.conv2_beta_post_dist = tfd.Normal( loc=self.conv2_beta_post_loc, scale=self.conv2_beta_post_scale  )
 
-        self.conv3_kappa_post_dist = tfd.LogNormal(self.conv3_kappa_post_loc, self.conv3_kappa_post_scale )
-        self.conv3_kappa = self.conv3_kappa_post_dist.sample() #This should technically be in sample_variational_params
-        self.conv3_weights_dist = tfd.Normal( loc=self.conv3_weights_post_loc , scale=self.conv3_kappa )
+            self.conv3_kappa_post_dist = tfd.LogNormal(self.conv3_kappa_post_loc, self.conv3_kappa_post_scale )
+            self.conv3_kappa = self.conv3_kappa_post_dist.sample() #This should technically be in sample_variational_params
+            self.conv3_weights_dist = tfd.Normal( loc=self.conv3_weights_post_loc , scale=self.conv3_kappa )
 
     def sample_variational_params(self):
-        self.conv1_nu = self.conv1_nu_post_dist.sample() #TODO: currently this outputs 1, when in actuality it should be 
-        self.conv2_nu = self.conv2_nu_post_dist.sample()
+        if(self.model_params['var_model_type'] == "horseshoe_structured"):
+            self.conv1_nu = self.conv1_nu_post_dist.sample() #TODO: currently this outputs 1, when in actuality it should be 
+            self.conv2_nu = self.conv2_nu_post_dist.sample()
 
-        self.c = self.global_c_post_dist.sample()
+            self.c = self.global_c_post_dist.sample()
+
+        elif(self.model_params['var_model_type'] == "horseshoe_factorized"):
+            self.conv1_beta =   self.conv1_beta_post_dist.sample()
+            self.conv2_beta =   self.conv2_beta_post_dist.sample()
+
+            self.conv1_taus =   self.conv1_tau_post_dist.sample()
+            self.conv2_taus =   self.conv2_tau_post_dist.sample()
+            
+            self.conv1_nu = self.conv1_nu_post_dist.sample() #TODO: currently this outputs 1, when in actuality it should be 
+            self.conv2_nu = self.conv2_nu_post_dist.sample()
+
+            self.c = self.global_c_post_dist.sample()
 
     def prior_cross_entropy(self):
         
@@ -226,57 +341,112 @@ class SRCNN( tf.keras.layers.Layer ):
             This is the prior part of the KL Divergence
             The negative of this should be passed in the return
         """
+        if(self.model_params['var_model_type'] == "horseshoe_structured"):
+            # Global Scale Param c
+            ll_c = self.c2_prior_dist.log_prob(tf.square(self.c)) #TODO: Check the right prior distr for c is used
+
+            # Layer-wise variance scaling nus
+            ll_conv1_nu = tf.reduce_sum( self.conv1_nu_prior_dist.log_prob( self.conv1_nu ) )
+            ll_conv2_nu = tf.reduce_sum( self.conv2_nu_prior_dist.log_prob( self.conv2_nu ) )
+            ll_nus = ll_conv1_nu + ll_conv2_nu
+
+            # Node level variaace scaling taus
+            ll_conv1_tau = tf.reduce_sum( self.conv1_tau_prior_dist.log_prob( self.conv1_taus ) ) 
+            ll_conv2_tau = tf.reduce_sum( self.conv2_tau_prior_dist.log_prob( self.conv2_taus ) )
+            ll_taus = ll_conv1_tau + ll_conv2_tau
+
+            # Nodel level mean centering Betas
+            ll_conv1_beta = tf.reduce_sum( self.conv1_Beta_prior_dist.log_prob( self.conv1_Beta ) )
+            ll_conv2_beta = tf.reduce_sum( self.conv2_Beta_prior_dist.log_prob(self.conv2_Beta ))  #TODO: come back to do this after you have refactored the beta code
+            ll_betas = ll_conv1_beta + ll_conv2_beta
+
+            ll_conv3_kappa = tf.reduce_sum( self.conv3_weights_prior_hyperprior_scaledist.log_prob(self.conv3_kappa) ) 
+            ll_conv3_weights = tf.reduce_sum( self.conv3_weights_prior_dist.log_prob( tf.reshape(self.conv3_weights,[-1]) ) ) #TODO: come back to do this after you have refactored the beta code
+            ll_output_layer = ll_conv3_kappa + ll_conv3_weights 
+    
+            #sum
+            prior_cross_entropy = ll_c + ll_nus + ll_taus + ll_betas + ll_output_layer
         
-        # Global Scale Param c
-        ll_c = self.c2_prior_dist.log_prob(tf.square(self.c)) #TODO: Check the right prior distr for c is used
+        elif(self.model_params['var_model_type'] == "horseshoe_factorized"):
+            # Global Scale Param c
+            ll_c = self.c2_prior_dist.log_prob(tf.square(self.c)) #TODO: Check the right prior distr for c is used
 
-        # Layer-wise variance scaling nus
-        ll_conv1_nu = tf.reduce_sum( self.conv1_nu_prior_dist.log_prob( self.conv1_nu ) )
-        ll_conv2_nu = tf.reduce_sum( self.conv2_nu_prior_dist.log_prob( self.conv2_nu ) )
-        ll_nus = ll_conv1_nu + ll_conv2_nu
+            # Layer-wise variance scaling nus
+            ll_conv1_nu = tf.reduce_sum( self.conv1_nu_prior_dist.log_prob( self.conv1_nu ) )
+            ll_conv2_nu = tf.reduce_sum( self.conv2_nu_prior_dist.log_prob( self.conv2_nu ) )
+            ll_nus = ll_conv1_nu + ll_conv2_nu
 
-        # Node level variaace scaling taus
-        ll_conv1_tau = tf.reduce_sum( self.conv1_tau_prior_dist.log_prob( self.conv1_taus ) ) 
-        ll_conv2_tau = tf.reduce_sum( self.conv2_tau_prior_dist.log_prob( self.conv2_taus ) )
-        ll_taus = ll_conv1_tau + ll_conv2_tau
+            # Node level variaace scaling taus
+            ll_conv1_tau = tf.reduce_sum( self.conv1_tau_prior_dist.log_prob( self.conv1_taus ) ) 
+            ll_conv2_tau = tf.reduce_sum( self.conv2_tau_prior_dist.log_prob( self.conv2_taus ) )
+            ll_taus = ll_conv1_tau + ll_conv2_tau
 
-        # Nodel level mean centering Betas
-        ll_conv1_beta = tf.reduce_sum( self.conv1_Beta_prior_dist.log_prob( self.conv1_Beta ) )
-        ll_conv2_beta = tf.reduce_sum( self.conv2_Beta_prior_dist.log_prob(self.conv2_Beta ))  #TODO: come back to do this after you have refactored the beta code
-        ll_betas = ll_conv1_beta + ll_conv2_beta
+            # Nodel level mean centering Betas
+            ll_conv1_beta = tf.reduce_sum( self.conv1_Beta_prior_dist.log_prob( self.conv1_beta ) )
+            ll_conv2_beta = tf.reduce_sum( self.conv2_Beta_prior_dist.log_prob( self.conv2_beta ))  #TODO: come back to do this after you have refactored the beta code
+            ll_betas = ll_conv1_beta + ll_conv2_beta
 
-        ll_conv3_kappa = tf.reduce_sum( self.conv3_weights_prior_hyperprior_scaledist.log_prob(self.conv3_kappa) ) 
-        ll_conv3_weights = tf.reduce_sum( self.conv3_weights_prior_dist.log_prob( tf.reshape(self.conv3_weights,[-1]) ) ) #TODO: come back to do this after you have refactored the beta code
-        ll_output_layer = ll_conv3_kappa + ll_conv3_weights 
- 
-        #sum
-        prior_cross_entropy = ll_c + ll_nus + ll_taus + ll_betas + ll_output_layer
+            ll_conv3_kappa = tf.reduce_sum( self.conv3_weights_prior_hyperprior_scaledist.log_prob(self.conv3_kappa) ) 
+            ll_conv3_weights = tf.reduce_sum( self.conv3_weights_prior_dist.log_prob( tf.reshape(self.conv3_weights,[-1]) ) ) #TODO: come back to do this after you have refactored the beta code
+            ll_output_layer = ll_conv3_kappa + ll_conv3_weights
+            
+            prior_cross_entropy = ll_c + ll_nus + ll_taus + ll_betas + ll_output_layer
+
         
         self.add_loss(-prior_cross_entropy)
     
     def posterior_entropy(self):
         
-        # Node level mean: Beta and scale: Taus
-        ll_conv1_beta_logtau = tf.reduce_sum(self.conv1_beta_logtau_post_dist.log_prob( self.conv1_beta_logtau )) 
-        ll_conv2_beta_logtau = tf.reduce_sum(self.conv2_beta_logtau_post_dist.log_prob( self.conv2_beta_logtau ))
-        ll_beta_logtau = ll_conv1_beta_logtau + ll_conv2_beta_logtau
+        if(self.model_params['var_model_type'] == "horseshoe_structured"):
+            # Node level mean: Beta and scale: Taus
+            ll_conv1_beta_logtau = tf.reduce_sum(self.conv1_beta_logtau_post_dist.log_prob( self.conv1_beta_logtau )) 
+            ll_conv2_beta_logtau = tf.reduce_sum(self.conv2_beta_logtau_post_dist.log_prob( self.conv2_beta_logtau ))
+            ll_beta_logtau = ll_conv1_beta_logtau + ll_conv2_beta_logtau
 
-        # Layer-wise variance scaling: nus
-        ll_conv1_nu = tf.reduce_sum( self.conv1_nu_post_dist.log_prob(self.conv1_nu) )
-        ll_conv2_nu = tf.reduce_sum( self.conv2_nu_post_dist.log_prob(self.conv2_nu) )
-        ll_nu = ll_conv1_nu + ll_conv2_nu 
+            # Layer-wise variance scaling: nus
+            ll_conv1_nu = tf.reduce_sum( self.conv1_nu_post_dist.log_prob(self.conv1_nu) )
+            ll_conv2_nu = tf.reduce_sum( self.conv2_nu_post_dist.log_prob(self.conv2_nu) )
+            ll_nu = ll_conv1_nu + ll_conv2_nu 
 
-        # Output Layer
-        ll_conv3_kappa = tf.reduce_sum( self.conv3_kappa_post_dist.log_prob( self.conv3_kappa )  )
-        ll_conv3_weights = tf.reduce_sum( self.conv3_weights_dist.log_prob( self.conv3_weights ) )
-        ll_output_layer = ll_conv3_kappa + ll_conv3_weights
+            # Output Layer
+            ll_conv3_kappa = tf.reduce_sum( self.conv3_kappa_post_dist.log_prob( self.conv3_kappa )  )
+            ll_conv3_weights = tf.reduce_sum( self.conv3_weights_dist.log_prob( self.conv3_weights ) )
+            ll_output_layer = ll_conv3_kappa + ll_conv3_weights
+            
+            # global C
+            ll_c = self.global_c_post_dist.log_prob(self.c)
+
+            # Sum
+            posterior_shannon_entropy = ll_beta_logtau + ll_c + ll_nu + ll_output_layer
+            self.add_loss(posterior_shannon_entropy)
         
-        # global C
-        ll_c = self.global_c_post_dist.log_prob(self.c)
+        elif(self.model_params['var_model_type'] == "horseshoe_factorized"):
+            # Node level mean: Beta
+            ll_conv1_beta = tf.reduce_sum(self.conv1_beta_post_dist.log_prob( self.conv1_beta ))
+            ll_conv2_beta = tf.reduce_sum(self.conv2_beta_post_dist.log_prob( self.conv2_beta ))
+            ll_conv_beta = ll_conv1_beta+ ll_conv2_beta 
 
-        # Sum
-        posterior_shannon_entropy = ll_beta_logtau + ll_conv3_weights  + ll_c + ll_nu + ll_output_layer
-        self.add_loss(posterior_shannon_entropy)
+            # Noe level scale: Taus
+            ll_conv1_taus = tf.reduce_sum(self.conv1_beta_post_dist.log_prob( self.conv1_taus ))
+            ll_conv2_taus = tf.reduce_sum(self.conv2_beta_post_dist.log_prob( self.conv2_taus ))
+            ll_conv_taus = ll_conv1_taus + ll_conv2_taus 
+
+            # Layer-wise variance scaling: nus
+            ll_conv1_nu = tf.reduce_sum( self.conv1_nu_post_dist.log_prob(self.conv1_nu) )
+            ll_conv2_nu = tf.reduce_sum( self.conv2_nu_post_dist.log_prob(self.conv2_nu) )
+            ll_nu = ll_conv1_nu + ll_conv2_nu 
+
+            # Output Layer
+            ll_conv3_kappa = tf.reduce_sum( self.conv3_kappa_post_dist.log_prob( self.conv3_kappa )  )
+            ll_conv3_weights = tf.reduce_sum( self.conv3_weights_dist.log_prob( self.conv3_weights ) )
+            ll_output_layer = ll_conv3_kappa + ll_conv3_weights
+            
+            # global C
+            ll_c = self.global_c_post_dist.log_prob(self.c)
+
+            # Sum
+            posterior_shannon_entropy = ll_conv_beta + ll_conv_taus  + ll_c + ll_nu + ll_output_layer
+            self.add_loss(posterior_shannon_entropy)
 
 class UpSampler():
     def __init__(self, input_dims, output_dims, upsample_method="ZeroPadding" , extra_outside_padding_method= "" ):
@@ -362,37 +532,62 @@ def horseshoe_kernel_posterior_distribution(obj, _conv_layer_no ):
         Samples from multi-variate Guassian distribution for values of Beta and tau
     """
     conv_layer = _conv_layer_no
+
+    
+    var_model_type = obj.model_params['var_model_type']
+
     def _fn(dtype, shape, name, trainable, add_variable_fn ):
-        betalogtau_dist = tf.case( [ (tf.equal(conv_layer,tf.constant(1)),lambda: obj.conv1_beta_logtau_post_dist), (tf.equal(conv_layer,tf.constant(2)), lambda: obj.conv2_beta_logtau_post_dist) ] , exclusive=True )
-        return betalogtau_dist
+        
+        if( var_model_type == "horseshoe_structured" ): 
+            dist = tf.case( [ (tf.equal(conv_layer,tf.constant(1)),lambda: obj.conv1_beta_logtau_post_dist), (tf.equal(conv_layer,tf.constant(2)), lambda: obj.conv2_beta_logtau_post_dist) ] , exclusive=True )
+        
+        elif( var_model_type == "horseshoe_factorized" ):
+            dist = tf.case( [ (tf.equal(conv_layer,tf.constant(1)),lambda: obj.conv1_beta_post_dist), (tf.equal(conv_layer,tf.constant(2)), lambda: obj.conv2_beta_post_dist) ] , exclusive=True )
+
+        return dist
     
     return _fn
    
-def horsehoe_kernel_posterior_tensor_fn( betalogtau_dist, layer_nu , model_global_c, output_count, kernel_shape, inp_channels, tape=None, conv_layer=1, obj=None ):
+def horsehoe_kernel_posterior_tensor_fn( dist, layer_nu , model_global_c, output_count, kernel_shape, inp_channels, tape=None, conv_layer=1, obj=None,
+                                        factorised_beta=None, factorised_tau=None, factorised_nu=None ):
     """
         :param filter_shape list: [h, w]
     """
-    #TODO: use tf.case methodology here as opposed to passing in layer_nu, input_count, output_count and kernel hape
-    _samples = betalogtau_dist.sample()
+        
+    if( obj.model_params['var_model_type'] == "horseshoe_structured"): 
+        _samples = dist.sample()
+        beta = _samples[ : , :-1 ] 
+        taus_local_scale = tf.math.exp(_samples[ : , -1: ])
 
-    beta = _samples[ : , :-1 ] 
-    taus_local_scale = tf.math.exp(_samples[ : , -1: ])
+        def f1(): obj.conv1_Beta, obj.conv1_taus, obj.conv1_beta_logtau = beta,  taus_local_scale, _samples
+        def f2(): obj.conv2_Beta, obj.conv2_taus, obj.conv2_beta_logtau = beta,  taus_local_scale, _samples
+        tf.case( [ (tf.equal(conv_layer,tf.constant(1)),f1), (tf.equal(conv_layer,tf.constant(2)), f2) ], exclusive=True )
 
-    def f1(): obj.conv1_Beta, obj.conv1_taus, obj.conv1_beta_logtau = beta,  taus_local_scale, _samples
-    def f2(): obj.conv2_Beta, obj.conv2_taus, obj.conv2_beta_logtau = beta,  taus_local_scale, _samples
-    tf.case( [ (tf.equal(conv_layer,tf.constant(1)),f1), (tf.equal(conv_layer,tf.constant(2)), f2) ], exclusive=True )
+        #creating the non_centred_version of tau
+        model_global_c2 = tf.square( model_global_c )
+        taus_local_scale_2 = tf.square( taus_local_scale )
+        layer_nu_2 = tf.square( layer_nu )
+        taus_local_scale_regularlized = tf.math.sqrt( tf.math.divide( model_global_c2 * taus_local_scale_2, model_global_c2 + taus_local_scale_2*layer_nu_2 ) )
 
-    #creating the non_centred_version of tau
-    model_global_c2 = tf.square( model_global_c )
-    taus_local_scale_2 = tf.square( taus_local_scale )
-    layer_nu_2 = tf.square( layer_nu )
-    taus_local_scale_regularlized = tf.math.sqrt( tf.math.divide( model_global_c2 * taus_local_scale_2, model_global_c2 + taus_local_scale_2*layer_nu_2 ) )
+        _weights = tf.multiply( tf.multiply( beta,  taus_local_scale_regularlized), layer_nu ) #TODO:(akanni-ade) check this formula is correct #shape(10, 153)
+            #shape ([filter_height, filter_width, in_channels, output_channels]) 
+        _weights = tf.transpose( _weights )         
 
-    _weights = tf.multiply( tf.multiply( beta,  taus_local_scale_regularlized), layer_nu ) #TODO:(akanni-ade) check this formula is correct #shape(10, 153)
-        #shape ([filter_height, filter_width, in_channels, output_channels]) 
-    _weights = tf.transpose( _weights )         
+        _weights = tf.reshape( _weights, [kernel_shape[0], kernel_shape[1], inp_channels, output_count] ) 
+    
+    elif(obj.model_params['var_model_type'] == "horseshoe_factorized"):
+        #creating the non_centred_version of tau
+        model_global_c2 = tf.square( model_global_c )
+        taus_local_scale_2 = tf.square( factorised_tau )
+        layer_nu_2 = tf.square( factorised_nu )
+        taus_local_scale_regularlized = tf.math.sqrt( tf.math.divide( model_global_c2 * taus_local_scale_2, model_global_c2 + taus_local_scale_2*layer_nu_2 ) )
 
-    _weights = tf.reshape( _weights, [kernel_shape[0], kernel_shape[1], inp_channels, output_count] ) 
+        _weights = tf.multiply( tf.multiply( factorised_beta,  taus_local_scale_regularlized), factorised_nu ) #TODO:(akanni-ade) check this formula is correct #shape(10, 153)
+            #shape ([filter_height, filter_width, in_channels, output_channels]) 
+        _weights = tf.transpose( _weights )         
+
+        _weights = tf.reshape( _weights, [kernel_shape[0], kernel_shape[1], inp_channels, output_count] ) 
+
     return _weights #shape (filter_height, filter_width, k , inp_channels)
 
 def HalfCauchy_Guassian_posterior_distribution(obj):

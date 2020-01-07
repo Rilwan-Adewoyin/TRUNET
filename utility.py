@@ -1,6 +1,9 @@
 import numpy as np
 import math
 import tensorflow as tf
+import sys
+import os
+import argparse
 
 #precip data import - use in data pipeline
 def read_prism_precip(bil_path, hdr_path=None, hdr_known=True, tensorf = True):
@@ -66,6 +69,14 @@ def replace_inf_nan(_tensor):
     _tensor = tf.where( bool_ind_tf, tf.constant(0.0,dtype=tf.float32), _tensor )
     return tf.dtypes.cast(_tensor, dtype=tf.float32)
 
+def get_script_directory(_path):
+    if(_path==None):
+        _path = sys.argv[0]
+    _path = os.path.realpath(_path)
+    if os.path.isdir(_path):
+        return _path
+    else:
+        return os.path.dirname(_path)
 
 # Methods Related to Training
 def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoch, val_metric_mse_mean, ckpt_manager_epoch, train_params, model_params  ):
@@ -86,12 +97,28 @@ def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoc
         df_training_info = df_training_info.append( other={ 'Epoch':epoch,'Train_loss_MSE':train_metric_mse_mean_epoch.result().numpy(), 'Val_loss_MSE':val_metric_mse_mean.result().numpy(),
                                                             'Checkpoint_Path': ckpt_save_path, 'Last_Trained_Batch':-1 }, ignore_index=True ) #A Train batch of -1 represents final batch of training step was completed
 
-        print("\nTop {} Performance Scores".format(train_params['checkpoints_to_keep']))
+        print("\nTop {} Performance Scores".format(5))
         print(df_training_info[['Epoch','Val_loss_MSE']] )
-        df_training_info = df_training_info.sort_values(by=['Val_loss_MSE'], ascending=True)
+        df_training_info = df_training_info.sort_values(by=['Val_loss_MSE'], ascending=True)[:5]
         df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores_model_{}.csv".format(model_params['model_name'],train_params['model_version']), header=True, index=False ) #saving df of scores                      
     return df_training_info
 
 
 def kl_loss_weighting_scheme( max_batch ):
     return 1/max_batch
+
+# passing arguments to script
+def parse_arguments(s_dir=None):
+    parser = argparse.ArgumentParser(description="Receive input params")
+
+    parser.add_argument('-dd','--data_dir', type=str, help='the directory for the Data', required=False,
+                        default='./Data')
+    parser.add_argument('-vmt','--var_model_type', type=str, help="Type of Bnn to use", required=False, default="guassian_factorized",
+                                choices=["guassian_factorized", "horsehoe_factorized", "horseshoe structured" ] )                   
+        
+    
+    #parser.add_argument('-mv', '--model_version', type=str, help="Name for the model, used to help in saving predictions and related files", required=False, default="0")
+
+    args_dict = vars(parser.parse_args() )
+
+    return args_dict
