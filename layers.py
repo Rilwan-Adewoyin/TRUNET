@@ -1,4 +1,5 @@
 import tensorflow as tf
+import tensor2tensor as t2t #NOTE: using tensor2tensors implementation, may cause tensorflow2 incompatibility bugs
 import tensorflow_probability as tfp
 try:
     import tensorflow_addons as tfa
@@ -19,11 +20,14 @@ import pickle
 import math
 import numpy as np
 
+from tf.keras.layers.Layers import Bidirectional, ConvLSTM2D
+from t2t.common_attention import multihead_attention
+
 
 
 import time
 
-    
+# region DeepSD layers    
 class SRCNN( tf.keras.layers.Layer ):
     """ 
         Super Resolution Convolutional Module
@@ -124,8 +128,6 @@ class SRCNN( tf.keras.layers.Layer ):
             self.conv2._built_bias_divergence = False
             self.conv3._built_kernel_divergence = False
             self.conv3._built_bias_divergence = False
-
-
 
         if self.model_params['var_model_type'] in ['horseshoe_factorized','horseshoe_structured']:
             if pred==False:
@@ -603,3 +605,171 @@ def HalfCauchy_Guassian_posterior_tensor_fn(obj, dist_weights, kernel_shape, inp
     _weights = tf.reshape( _weights, [kernel_shape[0], kernel_shape[1], inp_channels, 1] )
     obj.conv3_weights = _weights
     return _weights
+
+
+# endregion
+
+# region THST layers
+class THST_Encoder(tf.keras.layers.Layer ):
+    def __init__(self, encoder_params):
+        super( THST_Encoder, self ).__init__()
+        self.encoder_params = encoder_params
+        self.train_params = train_params
+
+        #TODO: REFACTOR so that each of these conv layers is made automatically using a forloop and and iterating through a dictionary of params
+        self.CLSTM_1 = THST_CLSTM_Input_Layer( )
+        self.CLSTM_2 = THST_CLSTM_Attention_Layer( )
+        self.CLSTM_3 = THST_CLSTM_Attention_Layer( )
+    
+    def call(_input):
+        """
+            _input #shape( )
+        """
+        hidden_states_1 =  self.CLSTM_1( _input, )
+
+        hidden_states_2 = self.CLSTM_2( hidden_states_1,  )
+
+        hidden_states_3 = self.CLSTM_3( hidden_states_2, ) # year Level
+
+        return ( last_cell_state_1, hidden_states_1[-1:, :, :], last_cell_state_2, hidden_states_2[-1:, :, :], last_cell_state_3, last_hidden_states_3 )    
+
+
+class THST_Decoder(tf.keras.layers.Layer):
+    def __init__(self, decoder_params):
+        """
+        :param list decoder_params: a list of dictionaries of the contained LSTM's params
+        """
+        super( THST_Decoder, self ).__init__()
+        self.decoder_params = decoder_params
+        self.train_params = train_params
+
+        #TODO: REFACTOR so that each of these conv layers is made automatically using a forloop and and iterating through a dictionary of params
+        self.CLSTM_1 = THST_CLSTM_Output_Layer( self.decoder_params[0] )
+        self.CLSTM_2 = THST_CLSTM_Output_Layer( self.decoder_params[1] )
+        self.output_layer = THST_OutputLayer(   self.decoder_params[2] )
+
+        
+
+    
+    def call( model_fields,   ):
+
+        #NOTE: make sure to include some sort of iterative reduction of span in each descent in decoder level
+
+        hidden_states_2 = self.CLSTM_2( encdr_hidden_states_3, encdr_hidden_states_2, return_hidden_states=True ) #(bs, output_len2, height, width)
+
+        hidden_states_1 = self.CLSTM_1( hidden_states_2, encdr_hidden_states_1, return_hidden_states=True )       #(bs, output_len1, height, width)     
+
+        output = output_layer( hidden_states_1 ) #(bs, output_len1, height, width)
+
+        return output
+
+class THST_CLSTM_Input_Layer(tf.keras.layers.Layer):
+    """
+        This corresponds to the lower input layer
+        rmrbr to add spatial LSTM
+    """
+    def __init__(self, train_params, model_params, layer_params ):
+        super( THST_CLSTM_Input_Layer, self ).__init__()
+        
+        self.model_params = model_params
+        self.train_params = train_params
+        self.layer_params = layer_params #list of dictionaries containing params for all layers
+
+        self.convLSTM = Bidirectional( ConvLSTM2D( **self.layer_params[0] ), merge_mode='concat' ) 
+
+    def call( self, _input ):
+        #NOTE: consider addding multiple LSTM Layers to extract more latent features
+
+        hidden_states = ConvLSTM2D( _input )
+
+        return hidden_states
+
+
+class THST_CLSTM_Attention_Layer(tf.keras.layers.Layer):
+    """
+        This corresponds to all layers which use attention to weight the inputs
+    """
+    def __init__(self, train_params, model_params, layer_params ):
+        super( THST_CLSTM_Attention_Layer, self ).__init__()
+
+        self.model_params = model_params
+        self.train_params = train_params
+        self.layer_params = layer_params #list of dictionaries containing params for all layers
+
+        self.convLSTM = Bidirectional( ConvLSTM2D( **self.layer_params[0] ), merge_mode='concat' ) #stateful possibly set to True
+        self.Attention2D = 
+
+    
+    def call(self, input_hidden_states, num_of_splits):
+        """
+        1) Break the hidden_states into chunks compatible with the number of CLSTM cells in this layer
+        2a) DO Self attention on them to extract alternative pattern
+        2b) Use the initial cell state (or hidden state) of the of the LSTMcellas 
+        """
+        chunked_inp_hid_states = tf.split( input_hidden_states, num_or_size_splits=num_of_splits ,axis=1 ) #axis=1, split along non batch dimension
+
+        for idx in tf.range(num_of_splits):
+            (hidden_states, cell_states) = self.convLSTM.states
+
+
+
+
+
+class THST_CLSTM_Output_Layer(tf.keras.layers.Layer):
+    def __init__(self, layer_params ):
+        super( THST_CLSTM_Output_Layer, self ).__init__()
+        #TODO: Add
+        self.layer_params = layer_params
+
+        self.convLSTM =  tf.keras.layers.Bidirectional( tf.keras.layers.ConvLSTM2D( **layer_params ) , merge_mode='concat')
+    
+    def call( input):
+        
+        x = convLSTM(  )
+
+class THST_OutputLayer(tf.keras.layers.Layer):
+    def __init__(self, layer_params):
+        """
+            :param list layer_params: a list of dicts of params for the layers
+        """
+        self.dense_hidden = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( layer_params[0], activation='relu' ) )
+        self.dense_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( layer_params[1], activation='relu' ) )
+    
+    def call( inputs ):
+        x = self.dense_hidden(inputs)
+        output = self.dense_output(inputs) #shape (bs, height, width)
+
+
+class MultiHead2DAttention(tf.keras.layers.Layer):
+    def __init__(self, layer_params):
+        
+        self.layer_params = layer_params
+        #NOTE: layer params below to be moved to hparameters 
+        layer_params = {
+            bias = None,
+            total_key_depth= ,
+            total_value_depth =,
+            output_depth = ,
+            num_heads = ,
+            dropout_rate = 0.0,
+            add_relative_to_values = False,
+            image_shapes = ,
+            
+            area_key_mode = ,
+            max_area_width =,
+            max_area_height = ,
+            
+
+
+        }
+
+    def call(self, queries, values):
+        #https://github.com/tensorflow/tensor2tensor/blob/master/tensor2tensor/layers/common_attention.py
+        
+        x = multihead_attention(
+            query_antecedent = ,
+            memory_antecedent = ,
+            
+        )
+
+

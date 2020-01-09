@@ -30,19 +30,19 @@ import data_generators
 # endregion
 
 # region train 
-def train_loop(train_params, model_params):
+def train_loop(train_params, model_params): 
     print("GPU Available: ", tf.test.is_gpu_available() )
     
     # region ----- Defining Model /Optimizer / Losses / Metrics / Records
     model = models.model_loader(train_params, model_params)
-    if type(model_params == list):
+    if type(model_params) == list:
         model_params = model_params[0]
 
     if tfa==None:
-        optimizer = tf.keras.optimizers.Adam( learning_rate=1e-3, beta_1=0.1, beta_2=0.99, epsilon=1e-5 )
+        optimizer = tf.keras.optimizers.Adam( learning_rate=1e-4, beta_1=0.1, beta_2=0.99, epsilon=1e-5 )
     else:
-        radam = tfa.optimizers.RectifiedAdam( learning_rate=2e-3, total_steps=500, warmup_proportion=0.5, min_lr=1e-2, beta_1=0.9, beta_2=0.99, epsilon=1e-5 )
-        optimizer = tfa.optimizers.Lookahead(radam, sync_period = 3, slow_step_size=0.5)
+        radam = tfa.optimizers.RectifiedAdam( learning_rate=2e-4, total_steps=500, warmup_proportion=0.5, min_lr=1e-4, beta_1=0.9, beta_2=0.99, epsilon=1e-5 )
+        optimizer = tfa.optimizers.Lookahead(radam, sync_period = 7, slow_step_size=0.5)
 
     train_metric_mse_mean_groupbatch = tf.keras.metrics.Mean(name='train_loss_mse_obj')
     train_metric_mse_mean_epoch = tf.keras.metrics.Mean(name="train_loss_mse_obj_epoch")
@@ -67,7 +67,7 @@ def train_loop(train_params, model_params):
         os.makedirs(checkpoint_path_epoch)
         
     ckpt_epoch = tf.train.Checkpoint(att_con=model, optimizer=optimizer)
-    ckpt_manager_epoch = tf.train.CheckpointManager(ckpt_epoch, checkpoint_path_epoch, max_to_keep=train_params['checkpoints_to_keep'], keep_checkpoint_every_n_hours=None)    
+    ckpt_manager_epoch = tf.train.CheckpointManager(ckpt_epoch, checkpoint_path_epoch, max_to_keep=train_params['epochs'], keep_checkpoint_every_n_hours=None)    
      
         # (For Batches)
     checkpoint_path_batch = "checkpoints/{}/batch/{}".format(model_params['model_name'],train_params['model_version'])
@@ -138,7 +138,7 @@ def train_loop(train_params, model_params):
         epoch_finished = False  
         while(epoch_finished==False):
 
-            print("\nStarting EPOCH {} Batch {}/{}".format(epoch, batches_to_skip+1, train_set_size_batches))
+            print("\n\nStarting EPOCH {} Batch {}/{}".format(epoch, batches_to_skip+1, train_set_size_batches))
             with writer.as_default():
                 iter_train = iter(ds_train)
                 iter_val = iter(ds_val)
@@ -152,10 +152,11 @@ def train_loop(train_params, model_params):
                             #tf.summary.trace_on(graph=True, profiler=False )
                             preds = model( feature, tape=tape ) #shape batch_size, output_h, output_w, 1 #TODO Debug, remove tape variable from model later
                             #noise_std = tfd.HalfNormal(scale=5)     #TODO(akanni-ade): remove (mask) eror for predictions that are water i.e. null, through water_mask
+                            preds = utility.water_mask( tf.squeeze(preds), train_params['bool_water_mask'])
                             preds = tf.reshape( preds, [train_params['batch_size'], -1] )       #TODO:(akanni-ade) This should decrease exponentially during training #RESEARCH: NOVEL Addition #TODO:(akanni-ade) create tensorflow function to add this
                             target = tf.reshape( target, [train_params['batch_size'], -1] )     #NOTE: In the original Model Selection paper they use Guassian Likelihoods for loss with a precision (noise_std) that is Gamma(6,6)
                             
-                            preds_distribution_norm = tfd.Normal( loc=preds, scale= 0.125)#noise_std.sample() )  #The sample here should be dependent on previous model loss, relative to maybe KL term
+                            preds_distribution_norm = tfd.Normal( loc=preds, scale= 0.1)#noise_std.sample() )  #The sample here should be dependent on previous model loss, relative to maybe KL term
                                                             
                             log_likelihood = tf.reduce_mean( preds_distribution_norm.log_prob( target ),axis=-1 ) #This represents the expected log_likelihood corresponding to each target y_i in the mini batch
 
@@ -172,6 +173,8 @@ def train_loop(train_params, model_params):
                             print("debug here and inspect kl_loss and what terms caused it") 
 
                         gradients = tape.gradient( var_free_nrg_loss, model.trainable_variables )
+                        #optimizer.apply_gradients( zip( gradients, model.trainable_variables ) )
+
                         #gradients = [ tf.clip_by_value(grad, -1, 1 ) for grad in gradients ]
                         gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, train_params['gradients_clip_norm'])
                         optimizer.apply_gradients( zip( gradients_clipped_global_norm, model.trainable_variables ) )
@@ -228,6 +231,7 @@ def train_loop(train_params, model_params):
                     if(train_set_size_batches+1<= batch <= train_set_size_batches + val_set_size_batches  ):
                         feature, target = next(iter_val)
                         preds = model( feature )
+                        preds = utility.water_mask( tf.squeeze(preds), train_params['bool_water_mask'])
                         val_metric_mse_mean( tf.keras.metrics.MSE( tf.squeeze(preds) , target )  )
                         
                         if  ( (batch-train_set_size_batches) % val_batch_reporting_freq) ==0 or batch==(train_set_size_batches+ val_set_size_batches) :
@@ -261,8 +265,9 @@ def train_loop(train_params, model_params):
 
 
 if __name__ == "__main__":
+    s_dir = utility.get_script_directory(sys.argv[0])
 
-    args_dict = utility.parse_arguments()
+    args_dict = utility.parse_arguments(s_dir)
 
     train_params = hparameters.train_hparameters( **args_dict )
 

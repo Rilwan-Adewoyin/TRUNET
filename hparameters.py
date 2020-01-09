@@ -1,7 +1,9 @@
 import numpy as np
 import tensorflow as tf
 from operator import itemgetter
-TOTAL_DATUMS = 25574
+import pandas as pd
+from datetime import datetime
+import pickle
 
 class HParams():
     
@@ -33,15 +35,15 @@ class model_deepsd_hparameters(HParams):
 
         #TODO: (change filter sizes back to the ones used in the paper)
 
-        CONV1_params = {    'filters':4,
-                            'kernel_size': [3,3] , #TODO:use size from paper later
+        CONV1_params = {    'filters':45,
+                            'kernel_size': [5,5] , #TODO:use size from paper later
                             'activation':'relu',
                             'padding':'same',
                             'data_format':'channels_last',
                             'name':"Conv1" }
 
         conv2_kernel_size = np.ceil( np.ceil( np.array(output_dims)/np.array(input_dims) )*1.5 )  #This makes sure that each filter in conv2, sees at least two of the real non zero values. The zero values occur due to the upscaling
-        CONV2_params = {    'filters':6,
+        CONV2_params = {    'filters':25,
                             'kernel_size':  conv2_kernel_size.astype(np.int32).tolist() , #TODO:use size from paper later
                             #each kernel covers 2 non original values from the upsampled tensor
                             'activation':'relu',
@@ -60,7 +62,7 @@ class model_deepsd_hparameters(HParams):
 
         CONV3_params = {
                             'filters':1,
-                            'kernel_size':[2,2], #TODO:use size from paper later
+                            'kernel_size':[3,3], #TODO:use size from paper later
                             'activation':'relu',
                             'padding':'same',
                             'data_format':'channels_last',
@@ -117,14 +119,15 @@ class train_hparameters(HParams):
         # region default params 
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE,
         EPOCHS = 200
-        CHECKPOINTS_TO_KEEP = EPOCHS
-        MODEL_VERSION = 3
+        CHECKPOINTS_TO_KEEP = 3
+        MODEL_VERSION = 4
         TOTAL_DATUMS = 3650 #10 years worth of data apparently
         TRAIN_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS*0.6)
         VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS*0.2)
-        BATCH_SIZE = 50
+        BATCH_SIZE = 15
         DATA_DIR = "./Data"
-        EARLY_STOPPING_PERIOD = 25
+        EARLY_STOPPING_PERIOD = 10
+        BOOL_WATER_MASK = pickle.load( open( "Images/water_mask_156_352.dat","rb" ) )
 
 
         #endregion
@@ -143,14 +146,16 @@ class train_hparameters(HParams):
 
             'model_version':MODEL_VERSION,
             
-            'dataset_trainval_batch_reporting_freq':0.25,
+            'dataset_trainval_batch_reporting_freq':0.5,
             'num_parallel_calls':NUM_PARALLEL_CALLS,
 
             'gradients_clip_norm':50.0,
 
             'train_monte_carlo_samples':1,
 
-            'data_dir': DATA_DIR
+            'data_dir': DATA_DIR,
+
+            'bool_water_mask': BOOL_WATER_MASK
 
         }
         
@@ -160,9 +165,9 @@ class test_hparameters(HParams):
     
     def _default_params(self):
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
-        MODEL_VERSION = 3
-        BATCH_SIZE = 50
-        N_PREDS = 50
+        MODEL_VERSION = 4
+        BATCH_SIZE = 15
+        N_PREDS = 5
 
         MODEL_RECOVER_METHOD = 'checkpoint_epoch'
     
@@ -171,6 +176,11 @@ class test_hparameters(HParams):
         TEST_SET_SIZE_ELEMENTS = int( TOTAL_DATUMS * 0.2)
         STARTING_TEST_ELEMENT = TOTAL_DATUMS - TEST_SET_SIZE_ELEMENTS
         
+        DATE_TSS = pd.date_range( end=datetime(2015,12,31), periods=TEST_SET_SIZE_ELEMENTS, freq='D',normalize=True).astype('int64').tolist()
+
+        BOOL_WATER_MASK = pickle.load( open( "Images/water_mask_156_352.dat","rb" ) )
+
+
         self.params = {
             'batch_size':BATCH_SIZE,
             'starting_test_element':STARTING_TEST_ELEMENT,
@@ -186,7 +196,12 @@ class test_hparameters(HParams):
             'model_recover_method':MODEL_RECOVER_METHOD,
             'training':TRAINING,
 
-            'script_dir':None
+            'script_dir':None,
+
+            'dates_tss':DATE_TSS,
+
+            'bool_water_mask': BOOL_WATER_MASK
+
         }
         
 

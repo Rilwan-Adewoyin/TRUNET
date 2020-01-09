@@ -3,4 +3,5 @@ Data/
 log_tensorboard/
 log_tensboard/
 mnt/
-checkpoints/checkpoints
+checkpoints/
+Output/

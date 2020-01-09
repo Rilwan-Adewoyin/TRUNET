@@ -96,8 +96,7 @@ def load_data( elements_to_skip, hparams, _num_parallel_calls =tf.data.experimen
         """
         #standardisation and preprocess of nans
         MAX_RAIN = 200 #TODO:(akanni-ade) Find actual max rain
-        arr_images = arr_images / MAX_RAIN
-        arr_images = arr_images + 1 #TODO:(akanni-ade) remember to undo these preprocessing steps when looking to predict the future
+        arr_images = utility.standardize(arr_images)
         arr_images = utility.replace_inf_nan(arr_images)
 
         #features

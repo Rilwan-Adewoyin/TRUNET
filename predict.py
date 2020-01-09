@@ -27,43 +27,52 @@ import models
 import hparameters
 import data_generators
 import util_predict
+import utility
 # endregion
 
 def main( test_params, model_params):
     print("GPU Available: ", tf.test.is_gpu_available() )
 
     # 1) Instantiate Model
-    model, checkpoint_no = util_predict.load_model(test_params, model_params)
+    model, checkpoint_code = util_predict.load_model(test_params, model_params)
 
     # 2) Form Predictions
-    predict(model, test_params, checkpoint_no )
+    predict(model, test_params, checkpoint_code )
 
 def predict( model, test_params, checkpoint_no ):
     
     # region ------ Setting up testing variables
-    upload_size = int(1*3600/6) #3600 seconds in one hour
+    upload_size = int( (test_params['test_set_size_elements']/test_params['batch_size'] )* test_params['dataset_pred_batch_reporting_freq'] )
     li_predictions = [] #This will be a list of list of tensors, each list contain a set of stochastic predictions for the corresponding ts
-    li_timestamps = []
+    li_timestamps = test_params['dates_tss']
+    li_timestamps_chunked = [li_timestamps[i:i+test_params['batch_size']] for i in range(0, len(li_timestamps), test_params['batch_size'])] 
     li_true_values = []
     # endregion
 
     # region ----- Setting up datasets
 
-    ds = data_generators.load_data( test_params['starting_validation_element'], test_params, _num_parallel_calls=test_params['num_parallel_calls']  )
-    iter_pred = iter(ds)
+    ds = data_generators.load_data( test_params['starting_test_element'], test_params, _num_parallel_calls=test_params['num_parallel_calls']  )
+    iter_test = iter(ds)
     #endregion
 
     # region --- predictions
     for batch in range(1, int(1+test_params['test_set_size_elements']/test_params['batch_size']) ):
-        _inputs = next(iter_pred)
-        pred = model.predict( _inputs, test_params['num_preds'] ) # shape (bs ,156,352)
-        li_predictions.append(pred)
+        feature, target = next(iter_test)
+
+        pred = model.predict( feature, test_params['num_preds'] ) # shape (bs ,156,352)
+        pred = utility.water_mask( tf.squeeze(pred), test_params['bool_water_mask'])
+        li_predictions.append(utility.standardize(pred,reverse=True))
+        li_true_values.append(utility.standardize(target,reverse=True) )
+
+
 
         if( len(li_predictions)>=upload_size ):
-            util_predict.save_preds(test_params, model_params, li_predictions, li_timestamps, li_true_values )
+
+            util_predict.save_preds(test_params, model_params, li_predictions, li_timestamps_chunked[:len(li_predictions)], li_true_values )
+            li_timestamps_chunked = li_timestamps_chunked[len(li_predictions):]
             li_predictions = []
-            li_timestamps = []
             li_true_values = []
+            
 
 
 
@@ -72,7 +81,7 @@ def predict( model, test_params, checkpoint_no ):
 if __name__ == "__main__":
     s_dir = utility.get_script_directory(sys.argv[0])
     
-    args_dict = utility.parse_arguments()
+    args_dict = utility.parse_arguments(s_dir)
 
     test_params = hparameters.test_hparameters( **args_dict )
 

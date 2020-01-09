@@ -58,7 +58,6 @@ def read_hdr(hdr_path):
         header_list = input_f.readlines()
     return dict(item.strip().split() for item in header_list)
 
-
 # Miscallaneous
 def replace_inf_nan(_tensor):
     nan_bool_ind_tf = tf.math.is_nan( tf.dtypes.cast(_tensor,dtype=tf.float32 ) )
@@ -82,14 +81,17 @@ def get_script_directory(_path):
 def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoch, val_metric_mse_mean, ckpt_manager_epoch, train_params, model_params  ):
 
     df_training_info = df_training_info[ df_training_info['Epoch'] != epoch ] #rmv current batch records for compatability with code below
-    if( ( val_metric_mse_mean.result().numpy() <= max( df_training_info.loc[ : ,'Val_loss_MSE' ], default= val_metric_mse_mean.result().numpy()+1 ) ) ):
+    
+    if( ( val_metric_mse_mean.result().numpy() < 0.995*max( df_training_info.loc[ : ,'Val_loss_MSE' ], default= val_metric_mse_mean.result().numpy()+1 ) ) ):
+        #NOTE: To prevent model overffitng and a small scale term being approached, we changed this to be at least 
+
         print('Saving Checkpoint for epoch {}'.format(epoch)) 
         ckpt_save_path = ckpt_manager_epoch.save()
 
         
         # Possibly removing old non top5 records from end of epoch
         if( len(df_training_info.index) >= train_params['checkpoints_to_keep'] ):
-            df_training_info = df_training_info.sort_values(by=['Val_loss_MSE'], ascending=False)
+            df_training_info = df_training_info.sort_values(by=['Val_loss_MSE'], ascending=True)
             df_training_info = df_training_info.iloc[:-1]
             df_training_info.reset_index(drop=True)
 
@@ -98,14 +100,41 @@ def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoc
                                                             'Checkpoint_Path': ckpt_save_path, 'Last_Trained_Batch':-1 }, ignore_index=True ) #A Train batch of -1 represents final batch of training step was completed
 
         print("\nTop {} Performance Scores".format(5))
-        print(df_training_info[['Epoch','Val_loss_MSE']] )
         df_training_info = df_training_info.sort_values(by=['Val_loss_MSE'], ascending=True)[:5]
+        print(df_training_info[['Epoch','Val_loss_MSE']] )
         df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores_model_{}.csv".format(model_params['model_name'],train_params['model_version']), header=True, index=False ) #saving df of scores                      
     return df_training_info
 
 
 def kl_loss_weighting_scheme( max_batch ):
     return 1/max_batch
+
+
+#standardising and de-standardizing 
+
+def standardize( _array, reverse=False ):
+    SCALE = 200
+
+    if(reverse==False):
+        _array = _array/SCALE
+    
+    else:
+        _array = _array*SCALE
+    
+    return _array
+
+#masking water
+def water_mask(array, mask, mode=0):
+    #need a mask for mse calculation, train and validation -> in this one just cast them to 0,
+    
+    if mode==0:
+        array=tf.where( mask, array, 0.0 )
+
+    #need a mask for image printing summary
+    elif mode ==1:
+        array = tf.where(mask, array, np.nan )
+    return array
+
 
 # passing arguments to script
 def parse_arguments(s_dir=None):
@@ -114,7 +143,9 @@ def parse_arguments(s_dir=None):
     parser.add_argument('-dd','--data_dir', type=str, help='the directory for the Data', required=False,
                         default='./Data')
     parser.add_argument('-vmt','--var_model_type', type=str, help="Type of Bnn to use", required=False, default="guassian_factorized",
-                                choices=["guassian_factorized", "horsehoe_factorized", "horseshoe structured" ] )                   
+                                choices=["guassian_factorized", "horsehoe_factorized", "horseshoe structured" ] )
+
+    parser.add_argument('-sdr','--script_dir', type=str, help="Directory for code", required=False, default=s_dir )                                      
         
     
     #parser.add_argument('-mv', '--model_version', type=str, help="Name for the model, used to help in saving predictions and related files", required=False, default="0")
