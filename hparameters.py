@@ -4,6 +4,7 @@ from operator import itemgetter
 import pandas as pd
 from datetime import datetime
 import pickle
+from functools import reduce
 
 class HParams():
     
@@ -109,6 +110,112 @@ class model_deepsd_hparameters(HParams):
             'conv3_output_node_count':conv3_output_node_count,
             'conv3_inp_channels':conv3_inp_channels
         }
+
+
+class model_THST_hparameters(HParams):
+
+    def __init__(self, **kwargs):
+        """ 
+            Hierachical 2D Convolution Model
+        """
+
+        super( model_THST_hparameters, self ).__init__(**kwargs)
+
+
+    def _default_params(self):
+        
+        # region general params
+        DROPOUT = 0.05
+        SEQ_LEN_FACTOR_REDUCTION = [30, 4 ] #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
+        seq_len_for_highest_hierachy_level = 5
+        NUM_OF_SPLITS = [ seq_len_for_highest_hierachy_level*SEQ_LEN_FACTOR_REDUCTION[1] , seq_len_for_highest_hierachy_level ]
+        
+        # end region
+        
+        # region Model Specific Data Generator Params
+        
+        DATA_PIPELINE_PARAMS = {
+            'lookback': reduce( (lambda x,y: x*y ), SEQ_LEN_FACTOR_REDUCTION ) * seq_len_for_highest_hierachy_level
+        }
+        # end region
+
+
+        # region --------------- ENCODER params -----------------
+        encoder_layers = 3
+
+        # region CLSTM params
+        output_filters_enc = [50, 50, 50] #output filters for each convLSTM2D layer in the encoder
+        kernel_size_enc = [ (4,4) , (4,4) , (4,4)]
+
+        CLSTMs_params_enc = [
+            {'filters':f , 'kernel_size':ks, 'padding':'same', 
+                'return_sequences':True, 'dropout':DROPOUT, 'recurrent_dropout':DROPOUT }
+             for f, ks in zip( output_filters_enc, kernel_size_enc)
+        ]
+        # endregion
+
+        # region Attn Params
+        """ These are the params for each attn layer in the encoder"""
+        attn_layers = encoder_layers - 1
+        key_depth = [0, 0] #This will be updated dynamically during the first iteration of the model
+        attn_heads = [ 8, 8 ]
+
+        ATTN_params_enc = [
+            {'bias':None, 'total_key_depth': kd , 'total_value_depth':kd , 'output_depth': kd   ,
+            'num_heads': nh , 'dropout_rate':DROPOUT, 'attention_type':"dot_product_relative_v2" }
+            for kd, nh in zip( key_depth , attn_heads )
+        ]
+        # endregion
+
+        ENCODER_PARAMS = {
+            'encoder_layers': encoder_layers,
+            'attn_layers': attn_layers,
+            'CLSTMs_params' : CLSTMs_params_enc,
+            'ATTN_params': ATTN_params_enc,
+            'seq_len_factor_reduction': SEQ_LEN_FACTOR_REDUCTION,
+            'num_of_splits': NUM_OF_SPLITS
+            'dropout':DROPOUT
+        }
+        #endregion
+
+        # region --------------- DECODER params -----------------
+        decoder_layers = 2
+        
+        output_filters_dec = [50, 50] #output filters for each convLSTM2D layer in the encoder
+        kernel_size_dec = [ (4,4) , (4,4) ]
+
+        CLSTMs_params_dec = [
+            {'filters':f , 'kernel_size':ks, 'padding':'same', 
+                'return_sequences':True, 'dropout':0.05, 'gates_version':2 }
+             for f, ks in zip( output_filters_dec, kernel_size_dec)
+        ]
+
+        DECODER_PARAMS = {
+            'decoder_layers': decoder_layers,
+            'CLSTMs_params' : CLSTMs_params_dec,
+            'seq_len_factor_reduction': SEQ_LEN_FACTOR_REDUCTION,
+            'num_of_splits': NUM_OF_SPLITS,
+            'dropout':DROPOUT
+        }
+        # endregion
+
+        # region --------------- OUTPUT_LAYER_PARAMS -----------------
+        output_filters = [ 25, 1 ]
+        output_kernel_size = [ (4,4), (5,5) ]
+
+        OUTPUT_LAYER_PARAMS = [ 
+            { "filters":fs, "kernel_size":ks ,  "padding":"same", "activation":'relu' } 
+                for fs, ks in zip( output_filters, output_kernel_size )
+         ]
+        # endregion
+
+        self.params = {
+            'encoder_params':ENCODER_PARAMS,
+            'decoder_params':DECODER_PARAMS,
+            'output_layer_params':OUTPUT_LAYER_PARAMS
+            'data_pipeline_params':DATA_PIPELINE_PARAMS
+        }
+
 
 
 class train_hparameters(HParams):

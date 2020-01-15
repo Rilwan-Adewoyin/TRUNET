@@ -2,7 +2,7 @@ import tensorflow as tf
 import layers
 
 
-def model_loader(train_params, model_params ):
+def model_loader(train_params,model_params ):
     if(model_params[0]['model_name']=="DeepSD"):
         return SuperResolutionModel( train_params, model_params)
 
@@ -41,13 +41,17 @@ class THST(tf.keras.Model):
     def __init__(self, train_params, model_params):
         super(THST, self).__init__()
 
-        self.encoder = layers.THST_Encoder( model_params['encoder_params'] )
-        self.decoder = layers.THST_Decoder( model_params['decoder_params'] )
+        self.encoder = layers.THST_Encoder( train_params, model_params['encoder_params'] )
+        self.decoder = layers.THST_Decoder( train_params, model_params['decoder_params'] )
+        self.output_layer = layers.THST_OutputLayer( train_params, model_params['output_layer_params']  )
 
-    def call(self, input, tape, pred):
+    def call(self, _input, tape=None, pred=False):
         
-        encdr_last_cell_state_1, encdr_last_hstate_1, encdr_last_cell_state_2, encdr_last_hstate_2, encdr_last_cell_state_3, encdr_last_hstate_3 = self.encoder( _input ) 
+        hidden_states_1_enc, hidden_states_2_enc, hidden_states_3_enc = self.encoder( _input )
+        hidden_states_dec = self.decoder( hidden_states_1_enc, hidden_states_2_enc, hidden_states_3_enc )
+        output = self.output_layer(hidden_states_dec)
         
+        return output
 
     def predict( self, inputs, n_preds):
         """
