@@ -51,7 +51,7 @@ def train_loop(train_params, model_params):
     val_metric_mse_mean = tf.keras.metrics.Mean(name='val_metric_mse_obj')
 
     try:
-        df_training_info = pd.read_csv( "checkpoints/{}/checkpoint_scores_model_{}.csv".format(model_params['model_name'],train_params['model_version']), header=0, index_col =False   )
+        df_training_info = pd.read_csv( "checkpoints/{}/checkpoint_scores_model_{}.csv".format(model_params['model_name'],model_params['model_version']), header=0, index_col =False   )
         print("Recovered checkpoint scores model csv")
 
     except Exception as e:
@@ -62,7 +62,7 @@ def train_loop(train_params, model_params):
 
     # region ----- Setting up Checkpoints 
         #  (For Epochs)
-    checkpoint_path_epoch = "checkpoints/{}/epoch/{}".format(model_params['model_name'],train_params['model_version'])
+    checkpoint_path_epoch = "checkpoints/{}/epoch/{}".format(model_params['model_name'],model_params['model_version'])
     if not os.path.exists(checkpoint_path_epoch):
         os.makedirs(checkpoint_path_epoch)
         
@@ -70,7 +70,7 @@ def train_loop(train_params, model_params):
     ckpt_manager_epoch = tf.train.CheckpointManager(ckpt_epoch, checkpoint_path_epoch, max_to_keep=train_params['epochs'], keep_checkpoint_every_n_hours=None)    
      
         # (For Batches)
-    checkpoint_path_batch = "checkpoints/{}/batch/{}".format(model_params['model_name'],train_params['model_version'])
+    checkpoint_path_batch = "checkpoints/{}/batch/{}".format(model_params['model_name'],model_params['model_version'])
     if not os.path.exists(checkpoint_path_batch):
         os.makedirs(checkpoint_path_batch)
         #Create the checkpoint path and the checpoint manager. This will be used to save checkpoints every n epochs
@@ -108,8 +108,8 @@ def train_loop(train_params, model_params):
     # endregion
 
     # region --- Tensorboard
-    os.makedirs("log_tensboard/{}/{}".format(model_params['model_name'],train_params['model_version']), exist_ok=True )
-    writer = tf.summary.create_file_writer( "log_tensboard/{}/{}/tblog".format(model_params['model_name'], train_params['model_version']) )
+    os.makedirs("log_tensboard/{}/{}".format(model_params['model_name'],model_params['model_version']), exist_ok=True )
+    writer = tf.summary.create_file_writer( "log_tensboard/{}/{}/tblog".format(model_params['model_name'], model_params['model_version']) )
     # endregion
 
     # region --- Train and Val
@@ -130,8 +130,15 @@ def train_loop(train_params, model_params):
         #endregion
 
         #region Setting up Datasets
-        ds_train = data_generators.load_data( batches_to_skip*train_params['batch_size'], train_params  )
-        ds_val = data_generators.load_data( train_set_size_batches*train_params['batch_size'], train_params )
+        if( model_params['model_name'] == "DeepSD" ):
+            ds_train = data_generators.load_data_vandal( batches_to_skip*train_params['batch_size'], train_params  )
+            ds_val = data_generators.load_data_vandal( train_set_size_batches*train_params['batch_size'], train_params )
+
+        elif( model_params['model_name'] == "THST" ):
+
+            ds_train = data_generators.load_data_ati(train_params, model_params, day_to_start_at=train_params['train_start_date'] )
+            ds_val = data_generators.load_data_ati(train_params, model_params, day_to_start_at=train_params['val_start_date'] )
+
         #endregion
 
         batch=0
@@ -146,60 +153,78 @@ def train_loop(train_params, model_params):
                 for batch in range(1+batches_to_skip,2+train_set_size_batches+val_set_size_batches):
                     # region Train Loop
                     if(batch<=train_set_size_batches):
-                        feature, target = next(iter_train) #shape( (bs, 39, 88, 17 ) (bs,156,352) )
+                        feature, target = next(iter_train)  #ATI- ( (feature,mask), (target) ) V-shape( (bs, 39, 88, 17 ) (bs,156,352) )
                         
                         with tf.GradientTape(persistent=True) as tape:
-                            #tf.summary.trace_on(graph=True, profiler=False )
-                            preds = model( feature, tape=tape ) #shape batch_size, output_h, output_w, 1 #TODO Debug, remove tape variable from model later
-                            #noise_std = tfd.HalfNormal(scale=5)     #TODO(akanni-ade): remove (mask) eror for predictions that are water i.e. null, through water_mask
-                            preds = utility.water_mask( tf.squeeze(preds), train_params['bool_water_mask'])
-                            preds = tf.reshape( preds, [train_params['batch_size'], -1] )       #TODO:(akanni-ade) This should decrease exponentially during training #RESEARCH: NOVEL Addition #TODO:(akanni-ade) create tensorflow function to add this
-                            target = tf.reshape( target, [train_params['batch_size'], -1] )     #NOTE: In the original Model Selection paper they use Guassian Likelihoods for loss with a precision (noise_std) that is Gamma(6,6)
-                            
-                            preds_distribution_norm = tfd.Normal( loc=preds, scale= 0.1)#noise_std.sample() )  #The sample here should be dependent on previous model loss, relative to maybe KL term
-                                                            
-                            log_likelihood = tf.reduce_mean( preds_distribution_norm.log_prob( target ),axis=-1 ) #This represents the expected log_likelihood corresponding to each target y_i in the mini batch
+                            if model_params['model_name'] == "DeepSD":
+                                preds = model( feature, tape=tape ) #shape batch_size, output_h, output_w, 1 #TODO Debug, remove tape variable from model later
+                                #noise_std = tfd.HalfNormal(scale=5)     #TODO(akanni-ade): remove (mask) eror for predictions that are water i.e. null, through water_mask
+                                preds = utility.water_mask( tf.squeeze(preds), train_params['bool_water_mask'])
+                                preds = tf.reshape( preds, [train_params['batch_size'], -1] )       #TODO:(akanni-ade) This should decrease exponentially during training #RESEARCH: NOVEL Addition #TODO:(akanni-ade) create tensorflow function to add this
+                                target = tf.reshape( target, [train_params['batch_size'], -1] )     #NOTE: In the original Model Selection paper they use Guassian Likelihoods for loss with a precision (noise_std) that is Gamma(6,6)
+                                
+                                preds_distribution_norm = tfd.Normal( loc=preds, scale= 0.1)#noise_std.sample() )  #The sample here should be dependent on previous model loss, relative to maybe KL term
+                                                                
+                                log_likelihood = tf.reduce_mean( preds_distribution_norm.log_prob( target ),axis=-1 ) #This represents the expected log_likelihood corresponding to each target y_i in the mini batch
 
-                            kl_loss_weight = utility.kl_loss_weighting_scheme(train_set_size_batches) 
-                            kl_loss = tf.math.reduce_sum( model.losses ) * kl_loss_weight * (1/train_params['train_monte_carlo_samples'])  #This KL-loss is already normalized against the number of samples of weights drawn #TODO: Later implement your own Adam type method to determine this
-                            
-                            var_free_nrg_loss = kl_loss  - tf.reduce_sum(log_likelihood)/train_params['batch_size'] 
+                                kl_loss_weight = utility.kl_loss_weighting_scheme(train_set_size_batches) 
+                                kl_loss = tf.math.reduce_sum( model.losses ) * kl_loss_weight * (1/train_params['train_monte_carlo_samples'])  #This KL-loss is already normalized against the number of samples of weights drawn #TODO: Later implement your own Adam type method to determine this
+                                
+                                var_free_nrg_loss = kl_loss  - tf.reduce_sum(log_likelihood)/train_params['batch_size'] 
 
-                            metric_mse = tf.reduce_sum( tf.keras.losses.MSE( target , preds ) )
+                                metric_mse = tf.reduce_sum( tf.keras.losses.MSE( target , preds ) )
+
+                                gradients = tape.gradient( var_free_nrg_loss, model.trainable_variables )
+
+                            
+                            elif model_params['model_name'] == "THST" and model_params['stochastic'] ==False: #non stochastic version
+                                feature, mask = feature
+
+                                preds = model(feature, tape=tape )
+
+                                preds_filtrd = tf.boolean_mask( preds, tf.logical_not(mask) )
+                                target_filtrd = tf.boolean_mask( preds, tf.logical_not(mask) )
+
+                                loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd)
+                                metric_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd)
+
+                                gradients = tape.gradient( loss_mse, model.trainable_variables )
+
+
                         
-                        try:
-                            a = tf.debugging.check_numerics( var_free_nrg_loss,"nan now" )
-                        except tf.errors.InvalidArgumentError as e1:
-                            print("debug here and inspect kl_loss and what terms caused it") 
-
-                        gradients = tape.gradient( var_free_nrg_loss, model.trainable_variables )
-                        #optimizer.apply_gradients( zip( gradients, model.trainable_variables ) )
-
-                        #gradients = [ tf.clip_by_value(grad, -1, 1 ) for grad in gradients ]
-                        gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, train_params['gradients_clip_norm'])
+                        gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, model_params['gradients_clip_norm'] )
                         optimizer.apply_gradients( zip( gradients_clipped_global_norm, model.trainable_variables ) )
                         
                         #region Tensorboard Update
                         step = batch + (epoch-1)*train_set_size_batches
-                        tf.summary.scalar('train_loss_var_free_nrg', var_free_nrg_loss , step =  step )
-                        tf.summary.scalar('kl_loss', kl_loss, step=step )
-                        tf.summary.scalar('neg_log_likelihood', - tf.reduce_sum(log_likelihood)/train_params['batch_size'], step=step )
-                        tf.summary.scalar('train_metric_mse', metric_mse , step = step )
+                        if( model_params['stochastic']==True ):
+                            tf.summary.scalar('train_loss_var_free_nrg', var_free_nrg_loss , step =  step )
+                            tf.summary.scalar('kl_loss', kl_loss, step=step )
+                            tf.summary.scalar('neg_log_likelihood', - tf.reduce_sum(log_likelihood)/train_params['batch_size'], step=step )
+                            tf.summary.scalar('train_metric_mse', metric_mse , step = step )
                         
+                        else:
+                            tf.summary.scalar('train_loss_mse', loss_mse , step = step )
+                            tf.summary.scalar('train_metric_mse', metric_mse , step = step )
+          
+
                         for grad, grad_clipped, _tensor in zip( gradients, gradients_clipped_global_norm ,model.trainable_variables):
                             if grad is not None:
                                 tf.summary.histogram( "Grad:{}".format( _tensor.name ) , grad, step = step  )
                                 tf.summary.histogram( "Grads_Norm:{}".format( _tensor.name ) , grad_clipped, step = step )
                                 tf.summary.histogram( "Weights:{}".format(_tensor.name), _tensor , step = step )
                                 
-                        #tf.summary.trace_export( "Graph", step=step, profiler_outdir="log_tensboard/{}/{}/tblog".format(model_params['model_name'],train_params['model_version']) )
+                        #tf.summary.trace_export( "Graph", step=step, profiler_outdir="log_tensboard/{}/{}/tblog".format(model_params['model_name'],model_params['model_version']) )
                         #endregion
 
                         #region training Reporting and Metrics updates
-                        train_loss_var_free_nrg_mean_groupbatch( var_free_nrg_loss )
-                        train_loss_var_free_nrg_mean_epoch( var_free_nrg_loss )
-                        train_metric_mse_mean_groupbatch( metric_mse )
-                        train_metric_mse_mean_epoch( metric_mse )
+                        if( model_params['stochastic']==True ):
+                            train_loss_var_free_nrg_mean_groupbatch( var_free_nrg_loss )
+                            train_loss_var_free_nrg_mean_epoch( var_free_nrg_loss )
+                            train_metric_mse_mean_groupbatch( metric_mse )
+                            train_metric_mse_mean_epoch( metric_mse )
+                        else:
+                            train_metric_mse_mean_groupbatch( metric_mse )
                                                     
                         ckpt_manager_batch.save()
                         if( (batch%train_batch_reporting_freq)==0):
@@ -213,7 +238,7 @@ def train_loop(train_params, model_params):
 
                             # Updating record of the last batch to be operated on in training epoch
                         df_training_info.loc[ ( df_training_info['Epoch']==epoch) , ['Last_Trained_Batch'] ] = batch
-                        df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores_model_{}.csv".format(model_params['model_name'],train_params['model_version']), header=True, index=False )
+                        df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores_model_{}.csv".format(model_params['model_name'],model_params['model_version']), header=True, index=False )
                         # endregion
                         
                         continue  
@@ -221,7 +246,11 @@ def train_loop(train_params, model_params):
 
                     # region Transition 
                     if(batch==train_set_size_batches+1):
-                        print('EPOCH {}:\tVAR_FREE_NRG: {:.3f} \tMSE: {:.3f}\tTime: {:.2f}'.format(epoch, train_loss_var_free_nrg_mean_epoch.result() ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
+                        if( model_params['stochastic']==True ):
+                            print('EPOCH {}:\tVAR_FREE_NRG: {:.3f} \tMSE: {:.3f}\tTime: {:.2f}'.format(epoch, train_loss_var_free_nrg_mean_epoch.result() ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
+                        else:
+                            print('EPOCH {}:\tMSE: {:.3f}\tTime: {:.2f}'.format(epoch ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
+
                         print("\nStarting Validation")
                         start_epoch_val = time.time()
                         start_batch_time = time.time()
@@ -230,10 +259,23 @@ def train_loop(train_params, model_params):
                     #region Validation Loop
                     if(train_set_size_batches+1<= batch <= train_set_size_batches + val_set_size_batches  ):
                         feature, target = next(iter_val)
-                        preds = model( feature )
-                        preds = utility.water_mask( tf.squeeze(preds), train_params['bool_water_mask'])
-                        val_metric_mse_mean( tf.keras.metrics.MSE( tf.squeeze(preds) , target )  )
+
+                        if model_params['model_name'] == "DeepSD":
+                            preds = model( feature )
+                            preds = utility.water_mask( tf.squeeze(preds), train_params['bool_water_mask'])
+                            val_metric_mse_mean( tf.keras.metrics.MSE( tf.squeeze(preds) , target )  )
                         
+                        elif model_params['model_name'] == "THST" and model_params['stochastic'] ==False: #non stochastic version
+                            feature, mask = feature
+                            preds = model(feature )
+
+                            preds_filtrd = tf.boolean_mask( preds, tf.logical_not(mask) )
+                            target_filtrd = tf.boolean_mask( preds, tf.logical_not(mask) )
+
+                            val_metric_mse_mean( tf.keras.metrics.MSE( target_filtrd , preds_filtrd )  )
+
+
+
                         if  ( (batch-train_set_size_batches) % val_batch_reporting_freq) ==0 or batch==(train_set_size_batches+ val_set_size_batches) :
                             batches_report_time =  time.time() - start_batch_time
                             est_completion_time_seconds = (batches_report_time/train_params['dataset_trainval_batch_reporting_freq']) *( 1 -  ((batch-train_set_size_batches)/val_set_size_batches ) )
@@ -244,6 +286,7 @@ def train_loop(train_params, model_params):
                             start_batch_time = time.time()
                         continue
                     # endregion
+
                     print("Epoch:{}\t Train MSE:{:.3f}\tValidation Loss: MSE:{:.4f}\tTime:{:.4f}".format(epoch, train_metric_mse_mean_epoch.result(), val_metric_mse_mean.result(), time.time()-start_epoch_val  ) )
                     epoch_finished = True
                     batches_to_skip = 0  
@@ -269,16 +312,22 @@ if __name__ == "__main__":
 
     args_dict = utility.parse_arguments(s_dir)
 
-    train_params = hparameters.train_hparameters( **args_dict )
+    if(args_dict['model_name'] == "DeepSD"):
+        train_params = hparameters.train_hparameters( **args_dict )
 
-    #stacked DeepSd methodology
-    li_input_output_dims = [ {"input_dims": [39, 88 ], "output_dims": [98, 220 ] , 'var_model_type':'guassian_factorized' } ,
-                 {"input_dims": [98, 220 ] , "output_dims": [ 156, 352 ] , 'conv1_inp_channels':1, 'var_model_type':'guassian_factorized' }  ]
+        
+        #stacked DeepSd methodology
+        li_input_output_dims = [ {"input_dims": [39, 88 ], "output_dims": [98, 220 ] , 'var_model_type':'guassian_factorized' } ,
+                    {"input_dims": [98, 220 ] , "output_dims": [ 156, 352 ] , 'conv1_inp_channels':1, 'var_model_type':'guassian_factorized' }  ]
 
-    model_params = [ hparameters.model_deepsd_hparameters(**_dict) for _dict in li_input_output_dims  ]
-    model_params = [ mp() for mp in model_params]
+        model_params = [ hparameters.model_deepsd_hparameters(**_dict) for _dict in li_input_output_dims  ]
+        model_params = [ mp() for mp in model_params]
+    
+    elif(args_dict['model_name'] == "THST"):
 
-    #TrajGRU Methodology
+        train_params = hparameters.train_hparameters_ati( **args_dict )
+        model_params = hparameters.model_THST_hparameters()()
+        
 
     train_loop(train_params(), model_params )
 

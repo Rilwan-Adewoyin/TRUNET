@@ -5,6 +5,9 @@ import layers
 def model_loader(train_params,model_params ):
     if(model_params[0]['model_name']=="DeepSD"):
         return SuperResolutionModel( train_params, model_params)
+    
+    elif(model_params['model_name']=="THST"):
+        return THST(train_params, model_params)
 
 class SuperResolutionModel( tf.keras.Model ):
     def __init__(self, train_params, model_params ):

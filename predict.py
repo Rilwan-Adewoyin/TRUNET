@@ -51,7 +51,7 @@ def predict( model, test_params, checkpoint_no ):
 
     # region ----- Setting up datasets
 
-    ds = data_generators.load_data( test_params['starting_test_element'], test_params, _num_parallel_calls=test_params['num_parallel_calls']  )
+    ds = data_generators.load_data_vandal( test_params['starting_test_element'], test_params, _num_parallel_calls=test_params['num_parallel_calls']  )
     iter_test = iter(ds)
     #endregion
 

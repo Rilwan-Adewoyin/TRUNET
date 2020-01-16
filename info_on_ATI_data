@@ -1,0 +1,49 @@
+# Rain Data
+
+#All features
+-rain
+-time days since 1950-01-00 00:00
+
+data length = 14822
+image_shape = 100,140
+
+#Problems - Is the start time actually from 1950, or was 1970 meant
+
+
+#Model Field Data
+##All Features
+-unknown_local_param_137_128
+-latitude_longitude
+-time, hours past 1970-01-01 00:00
+-latitude
+-longitude
+-forecast_period
+-originating_centre
+-unknown_local_param_133_128
+-pressure
+-air_temperature
+-geopotential
+-pressure_0
+-x_wind
+-y_wind
+
+##Problems
+-Records = 16072
+-image shape = (103,144)
+-Is the start time for 
+
+##Misunderstood variables
+-'Forecast Period'
+-'Originating Centre'
+- unknown_local_param_137_128
+- unknown_local_param_133_128
+- pressure - Shape is not a image shape, and it has unlimited size
+- pressure_0 - Shape is not an image shape, and it has unlimited size
+
+##Variables to be used in image
+- unknown_local_param_137_128
+- unknown_local_param_133_128
+- air_temperature
+- geopotential
+- x_wind
+- y_wind

@@ -30,6 +30,7 @@ class model_deepsd_hparameters(HParams):
 
 
     def _default_params(self):
+
         # region params
         input_dims = self.input_dims #[39, 88]
         output_dims = self.output_dims #[156,352]
@@ -88,6 +89,8 @@ class model_deepsd_hparameters(HParams):
 
         self.params = {
             'model_name':"DeepSD",
+            'model_version': 4,
+
             'input_dims':input_dims,
             'output_dims':output_dims,
             'var_model_type':var_model_type,
@@ -108,7 +111,10 @@ class model_deepsd_hparameters(HParams):
 
             'conv3_input_weights_count': conv3_input_weights_count,
             'conv3_output_node_count':conv3_output_node_count,
-            'conv3_inp_channels':conv3_inp_channels
+            'conv3_inp_channels':conv3_inp_channels,
+
+            'gradients_clip_norm':50.0,
+            'stochastic':True,
         }
 
 
@@ -126,26 +132,37 @@ class model_THST_hparameters(HParams):
         
         # region general params
         DROPOUT = 0.05
-        SEQ_LEN_FACTOR_REDUCTION = [30, 4 ] #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
+        #TODO: make sure LSTM encoder/decoder now has 4/3 levels
+        SEQ_LEN_FACTOR_REDUCTION = [4, 30, 4, 3 ] #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
         seq_len_for_highest_hierachy_level = 5
-        NUM_OF_SPLITS = [ seq_len_for_highest_hierachy_level*SEQ_LEN_FACTOR_REDUCTION[1] , seq_len_for_highest_hierachy_level ]
+        #NUM_OF_SPLITS = [ seq_len_for_highest_hierachy_level*SEQ_LEN_FACTOR_REDUCTION[1] , seq_len_for_highest_hierachy_level ] #for all rows except the first one
+        NUM_OF_SPLITS = (np.cumprod( reversed(SEQ_LEN_FACTOR_REDUCTION[1:] + [1] ) ) *5 ).tolist()
         
+        # 5*3*4 5*3 5
         # end region
         
         # region Model Specific Data Generator Params
+        mf_time_scale = 0.25 #days
+        rain_time_scale = 1 #days
         
+        target_to_feature_time_ratio = int(rain_time_scale*mf_time_scale)
+        lookback_feature = reduce( (lambda x,y: x*y ), SEQ_LEN_FACTOR_REDUCTION ) * seq_len_for_highest_hierachy_level
         DATA_PIPELINE_PARAMS = {
-            'lookback': reduce( (lambda x,y: x*y ), SEQ_LEN_FACTOR_REDUCTION ) * seq_len_for_highest_hierachy_level
+            'lookback_feature':lookback_feature,
+            'lookback_target': int(lookback_feature/target_to_feature_time_ratio),
+            'target_to_feature_time_ratio' :  target_to_feature_time_ratio
         }
         # end region
 
 
         # region --------------- ENCODER params -----------------
-        encoder_layers = 3
+        encoder_layers = 5
 
         # region CLSTM params
-        output_filters_enc = [50, 50, 50] #output filters for each convLSTM2D layer in the encoder
-        kernel_size_enc = [ (4,4) , (4,4) , (4,4)]
+        output_filters_enc = [50, 50, 50, 50] #output filters for each convLSTM2D layer in the encoder
+        output_filters_enc = output_filters_enc + output_filters_enc[-1:] #the last two layers in the encoder must output the same number of channels
+
+        kernel_size_enc = [ (4,4) , (4,4) , (4,4), (4,4), (4,4)]
 
         CLSTMs_params_enc = [
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
@@ -157,8 +174,8 @@ class model_THST_hparameters(HParams):
         # region Attn Params
         """ These are the params for each attn layer in the encoder"""
         attn_layers = encoder_layers - 1
-        key_depth = [0, 0] #This will be updated dynamically during the first iteration of the model
-        attn_heads = [ 8, 8 ]
+        key_depth = [0 ]*attn_layers #This will be updated dynamically during the first iteration of the model
+        attn_heads = [ 4]*attn_layers
 
         ATTN_params_enc = [
             {'bias':None, 'total_key_depth': kd , 'total_value_depth':kd , 'output_depth': kd   ,
@@ -173,20 +190,20 @@ class model_THST_hparameters(HParams):
             'CLSTMs_params' : CLSTMs_params_enc,
             'ATTN_params': ATTN_params_enc,
             'seq_len_factor_reduction': SEQ_LEN_FACTOR_REDUCTION,
-            'num_of_splits': NUM_OF_SPLITS
+            'num_of_splits': NUM_OF_SPLITS,
             'dropout':DROPOUT
         }
         #endregion
 
         # region --------------- DECODER params -----------------
-        decoder_layers = 2
+        decoder_layers = encoder_layers-1
         
-        output_filters_dec = [50, 50] #output filters for each convLSTM2D layer in the encoder
-        kernel_size_dec = [ (4,4) , (4,4) ]
+        output_filters_dec = output_filters_enc[:-1] #output filters for each convLSTM2D layer in the encoder
+        kernel_size_dec = kernel_size_enc
 
         CLSTMs_params_dec = [
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
-                'return_sequences':True, 'dropout':0.05, 'gates_version':2 }
+                'return_sequences':True, 'dropout':DROPOUT, 'gates_version':2, 'recurrent_dropout':DROPOUT }
              for f, ks in zip( output_filters_dec, kernel_size_dec)
         ]
 
@@ -208,16 +225,26 @@ class model_THST_hparameters(HParams):
                 for fs, ks in zip( output_filters, output_kernel_size )
          ]
         # endregion
-
+        MODEL_VERSION = 1
+        dict_model_version = {1:False,2:False, 3:True}
+        STOCHASTIC = dict_model_version[MODEL_VERSION]
         self.params = {
+            'model_version': MODEL_VERSION,
+
+
             'encoder_params':ENCODER_PARAMS,
             'decoder_params':DECODER_PARAMS,
-            'output_layer_params':OUTPUT_LAYER_PARAMS
-            'data_pipeline_params':DATA_PIPELINE_PARAMS
+            'output_layer_params':OUTPUT_LAYER_PARAMS,
+            'data_pipeline_params':DATA_PIPELINE_PARAMS,
+
+
+            'gradients_clip_norm':50.0,
+            'stochastic':STOCHASTIC
+
         }
 
 
-
+#region vandal
 class train_hparameters(HParams):
     def __init__(self, **kwargs):
         super( train_hparameters, self).__init__(**kwargs)
@@ -227,7 +254,6 @@ class train_hparameters(HParams):
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE,
         EPOCHS = 200
         CHECKPOINTS_TO_KEEP = 3
-        MODEL_VERSION = 4
         TOTAL_DATUMS = 3650 #10 years worth of data apparently
         TRAIN_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS*0.6)
         VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS*0.2)
@@ -236,6 +262,7 @@ class train_hparameters(HParams):
         EARLY_STOPPING_PERIOD = 10
         BOOL_WATER_MASK = pickle.load( open( "Images/water_mask_156_352.dat","rb" ) )
 
+        
 
         #endregion
         self.params = {
@@ -250,14 +277,9 @@ class train_hparameters(HParams):
             'val_set_size_batches':VAL_SET_SIZE_ELEMENTS//BATCH_SIZE,
 
             'checkpoints_to_keep':CHECKPOINTS_TO_KEEP,
-
-            'model_version':MODEL_VERSION,
             
             'dataset_trainval_batch_reporting_freq':0.5,
             'num_parallel_calls':NUM_PARALLEL_CALLS,
-
-            'gradients_clip_norm':50.0,
-
             'train_monte_carlo_samples':1,
 
             'data_dir': DATA_DIR,
@@ -272,7 +294,6 @@ class test_hparameters(HParams):
     
     def _default_params(self):
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
-        MODEL_VERSION = 4
         BATCH_SIZE = 15
         N_PREDS = 5
 
@@ -293,8 +314,6 @@ class test_hparameters(HParams):
             'starting_test_element':STARTING_TEST_ELEMENT,
             'test_set_size_elements': TEST_SET_SIZE_ELEMENTS,
 
-            'model_version':MODEL_VERSION,
-
             'dataset_pred_batch_reporting_freq':0.25,
             'num_parallel_calls':NUM_PARALLEL_CALLS,
 
@@ -310,8 +329,104 @@ class test_hparameters(HParams):
             'bool_water_mask': BOOL_WATER_MASK
 
         }
+# endregion
+
+# region ATI
+class train_hparameters_ati(HParams):
+    def __init__(self, **kwargs):
+        super( train_hparameters_ati, self).__init__(**kwargs)
+
+    def _default_params(self):
+        # region -------data pipepline vars
+        MASK_FILL_VALUE = {
+                                    "rain":-1,
+                                    "model_field":-1 
+
+
+        }
+
+        NORMALIZATION_SCALES = {
+                                    "rain":200,
+                                    "model_fieldS": np.array([1,1,1,1,1]) #TODO: Find the appropriate scaling terms for each of the model fields 
+                                                #- unknown_local_param_137_128
+                                                # - unknown_local_param_133_128,  # - air_temperature, # - geopotential
+                                                # - x_wind, # - y_wind
+        }
+
+        WINDOW_SHIFT = 1
         
+        # endregion
 
+
+        NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE,
+        EPOCHS = 200
+        CHECKPOINTS_TO_KEEP = 3
+        MODEL_VERSION = 1
+
+        # region ---- data information
+
+        feature_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
+        target_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'H')
+        
+        feature_end_date = feature_start_date + np.timedelta( 14822, 'D')
+        tar_end_date = target_start_date + np.timedelta(16072//4, 'D')
+        
+        train_start_date = np.max(feature_start_date, target_start_date)
+        end_date = np.min( tar_end_date, feature_end_date)
+        val_start_date = train_start_date + (end_date - train_start_date)*0.2 
+
+        #TOTAL_DATUMS = int(end_date - start_date)//WINDOW_SHIFT - lookback  #By datums here we mean windows
+        TOTAL_DATUMS = int(end_date - train_start_date)//WINDOW_SHIFT - np.product([4, 30, 4, 3, 5])  #Think of better way to get the np.product info from model_params to train params
+        
+        # endregion
+
+        #TODO: correct the train_set_size_elems
+        TRAIN_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS*0.6)
+        VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS*0.2)
+        BATCH_SIZE = 15
+        DATA_DIR = "./Data/Rain_Data_Nov19" 
+        EARLY_STOPPING_PERIOD = 10
+
+
+ 
+        self.params = {
+            'model_name':"THST",
+            'model_version':MODEL_VERSION,
+
+
+            'batch_size':BATCH_SIZE,
+            'epochs':EPOCHS,
+            'total_datums':TOTAL_DATUMS,
+            'early_stopping_period':EARLY_STOPPING_PERIOD,
+
+            'train_set_size_elements':TRAIN_SET_SIZE_ELEMENTS,
+            'train_set_size_batches':TRAIN_SET_SIZE_ELEMENTS//BATCH_SIZE,
+            'val_set_size_elements':VAL_SET_SIZE_ELEMENTS,
+            'val_set_size_batches':VAL_SET_SIZE_ELEMENTS//BATCH_SIZE,
+
+            'checkpoints_to_keep':CHECKPOINTS_TO_KEEP,
+
+            'dataset_trainval_batch_reporting_freq':0.5,
+            'num_parallel_calls':NUM_PARALLEL_CALLS,
+
+            'train_monte_carlo_samples':1,
+
+            'data_dir': DATA_DIR,
+
+            
+
+            'mask_fill_value':MASK_FILL_VALUE,
+            'normalization_scales' : NORMALIZATION_SCALES,
+            'window_shift': WINDOW_SHIFT,
+
+            'train_start_date':train_start_date,
+            'val_start_date':val_start_date,
+
+            'feature_start_date':feature_start_date,
+            'target_start_date':target_start_date
+
+        }
 
     
     
+#end region ATI

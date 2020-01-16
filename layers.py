@@ -620,8 +620,10 @@ class THST_Encoder(tf.keras.layers.Layer ):
         self.CLSTM_1 = THST_CLSTM_Input_Layer( train_params, encoder_params['CLSTMs_params'][0] )
         self.CLSTM_2 = THST_CLSTM_Attention_Layer( train_params, encoder_params['CLSTMs_params'][1], encoder_params['Attn_params'][0], encoder_params['seq_len_factor_reduction'][0], self.encoder_params['num_of_splits'][0] )
         self.CLSTM_3 = THST_CLSTM_Attention_Layer( train_params, encoder_params['CLSTMs_params'][2], encoder_params['Attn_params'][1], encoder_params['seq_len_factor_reduction'][1], self.encoder_params['num_of_splits'][1] )
+        self.CLSTM_4 = THST_CLSTM_Attention_Layer( train_params, encoder_params['CLSTMs_params'][3], encoder_params['Attn_params'][2], encoder_params['seq_len_factor_reduction'][2], self.encoder_params['num_of_splits'][2] )
+        self.CLSTM_5 = THST_CLSTM_Attention_Layer( train_params, encoder_params['CLSTMs_params'][4], encoder_params['Attn_params'][3], encoder_params['seq_len_factor_reduction'][3], self.encoder_params['num_of_splits'][3] )
     
-    def call(_input):
+    def call(self, _input):
         """
             _input #shape( )
         """
@@ -632,10 +634,14 @@ class THST_Encoder(tf.keras.layers.Layer ):
 
         hidden_states_3 = self.CLSTM_3( hidden_states_2 ) #(bs, seq_len_3, h, w, c3)
 
-        return hidden_states_1, hidden_states_2, hidden_states_3    
+        hidden_states_4 = self.CLSTM_4( hidden_states_3 ) #(bs, seq_len_4, h, w, c3)
+
+        hidden_states_5 = self.CLSTM_5( hidden_states_4 ) #(bs, seq_len_5, h, w, c3)
+
+        return hidden_states_1, hidden_states_2, hidden_states_3, hidden_states_4, hidden_states_5    
 
 class THST_Decoder(tf.keras.layers.Layer):
-    def __init__(self, decoder_params):
+    def __init__(self, train_params ,decoder_params):
         """
         :param list decoder_params: a list of dictionaries of the contained LSTM's params
         """
@@ -644,20 +650,24 @@ class THST_Decoder(tf.keras.layers.Layer):
         self.train_params = train_params
 
         #TODO: REFACTOR so that each of these conv layers is made automatically using a forloop and and iterating through a dictionary of params
-        self.CLSTM_1 = THST_CLSTM_Decoder_Layer( train_params, self.decoder_params[0], decoder_params['seq_len_factor_reduction'][1] )
-        self.CLSTM_2 = THST_CLSTM_Decoder_Layer( train_params, self.decoder_params[1],  decoder_params['seq_len_factor_reduction'][0] )
+        self.CLSTM_L4 = THST_CLSTM_Decoder_Layer( train_params, self.decoder_params[3], decoder_params['seq_len_factor_reduction'][3] )
+        self.CLSTM_L3 = THST_CLSTM_Decoder_Layer( train_params, self.decoder_params[2],  decoder_params['seq_len_factor_reduction'][2] )
+        self.CLSTM_L2 = THST_CLSTM_Decoder_Layer( train_params, self.decoder_params[1],  decoder_params['seq_len_factor_reduction'][1] )
+        self.CLSTM_L1 = THST_CLSTM_Decoder_Layer( train_params, self.decoder_params[0],  decoder_params['seq_len_factor_reduction'][0] )
         
-    def call( hidden_states_1_enc, hidden_states_2_enc, hidden_states_3_enc  ):
+    def call(self, hidden_states_1_enc, hidden_states_2_enc, hidden_states_3_enc, hidden_states_4_enc, hidden_states_5_enc  ):
 
         #NOTE: make sure to include some sort of iterative reduction of span in each descent in decoder level
 
-        hidden_states_2 = self.CLSTM_2( hidden_states_3_enc, hidden_states_2_enc, return_hidden_states=True ) #(bs, output_len2, height, width)
+        hidden_states_l4 = self.CLSTM_L4( hidden_states_5_enc, hidden_states_4_enc, return_hidden_states=True)
 
-        hidden_states_1 = self.CLSTM_1( hidden_states_2, hidden_states_1_enc, return_hidden_states=True )     #(bs, output_len1, height, width)     
+        hidden_states_l3 = self.CLSTM_L3( hidden_states_l4, hidden_states_3_enc, return_hidden_states=True ) #(bs, output_len2, height, width)
 
-        output = output_layer( hidden_states_1 ) #(bs, output_len1, height, width)
+        hidden_states_l2 = self.CLSTM_L2( hidden_states_l3, hidden_states_2_enc, return_hidden_states=True )     #(bs, output_len1, height, width)     
 
-        return output
+        hidden_states_l1 = self.CLSTM_L1( hidden_states_l2, hidden_states_1_enc, return_hidden_states=True )     #(bs, output_len1, height, width)     
+
+        return hidden_states_l1
 
 class THST_CLSTM_Input_Layer(tf.keras.layers.Layer):
     """
@@ -712,20 +722,19 @@ class THST_CLSTM_Attention_Layer(tf.keras.layers.Layer):
         li_hidden_states_b = tf.split( hidden_states_b, hidden_states_b.shape[1] , axis=1 )
 
         if(self.shapes_set==0):
-            
             bs, seq_len, h, w, c = tf.unstack(hidden_states_f.shape)
             self.shapes_set=1
 
-        attn_avg_inp_hid_states_f = tf.zeros_like( hidden_states_f,dtype=tf.float32 )
+        attn_avg_inp_hid_states_f = tf.zeros_like( hidden_states_f, dtype=tf.float32 )
         attn_avg_inp_hid_states_b = tf.zeros_like( hidden_states_b, dtype=tf.float32 )
 
         #TODO: Consider making sure that no gradient flows due to the calculation of the above attention averaging. 
             #This is because we only want the hidden states in the current layer to be updated due to the LSTM layer, not from attention averaging???
             #So gradient for below needs to be ignored maybe
 
-        for idx in tf.range(num_of_splits):
-            attn_avg_inp_hid_state_f = li_Attention2D_f[idx]( queries=hidden_states_f, keys=chunked_inp_hid_states[idx] ) #(bs, 1, h, w, f)
-            attn_avg_inp_hid_state_b = li_Attention2D_b[idx]( queries=hidden_states_b, keys=chunked_inp_hid_states[idx] ) #(bs, 1, h, w, f)
+        for idx in tf.range(self.num_of_splits):
+            attn_avg_inp_hid_state_f = self.li_Attention2D_f[idx]( queries=li_hidden_states_f[idx], keys=chunked_inp_hid_states[idx] ) #(bs, 1, h, w, f)
+            attn_avg_inp_hid_state_b = self.li_Attention2D_b[idx]( queries=li_hidden_states_b[idx], keys=chunked_inp_hid_states[idx] ) #(bs, 1, h, w, f)
 
             attn_avg_inp_hid_states_f = tf.concat( [ attn_avg_inp_hid_states_f[ :, :idx , :, :, :] , attn_avg_inp_hid_state_f[ :, : ,:, :, :] , 
                                                 tf.zeros([bs, seq_len-attn_avg_inp_hid_states_f.shape[0] , h, w, c]) ] , axis=1 )     #shape( bs, seq_len, h, w, c1)
@@ -743,7 +752,7 @@ class THST_CLSTM_Attention_Layer(tf.keras.layers.Layer):
 
 class THST_CLSTM_Decoder_Layer(tf.keras.layers.Layer):
     def __init__(self, train_params ,layer_params, input_2_factor_increase ):
-        super( THST_CLSTM_Output_Layer, self ).__init__()
+        super( THST_CLSTM_Decoder_Layer, self ).__init__()
         
         self.layer_params = layer_params
         self.input_2_factor_increase = input_2_factor_increase
@@ -751,7 +760,7 @@ class THST_CLSTM_Decoder_Layer(tf.keras.layers.Layer):
 
         self.convLSTM =  tf.keras.layers.Bidirectional( layers_ConvLSTM2D.ConvLSTM2D_custom(**layer_params)  , merge_mode=None)
 
-    def call( input1, input2 ):
+    def call(self, input1, input2 ):
         """
 
             input1 : Contains the hidden representations from the corresponding layer in the encoder #(bs, seq_len1, h,w,c1)
@@ -762,7 +771,7 @@ class THST_CLSTM_Decoder_Layer(tf.keras.layers.Layer):
 
         tf.debugging.assert_equal(tf.shape(input1),tf.shape(input2), message="Decoder Input1, and Input2 not the same size")
 
-        inputs = tf.concatenate( [input1, input2], axis=-1 ) #NOTE: At this point both input1 and input2, must be the same shape
+        inputs = tf.concat( [input1, input2], axis=-1 ) #NOTE: At this point both input1 and input2, must be the same shape
         hidden_states_f, hidden_states_b = self.convLSTM( inputs, training=self.training )
         hidden_states = tf.concat( [ hidden_states_f, hidden_states_b], axis=-1 )
         return hidden_states
@@ -777,7 +786,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
         #TODO: may have to add an upscaling mechanism here if model fields are on a lower dimension than the rain data for ati data
         self.dense_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
     
-    def call( _inputs ):
+    def call(self, _inputs ):
         """
         :param tnsr inputs: (bs, seq_len, h,w,c)
         """
@@ -797,7 +806,7 @@ class MultiHead2DAttention(tf.keras.layers.Layer):
         self.training = training
         self.layer_params = layer_params
         
-        self.ln1 = tf.keras.layers.LayerNormalization(axis=-1 , epsilon=1e-4 , trainable= )
+        self.ln1 = tf.keras.layers.LayerNormalization(axis=-1 , epsilon=1e-4 , trainable=training )
 
     def call(self, queries, keys):
         """
@@ -808,7 +817,7 @@ class MultiHead2DAttention(tf.keras.layers.Layer):
         _shape = queries.shape #( batch_size, seq_len ,height,width,filters_in) # This the shape to convert objects back into at the end
         
         if( self.layer_params['total_key_depth'] == 0) :
-            key_depth = tf.math.reduce_prop( _shape[-3:] )
+            key_depth = tf.math.reduce_prod( _shape[-3:] )
             self.layer_params['total_key_depth'] = key_depth
             self.layer_params['total_value_depth'] = key_depth
             self.layer_params['total_output_depth'] = key_depth
@@ -817,8 +826,8 @@ class MultiHead2DAttention(tf.keras.layers.Layer):
         keys_flat = tf.reshape( keys, _shape.numpy().tolist[:2] + [-1] )
 
         x = multihead_attention(
-            query_antecedent = queries ,
-            memory_antecedent = keys,
+            query_antecedent = queries_flat ,
+            memory_antecedent = keys_flat,
             trainable=self.training
             **self.layer_params   ) #( batch_size, seq_len, height*width*filters_in
 
@@ -827,5 +836,3 @@ class MultiHead2DAttention(tf.keras.layers.Layer):
         x = tf.reshape( x ,  _shape ) #( batch_size, seq_len ,height,width,filters_in)
 
         return x
-
-class ConvLSTMCell()

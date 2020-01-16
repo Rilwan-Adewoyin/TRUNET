@@ -50,27 +50,27 @@ def main(test_params, model_params):
     if type(model_params == list):
         model_params = model_params[0]
     # with mp.Pool(core_count ) as pool:
-    #     _path_pred = test_params['scr_dir'] + "/Output/{}/{}/Predictions".format(model_params['model_name'], test_params['model_version'])
+    #     _path_pred = test_params['scr_dir'] + "/Output/{}/{}/Predictions".format(model_params['model_name'], model_params['model_version'])
     #     gen_data_preds = util_predict.load_predictions_gen(_path_pred)
     #     res = pool.map_async( postproc_pipeline_evaluatepredictions, gen_data_preds, chunksize = 3  )
     #     res.wait()
     #     results = res.get()
         #This produces evaluations for a timestamps in the batch
     
-    _path_pred = test_params['script_dir'] + "/Output/{}/{}/Predictions".format(model_params['model_name'], test_params['model_version'])
+    _path_pred = test_params['script_dir'] + "/Output/{}/{}/Predictions".format(model_params['model_name'], model_params['model_version'])
     gen_data_preds = util_predict.load_predictions_gen(_path_pred)
     res =  [postproc_pipeline_evaluatepredictions(pred, test_params, model_params) for pred in gen_data_preds ]
 
     print("Completed Prediction Evaluation")
     
-    _path_pred_eval = test_params['script_dir'] + "/Output/{}/{}/EvaluatedPredictions".format(model_params['model_name'], test_params['model_version'])
+    _path_pred_eval = test_params['script_dir'] + "/Output/{}/{}/EvaluatedPredictions".format(model_params['model_name'], model_params['model_version'])
     gen_data_eval_preds = util_predict.load_predictions_gen(_path_pred_eval)
     postproc_pipeline_compress_evaluations(gen_data_eval_preds,test_params, model_params)
         #averaging all evaluations across timesteps across different 
     
     print("Completed Summarisation of Prediction Evaluation")
 
-    _path_pred_eval_summ = test_params['script_dir'] + "/Output/{}/{}/SummarisedEvaluations".format(model_params['model_name'], test_params['model_version'])
+    _path_pred_eval_summ = test_params['script_dir'] + "/Output/{}/{}/SummarisedEvaluations".format(model_params['model_name'], model_params['model_version'])
     gen_data_eval_preds = util_predict.load_predictions_gen(_path_pred_eval_summ)
     postproc_pipeline_visualized_summary(gen_data_eval_preds, test_params, model_params)
     return True
@@ -94,7 +94,7 @@ def postproc_pipeline_evaluatepredictions(batch_datum, test_params, model_params
 
     data_tuple = (np_rmse, np_bias, np_lower_bands, np_upper_bands, true_in_pred_range)
 
-    _path_pred_eval = _path_pred = test_params['script_dir'] + "/Output/{}/{}/EvaluatedPredictions".format(model_params['model_name'], test_params['model_version'])
+    _path_pred_eval = _path_pred = test_params['script_dir'] + "/Output/{}/{}/EvaluatedPredictions".format(model_params['model_name'], model_params['model_version'])
     
     if(not os.path.exists(_path_pred_eval) ):
         os.makedirs(_path_pred_eval)
@@ -159,7 +159,7 @@ def postproc_pipeline_compress_evaluations(gen_data_eval_preds, test_params, mod
 
     data_tuple = {"average_rmse": avg_rmse , "average_bias": avg_bias , "hit_rate": avg_true_in_pred_range }
 
-    _path_pred_eval_summ = _path_pred = test_params['script_dir'] + "/Output/{}/{}/SummarisedEvaluations".format(model_params['model_name'], test_params['model_version'])
+    _path_pred_eval_summ = _path_pred = test_params['script_dir'] + "/Output/{}/{}/SummarisedEvaluations".format(model_params['model_name'], model_params['model_version'])
     fn = "summarised_predictions.dat"
 
     if(not os.path.exists(_path_pred_eval_summ) ):
@@ -184,7 +184,7 @@ def postproc_pipeline_visualized_summary(gen_data_eval_preds, test_params, model
 
     dict_summarised = next(gen_data_eval_preds)
 
-    _path_visual = test_params['script_dir'] + "/Output/{}/{}/Visualisations".format(model_params['model_name'], test_params['model_version'])
+    _path_visual = test_params['script_dir'] + "/Output/{}/{}/Visualisations".format(model_params['model_name'], model_params['model_version'])
     if(not os.path.exists(_path_visual) ):
         os.makedirs(_path_visual)
 

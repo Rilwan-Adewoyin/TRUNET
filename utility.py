@@ -142,10 +142,13 @@ def parse_arguments(s_dir=None):
 
     parser.add_argument('-dd','--data_dir', type=str, help='the directory for the Data', required=False,
                         default='./Data')
+
     parser.add_argument('-vmt','--var_model_type', type=str, help="Type of Bnn to use", required=False, default="guassian_factorized",
                                 choices=["guassian_factorized", "horsehoe_factorized", "horseshoe structured" ] )
 
-    parser.add_argument('-sdr','--script_dir', type=str, help="Directory for code", required=False, default=s_dir )                                      
+    parser.add_argument('-sdr','--script_dir', type=str, help="Directory for code", required=False, default=s_dir )
+
+    parser.add_argument('-mn','--model_name', type=str, help='Name of model to use', required=False, default=THST)                                      
         
     
     #parser.add_argument('-mv', '--model_version', type=str, help="Name for the model, used to help in saving predictions and related files", required=False, default="0")

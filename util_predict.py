@@ -21,7 +21,7 @@ def load_model(test_params, model_params):
                      model_params['input_dims'][1], model_params['conv1_inp_channels'] ] , dtype=tf.float32 )
         model(init_inp, pred=False )
 
-        checkpoint_path = test_params['script_dir']+"/checkpoints/{}/batch/{}".format(model_params['model_name'], test_params['model_version'])
+        checkpoint_path = test_params['script_dir']+"/checkpoints/{}/batch/{}".format(model_params['model_name'], model_params['model_version'])
 
         ckpt = tf.train.Checkpoint(att_con=model)
         checkpoint_code = "B"+ str(tf.train.latest_checkpoint(checkpoint_path)[-5:])
@@ -43,7 +43,7 @@ def load_model(test_params, model_params):
         ckpt = tf.train.Checkpoint(att_con=model)
 
         #We will use Optimal Checkpoint information from checkpoint_scores_model.csv
-        df_checkpoint_scores = pd.read_csv( test_params['script_dir']+'/checkpoints/{}/checkpoint_scores_model_{}.csv'.format(model_params['model_name'], test_params['model_version']), header=0 )
+        df_checkpoint_scores = pd.read_csv( test_params['script_dir']+'/checkpoints/{}/checkpoint_scores_model_{}.csv'.format(model_params['model_name'], model_params['model_version']), header=0 )
         best_checkpoint_path = df_checkpoint_scores['Checkpoint_Path'][0]
         checkpoint_code = "E"+str(df_checkpoint_scores['Epoch'][0])
         status = ckpt.restore( best_checkpoint_path ).expect_partial()
@@ -59,7 +59,7 @@ def save_preds( test_params, model_params, li_preds, li_timestamps, li_truevalue
     if type(model_params == list):
         model_params = model_params[0]
 
-    _path_pred = test_params['script_dir'] + "/Output/{}/{}/Predictions".format(model_params['model_name'], test_params['model_version'])
+    _path_pred = test_params['script_dir'] + "/Output/{}/{}/Predictions".format(model_params['model_name'], model_params['model_version'])
     fn = str(li_timestamps[0][0]) + "___" + str(li_timestamps[-1][-1]) + ".dat"
 
     if(not os.path.exists(_path_pred) ):
