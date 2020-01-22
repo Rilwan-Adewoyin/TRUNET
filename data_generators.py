@@ -1,12 +1,11 @@
 import itertools
-import tensorflow as tf
 import numpy as np
+from netCDF4 import Dataset, num2date
+import tensorflow as tf
 import pickle
 import glob
 import utility
 
-import netCDF4
-from netCDF4 import Dataset
 
 # region Vandal related
 
@@ -167,10 +166,10 @@ class Generator():
         self.fn = fn
         self.channel = channel
     
-    def yield_all(self,start_idx=0):
+    def yield_all(self):
         pass
 
-    def yield_iter(self,start_idx=0):
+    def yield_iter(self):
         pass
 
     def long_lat(self):
@@ -178,7 +177,7 @@ class Generator():
 
     def __call__(self, start_idx=0):
         if(self.all_at_once):
-            return self.yield_all(start_idx)
+            return self.yield_all()
         else:
             return self.yield_iter(start_idx)
     
@@ -192,9 +191,13 @@ class Generator_rain(Generator):
             yield np.ma.getdata(_data), np.ma.getmask(_data)   
             
     def yield_iter(self,start_idx=0):
-        with Dataset(self.fn, "r", format="NETCDF4") as f:
-            for chunk in f.variables['rr'][start_idx:]:
-                yield np.ma.getdata(chunk), np.ma.getmask(chunk)
+        f = Dataset(self.fn, "r", format="NETCDF4")
+        #with Dataset(self.fn, "r", format="NETCDF4") as f:
+            #for chunk in f.variables['rr'][start_idx:]:
+        
+        #for chunk in f.variables['rr'][start_idx:]:
+        for chunk in f.variables['rr'][start_idx:]:
+            yield np.ma.getdata(chunk), np.ma.getmask(chunk)
         
 class Generator_mf(Generator):
     """
@@ -215,7 +218,7 @@ class Generator_mf(Generator):
         self.channel_count = len(self.vars_for_feature)
         
 
-    def yield_all(self,start_idx=0):
+    def yield_all(self):
         raise NotImplementedError
     
     def yield_iter(self,start_idx=0):
@@ -245,9 +248,12 @@ class Generator_mf(Generator):
         """
         raise NotImplementedError
 
+
 def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_at=None,_num_parallel_calls=tf.data.experimental.AUTOTUNE, data_dir="./Data/Rain_Data_Nov19" ):
     """
         This is specific for the following two files -> ana_input_1.nc and rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc
+        :param day_to_start_at: should be of type np.datetime64
+
     """
     # region Data Syncing/Skipping
     if(target_datums_to_skip!=None):
@@ -258,18 +264,17 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
 
     else:
         raise ValueError("Either one of target_datums_to_skip or day_to_start_from must not be None")
-         
-
     # endregion
 
 
     # region prepare target_rain_data
-
     fn_rain = data_dir+"/rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc"
-    rain_data = Generator_rain(fn=fn_rain, all_at_once=False)
-    rain_gen = rain_data(start_idx_tar)
+    fn_rain = "/home/u1862646/ATI/BNN/Data/Rain_Data_Nov19/rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc" 
 
-    ds_tar = tf.data.Dataset.from_generator(rain_gen, output_types= [ tf.float32, tf.float32] ) #(values, mask) 
+    # rain_data = Generator_rain(fn=fn_rain, all_at_once=False)
+    # rain_gen = rain_data(start_idx_tar)
+
+    ds_tar = tf.data.Dataset.from_generator(lambda: Generator_rain(fn=fn_rain, all_at_once=False)(start_idx_tar), output_types=( tf.float32, tf.bool) ) #(values, mask) 
 
     def rain_mask(arr_rain, arr_mask, fill_value):
         """ 
@@ -293,7 +298,8 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     ds_tar = ds_tar.map( lambda _vals, _mask: normalize_rain_values( _vals, _mask, t_params['normalization_scales']['rain'] ) ) # (values, mask)
     
     ds_tar = ds_tar.window(size = m_params['data_pipeline_params']['lookback_target'], stride=1, shift=t_params['window_shift'] , drop_remainder=True )
-    ds_tar = ds_tar.interleave( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(t_params['lookback_target']) for w in window ] ) ) 
+    
+    ds_tar = ds_tar.interleave( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(m_params['data_pipeline_params']['lookback_target']) for w in window ] ) ) 
                                 ,block_length=1 , num_parallel_calls= tf.data.experimental.AUTOTUNE  ) #shape (lookback,h, w)
 
     # endregion
@@ -304,49 +310,36 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     mf_data = Generator_mf(fn=fn_mf, all_at_once=False)
     mf_gen = mf_data(start_idx_feat)
 
-    _output_types = [ tf.float32 for idx in range(mf_data.channel_count)]
-    ds_feat = tf.data.Dataset.from_generator(mf_gen, output_types= _output_types) #(values, mask) 
+    ds_feat = tf.data.Dataset.from_generator( lambda: mf_gen , output_types=( tf.float32, tf.bool)) #(values, mask) 
 
-    def mf_mask(arr_data, arr_masks, fill_value):
-
-        arr_data = tf.where( arr_masks, fill_value, arr_masks )
-
-        return arr_data
-
-    ds_feat = ds_feat.map( lambda arr_data, arr_mask: mf_mask(arr_data, arr_mask, t_params['mask_fill_value']['model_field'] ), num_parallel_calls=_num_parallel_calls) # (h,w,c)
-
-    def mf_align(arr_data):
-        """
-            This script ensures the model_fields align with the target precipitation images
-
-        """
-        #longitude transoformation
-        arr_data = arr_data[ -2:1:-1 , 2:-2 , : ] #long, lat, channels
-        return arr_data
-
-    ds_feat = ds_feat.map( mf_align , num_parallel_calls=_num_parallel_calls) # (h,w,c)
-
-
-    ds_feat = ds_feat.window(size = m_params['data_pipeline_params']['lookback_feature'], stride=1, shift=m_params['data_pipeline_params']['target_to_time_ratio']*t_params['window_shift'], drop_remainder=True )
-
-    ds_tar = ds_tar.interleave( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(t_params['lookback_target']) for w in window ] ) ) 
-                                ,block_length=1 , num_parallel_calls= tf.data.experimental.AUTOTUNE  ) #shape (lookback,h, w, 6)
-
-    def mf_normalization(arr_data, scales):
+    def mf_normalization_mask_align(arr_data, scales, arr_mask, fill_value):
         """
             :param tnsr arr_data: #shape (lb, h, w, n)
             :param tnsr scales: #shape ( n )
 
         """
-        arr_data = np.divide( arr_data, scales)
+        #TODO: Find the appropriate values for scales, by finding the reasonable max/min for each weather datum 
+        arr_data = tf.divide( arr_data, scales)
 
-        return arr_data
+        arr_data = tf.where( arr_mask, fill_value, arr_data )
+        arr_data = arr_data[ -2:1:-1 , 2:-2 , : ] #long, lat, channels
 
-    ds_tar = ds_tar.map( lambda arr_data: mf_normalization( arr_data, t_params['normalization_scales']['model_fields'] ),num_parallel_calls=_num_parallel_calls  )
+        return arr_data # (h,w,c)
+
+    ds_feat = ds_feat.map( lambda arr_data, arr_mask: mf_normalization_mask_align( arr_data, t_params['normalization_scales']['model_fields'],
+                arr_mask ,t_params['mask_fill_value']['model_field']  ),num_parallel_calls=_num_parallel_calls  )
+
+    ds_feat = ds_feat.window(size = m_params['data_pipeline_params']['lookback_feature'], stride=1, shift=m_params['data_pipeline_params']['target_to_feature_time_ratio']*t_params['window_shift'], drop_remainder=True )
+
+    # ds_feat = ds_feat.interleave( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(m_params['data_pipeline_params']['lookback_feature']) for w in window ] ) ) 
+    #                             ,block_length=1 , num_parallel_calls= tf.data.experimental.AUTOTUNE  ) #shape (lookback,h, w, 6)
+
+    ds_feat = ds_feat.interleave( lambda window:  window.batch(m_params['data_pipeline_params']['lookback_feature'] )  
+                            ,block_length=1 , num_parallel_calls= tf.data.experimental.AUTOTUNE  ) #shape (lookback,h, w, 6)
     
     # endregion
 
-    ds = tf.data.Dataset.zip( (ds_feat, ds_tar) ) #( (rain, rain_mask), model_fields ) 
+    ds = tf.data.Dataset.zip( (ds_feat, ds_tar) ) #( model_fields, (rain, rain_mask) ) 
     ds = ds.batch(t_params['batch_size'])
     return ds
 
@@ -358,10 +351,10 @@ def get_start_idx( start_date, t_params, m_params ):
     feature_start_date = t_params['feature_start_date']
     target_start_date = t_params['target_start_date']
 
-    feat_days_diff = start_date - feature_start_date
-    tar_days_diff = start_date - target_start_date
+    feat_days_diff = (start_date - feature_start_date).astype(int)
+    tar_days_diff = (start_date - target_start_date).astype(int)
 
-    feat_start_idx = feat_days_diff*4
+    feat_start_idx = feat_days_diff*4 #since the feature comes in four hour chunks
     tar_start_idx = tar_days_diff 
 
     return feat_start_idx, tar_start_idx

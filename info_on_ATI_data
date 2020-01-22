@@ -2,7 +2,7 @@
 
 #All features
 -rain
--time days since 1950-01-00 00:00
+-time days since 1950-01-00 00:00 up to 1 August 1990
 
 data length = 14822
 image_shape = 100,140
@@ -14,7 +14,8 @@ image_shape = 100,140
 ##All Features
 -unknown_local_param_137_128
 -latitude_longitude
--time, hours past 1970-01-01 00:00
+-time, hours past 1970-01-01 00:00 - Thursday 31 December 1981
+
 -latitude
 -longitude
 -forecast_period

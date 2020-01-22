@@ -3,11 +3,14 @@ import layers
 
 
 def model_loader(train_params,model_params ):
-    if(model_params[0]['model_name']=="DeepSD"):
+
+    if(model_params['model_name']=="THST"):
+        return THST(train_params, model_params)
+
+    elif(model_params[0]['model_name']=="DeepSD"):
         return SuperResolutionModel( train_params, model_params)
     
-    elif(model_params['model_name']=="THST"):
-        return THST(train_params, model_params)
+
 
 class SuperResolutionModel( tf.keras.Model ):
     def __init__(self, train_params, model_params ):
@@ -50,8 +53,8 @@ class THST(tf.keras.Model):
 
     def call(self, _input, tape=None, pred=False):
         
-        hidden_states_1_enc, hidden_states_2_enc, hidden_states_3_enc = self.encoder( _input )
-        hidden_states_dec = self.decoder( hidden_states_1_enc, hidden_states_2_enc, hidden_states_3_enc )
+        hidden_states_2_enc, hidden_states_3_enc, hidden_4_enc, hidden_5_enc = self.encoder( _input )
+        hidden_states_dec = self.decoder( hidden_states_2_enc, hidden_states_3_enc, hidden_4_enc, hidden_5_enc )
         output = self.output_layer(hidden_states_dec)
         
         return output

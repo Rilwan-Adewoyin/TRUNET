@@ -105,10 +105,8 @@ def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoc
         df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores_model_{}.csv".format(model_params['model_name'],train_params['model_version']), header=True, index=False ) #saving df of scores                      
     return df_training_info
 
-
 def kl_loss_weighting_scheme( max_batch ):
     return 1/max_batch
-
 
 #standardising and de-standardizing 
 
@@ -148,7 +146,7 @@ def parse_arguments(s_dir=None):
 
     parser.add_argument('-sdr','--script_dir', type=str, help="Directory for code", required=False, default=s_dir )
 
-    parser.add_argument('-mn','--model_name', type=str, help='Name of model to use', required=False, default=THST)                                      
+    parser.add_argument('-mn','--model_name', type=str, help='Name of model to use', required=False, default="THST")                                      
         
     
     #parser.add_argument('-mv', '--model_version', type=str, help="Name for the model, used to help in saving predictions and related files", required=False, default="0")

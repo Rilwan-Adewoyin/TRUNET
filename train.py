@@ -3,6 +3,7 @@
 import os
 import sys
 
+import data_generators
 import utility
 
 import tensorflow as tf
@@ -26,14 +27,13 @@ import time
 
 import models
 import hparameters
-import data_generators
 # endregion
 
-# region train 
+#region train 
 def train_loop(train_params, model_params): 
     print("GPU Available: ", tf.test.is_gpu_available() )
     
-    # region ----- Defining Model /Optimizer / Losses / Metrics / Records
+    # region ----- Defining Model / Optimizer / Losses / Metrics / Records
     model = models.model_loader(train_params, model_params)
     if type(model_params) == list:
         model_params = model_params[0]
@@ -53,7 +53,6 @@ def train_loop(train_params, model_params):
     try:
         df_training_info = pd.read_csv( "checkpoints/{}/checkpoint_scores_model_{}.csv".format(model_params['model_name'],model_params['model_version']), header=0, index_col =False   )
         print("Recovered checkpoint scores model csv")
-
     except Exception as e:
         df_training_info = pd.DataFrame(columns=['Epoch','Train_loss_MSE','Val_loss_MSE','Checkpoint_Path', 'Last_Trained_Batch'] ) #key: epoch number #Value: the corresponding loss #TODO: Implement early stopping
         print("Did not recover checkpoint scores model csv")
@@ -135,7 +134,6 @@ def train_loop(train_params, model_params):
             ds_val = data_generators.load_data_vandal( train_set_size_batches*train_params['batch_size'], train_params )
 
         elif( model_params['model_name'] == "THST" ):
-
             ds_train = data_generators.load_data_ati(train_params, model_params, day_to_start_at=train_params['train_start_date'] )
             ds_val = data_generators.load_data_ati(train_params, model_params, day_to_start_at=train_params['val_start_date'] )
 
@@ -153,7 +151,7 @@ def train_loop(train_params, model_params):
                 for batch in range(1+batches_to_skip,2+train_set_size_batches+val_set_size_batches):
                     # region Train Loop
                     if(batch<=train_set_size_batches):
-                        feature, target = next(iter_train)  #ATI- ( (feature,mask), (target) ) V-shape( (bs, 39, 88, 17 ) (bs,156,352) )
+                        feature, target = next(iter_train) 
                         
                         with tf.GradientTape(persistent=True) as tape:
                             if model_params['model_name'] == "DeepSD":
@@ -178,12 +176,12 @@ def train_loop(train_params, model_params):
 
                             
                             elif model_params['model_name'] == "THST" and model_params['stochastic'] ==False: #non stochastic version
-                                feature, mask = feature
+                                target, mask = target
 
                                 preds = model(feature, tape=tape )
-
+                                preds = tf.squeeze(preds)
                                 preds_filtrd = tf.boolean_mask( preds, tf.logical_not(mask) )
-                                target_filtrd = tf.boolean_mask( preds, tf.logical_not(mask) )
+                                target_filtrd = tf.boolean_mask( target, tf.logical_not(mask) )
 
                                 loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd)
                                 metric_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd)
@@ -191,7 +189,6 @@ def train_loop(train_params, model_params):
                                 gradients = tape.gradient( loss_mse, model.trainable_variables )
 
 
-                        
                         gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, model_params['gradients_clip_norm'] )
                         optimizer.apply_gradients( zip( gradients_clipped_global_norm, model.trainable_variables ) )
                         
@@ -203,7 +200,7 @@ def train_loop(train_params, model_params):
                             tf.summary.scalar('neg_log_likelihood', - tf.reduce_sum(log_likelihood)/train_params['batch_size'], step=step )
                             tf.summary.scalar('train_metric_mse', metric_mse , step = step )
                         
-                        else:
+                        elif( model_params['stochastic']==True ):
                             tf.summary.scalar('train_loss_mse', loss_mse , step = step )
                             tf.summary.scalar('train_metric_mse', metric_mse , step = step )
           
@@ -223,7 +220,7 @@ def train_loop(train_params, model_params):
                             train_loss_var_free_nrg_mean_epoch( var_free_nrg_loss )
                             train_metric_mse_mean_groupbatch( metric_mse )
                             train_metric_mse_mean_epoch( metric_mse )
-                        else:
+                        elif( model_params['stochastic']==False ):
                             train_metric_mse_mean_groupbatch( metric_mse )
                                                     
                         ckpt_manager_batch.save()
@@ -266,7 +263,7 @@ def train_loop(train_params, model_params):
                             val_metric_mse_mean( tf.keras.metrics.MSE( tf.squeeze(preds) , target )  )
                         
                         elif model_params['model_name'] == "THST" and model_params['stochastic'] ==False: #non stochastic version
-                            feature, mask = feature
+                            feature, mask = target
                             preds = model(feature )
 
                             preds_filtrd = tf.boolean_mask( preds, tf.logical_not(mask) )
@@ -274,9 +271,7 @@ def train_loop(train_params, model_params):
 
                             val_metric_mse_mean( tf.keras.metrics.MSE( target_filtrd , preds_filtrd )  )
 
-
-
-                        if  ( (batch-train_set_size_batches) % val_batch_reporting_freq) ==0 or batch==(train_set_size_batches+ val_set_size_batches) :
+                        if ( (batch-train_set_size_batches) % val_batch_reporting_freq) ==0 or batch==(train_set_size_batches+ val_set_size_batches) :
                             batches_report_time =  time.time() - start_batch_time
                             est_completion_time_seconds = (batches_report_time/train_params['dataset_trainval_batch_reporting_freq']) *( 1 -  ((batch-train_set_size_batches)/val_set_size_batches ) )
                             est_completion_time_mins = est_completion_time_seconds/60
@@ -312,10 +307,9 @@ if __name__ == "__main__":
 
     args_dict = utility.parse_arguments(s_dir)
 
-    if(args_dict['model_name'] == "DeepSD"):
+    if( args_dict['model_name'] == "DeepSD" ):
         train_params = hparameters.train_hparameters( **args_dict )
 
-        
         #stacked DeepSd methodology
         li_input_output_dims = [ {"input_dims": [39, 88 ], "output_dims": [98, 220 ] , 'var_model_type':'guassian_factorized' } ,
                     {"input_dims": [98, 220 ] , "output_dims": [ 156, 352 ] , 'conv1_inp_channels':1, 'var_model_type':'guassian_factorized' }  ]
@@ -324,9 +318,10 @@ if __name__ == "__main__":
         model_params = [ mp() for mp in model_params]
     
     elif(args_dict['model_name'] == "THST"):
-
-        train_params = hparameters.train_hparameters_ati( **args_dict )
         model_params = hparameters.model_THST_hparameters()()
+        args_dict['lookback_target'] = model_params['data_pipeline_params']['lookback_target']
+        train_params = hparameters.train_hparameters_ati( **args_dict )
+        
         
 
     train_loop(train_params(), model_params )

@@ -5,6 +5,7 @@ from tensorflow.python.keras import activations
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras import constraints
 from tensorflow.python.keras import initializers
+from tensorflow.python.framework import tensor_shape
 from tensorflow.python.keras import regularizers
 from tensorflow.python.keras.engine.base_layer import Layer
 from tensorflow.python.keras.engine.input_spec import InputSpec
@@ -15,10 +16,12 @@ from tensorflow.python.keras.utils import conv_utils
 from tensorflow.python.keras.utils import generic_utils
 from tensorflow.python.keras.utils import tf_utils
 from tensorflow.python.ops import array_ops
+from tensorflow.python.util import nest
 from tensorflow.python.util.tf_export import keras_export
+from tensorflow.python.keras.layers.convolutional_recurrent import ConvRNN2D
+from tensorflow.python.keras.layers.recurrent import _is_multiple_state
 
-
-class ConvLSTM2D_custom(tf.keras.layers.convolutional_recurrent.ConvRNN2D):
+class ConvLSTM2D_custom(ConvRNN2D):
     """
         CUSTOM Convolutional LSTM.
 
@@ -140,6 +143,7 @@ class ConvLSTM2D_custom(tf.keras.layers.convolutional_recurrent.ConvRNN2D):
     def __init__(self,
                  filters,
                  kernel_size,
+                 gates_version,
                  strides=(1, 1),
                  padding='valid',
                  data_format=None,
@@ -163,9 +167,8 @@ class ConvLSTM2D_custom(tf.keras.layers.convolutional_recurrent.ConvRNN2D):
                  stateful=False,
                  dropout=0.,
                  recurrent_dropout=0.,
-                 gates_version=1,
                  **kwargs):
-
+        self.gates_version = gates_version
         cell = ConvLSTM2DCell_custom(filters=filters,
                                      kernel_size=kernel_size,
                                      strides=strides,
@@ -189,19 +192,104 @@ class ConvLSTM2D_custom(tf.keras.layers.convolutional_recurrent.ConvRNN2D):
                                      recurrent_dropout=recurrent_dropout,
                                      gates_version=gates_version,
                                      dtype=kwargs.get('dtype'))
+
         super(ConvLSTM2D_custom, self).__init__(cell,
                                                 return_sequences=return_sequences,
                                                 go_backwards=go_backwards,
                                                 stateful=stateful,
                                                 **kwargs)
+        
         self.activity_regularizer = regularizers.get(activity_regularizer)
 
+
     def call(self, inputs, mask=None, training=None, initial_state=None):
-        self._maybe_reset_cell_dropout_mask(self.cell)
+        #self._maybe_reset_cell_dropout_mask(self.cell)
+        if initial_state is not None:
+            pass
+        elif self.stateful:
+            initial_state = self.states
+        else:
+            initial_state = self.get_initial_state(inputs)
+
         return super(ConvLSTM2D_custom, self).call(inputs,
                                             mask=mask,
                                             training=training,
                                             initial_state=initial_state)
+
+    # region build custom
+    # def build(self, input_shape):
+    #     if isinstance(input_shape, list):
+    #         input_shape = input_shape[0]
+    #     # The input_shape here could be a nest structure.
+    #     if self.gates_version==2:
+    #         input_shape = input_shape[:4] +  input_shape[4]//2 #akanni changed Here
+
+    #     # do the tensor_shape to shapes here. The input could be single tensor, or a
+    #     # nested structure of tensors.
+    #     def get_input_spec(shape):
+    #         if isinstance(shape, tensor_shape.TensorShape):
+    #             input_spec_shape = shape.as_list()
+    #         else:
+    #             input_spec_shape = list(shape)
+    #         batch_index, time_step_index = (1, 0) if self.time_major else (0, 1)
+    #         if not self.stateful:
+    #             input_spec_shape[batch_index] = None
+    #         input_spec_shape[time_step_index] = None
+    #         return InputSpec(shape=tuple(input_spec_shape))
+
+    #     def get_step_input_shape(shape):
+    #         if isinstance(shape, tensor_shape.TensorShape):
+    #             shape = tuple(shape.as_list())
+    #         # remove the timestep from the input_shape
+    #         return shape[1:] if self.time_major else (shape[0],) + shape[2:]
+
+    #     # Check whether the input shape contains any nested shapes. It could be
+    #     # (tensor_shape(1, 2), tensor_shape(3, 4)) or (1, 2, 3) which is from numpy
+    #     # inputs.
+    #     try:
+    #         input_shape = tensor_shape.as_shape(input_shape)
+    #     except (ValueError, TypeError):
+    #     # A nested tensor input
+    #         pass
+
+    #     if not nest.is_sequence(input_shape):
+    #     # This indicates the there is only one input.
+    #         if self.input_spec is not None:
+    #             self.input_spec[0] = get_input_spec(input_shape)
+    #         else:
+    #             self.input_spec = [get_input_spec(input_shape)]
+    #         step_input_shape = get_step_input_shape(input_shape)
+    #     else:
+    #         if self.input_spec is not None:
+    #             self.input_spec[0] = nest.map_structure(get_input_spec, input_shape)
+    #         else:
+    #             self.input_spec = generic_utils.to_list(
+    #                 nest.map_structure(get_input_spec, input_shape))
+    #         step_input_shape = nest.map_structure(get_step_input_shape, input_shape)
+
+    #     # allow cell (if layer) to build before we set or validate state_spec
+    #     if isinstance(self.cell, Layer):
+    #         if not self.cell.built:
+    #             self.cell.build(step_input_shape)
+
+    #     # set or validate state_spec
+    #     if _is_multiple_state(self.cell.state_size):
+    #         state_size = list(self.cell.state_size)
+    #     else:
+    #         state_size = [self.cell.state_size]
+
+    #     if self.state_spec is not None:
+    #     # initial_state was passed in call, check compatibility
+    #         self._validate_state_spec(state_size, self.state_spec)
+    #     else:
+    #         self.state_spec = [
+    #             InputSpec(shape=[None] + tensor_shape.as_shape(dim).as_list())
+    #             for dim in state_size
+    #         ]
+    #     if self.stateful:
+    #         self.reset_states()
+    #     self.built = True    
+    # endregion
     #region pre exists properties
 
     @property
@@ -319,7 +407,8 @@ class ConvLSTM2D_custom(tf.keras.layers.convolutional_recurrent.ConvRNN2D):
                       self.recurrent_constraint),
                   'bias_constraint': constraints.serialize(self.bias_constraint),
                   'dropout': self.dropout,
-                  'recurrent_dropout': self.recurrent_dropout}
+                  'recurrent_dropout': self.recurrent_dropout,
+                  'gates_version':self.gates_version}
         base_config = super(ConvLSTM2D_custom, self).get_config()
         del base_config['cell']
         return dict(list(base_config.items()) + list(config.items()))
@@ -329,6 +418,33 @@ class ConvLSTM2D_custom(tf.keras.layers.convolutional_recurrent.ConvRNN2D):
     def from_config(cls, config):
         return cls(**config)
     # endregion 
+
+    def get_initial_state(self, inputs):
+        # (samples, timesteps, rows, cols, filters)
+        initial_state = K.zeros_like(inputs)
+        # (samples, rows, cols, filters)
+        initial_state = K.sum(initial_state, axis=1)
+
+        shape_h_state = list(self.cell.kernel_shape)
+        shape_h_state[-1] = self.cell.filters
+
+        shape_c_state = list(self.cell.kernel_shape)
+        shape_c_state[-1] = self.cell.filters*2
+        
+        initial_hidden_state = self.cell.input_conv(initial_state,
+                                            array_ops.zeros(tuple(shape_h_state)),
+                                            padding=self.cell.padding)
+        
+        initial_carry_state = self.cell.input_conv( initial_state,
+                                            array_ops.zeros(tuple(shape_c_state)),
+                                            padding=self.cell.padding)
+
+        if hasattr(self.cell.state_size, '__len__'):
+            return [initial_hidden_state, initial_carry_state ]
+        else:
+            return [initial_state]
+
+
 
 class ConvLSTM2DCell_custom(DropoutRNNCellMixin, Layer):
     """
@@ -395,28 +511,28 @@ class ConvLSTM2DCell_custom(DropoutRNNCellMixin, Layer):
 
     def __init__(self,
                filters,
-               kernel_size,
-               strides=(1, 1),
-               padding='valid',
-               data_format=None,
-               dilation_rate=(1, 1),
-               activation='tanh',
-               recurrent_activation='hard_sigmoid',
-               use_bias=True,
-               kernel_initializer='glorot_uniform',
-               recurrent_initializer='orthogonal',
-               bias_initializer='zeros',
-               unit_forget_bias=True,
-               kernel_regularizer=None,
-               recurrent_regularizer=None,
-               bias_regularizer=None,
-               kernel_constraint=None,
-               recurrent_constraint=None,
-               bias_constraint=None,
-               dropout=0.,
-               recurrent_dropout=0.,
-               gates_version=1,
-               **kwargs):
+                kernel_size,
+                gates_version,
+                strides=(1, 1),
+                padding='valid',
+                data_format=None,
+                dilation_rate=(1, 1),
+                activation='tanh',
+                recurrent_activation='hard_sigmoid',
+                use_bias=True,
+                kernel_initializer='glorot_uniform',
+                recurrent_initializer='orthogonal',
+                bias_initializer='zeros',
+                unit_forget_bias=True,
+                kernel_regularizer=None,
+                recurrent_regularizer=None,
+                bias_regularizer=None,
+                kernel_constraint=None,
+                recurrent_constraint=None,
+                bias_constraint=None,
+                dropout=0.,
+                recurrent_dropout=0.,
+                **kwargs):
         super(ConvLSTM2DCell_custom, self).__init__(**kwargs)
         self.filters = filters
         self.kernel_size = conv_utils.normalize_tuple(kernel_size, 2, 'kernel_size')
@@ -444,7 +560,7 @@ class ConvLSTM2DCell_custom(DropoutRNNCellMixin, Layer):
 
         self.dropout = min(1., max(0., dropout))
         self.recurrent_dropout = min(1., max(0., recurrent_dropout))
-        self.state_size = (self.filters, self.filters)
+        self.state_size = (self.filters, int(2*self.filters) )
 
         self.gates_version=gates_version
 
@@ -458,15 +574,23 @@ class ConvLSTM2DCell_custom(DropoutRNNCellMixin, Layer):
             raise ValueError('The channel dimension of the inputs '
                             'should be defined. Found `None`.')
         input_dim = input_shape[channel_axis]
-        kernel_shape = self.kernel_size + (input_dim, self.filters * 8)
+        
+        
+        # if self.gates_version==1:
+        kernel_shape = self.kernel_size + (input_dim, self.filters * 4) #Changed here
+        # elif self.gates_version ==2:
+        #     kernel_shape = self.kernel_size + (input_dim//2, self.filters * 8)
+
+
         self.kernel_shape = kernel_shape
-        recurrent_kernel_shape = self.kernel_size + (self.filters, self.filters * 4)
+        recurrent_kernel_shape = self.kernel_size + (self.filters, self.filters * 4) #NOT Changed Here
 
         self.kernel = self.add_weight(shape=kernel_shape,
                                     initializer=self.kernel_initializer,
                                     name='kernel',
                                     regularizer=self.kernel_regularizer,
                                     constraint=self.kernel_constraint)
+
         self.recurrent_kernel = self.add_weight(
             shape=recurrent_kernel_shape,
             initializer=self.recurrent_initializer,
@@ -482,7 +606,7 @@ class ConvLSTM2DCell_custom(DropoutRNNCellMixin, Layer):
                         self.bias_initializer((self.filters*2,), *args, **kwargs),
                         initializers.Ones()((self.filters*2,), *args, **kwargs),
                         self.bias_initializer((self.filters * 4,), *args, **kwargs),
-                    ])
+                    ]) #changed here
             else:
                 bias_initializer = self.bias_initializer
 
@@ -500,14 +624,15 @@ class ConvLSTM2DCell_custom(DropoutRNNCellMixin, Layer):
     def call(self, inputs, states, training=None):
         h_tm1 = states[0]  # previous memory state
         c_tm1 = states[1]  # previous carry state
-        
-        # New - To ensure h_tm1 is the correct shape and size. It must be equal to the shape of the individual inputs
-        h_tm1 = h_tm1[:, :, :self.filters]
+        if self.gates_version==2:
+            #TODO remove the first if statemeent below
+            if tf.shape(c_tm1)[-1]  == self.filters:
+                c_tm1_1 = c_tm1
+                c_tm1_2 = c_tm1
+            else:
+                c_tm1_1 = c_tm1[:, :, :, :self.filters]
+                c_tm1_2 = c_tm1[:, :, :, self.filters:]
 
-        # New - Dividing input into input1 and input2
-        
-        # input1 = inputs[ :, :, :, :, :tf.math.floordiv(input1.shape[-1],2) ] #(bs, seq_len, h, w, c)
-        # input2 = inputs[ :, :, :, :, input1_len: ]
         inputs1, inputs2 = tf.split( inputs, 2, axis=-1)
         # dropout matrices for input units
         dp_mask1 = self.get_dropout_mask_for_cell(inputs1, training, count=4)
@@ -549,6 +674,16 @@ class ConvLSTM2DCell_custom(DropoutRNNCellMixin, Layer):
             h_tm1_f = h_tm1
             h_tm1_c = h_tm1
             h_tm1_o = h_tm1
+        
+        if self.gates_version==2:
+            _shape = self.kernel.shape.as_list()
+
+            if _shape[2] == self.filters * 4:  
+                self.kernel = tf.reshape(self.kernel,  _shape[:2]+[_shape[2]//2]+[-1] )
+            elif _shape[2] == self.filters * 2: #fix this line later
+                pass
+            else:
+                raise Exception("Dev_akanni: This case not handled")
 
         (kernel1_i, kernel2_i,
         kernel1_f, kernel2_f,
@@ -600,16 +735,15 @@ class ConvLSTM2DCell_custom(DropoutRNNCellMixin, Layer):
             f_1 = self.recurrent_activation(x1_f + h_f)
             f_2 = self.recurrent_activation(x2_f + h_f)
             
-            c_1 = f_1 * c_tm1[:,:,:self.filters] + i_1 * self.activation(x1_c + h_c) 
-            c_2 = f_2 * c_tm1[:,:,self.filters:] + i_2 * self.activation(x2_c + h_c)
-            c = tf.concat( [c_1, c_2], axis=-1) 
-
+            c_t1 = f_1 * c_tm1_1 + i_1 * self.activation(x1_c + h_c) 
+            c_t2 = f_2 * c_tm1_2 + i_2 * self.activation(x2_c + h_c)
+            
             o_1 = self.recurrent_activation(x1_o + h_o)
             o_2 = self.recurrent_activation(x2_o + h_o)
 
-            h = o_1*self.activation(c_1) + o_2 * self.activation(c_2)
+            h = o_1*self.activation(c_t1) + o_2 * self.activation(c_t2)
 
-        return h, [h, c]
+        return h, [h, tf.concat( [c_t1, c_t2], axis=-1) ]
 
     def input_conv(self, x, w, b=None, padding='valid'):
         conv_out = K.conv2d(x, w, strides=self.strides,
@@ -655,6 +789,8 @@ class ConvLSTM2DCell_custom(DropoutRNNCellMixin, Layer):
                     self.recurrent_constraint),
                 'bias_constraint': constraints.serialize(self.bias_constraint),
                 'dropout': self.dropout,
-                'recurrent_dropout': self.recurrent_dropout}
+                'recurrent_dropout': self.recurrent_dropout,
+                'gates_version':self.gates_version }
         base_config = super(ConvLSTM2DCell_custom, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
+
