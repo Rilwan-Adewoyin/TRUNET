@@ -686,11 +686,11 @@ class THST_CLSTM_Attention_Layer(tf.keras.layers.Layer):
         self.num_of_splits = num_of_splits
         self.seq_len_factor_reduction = seq_len_factor_reduction
         
-        self.convLSTM_attn = Bidirectional( ConvLSTM2D_attn( **clstm_params, merge_mode=None ) ) #stateful possibly set to True, return_state=True, return_sequences=True
+        self.convLSTM_attn = Bidirectional( layers_ConvLSTM2D.ConvLSTM2D_attn( **clstm_params, merge_mode=None ) ) #stateful possibly set to True, return_state=True, return_sequences=True
 
     def call(self, input_hidden_states):
         
-        output_hidden_states = self.convLSTM_attn(inpnut_hidden_states)
+        output_hidden_states = self.convLSTM_attn(input_hidden_states)
 
         return output_hidden_states #shape(bs, seq_len, h, w, 2*c2)
 
