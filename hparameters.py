@@ -172,14 +172,14 @@ class model_THST_hparameters(HParams):
 
         attn_layers = encoder_layers - 1
         key_depth = [0 ]*attn_layers  #This will be updated dynamically during the first iteration of the model
-        attn_heads = [ 1]*attn_layers#NOTE: dev settings
+        attn_heads = [ 1]*attn_layers#NOTE: dev settings #must be a factor of h or w or c, so 100, 140 or 6 -> 2, 5, 7, 
         kv_downscale_stride = [10,10,1]
         kv_downscale_kernelshape = [10, 10, 1]
         vector_kv_downscale_factor = 2
     
         ATTN_params_enc = [
             {'bias':None, 'total_key_depth': kd , 'total_value_depth':kd, 'output_depth': kd   ,
-            'num_heads': nh , 'dropout_rate':DROPOUT, 'attention_type':"dot_product_relative_v2" , "vector_kv_downscale_factor":vector_kv_downscale_factor,
+            'num_heads': nh , 'dropout_rate':DROPOUT, 'attention_type':"dot_product_unmasked_relative_v2" , "vector_kv_downscale_factor":vector_kv_downscale_factor,
             'kv_downscale_stride': kv_downscale_stride, 'kv_downscale_kernelshape':kv_downscale_kernelshape }
             for kd, nh in zip( key_depth , attn_heads )
         ] #using key depth and Value depth smaller to reduce footprint
