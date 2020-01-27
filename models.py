@@ -69,3 +69,4 @@ class THST(tf.keras.Model):
             preds.append( pred )
         
         return preds
+>>>>>>> d5dd1fe... Completed new heirachical attention LSTM module

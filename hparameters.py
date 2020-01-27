@@ -170,26 +170,28 @@ class model_THST_hparameters(HParams):
         kernel_size_enc = [ (4,4) , (4,4) , (4,4), (4,4), (4,4)]
         kernel_size_enc = [ (3,3) , (3,3) , (3,3), (3,3), (3,3)]#NOTE: development settings
 
+        attn_layers = encoder_layers - 1
+        key_depth = [0 ]*attn_layers  #This will be updated dynamically during the first iteration of the model
+        attn_heads = [ 1]*attn_layers#NOTE: dev settings
+        kv_downscale_stride = [10,10,1]
+        kv_downscale_kernelshape = [10, 10, 1]
+        vector_kv_downscale_factor = 2
+    
+        ATTN_params_enc = [
+            {'bias':None, 'total_key_depth': kd , 'total_value_depth':kd, 'output_depth': kd   ,
+            'num_heads': nh , 'dropout_rate':DROPOUT, 'attention_type':"dot_product_relative_v2" , "vector_kv_downscale_factor":vector_kv_downscale_factor,
+            'kv_downscale_stride': kv_downscale_stride, 'kv_downscale_kernelshape':kv_downscale_kernelshape }
+            for kd, nh in zip( key_depth , attn_heads )
+        ] #using key depth and Value depth smaller to reduce footprint
 
         CLSTMs_params_enc = [
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
-                'return_sequences':True, 'dropout':DROPOUT, 'recurrent_dropout':DROPOUT }
-             for f, ks in zip( output_filters_enc, kernel_size_enc)
+                'return_sequences':True, 'dropout':DROPOUT, 'recurrent_dropout':DROPOUT,
+                'attn_params': ap  , 'attn_factor_reduc': afr }
+             for f, ks, afr, ap in zip( output_filters_enc, kernel_size_enc, SEQ_LEN_FACTOR_REDUCTION, ATTN_params_enc)
         ]
         # endregion
 
-        # region Attn Params
-        """ These are the params for each attn layer in the encoder"""
-        attn_layers = encoder_layers - 1
-        key_depth = [0 ]*attn_layers #This will be updated dynamically during the first iteration of the model
-        attn_heads = [ 1]*attn_layers#NOTE: dev settings
-
-        ATTN_params_enc = [
-            {'bias':None, 'total_key_depth': kd , 'total_value_depth':kd , 'output_depth': kd   ,
-            'num_heads': nh , 'dropout_rate':DROPOUT, 'attention_type':"dot_product_relative_v2" }
-            for kd, nh in zip( key_depth , attn_heads )
-        ]
-        # endregion
 
         ENCODER_PARAMS = {
             'encoder_layers': encoder_layers,
