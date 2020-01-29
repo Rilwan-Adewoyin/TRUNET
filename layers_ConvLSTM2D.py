@@ -761,7 +761,7 @@ class ConvLSTM2DCell_custom(DropoutRNNCellMixin, Layer):
             o_1 = self.recurrent_activation(x1_o + h_o)
             o_2 = self.recurrent_activation(x2_o + h_o)
 
-            h = o_1*self.activation(c_t1) + o_2 * self.activation(c_t2)
+            h = ( o_1*self.activation(c_t1) + o_2 * self.activation(c_t2) )/2
 
         return h, [h, tf.concat( [c_t1, c_t2], axis=-1) ]
 
@@ -1536,12 +1536,7 @@ def attn_shape_adjust(inputs, attn_factor_reduc ,reverse=False):
         shape = tf.shape(tf.expand_dims(inputs, axis=1) ).as_list()
         _inputs = tf.reshape(inputs, shape[:1] + shape[1]*attn_factor_reduc + shape[2:4] + shape[4]//attn_factor_reduc )
     
-<<<<<<< HEAD
-    return _inputs
->>>>>>> d5dd1fe... Completed new heirachical attention LSTM module
-||||||| parent of 9265868... Completed new heirachical attention LSTM module
-    return _inputs
-=======
+
     return _inputs
 
 def multihead_attention_custom(query_antecedent,
@@ -1882,4 +1877,3 @@ def compute_qkv_custom(query_antecedent,
         vars_3d_num_heads=vars_3d_num_heads,
         layer_collection=layer_collection)
     return q, k, v
->>>>>>> 9265868... Completed new heirachical attention LSTM module

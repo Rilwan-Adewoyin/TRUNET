@@ -42,7 +42,7 @@ class SuperResolutionModel( tf.keras.Model ):
 
 class THST(tf.keras.Model):
     """
-    Temporal Hierachical Spatial Transformer 
+    Temporal Hierarchical Spatial Transformer 
     """
     def __init__(self, train_params, model_params):
         super(THST, self).__init__()
@@ -69,4 +69,3 @@ class THST(tf.keras.Model):
             preds.append( pred )
         
         return preds
->>>>>>> d5dd1fe... Completed new heirachical attention LSTM module

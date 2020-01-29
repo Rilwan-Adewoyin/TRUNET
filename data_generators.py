@@ -89,7 +89,7 @@ def load_data_vandal( elements_to_skip, hparams, _num_parallel_calls =tf.data.ex
 
     ds_fns_precip = tf.data.Dataset.from_tensor_slices(file_paths_bil)
 
-    ds_precip_imgs = ds_fns_precip.map( lambda fn: tf.py_function(utility.read_prism_precip,[fn], [tf.float32] ) )#, num_parallel_calls=_num_parallel_calls ) #shape(bs, 621, 1405) #4km by 4km
+    ds_precip_imgs = ds_fns_precip.map( lambda fn: tf.py_function(utility.read_prism_precip,[fn], [tf.float32] ) )#, num_parallel_calls=_num_parallel_calls ) #shape(bs, addendum) #4km by 4km
 
     ds_precip_imgs = ds_precip_imgs.batch(hparams['batch_size'] ,drop_remainder=True)
 
