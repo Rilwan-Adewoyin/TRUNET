@@ -57,18 +57,18 @@ RECURRENT_DROPOUT_WARNING_MSG = (
 @keras_export('keras.layers.StackedRNNCells')
 class StackedRNNCells(Layer):
   """Wrapper allowing a stack of RNN cells to behave as a single cell.
-  Used to implement efficient stacked RNNs.
-  Arguments:
-    cells: List of RNN cell instances.
-  Examples:
-  ```python
-  cells = [
-      keras.layers.LSTMCell(output_dim),
-      keras.layers.LSTMCell(output_dim),
-      keras.layers.LSTMCell(output_dim),
-  ]
-  inputs = keras.Input((timesteps, input_dim))
-  x = keras.layers.RNN(cells)(inputs)
+    Used to implement efficient stacked RNNs.
+    Arguments:
+      cells: List of RNN cell instances.
+    Examples:
+    ```python
+    cells = [
+        keras.layers.LSTMCell(output_dim),
+        keras.layers.LSTMCell(output_dim),
+        keras.layers.LSTMCell(output_dim),
+    ]
+    inputs = keras.Input((timesteps, input_dim))
+    x = keras.layers.RNN(cells)(inputs)
   ```
   """
 
