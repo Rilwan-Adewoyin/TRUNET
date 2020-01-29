@@ -1258,10 +1258,8 @@ class ConvLSTM2DCell_attn(DropoutRNNCellMixin, Layer):
             self,
                 filters,
                 kernel_size,
-
                 attn,
                 attn_factor_reduc,
-
                 strides=(1, 1),
                 padding='valid',
                 data_format=None,
