@@ -102,7 +102,7 @@ def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoc
         print("\nTop {} Performance Scores".format(5))
         df_training_info = df_training_info.sort_values(by=['Val_loss_MSE'], ascending=True)[:5]
         print(df_training_info[['Epoch','Val_loss_MSE']] )
-        df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores_model_{}.csv".format(model_params['model_name'],train_params['model_version']), header=True, index=False ) #saving df of scores                      
+        df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores_model_{}.csv".format(model_params['model_name'],model_params['model_version']), header=True, index=False ) #saving df of scores                      
     return df_training_info
 
 def kl_loss_weighting_scheme( max_batch ):

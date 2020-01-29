@@ -351,8 +351,8 @@ def get_start_idx( start_date, t_params, m_params ):
     feature_start_date = t_params['feature_start_date']
     target_start_date = t_params['target_start_date']
 
-    feat_days_diff = (start_date - feature_start_date).astype(int)
-    tar_days_diff = (start_date - target_start_date).astype(int)
+    feat_days_diff = ( np.timedelta64(start_date - feature_start_date,'D') ).astype(int)
+    tar_days_diff = ( np.timedelta64(start_date - target_start_date, 'D') ).astype(int)
 
     feat_start_idx = feat_days_diff*4 #since the feature comes in four hour chunks
     tar_start_idx = tar_days_diff 

@@ -173,7 +173,8 @@ class model_THST_hparameters(HParams):
 
         CLSTMs_params_enc = [
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
-                'return_sequences':True, 'dropout':DROPOUT, 'recurrent_dropout':DROPOUT }
+                'return_sequences':True, 'dropout':DROPOUT, 'recurrent_dropout':DROPOUT,
+                'stateful':True}
              for f, ks in zip( output_filters_enc, kernel_size_enc)
         ]
         # endregion
@@ -205,12 +206,13 @@ class model_THST_hparameters(HParams):
         # region --------------- DECODER params -----------------
         decoder_layers = encoder_layers-2
         
-        output_filters_dec = [ 5 ] + output_filters_enc[ decoder_layers-2:decoder_layers ] # This is written in the correct order
+        output_filters_dec = [ 2 ] + output_filters_enc[ decoder_layers-2:decoder_layers ] # This is written in the correct order
         kernel_size_dec = kernel_size_enc[ 1:1+decoder_layers  ]                             # This is written in the correct order
 
         CLSTMs_params_dec = [
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
-                'return_sequences':True, 'dropout':DROPOUT, 'gates_version':2, 'recurrent_dropout':DROPOUT }
+                'return_sequences':True, 'dropout':DROPOUT, 'gates_version':2, 'recurrent_dropout':DROPOUT,
+                'stateful': True }
              for f, ks in zip( output_filters_dec, kernel_size_dec)
         ]
 
@@ -244,16 +246,13 @@ class model_THST_hparameters(HParams):
             'model_version': MODEL_VERSION,
             'model_name':"THST",
 
-
             'encoder_params':ENCODER_PARAMS,
             'decoder_params':DECODER_PARAMS,
             'output_layer_params':OUTPUT_LAYER_PARAMS,
             'data_pipeline_params':DATA_PIPELINE_PARAMS,
 
-
             'gradients_clip_norm':150.0,
             'stochastic':STOCHASTIC
-
         }
 
 
@@ -368,7 +367,7 @@ class train_hparameters_ati(HParams):
                                                 # - x_wind, # - y_wind
         }
 
-        WINDOW_SHIFT = 1
+        WINDOW_SHIFT = self.lookback_target
         
         # endregion
 
@@ -379,11 +378,11 @@ class train_hparameters_ati(HParams):
 
         # region ---- data information
 
-        feature_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
-        target_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
+        target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
+        feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
         
-        feature_end_date = feature_start_date + np.timedelta64( 14822, 'D')
-        tar_end_date = target_start_date + np.timedelta64(16072//4, 'D')
+        tar_end_date=  target_start_date + np.timedelta64( 14822, 'D')
+        feature_end_date  = feature_start_date + np.timedelta64(16072//4, 'D')
         
         if feature_start_date > target_start_date :
             train_start_date = feature_start_date
@@ -393,11 +392,12 @@ class train_hparameters_ati(HParams):
         if tar_end_date < feature_end_date :
             end_date = tar_end_date
         else:
-            feature_end_date
+            end_date = feature_end_date
 
         #train_start_date = np.max(feature_start_date, target_start_date)
         #end_date = np.min( tar_end_date, feature_end_date)
-        val_start_date = train_start_date + (end_date - train_start_date)*0.2 
+        val_start_date = train_start_date + (end_date - train_start_date)*0.6
+        val_end_date = train_start_date + (end_date - train_start_date)*0.8 
 
         #TOTAL_DATUMS = int(end_date - start_date)//WINDOW_SHIFT - lookback  #By datums here we mean windows, for the target
         TOTAL_DATUMS_TARGET = ( np.timedelta64(end_date - train_start_date,'D') - (self.lookback_target - 1) )  // WINDOW_SHIFT   #Think of better way to get the np.product info from model_params to train params
@@ -445,6 +445,7 @@ class train_hparameters_ati(HParams):
 
             'train_start_date':train_start_date,
             'val_start_date':val_start_date,
+            'val_end_date':val_end_date,
 
             'feature_start_date':feature_start_date,
             'target_start_date':target_start_date

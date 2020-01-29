@@ -1,21 +1,23 @@
-# Rain Data
+#-------------------- Rain Data ----------------------
 
 #All features
 -rain
--time days since 1950-01-00 00:00 up to 1 August 1990
+-time days since 1950-01-00 00:00 
+data length :	 14822
+image_shape :	(100,140)
 
-data length = 14822
-image_shape = 100,140
+#Information
+Start: 		1970-01-01
+End: 		2019-08-01
+Records: 	16072
+image shape : 	(103,144)
 
-#Problems - Is the start time actually from 1950, or was 1970 meant
 
-
-#Model Field Data
+#------------------- Model Field Data -----------------
 ##All Features
 -unknown_local_param_137_128
 -latitude_longitude
 -time, hours past 1970-01-01 00:00 - Thursday 31 December 1981
-
 -latitude
 -longitude
 -forecast_period
@@ -48,3 +50,10 @@ image_shape = 100,140
 - geopotential
 - x_wind
 - y_wind
+
+
+#information - ana_input_1
+Start: 		1970-01-01
+End: 		1979-01-01
+Records: 	16072
+image shape : 	(103,144)

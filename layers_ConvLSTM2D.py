@@ -678,12 +678,13 @@ class ConvLSTM2DCell_custom(DropoutRNNCellMixin, Layer):
         if self.gates_version==2:
             _shape = self.kernel.shape.as_list()
 
-            if _shape[2] == self.filters * 4:  
+            if _shape[3] == self.filters * 4:  
                 self.kernel = tf.reshape(self.kernel,  _shape[:2]+[_shape[2]//2]+[-1] )
-            elif _shape[2] == self.filters * 2: #fix this line later
+            elif _shape[3] == self.filters * 8: #fix this line later
                 pass
             else:
-                raise Exception("Dev_akanni: This case not handled")
+                pass
+                #raise Exception("Dev_akanni: This case not handled")
 
         (kernel1_i, kernel2_i,
         kernel1_f, kernel2_f,

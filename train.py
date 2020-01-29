@@ -27,6 +27,7 @@ import time
 
 import models
 import hparameters
+import gc
 # endregion
 
 #region train 
@@ -111,6 +112,17 @@ def train_loop(train_params, model_params):
     writer = tf.summary.create_file_writer( "log_tensboard/{}/{}/tblog".format(model_params['model_name'], model_params['model_version']) )
     # endregion
 
+    # region ---- Making Datasets
+
+    if( model_params['model_name'] == "DeepSD" ):
+        ds_train = data_generators.load_data_vandal( batches_to_skip*train_params['batch_size'], train_params  )
+        ds_val = data_generators.load_data_vandal( train_set_size_batches*train_params['batch_size'], train_params )
+
+    elif( model_params['model_name'] == "THST" ):
+        ds_train = data_generators.load_data_ati(train_params, model_params, day_to_start_at=train_params['train_start_date'] )
+        ds_val = data_generators.load_data_ati(train_params, model_params, day_to_start_at=train_params['val_start_date'] )
+    # endregion
+
     # region --- Train and Val
     for epoch in range(starting_epoch, int(train_params['epochs']+1) ):
         #region metrics, loss, dataset, and standardization
@@ -128,30 +140,21 @@ def train_loop(train_params, model_params):
         start_batch_time = time.time()
         #endregion
 
-        #region Setting up Datasets
-        if( model_params['model_name'] == "DeepSD" ):
-            ds_train = data_generators.load_data_vandal( batches_to_skip*train_params['batch_size'], train_params  )
-            ds_val = data_generators.load_data_vandal( train_set_size_batches*train_params['batch_size'], train_params )
-
-        elif( model_params['model_name'] == "THST" ):
-            ds_train = data_generators.load_data_ati(train_params, model_params, day_to_start_at=train_params['train_start_date'] )
-            ds_val = data_generators.load_data_ati(train_params, model_params, day_to_start_at=train_params['val_start_date'] )
-
-        #endregion
 
         batch=0
         epoch_finished = False  
         while(epoch_finished==False):
 
             print("\n\nStarting EPOCH {} Batch {}/{}".format(epoch, batches_to_skip+1, train_set_size_batches))
-            with writer.as_default():
-                iter_train = iter(ds_train)
-                iter_val = iter(ds_val)
-
-                for batch in range(1+batches_to_skip,2+train_set_size_batches+val_set_size_batches):
+            iter_train = iter(ds_train)
+            iter_val = iter(ds_val)
+            
+            for batch in range(1+batches_to_skip,2+train_set_size_batches+val_set_size_batches):
                     # region Train Loop
-                    if(batch<=train_set_size_batches):
-                        feature, target = next(iter_train) 
+                if(batch<=train_set_size_batches):
+                    feature, target = next(iter_train)
+
+                    with writer.as_default():
                         
                         with tf.GradientTape(persistent=True) as tape:
                             if model_params['model_name'] == "DeepSD":
@@ -171,10 +174,8 @@ def train_loop(train_params, model_params):
                                 var_free_nrg_loss = kl_loss  - tf.reduce_sum(log_likelihood)/train_params['batch_size'] 
 
                                 metric_mse = tf.reduce_sum( tf.keras.losses.MSE( target , preds ) )
-
-                                gradients = tape.gradient( var_free_nrg_loss, model.trainable_variables )
-
-                            
+                                l  = var_free_nrg_loss
+                                                            
                             elif model_params['model_name'] == "THST" and model_params['stochastic'] ==False: #non stochastic version
                                 target, mask = target
 
@@ -184,11 +185,10 @@ def train_loop(train_params, model_params):
                                 target_filtrd = tf.boolean_mask( target, tf.logical_not(mask) )
 
                                 loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd)
-                                metric_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd)
+                                metric_mse = loss_mse
+                                l = loss_mse
 
-                                gradients = tape.gradient( loss_mse, model.trainable_variables )
-
-
+                        gradients = tape.gradient( l, model.trainable_variables )
                         gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, model_params['gradients_clip_norm'] )
                         optimizer.apply_gradients( zip( gradients_clipped_global_norm, model.trainable_variables ) )
                         
@@ -200,7 +200,7 @@ def train_loop(train_params, model_params):
                             tf.summary.scalar('neg_log_likelihood', - tf.reduce_sum(log_likelihood)/train_params['batch_size'], step=step )
                             tf.summary.scalar('train_metric_mse', metric_mse , step = step )
                         
-                        elif( model_params['stochastic']==True ):
+                        elif( model_params['stochastic']==False ):
                             tf.summary.scalar('train_loss_mse', loss_mse , step = step )
                             tf.summary.scalar('train_metric_mse', metric_mse , step = step )
           
@@ -241,53 +241,66 @@ def train_loop(train_params, model_params):
                         continue  
                     # endregion
 
-                    # region Transition 
-                    if(batch==train_set_size_batches+1):
-                        if( model_params['stochastic']==True ):
-                            print('EPOCH {}:\tVAR_FREE_NRG: {:.3f} \tMSE: {:.3f}\tTime: {:.2f}'.format(epoch, train_loss_var_free_nrg_mean_epoch.result() ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
-                        else:
-                            print('EPOCH {}:\tMSE: {:.3f}\tTime: {:.2f}'.format(epoch ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
+                # region Transition 
+                if(batch==train_set_size_batches+1):
+                    if( model_params['stochastic']==True ):
+                        print('EPOCH {}:\tVAR_FREE_NRG: {:.3f} \tMSE: {:.3f}\tTime: {:.2f}'.format(epoch, train_loss_var_free_nrg_mean_epoch.result() ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
+                    else:
+                        print('EPOCH {}:\tMSE: {:.3f}\tTime: {:.2f}'.format(epoch ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
 
-                        print("\nStarting Validation")
-                        start_epoch_val = time.time()
+                    print("\nStarting Validation")
+                    start_epoch_val = time.time()
+                    start_batch_time = time.time()
+
+                    ds_train = None
+                    iter_train = None
+                    del(ds_train)
+                    del(iter_train)
+                    gc.collect()
+                # endregion
+
+                #region Validation Loop
+                if(train_set_size_batches+1<= batch <= train_set_size_batches + val_set_size_batches  ):
+                    feature, target = next(iter_val)
+
+                    if model_params['model_name'] == "DeepSD":
+                        preds = model( feature )
+                        preds = utility.water_mask( tf.squeeze(preds), train_params['bool_water_mask'])
+                        val_metric_mse_mean( tf.keras.metrics.MSE( tf.squeeze(preds) , target )  )
+                    
+                    elif model_params['model_name'] == "THST" and model_params['stochastic'] ==False: #non stochastic version
+                        target, mask = target
+                        preds = model(feature )
+                        preds = tf.squeeze(preds)
+
+                        preds_filtrd = tf.boolean_mask( preds, tf.logical_not(mask) )
+                        target_filtrd = tf.boolean_mask( target, tf.logical_not(mask) )
+
+                        val_metric_mse_mean( tf.keras.metrics.MSE( target_filtrd , preds_filtrd )  )
+
+                    if ( (batch-train_set_size_batches) % val_batch_reporting_freq) ==0 or batch==(train_set_size_batches+ val_set_size_batches) :
+                        batches_report_time =  time.time() - start_batch_time
+                        est_completion_time_seconds = (batches_report_time/train_params['dataset_trainval_batch_reporting_freq']) *( 1 -  ((batch-train_set_size_batches)/val_set_size_batches ) )
+                        est_completion_time_mins = est_completion_time_seconds/60
+
+                        print("\tCompleted Validation Batch:{}/{} \t Time:{:.4f} \tEst Time Left:{:.1f}".format( batch-train_set_size_batches, val_set_size_batches ,batches_report_time,est_completion_time_mins ))
+                                                    
                         start_batch_time = time.time()
-                    # endregion
+                    continue
+                # endregion
 
-                    #region Validation Loop
-                    if(train_set_size_batches+1<= batch <= train_set_size_batches + val_set_size_batches  ):
-                        feature, target = next(iter_val)
-
-                        if model_params['model_name'] == "DeepSD":
-                            preds = model( feature )
-                            preds = utility.water_mask( tf.squeeze(preds), train_params['bool_water_mask'])
-                            val_metric_mse_mean( tf.keras.metrics.MSE( tf.squeeze(preds) , target )  )
-                        
-                        elif model_params['model_name'] == "THST" and model_params['stochastic'] ==False: #non stochastic version
-                            feature, mask = target
-                            preds = model(feature )
-
-                            preds_filtrd = tf.boolean_mask( preds, tf.logical_not(mask) )
-                            target_filtrd = tf.boolean_mask( preds, tf.logical_not(mask) )
-
-                            val_metric_mse_mean( tf.keras.metrics.MSE( target_filtrd , preds_filtrd )  )
-
-                        if ( (batch-train_set_size_batches) % val_batch_reporting_freq) ==0 or batch==(train_set_size_batches+ val_set_size_batches) :
-                            batches_report_time =  time.time() - start_batch_time
-                            est_completion_time_seconds = (batches_report_time/train_params['dataset_trainval_batch_reporting_freq']) *( 1 -  ((batch-train_set_size_batches)/val_set_size_batches ) )
-                            est_completion_time_mins = est_completion_time_seconds/60
-
-                            print("\tCompleted Validation Batch:{}/{} \t Time:{:.4f} \tEst Time Left:{:.1f}".format( batch-train_set_size_batches, val_set_size_batches ,batches_report_time,est_completion_time_mins ))
-                                                        
-                            start_batch_time = time.time()
-                        continue
-                    # endregion
-
-                    print("Epoch:{}\t Train MSE:{:.3f}\tValidation Loss: MSE:{:.4f}\tTime:{:.4f}".format(epoch, train_metric_mse_mean_epoch.result(), val_metric_mse_mean.result(), time.time()-start_epoch_val  ) )
-                    epoch_finished = True
-                    batches_to_skip = 0  
+                print("Epoch:{}\t Train MSE:{:.3f}\tValidation Loss: MSE:{:.4f}\tTime:{:.4f}".format(epoch, train_metric_mse_mean_epoch.result(), val_metric_mse_mean.result(), time.time()-start_epoch_val  ) )
+                epoch_finished = True
+                batches_to_skip = 0  
                     
         df_training_info = utility.update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoch, val_metric_mse_mean, ckpt_manager_epoch, train_params, model_params )
-                            
+
+        ds_val = None
+        iter_val = None
+        del(ds_val)
+        del(iter_val)
+        gc.collect()
+
         #region Early iteration Stop Check
         if epoch > ( max( df_training_info.loc[:, 'Epoch'], default=0 ) + train_params['early_stopping_period']) :
             print("Model Early Stopping at EPOCH {}".format(epoch))

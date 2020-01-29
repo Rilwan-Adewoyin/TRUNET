@@ -630,6 +630,7 @@ class THST_Encoder(tf.keras.layers.Layer ):
         # self.CLSTM_4.convLSTM.build( input_shape = [ train_params['batch_size'] , self.encoder_params['num_of_splits'][2], 100 , 140 , encoder_params['CLSTMs_params'][2]['filters']*2 ] )
         # self.CLSTM_5.convLSTM.build( input_shape = [ train_params['batch_size'] , self.encoder_params['num_of_splits'][3], 100 , 140 , encoder_params['CLSTMs_params'][3]['filters']*2 ] )
 
+    @tf.function
     def call(self, _input):
         """
             _input #shape( )
@@ -660,7 +661,8 @@ class THST_Decoder(tf.keras.layers.Layer):
         self.CLSTM_L3 = THST_CLSTM_Decoder_Layer( train_params, self.decoder_params['CLSTMs_params'][1],  decoder_params['seq_len_factor_reduction'][1] )
         self.CLSTM_L2 = THST_CLSTM_Decoder_Layer( train_params, self.decoder_params['CLSTMs_params'][0],  decoder_params['seq_len_factor_reduction'][0] )
         #self.CLSTM_L1 = THST_CLSTM_Decoder_Layer( train_params, self.decoder_params['CLSTMs_params'][0],  decoder_params['seq_len_factor_reduction'][0] )
-        
+    
+    @tf.function
     def call(self, hidden_states_2_enc, hidden_states_3_enc, hidden_states_4_enc, hidden_states_5_enc  ):
 
         #NOTE: make sure to include some sort of iterative reduction of span in each descent in decoder level
@@ -804,6 +806,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
         #TODO: may have to add an upscaling mechanism here if model fields are on a lower dimension than the rain data for ati data
         self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
     
+    @tf.function
     def call(self, _inputs ):
         """
         :param tnsr inputs: (bs, seq_len, h,w,c)
