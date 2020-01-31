@@ -7,6 +7,8 @@ import data_generators
 import utility
 
 import tensorflow as tf
+gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+tf.config.experimental.set_memory_growth(gpu_devices[0], True)
 import tensorflow_probability as tfp
 try:
     import tensorflow_addons as tfa
@@ -42,8 +44,8 @@ def train_loop(train_params, model_params):
     if tfa==None:
         optimizer = tf.keras.optimizers.Adam( learning_rate=1e-4, beta_1=0.1, beta_2=0.99, epsilon=1e-5 )
     else:
-        radam = tfa.optimizers.RectifiedAdam( learning_rate=2e-4, total_steps=500, warmup_proportion=0.5, min_lr=1e-4, beta_1=0.9, beta_2=0.99, epsilon=1e-5 )
-        optimizer = tfa.optimizers.Lookahead(radam, sync_period = 7, slow_step_size=0.5)
+        radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=int(train_params['train_set_size_batches']*0.55) )
+        optimizer = tfa.optimizers.Lookahead(radam, **model_params['lookahead_params'])
 
     train_metric_mse_mean_groupbatch = tf.keras.metrics.Mean(name='train_loss_mse_obj')
     train_metric_mse_mean_epoch = tf.keras.metrics.Mean(name="train_loss_mse_obj_epoch")
@@ -138,7 +140,8 @@ def train_loop(train_params, model_params):
         start_epoch_val = None
         inp_time = None
         start_batch_time = time.time()
-        #endregion
+        #endregion 
+
 
 
         batch=0
@@ -156,7 +159,7 @@ def train_loop(train_params, model_params):
 
                     with writer.as_default():
                         
-                        with tf.GradientTape(persistent=True) as tape:
+                        with tf.GradientTape(persistent=False) as tape:
                             if model_params['model_name'] == "DeepSD":
                                 preds = model( feature, tape=tape ) #shape batch_size, output_h, output_w, 1 #TODO Debug, remove tape variable from model later
                                 #noise_std = tfd.HalfNormal(scale=5)     #TODO(akanni-ade): remove (mask) eror for predictions that are water i.e. null, through water_mask
@@ -188,8 +191,13 @@ def train_loop(train_params, model_params):
                                 metric_mse = loss_mse
                                 l = loss_mse
 
-                        gradients = tape.gradient( l, model.trainable_variables )
-                        gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, model_params['gradients_clip_norm'] )
+                            gradients = tape.gradient( l, model.trainable_variables )
+
+                            if (model_params['gradients_clip_norm']==None):
+                                gradients_clipped_global_norm = gradients
+                            else:
+                                gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, model_params['gradients_clip_norm'] )
+                        
                         optimizer.apply_gradients( zip( gradients_clipped_global_norm, model.trainable_variables ) )
                         
                         #region Tensorboard Update
@@ -243,6 +251,7 @@ def train_loop(train_params, model_params):
 
                 # region Transition 
                 if(batch==train_set_size_batches+1):
+                    tf.keras.backend.clear_session()
                     if( model_params['stochastic']==True ):
                         print('EPOCH {}:\tVAR_FREE_NRG: {:.3f} \tMSE: {:.3f}\tTime: {:.2f}'.format(epoch, train_loss_var_free_nrg_mean_epoch.result() ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
                     else:
@@ -291,7 +300,8 @@ def train_loop(train_params, model_params):
 
                 print("Epoch:{}\t Train MSE:{:.3f}\tValidation Loss: MSE:{:.4f}\tTime:{:.4f}".format(epoch, train_metric_mse_mean_epoch.result(), val_metric_mse_mean.result(), time.time()-start_epoch_val  ) )
                 epoch_finished = True
-                batches_to_skip = 0  
+                batches_to_skip = 0
+                keras.backend.clear_session()  
                     
         df_training_info = utility.update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoch, val_metric_mse_mean, ckpt_manager_epoch, train_params, model_params )
 

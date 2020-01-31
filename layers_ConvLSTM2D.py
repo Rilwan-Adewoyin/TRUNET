@@ -1,34 +1,52 @@
 import tensorflow as tf
 import numpy as np
 
-from layers import MultiHead2DAttention
-from tensorflow.python.keras import activations
-from tensorflow.python.keras import backend as K
-from tensorflow.python.keras import constraints
-from tensorflow.python.keras import initializers
-from tensorflow.python.framework import tensor_shape
-from tensorflow.python.keras import regularizerson
+##Old imports
+# from tensorflow.python.keras import activations
+# from tensorflow.python.keras import backend as K
+# from tensorflow.python.keras import constraints
+# from tensorflow.python.keras import initializers
+# from tensorflow.python.framework import tensor_shape
+# from tensorflow.python.keras import regularizers
 
-from tensorflow.python.keras.engine.base_layer import Layer
-from tensorflow.python.keras.engine.input_spec import InputSpec
-from tensorflow.python.keras.layers.recurrent import _standardize_args
-from tensorflow.python.keras.layers.recurrent import DropoutRNNCellMixin
-from tensorflow.python.keras.layers.recurrent import RNN
-from tensorflow.python.keras.utils import conv_utils
-from tensorflow.python.keras.utils import generic_utils
-from tensorflow.python.keras.utils import tf_utils
+#from tensorflow.python.keras.engine.base_layer import Layer
+# from tensorflow.python.keras.engine.input_spec import InputSpec
+# from tensorflow.python.keras.layers.recurrent import _standardize_args
+# from tensorflow.python.keras.layers.recurrent import DropoutRNNCellMixin
+# from tensorflow.python.keras.layers.recurrent import RNN
+# from tensorflow.python.keras.utils import conv_utils
+# from tensorflow.python.keras.utils import generic_utils
+# from tensorflow.python.keras.utils import tf_utils
+# from tensorflow.python.ops import array_ops
+# from tensorflow.python.util import nest
+# from tensorflow.python.util.tf_export import keras_export
+# from tensorflow.python.keras.layers.convolutional_recurrent import ConvRNN2D
+# from tensorflow.python.keras.layers.recurrent import _is_multiple_state
+
+
+from tensor2tensor.layers.common_attention import split_heads, combine_heads
+from tensor2tensor.layers.common_attention import dot_product_attention, dot_product_attention_relative, dot_product_unmasked_self_attention_relative_v2, dot_product_self_attention_relative_v2
+from tensor2tensor.layers.common_attention import compute_attention_component
+from tensor2tensor.layers.common_layers import dense as t2t_dense
+from tensorflow.python.ops import inplace_ops
+
+##New imports
+from tensorflow.keras import activations
+from tensorflow.keras import backend as K
+from tensorflow.keras import constraints
+from tensorflow.keras import initializers
+from tensorflow.python.framework import tensor_shape
+from tensorflow.keras import regularizers
+
+from tensorflow.keras.layers import Layer
+from tensorflow.python.keras.layers.recurrent import _standardize_args, DropoutRNNCellMixin, RNN, _is_multiple_state
+from tensorflow.python.keras.utils import conv_utils, generic_utils, tf_utils
 from tensorflow.python.ops import array_ops
 from tensorflow.python.util import nest
 from tensorflow.python.util.tf_export import keras_export
 from tensorflow.python.keras.layers.convolutional_recurrent import ConvRNN2D
-from tensorflow.python.keras.layers.recurrent import _is_multiple_state
 
 
-from tensor2tensor.layers.common_attention import split_heads, combine_heads
-from tensor2tensor.layers.common_attention import dot_product_attention_relative, dot_product_unmasked_self_attention_relative_v2, dot_product_self_attention_relative_v2
-from tensor2tensor.layers.common_attention import compute_attention_component
-from tensor2tensor.layers.common_layers import dense as t2t_dense
-from tensorflow.python.ops import inplace_ops
 
 class ConvLSTM2D_custom(ConvRNN2D):
     """
@@ -153,8 +171,6 @@ class ConvLSTM2D_custom(ConvRNN2D):
                  filters,
                  kernel_size,
                  gates_version,
-                #  attn_params,
-                #  attn_factor_reduc,
                  strides=(1, 1),
                  padding='valid',
                  data_format=None,
@@ -941,10 +957,9 @@ class ConvLSTM2D_attn(ConvRNN2D):
                 self,
                  filters,
                  kernel_size,
-                
                  attn_params,
+                 attn_downscaling_params,
                  attn_factor_reduc,
-
                  strides=(1, 1),
                  padding='valid',
                  data_format=None,
@@ -968,18 +983,22 @@ class ConvLSTM2D_attn(ConvRNN2D):
                  stateful=False,
                  dropout=0.,
                  recurrent_dropout=0.,
+                 trainable=True,
                  **kwargs):
 
-        #self.gates_version = gates_version
-        self.Attention2D = MultiHead2DAttention( trainable=self.trainable, layer_params = attn_params )
+        #Amending Initialisation -> since the init is called after the sub layer MultiHead2DAtt is made
+        self._trainable = trainable
+        self.attn_params= attn_params
+        self.attn_downscaling_params = attn_downscaling_params
         self.attn_factor_reduc = attn_factor_reduc
 
+        self.Attention2D = MultiHead2DAttention( layer_params = attn_params, attention_scaling_params=attn_downscaling_params ,trainable=self.trainable )
+        
+        
         cell = ConvLSTM2DCell_attn(filters=filters,
                                      kernel_size=kernel_size,
-                                     
                                      attn = self.Attention2D,
                                      attn_factor_reduc = self.attn_factor_reduc,
-
                                      strides=strides,
                                      padding=padding,
                                      data_format=data_format,
@@ -1116,6 +1135,9 @@ class ConvLSTM2D_attn(ConvRNN2D):
     def get_config(self):
         config = {'filters': self.filters,
                   'kernel_size': self.kernel_size,
+                  'attn_params':self.attn_params,
+                  'attn_downscaling_params':self.attn_downscaling_params,
+                  'attn_factor_reduc':self.attn_factor_reduc,
                   'strides': self.strides,
                   'padding': self.padding,
                   'data_format': self.data_format,
@@ -1143,8 +1165,7 @@ class ConvLSTM2D_attn(ConvRNN2D):
                       self.recurrent_constraint),
                   'bias_constraint': constraints.serialize(self.bias_constraint),
                   'dropout': self.dropout,
-                  'recurrent_dropout': self.recurrent_dropout,
-                  'gates_version':self.gates_version}
+                  'recurrent_dropout': self.recurrent_dropout}
         base_config = super(ConvLSTM2D_attn, self).get_config()
         del base_config['cell']
         return dict(list(base_config.items()) + list(config.items()))
@@ -1350,9 +1371,9 @@ class ConvLSTM2DCell_attn(DropoutRNNCellMixin, Layer):
 
                 def bias_initializer(_, *args, **kwargs):
                     return K.concatenate([
-                        self.bias_initializer((self.filters*2,), *args, **kwargs),
-                        initializers.Ones()((self.filters*2,), *args, **kwargs),
-                        self.bias_initializer((self.filters * 4,), *args, **kwargs),
+                        self.bias_initializer((self.filters*1,), *args, **kwargs),
+                        initializers.Ones()((self.filters*1,), *args, **kwargs),
+                        self.bias_initializer((self.filters * 2,), *args, **kwargs),
                     ]) #changed here
             else:
                 bias_initializer = self.bias_initializer
@@ -1376,37 +1397,37 @@ class ConvLSTM2DCell_attn(DropoutRNNCellMixin, Layer):
         c_tm1 = states[1]  # previous carry state
 
         #region new: attn part
-        inputs = attn_shape_adjust( inputs, self.attn_factor_re) #shape (bs, self.attn_factor_reduc ,h, w, c )
+        inputs = attn_shape_adjust( inputs, self.attn_factor_reduc, reverse=True ) #shape (bs, self.attn_factor_reduc ,h, w, c )
 
-        query = tf.expand_dims( c_tm1, axis=1)
+        q = tf.expand_dims( c_tm1, axis=1)
+        k = inputs
+        v = inputs
         
-        attn_avg_inp_hid_state = self.attn( query, inputs ) #(bs, 1, h, w, f)
+        attn_avg_inp_hid_state = self.attn( inputs=q,
+                                            inputs_k=k,
+                                            inputs_v=v ) #(bs, 1, h, w, f)
         
-        forward_h, backward_h = self.convLSTM( attn_avg_inp_hid_state, training=self.trainable ) #shape( bs, seq_len, h, w, 2*c) #c2 specified in ConvLSTM creation
-
-        inputs = tf.concat( [forward_h, backward_h], axis=-1) #shape( bs, 1, h, w, 2*c)
-        inputs = tf.squeeze(inputs)
         # endregion
 
-        inputs1 = inputs
+        inputs = tf.squeeze( attn_avg_inp_hid_state)
         # dropout matrices for input units
-        dp_mask1 = self.get_dropout_mask_for_cell(inputs1, training, count=4)
+        dp_mask1 = self.get_dropout_mask_for_cell(inputs, training, count=4)
         # dropout matrices for recurrent units
         rec_dp_mask = self.get_recurrent_dropout_mask_for_cell(
             h_tm1, training, count=4)
 
 
         if 0 < self.dropout < 1.:
-            inputs1_i = inputs1 * dp_mask1[0]
-            inputs1_f = inputs1 * dp_mask1[1]
-            inputs1_c = inputs1 * dp_mask1[2]
-            inputs1_o = inputs1 * dp_mask1[3]
+            inputs_i = inputs * dp_mask1[0]
+            inputs_f = inputs * dp_mask1[1]
+            inputs_c = inputs * dp_mask1[2]
+            inputs_o = inputs * dp_mask1[3]
 
         else:
-            inputs1_i = inputs1 
-            inputs1_f = inputs1 
-            inputs1_c = inputs1 
-            inputs1_o = inputs1
+            inputs_i = inputs 
+            inputs_f = inputs 
+            inputs_c = inputs 
+            inputs_o = inputs
 
         if 0 < self.recurrent_dropout < 1.:
             h_tm1_i = h_tm1 * rec_dp_mask[0]
@@ -1419,10 +1440,10 @@ class ConvLSTM2DCell_attn(DropoutRNNCellMixin, Layer):
             h_tm1_c = h_tm1
             h_tm1_o = h_tm1
         
-        (kernel1_i,
-        kernel1_f, 
-        kernel1_c, 
-        kernel1_o) = array_ops.split(self.kernel, 4, axis=3)
+        (kernel_i,
+        kernel_f, 
+        kernel_c, 
+        kernel_o) = array_ops.split(self.kernel, 4, axis=3)
 
         (recurrent_kernel_i,
         recurrent_kernel_f,
@@ -1430,33 +1451,33 @@ class ConvLSTM2DCell_attn(DropoutRNNCellMixin, Layer):
         recurrent_kernel_o) = array_ops.split(self.recurrent_kernel, 4, axis=3)
 
         if self.use_bias:
-            (bias1_i, 
-            bias1_f,  
-            bias1_c, 
-            bias1_o) = array_ops.split(self.bias, 4)
+            (bias_i, 
+            bias_f,  
+            bias_c, 
+            bias_o) = array_ops.split(self.bias, 4)
         else:
-            (bias1_i,
-            bias1_f,
-            bias1_c,
-            bias1_o) = None, None, None, None
+            (bias_i,
+            bias_f,
+            bias_c,
+            bias_o) = None, None, None, None
 
-        x1_i = self.input_conv(inputs1_i, kernel1_i, bias1_i, padding=self.padding)
-        x1_f = self.input_conv(inputs1_f, kernel1_f, bias1_f, padding=self.padding)
-        x1_c = self.input_conv(inputs1_c, kernel1_c, bias1_c, padding=self.padding)
-        x1_o = self.input_conv(inputs1_o, kernel1_o, bias1_o, padding=self.padding)
+        x_i = self.input_conv(inputs_i, kernel_i, bias_i, padding=self.padding)
+        x_f = self.input_conv(inputs_f, kernel_f, bias_f, padding=self.padding)
+        x_c = self.input_conv(inputs_c, kernel_c, bias_c, padding=self.padding)
+        x_o = self.input_conv(inputs_o, kernel_o, bias_o, padding=self.padding)
 
         h_i = self.recurrent_conv(h_tm1_i, recurrent_kernel_i)
         h_f = self.recurrent_conv(h_tm1_f, recurrent_kernel_f)
         h_c = self.recurrent_conv(h_tm1_c, recurrent_kernel_c)
         h_o = self.recurrent_conv(h_tm1_o, recurrent_kernel_o)
 
-        i = self.recurrent_activation(x1_i + h_i)
-        f = self.recurrent_activation(x1_f + h_f)
-        c = f * c_tm1 + i * self.activation(x1_c + h_c)
-        o = self.recurrent_activation(x1_o + h_o)
+        i = self.recurrent_activation(x_i + h_i)
+        f = self.recurrent_activation(x_f + h_f)
+        c = f * c_tm1 + i * self.activation(x_c + h_c)
+        o = self.recurrent_activation(x_o + h_o)
         h = o * self.activation(c)
         
-        return h, [h, c ]
+        return h, [h, c ] 
 
     def input_conv(self, x, w, b=None, padding='valid'):
         conv_out = K.conv2d(x, w, strides=self.strides,
@@ -1511,6 +1532,72 @@ class ConvLSTM2DCell_attn(DropoutRNNCellMixin, Layer):
         base_config = super(ConvLSTM2DCell_attn, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
+class MultiHead2DAttention(Layer):
+    def __init__(self, layer_params, attention_scaling_params,trainable):
+
+        """
+            TODO: prior to the attention possibly add something like squeeze and excitation to reweight the feature maps. But only in the first layer since taking in the original feature maps, as it shouldnt be needed after
+
+            Either use 2D attention or try flattening nromal tensors to vectors so normal attention can be used
+            Flattening used in https://arxiv.org/pdf/1904.09925.pdf, so will use there flattening method
+        """
+        
+
+        self.trainable = trainable
+        super( MultiHead2DAttention, self ).__init__()
+        
+        self.kq_downscale_kernelshape = attention_scaling_params['kq_downscale_kernelshape']
+        self.kq_downscale_stride = attention_scaling_params['kq_downscale_stride']
+        self.vector_k_downscale_factor = attention_scaling_params['vector_k_downscale_factor']
+        self.vector_v_downscale_factor = attention_scaling_params['vector_v_downscale_factor']
+
+        
+        self.layer_params = layer_params
+
+        self.ln1 = tf.keras.layers.LayerNormalization(axis=-1 , epsilon=1e-4 , trainable=trainable )
+
+    def call(self, inputs, inputs_k, inputs_v):
+        """
+            :param inputs: The query 
+            Note: In the attention layer, keys and values are the same
+            #TODO:Later consider alternative implementation where you cmbine the attention and lstm into one new layer. so the previous hidden state is used as the query for the current attention aggregation as opposed to just averaging
+        """
+      
+        # region size reduction
+        output_shape = inputs_v.shape.as_list()
+        output_shape[1] = 1
+        queries = tf.nn.avg_pool3d( inputs, strides=self.kq_downscale_stride,
+                                ksize=self.kq_downscale_kernelshape, padding="VALID")
+        keys = tf.nn.avg_pool3d( inputs_k, strides=self.kq_downscale_stride,
+                                ksize=self.kq_downscale_kernelshape, padding="VALID")
+        # endregion 
+
+        if( self.layer_params['total_key_depth'] == 0) :
+            key_depth = tf.math.reduce_prod( queries.shape[-3:] )
+            value_depth = tf.math.reduce_prod( inputs_v.shape[-3:] )
+            self.layer_params['total_key_depth'] = tf.cast( (( key_depth / self.vector_k_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.float32 )
+                #Key depth is used for key and queries in attention func
+            self.layer_params['total_value_depth'] = tf.cast( ( ( value_depth / self.vector_v_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.float32 )
+            self.layer_params['output_depth'] = value_depth
+
+
+        queries_flat = tf.reshape(queries, queries.shape.as_list()[:2]  + [-1] ) #( batch_size, seq_len, height*width*filters_in)
+        keys_flat = tf.reshape( keys, keys.shape.as_list()[:2] +[-1] )
+        values_flat = tf.reshape(inputs_v, inputs_v.shape.as_list()[:2] + [-1] )
+
+        x = multihead_attention_custom(
+            query_antecedent = queries_flat ,
+            memory_antecedent = keys_flat,
+            value_antecedent = values_flat,
+            trainable=self.trainable,
+            **self.layer_params   ) #( batch_size, seq_len, height*width*filters_in
+        x = self.ln1(x) #( batch_size, seq_len, height*width*filters_in
+        
+        x = tf.reshape( x ,  output_shape ) #( batch_size, seq_len, height, width, filters_in)
+
+        return x
+
+
 def attn_shape_adjust(inputs, attn_factor_reduc ,reverse=False):
 
     """ 
@@ -1529,11 +1616,15 @@ def attn_shape_adjust(inputs, attn_factor_reduc ,reverse=False):
     
     #TODO: change _inputs to inputs to save memory
     if reverse==False:
-        shape = tf.shape(inputs).as_list()
-        _inputs = tf.reshape(inputs, shape[:1] + shape[1]//attn_factor_reduc + shape[2:4] + shape[4]*attn_factor_reduc )
+        shape = inputs.shape.as_list()
+        shape[1] = shape[1]//attn_factor_reduc
+        shape[4] = shape[4]*attn_factor_reduc
+        _inputs = tf.reshape(inputs, shape )
     else:
-        shape = tf.shape(tf.expand_dims(inputs, axis=1) ).as_list()
-        _inputs = tf.reshape(inputs, shape[:1] + shape[1]*attn_factor_reduc + shape[2:4] + shape[4]//attn_factor_reduc )
+        shape = tf.expand_dims(inputs, axis=1).shape.as_list()
+        shape[1] = shape[1]*attn_factor_reduc
+        shape[4] = shape[4]//attn_factor_reduc
+        _inputs = tf.reshape(inputs, shape )
     
 
     return _inputs
@@ -1547,6 +1638,8 @@ def multihead_attention_custom(query_antecedent,
                                 output_depth,
                                 num_heads,
                                 dropout_rate,
+                                transform_value_antecedent=True,
+                                transform_output=True,
                                 attention_type="dot_product",
                                 max_relative_position=None,
                                 heads_share_relative_embedding=False,
@@ -1563,7 +1656,7 @@ def multihead_attention_custom(query_antecedent,
                                 num_memory_blocks=2,
                                 name="multihead_attention",
                                 save_weights_to=None,
-                                make_image_summary=True,
+                                make_image_summary=False, #NOTE: Change layer for visualization
                                 dropout_broadcast_dims=None,
                                 vars_3d=False,
                                 layer_collection=None,
@@ -1705,7 +1798,7 @@ def multihead_attention_custom(query_antecedent,
         if cache is None or memory_antecedent is None:
             q, k, v = compute_qkv_custom(query_antecedent, memory_antecedent, value_antecedent,
                                 total_key_depth, total_value_depth, q_filter_width,
-                                kv_filter_width, q_padding, kv_padding,
+                                kv_filter_width, q_padding, kv_padding, transform_value_antecedent=transform_value_antecedent,
                                 vars_3d_num_heads=vars_3d_num_heads,
                                 layer_collection=layer_collection)
         if cache is not None:
@@ -1759,7 +1852,17 @@ def multihead_attention_custom(query_antecedent,
 
         additional_returned_value = None
 
-        if attention_type == "dot_product_relative":
+        if attention_type == "dot_product":
+            x = dot_product_attention(q, k, v, bias, dropout_rate, image_shapes,
+                            save_weights_to=save_weights_to,
+                            make_image_summary=make_image_summary,
+                            dropout_broadcast_dims=dropout_broadcast_dims,
+                            activation_dtype=kwargs.get(
+                                "activation_dtype"),
+                            hard_attention_k=hard_attention_k)
+
+        #TODO: remove chunk below
+        elif attention_type == "dot_product_relative":
             x = dot_product_attention_relative(
                 q,
                 k,
@@ -1803,22 +1906,22 @@ def multihead_attention_custom(query_antecedent,
 
         # Set last dim specifically.
         x.set_shape(x.shape.as_list()[:-1] + [total_value_depth])
+        if( transform_output):
+            if vars_3d:
+                o_var = tf.compat.v1.get_variable(
+                "o", [num_heads, total_value_depth // num_heads, output_depth])
+                o_var = tf.cast(o_var, x.dtype)
+                o_var = tf.reshape(o_var, [total_value_depth, output_depth])
+                x = tf.tensordot(x, o_var, axes=1)
+            else:
+                x = t2t_dense(
+                    x, output_depth, use_bias=False, name="output_transform",
+                    layer_collection=layer_collection)
 
-        if vars_3d:
-            o_var = tf.compat.v1.get_variable(
-            "o", [num_heads, total_value_depth // num_heads, output_depth])
-            o_var = tf.cast(o_var, x.dtype)
-            o_var = tf.reshape(o_var, [total_value_depth, output_depth])
-            x = tf.tensordot(x, o_var, axes=1)
-        else:
-            x = t2t_dense(
-                x, output_depth, use_bias=False, name="output_transform",
-                layer_collection=layer_collection)
-
-        if recurrent_memory is not None:
-            x = recurrent_memory.post_attention(recurrent_memory_transaction, x)
-        if additional_returned_value is not None:
-            return x, additional_returned_value
+            if recurrent_memory is not None:
+                x = recurrent_memory.post_attention(recurrent_memory_transaction, x)
+            if additional_returned_value is not None:
+                return x, additional_returned_value
         return x
 
 def compute_qkv_custom(query_antecedent,
@@ -1831,7 +1934,8 @@ def compute_qkv_custom(query_antecedent,
                    q_padding="VALID",
                    kv_padding="VALID",
                    vars_3d_num_heads=0,
-                   layer_collection=None):
+                   layer_collection=None,
+                    transform_value_antecedent = True):
     """Computes query, key and value.
         Args:
         query_antecedent: a Tensor with shape [batch, length_q, channels]
@@ -1867,12 +1971,15 @@ def compute_qkv_custom(query_antecedent,
             "k",
         vars_3d_num_heads=vars_3d_num_heads,
         layer_collection=layer_collection)
-    v = compute_attention_component(
-        value_antecedent,
-        total_value_depth,
-        kv_filter_width,
-        kv_padding,
-            "v",
-        vars_3d_num_heads=vars_3d_num_heads,
-        layer_collection=layer_collection)
+    if(transform_value_antecedent==True):
+        v = compute_attention_component(
+            value_antecedent,
+            total_value_depth,
+            kv_filter_width,
+            kv_padding,
+                "v",
+            vars_3d_num_heads=vars_3d_num_heads,
+            layer_collection=layer_collection)
+    else:
+        v = value_antecedent
     return q, k, v

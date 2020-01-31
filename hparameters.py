@@ -86,6 +86,11 @@ class model_deepsd_hparameters(HParams):
         conv3_output_node_count = CONV3_params['filters']
         #endregion params
 
+        REC_ADAM_PARAMS = {
+            "learning_rate":1e-4 , "warmup_proportion":0.6,
+            "min_lr": 1e-5, "beta_1":0.9 , "beta_2": 1.0, "epsilon":0.1 }
+        LOOKAHEAD_PARAMS = { "sync_period":4 , "slow_step_size":0.5}
+
         self.params = {
             'model_name':"DeepSD",
             'model_version': 4,
@@ -114,6 +119,8 @@ class model_deepsd_hparameters(HParams):
 
             'gradients_clip_norm':50.0,
             'stochastic':True,
+            'rec_adam_params':REC_ADAM_PARAMS,
+            'lookahed_params':LOOKAHEAD_PARAMS,
         }
 
 class model_THST_hparameters(HParams):
@@ -173,22 +180,29 @@ class model_THST_hparameters(HParams):
         attn_layers = encoder_layers - 1
         key_depth = [0 ]*attn_layers  #This will be updated dynamically during the first iteration of the model
         attn_heads = [ 1]*attn_layers#NOTE: dev settings #must be a factor of h or w or c, so 100, 140 or 6 -> 2, 5, 7, 
-        kv_downscale_stride = [10,10,1]
-        kv_downscale_kernelshape = [10, 10, 1]
-        vector_kv_downscale_factor = 2
+        kq_downscale_stride = [1,13,13]
+        kq_downscale_kernelshape = [1, 13, 13]
+        vector_k_downscale_factor = 2
+        vector_v_downscale_factor = 1
     
         ATTN_params_enc = [
             {'bias':None, 'total_key_depth': kd , 'total_value_depth':kd, 'output_depth': kd   ,
-            'num_heads': nh , 'dropout_rate':DROPOUT, 'attention_type':"dot_product_unmasked_relative_v2" , "vector_kv_downscale_factor":vector_kv_downscale_factor,
-            'kv_downscale_stride': kv_downscale_stride, 'kv_downscale_kernelshape':kv_downscale_kernelshape }
+            'num_heads': nh , 'dropout_rate':DROPOUT, 'attention_type':"dot_product",
+            "transform_value_antecedent":False ,  "transform_output":False }
             for kd, nh in zip( key_depth , attn_heads )
         ] #using key depth and Value depth smaller to reduce footprint
+
+        ATTN_DOWNSCALING_params_enc = {
+             "vector_k_downscale_factor":vector_k_downscale_factor,
+             "vector_v_downscale_factor":vector_v_downscale_factor,
+            'kq_downscale_stride': kq_downscale_stride, 'kq_downscale_kernelshape':kq_downscale_kernelshape
+        }
 
         CLSTMs_params_enc = [
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
                 'return_sequences':True, 'dropout':DROPOUT, 'recurrent_dropout':DROPOUT,
-                'attn_params': ap  , 'attn_factor_reduc': afr, 'stateful':True }
-             for f, ks, afr, ap in zip( output_filters_enc, kernel_size_enc, SEQ_LEN_FACTOR_REDUCTION, ATTN_params_enc)
+                'stateful':True }
+             for f, ks in zip( output_filters_enc, kernel_size_enc)
         ]
         # endregion
 
@@ -198,6 +212,7 @@ class model_THST_hparameters(HParams):
             'attn_layers': attn_layers,
             'CLSTMs_params' : CLSTMs_params_enc,
             'ATTN_params': ATTN_params_enc,
+            'ATTN_DOWNSCALING_params_enc':ATTN_DOWNSCALING_params_enc,
             'seq_len_factor_reduction': SEQ_LEN_FACTOR_REDUCTION,
             'num_of_splits': NUM_OF_SPLITS,
             'dropout':DROPOUT
@@ -240,9 +255,24 @@ class model_THST_hparameters(HParams):
          ]
         # endregion
 
-        MODEL_VERSION = 1
-        dict_model_version = {1:False,2:False, 3:True}
-        STOCHASTIC = dict_model_version[MODEL_VERSION]
+        MODEL_VERSION = "1"
+        dict_model_version = {1:False,2:False, 3:True, 4:True}
+        """
+        1: These are non Bayesian Small Models
+        2: These are non Bayesian Large Models
+        3: These are Bayesian Small Models
+        4: These are Bayesian Large Models
+        """
+
+
+        STOCHASTIC = dict_model_version[ int(list(MODEL_VERSION)[0]) ]
+
+        REC_ADAM_PARAMS = {
+            "learning_rate":1e-4 , "warmup_proportion":0.6,
+            "min_lr": 1e-5, "beta_1":0.9 , "beta_2": 1.0, "epsilon":0.1
+        }
+        LOOKAHEAD_PARAMS = { "sync_period":4 , "slow_step_size":0.5}
+
         self.params = {
             'model_version': MODEL_VERSION,
             'model_name':"THST",
@@ -254,7 +284,9 @@ class model_THST_hparameters(HParams):
             'data_pipeline_params':DATA_PIPELINE_PARAMS,
 
 
-            'gradients_clip_norm':150.0,
+            'rec_adam_params':REC_ADAM_PARAMS,
+            'lookahed_params':LOOKAHEAD_PARAMS,
+            'gradients_clip_norm':None,
             'stochastic':STOCHASTIC
 
         }
@@ -400,7 +432,8 @@ class train_hparameters_ati(HParams):
 
         #train_start_date = np.max(feature_start_date, target_start_date)
         #end_date = np.min( tar_end_date, feature_end_date)
-        val_start_date = train_start_date + (end_date - train_start_date)*0.2 
+        val_start_date = train_start_date + (end_date - train_start_date)*0.6
+        val_end_date = train_start_date + (end_date - train_start_date)*0.8
 
         #TOTAL_DATUMS = int(end_date - start_date)//WINDOW_SHIFT - lookback  #By datums here we mean windows, for the target
         TOTAL_DATUMS_TARGET = ( np.timedelta64(end_date - train_start_date,'D') - (self.lookback_target - 1) )  // WINDOW_SHIFT   #Think of better way to get the np.product info from model_params to train params
@@ -433,7 +466,7 @@ class train_hparameters_ati(HParams):
 
             'checkpoints_to_keep':CHECKPOINTS_TO_KEEP,
 
-            'dataset_trainval_batch_reporting_freq':0.5,
+            'dataset_trainval_batch_reporting_freq':0.1,
             'num_parallel_calls':NUM_PARALLEL_CALLS,
 
             'train_monte_carlo_samples':1,
@@ -448,7 +481,7 @@ class train_hparameters_ati(HParams):
 
             'train_start_date':train_start_date,
             'val_start_date':val_start_date,
-            'val_end_date':val_end_date
+            'val_end_date':val_end_date,
 
             'feature_start_date':feature_start_date,
             'target_start_date':target_start_date
