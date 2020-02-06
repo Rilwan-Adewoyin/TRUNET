@@ -476,8 +476,8 @@ if __name__ == "__main__":
         #                 'precip_threshold':0.5, 'var_model_type':"flipout" }
 
         model_type_settings = {'stochastic':True ,'stochastic_f_pass':10,
-                        'distr_type':"Normal", 'discrete_continuous':False,
-                        'precip_threshold':0.5, 'var_model_type':"horseshoefactorized" }
+                        'distr_type':"LogNormal", 'discrete_continuous':True,
+                        'precip_threshold':0.5, 'var_model_type':"dropout" }
 
         input_output_dims = {"input_dims": [39, 88 ], "output_dims": [ 156, 352 ], 'model_type_settings': model_type_settings } 
         model_params = hparameters.model_deepsd_hparameters(**input_output_dims)()
