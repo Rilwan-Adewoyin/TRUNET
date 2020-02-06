@@ -16,6 +16,7 @@ from matplotlib import pyplot as plt
 from PIL import Image
 import utility
 from skimage.transform import rescale, resize, downscale_local_mean
+import json
 
 #This script needs to produce map plots of prediction quality and produce relevant statistics on performance
 
@@ -233,12 +234,16 @@ def postproc_pipeline_compress_evaluations(gen_data_eval_preds, test_params, mod
 
     # latex_table_maker(data_tuple)
 
-    _path_pred_eval_summ = _path_pred = test_params['script_dir'] + "/Output/{}/{}/SummarisedEvaluations".format(model_params['model_name'], model_params['model_version'])
-    fn = "summarised_predictions.dat"
+    _path_pred_eval_summ = test_params['script_dir'] + "/Output/{}/{}_{}_{}/{}/SummarisedEvaluations".format(model_params['model_name'],  model_params['model_type_settings']['var_model_type'],
+                                                        model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']), model_params['model_version'])
+    fn = "summarised_predictions.json"
 
     if(not os.path.exists(_path_pred_eval_summ) ):
         os.makedirs(_path_pred_eval_summ)
-    pickle.dump( data_tuple, open( _path_pred_eval_summ + "/" +fn ,"wb") )
+
+    with open( _path_pred_eval_summ + "/" +fn ,"w") as f:
+        json.dump(data_tuple,f,sort_keys=True, indent=4)
+
     
 
 # def latex_table_maker(data_tuple):
