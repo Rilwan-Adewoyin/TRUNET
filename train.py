@@ -8,6 +8,9 @@ import utility
 
 import tensorflow as tf
 gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+print(gpu_devices)
+# for idx in range(len(gpu_devices)):
+#     tf.config.experimental.set_memory_growth(gpu_devices[idx], True)
 tf.config.experimental.set_memory_growth(gpu_devices[0], True)
 import tensorflow_probability as tfp
 try:
@@ -465,9 +468,13 @@ if __name__ == "__main__":
         train_params = hparameters.train_hparameters( **args_dict )
 
         #stacked DeepSd methodology
-        model_type_settings = {'stochastic':True ,'stochastic_f_pass':50,
-                        'distr_type':"Normal", 'discrete_continuous':False,
-                        'precip_threshold':0.5, 'var_model_type':"flipout" }
+        # model_type_settings = {'stochastic':True ,'stochastic_f_pass':10,
+        #                 'distr_type':"LogNormal", 'discrete_continuous':True,
+        #                 'precip_threshold':0.5, 'var_model_type':"flipout" }
+
+        model_type_settings = {'stochastic':True ,'stochastic_f_pass':10,
+                        'distr_type':"LogNormal", 'discrete_continuous':True,
+                        'precip_threshold':0.5, 'var_model_type':"horseshoestructured" }
 
         input_output_dims = {"input_dims": [39, 88 ], "output_dims": [ 156, 352 ], 'model_type_settings': model_type_settings } 
         model_params = hparameters.model_deepsd_hparameters(**input_output_dims)()

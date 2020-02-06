@@ -120,6 +120,7 @@ class SRCNN( tf.keras.layers.Layer ):
 
             self.conv3 = tf.keras.layers.Conv2D( **self.model_params['conv3_params'] )
 
+    @tf.function
     def call( self, _input, tape=None ,upsample_method=tf.constant("zero_padding"), pred=False ): #( batch, height, width)
         self.tape = tape
         

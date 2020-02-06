@@ -83,8 +83,11 @@ def load_data_vandal( elements_to_skip, hparams, m_params,_num_parallel_calls =-
 
     # region features, targets
     _dir_precip = data_dir+"/PRISM/daily_precip"
-    file_paths_bil = list( glob.glob(_dir_precip+"/*/*.bil" ) )
-    file_paths_bil.sort(reverse=False)
+    file_paths_bil1 = list( glob.glob(_dir_precip+"/*/PRISM_tdmean_stable*.bil" ) )
+    file_paths_bil2 = list( glob.glob(_dir_precip+"/*/PRISM_ppt_stable*.bil" ) )
+    file_paths_bil1.sort(reverse=False)
+    file_paths_bil2.sort(reverse=False)
+    file_paths_bil = file_paths_bil1 + file_paths_bil2
 
     if elements_to_skip !=None:
         file_paths_bil =  file_paths_bil[elements_to_skip: ]
@@ -127,6 +130,7 @@ def load_data_vandal( elements_to_skip, hparams, m_params,_num_parallel_calls =-
     ds_precip_feat_tar = ds_precip_imgs.map( features_labels_mker)#, num_parallel_calls=_num_parallel_calls ) #shape( (bs, 39, 88, 17 ) (bs,156,352) )
     ds_precip_feat_tar = ds_precip_feat_tar
         # endregion
+
 
     ds_precip_feat_tar = ds_precip_feat_tar.prefetch(buffer_size=_num_parallel_calls)
 

@@ -39,15 +39,15 @@ class model_deepsd_hparameters(HParams):
 
         #TODO: (change filter sizes back to the ones used in the paper)
 
-        CONV1_params = {    'filters':512,
-                            'kernel_size': [9,9] , #TODO:use size from paper later
+        CONV1_params = {    'filters':40, #512
+                            'kernel_size': [5,5] , #[7,7] #TODO:use size from paper later
                             'activation':'relu',
                             'padding':'same',
                             'data_format':'channels_last',
                             'name':"Conv1" }
 
         conv2_kernel_size = np.ceil( np.ceil( np.array(output_dims)/np.array(input_dims) )*1.5 )  #This makes sure that each filter in conv2, sees at least two of the real non zero values. The zero values occur due to the upscaling
-        CONV2_params = {    'filters':512,
+        CONV2_params = {    'filters':40, #512
                             'kernel_size':  conv2_kernel_size.astype(np.int32).tolist() , #TODO:use size from paper later
                             #each kernel covers 2 non original values from the upsampled tensor
                             'activation':'relu',
@@ -58,7 +58,7 @@ class model_deepsd_hparameters(HParams):
 
         CONV3_params = {
                             'filters':1,
-                            'kernel_size':[5,5], #TODO:use size from paper later
+                            'kernel_size': [4,4], #[5,5] #TODO:use size from paper later
                             'activation':'relu',
                             'padding':'same',
                             'data_format':'channels_last',
@@ -80,9 +80,9 @@ class model_deepsd_hparameters(HParams):
         #endregion params
 
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-4 , "warmup_proportion":0.6,
-            "min_lr": 1e-5, "beta_1":0.9 , "beta_2": 1.0, "epsilon":1e-9 }
-        LOOKAHEAD_PARAMS = { "sync_period":4 , "slow_step_size":0.5}
+            "learning_rate":2e-4 , "warmup_proportion":0.6,
+            "min_lr": 1e-4, "beta_1":0.9 , "beta_2": 1.0, "epsilon":1e-9 }
+        LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":0.75}
 
         model_type_settings = {'stochastic':False ,'stochastic_f_pass':50,
                                 'distr_type':"Normal", 'discrete_continuous':True,
@@ -117,7 +117,7 @@ class model_deepsd_hparameters(HParams):
             'gradients_clip_norm':150.0,
             
             'rec_adam_params':REC_ADAM_PARAMS,
-            'lookahead_params':LOOKAHEAD_PARAMS,
+            'lookahead_params':LOOKAHEAD_PARAMS
         }
 
 class model_THST_hparameters(HParams):
@@ -269,8 +269,8 @@ class model_THST_hparameters(HParams):
         }
 
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-5 , "warmup_proportion":0.6,
-            "min_lr": 1e-6, "beta_1":0.9 , "beta_2": 1.0, "epsilon":1e-5
+            "learning_rate":2e-4 , "warmup_proportion":0.6,
+            "min_lr": 1e-4, "beta_1":0.9 , "beta_2": 1.0, "epsilon":1e-5
         }
         LOOKAHEAD_PARAMS = { "sync_period":3 , "slow_step_size":0.6}
         
@@ -305,7 +305,7 @@ class train_hparameters(HParams):
         CHECKPOINTS_TO_KEEP = 50
 
         start_date = np.datetime64('1981-01-01')
-        start_date = np.datetime64('2006-01-01')#removeee
+        #start_date = np.datetime64('2006-01-01')#removeee
         end_date = np.datetime64('2015-01-31')
         TOTAL_DATUMS = np.timedelta64( end_date-start_date, 'D').astype(int)
 
@@ -314,7 +314,7 @@ class train_hparameters(HParams):
         VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS*0.20)
         BATCH_SIZE = 2
         DATA_DIR = "./Data"
-        EARLY_STOPPING_PERIOD = 10
+        EARLY_STOPPING_PERIOD = 3
         BOOL_WATER_MASK = pickle.load( open( "Images/water_mask_156_352.dat","rb" ) )
 
         
