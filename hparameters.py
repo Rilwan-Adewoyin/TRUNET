@@ -21,7 +21,10 @@ class HParams():
         self.params = {}
 
 class model_deepsd_hparameters(HParams):
-
+    """
+    model version 
+    model version 5: Guassian BNN w/ 25 monte carlo forward passes /wo Discrete Continuous
+    """
     def __init__(self, **kwargs):
         self.input_dims = kwargs['input_dims']
         self.output_dims = kwargs['output_dims']
@@ -36,40 +39,30 @@ class model_deepsd_hparameters(HParams):
 
         #TODO: (change filter sizes back to the ones used in the paper)
 
-        CONV1_params = {    'filters':45,
-                            'kernel_size': [5,5] , #TODO:use size from paper later
+        CONV1_params = {    'filters':512,
+                            'kernel_size': [9,9] , #TODO:use size from paper later
                             'activation':'relu',
                             'padding':'same',
                             'data_format':'channels_last',
                             'name':"Conv1" }
 
         conv2_kernel_size = np.ceil( np.ceil( np.array(output_dims)/np.array(input_dims) )*1.5 )  #This makes sure that each filter in conv2, sees at least two of the real non zero values. The zero values occur due to the upscaling
-        CONV2_params = {    'filters':25,
+        CONV2_params = {    'filters':512,
                             'kernel_size':  conv2_kernel_size.astype(np.int32).tolist() , #TODO:use size from paper later
                             #each kernel covers 2 non original values from the upsampled tensor
                             'activation':'relu',
                             'padding':'same',
                             'data_format':'channels_last',
                             "name":"Conv2" }
-       
-        # CONV21_params = {   'filters':2,
-        #                     'kernel_size':  conv2_kernel_size.astype(np.int32).tolist() , #TODO:use size from paper later
-        #                     #each kernel covers 2 non original values from the upsampled tensor
-        #                     'activation':'relu',
-        #                     'padding':'same',
-        #                     'data_format':'channels_last',
-        #                     "name":"Conv21" }https://www.google.com/search?client=ubuntu&channel=fs&q=localhost%3A%2F6006&ie=utf-8&oe=utf-8
-        
+              
 
         CONV3_params = {
                             'filters':1,
-                            'kernel_size':[3,3], #TODO:use size from paper later
+                            'kernel_size':[5,5], #TODO:use size from paper later
                             'activation':'relu',
                             'padding':'same',
                             'data_format':'channels_last',
                             "name":"Conv3"  }
-
-        var_model_type = "horseshoe_factorized"
 
         conv1_inp_channels = 17
         conv1_input_weights_per_filter = np.prod(CONV1_params['kernel_size']) * conv1_inp_channels
@@ -88,16 +81,20 @@ class model_deepsd_hparameters(HParams):
 
         REC_ADAM_PARAMS = {
             "learning_rate":1e-4 , "warmup_proportion":0.6,
-            "min_lr": 1e-5, "beta_1":0.9 , "beta_2": 1.0, "epsilon":0.1 }
+            "min_lr": 1e-5, "beta_1":0.9 , "beta_2": 1.0, "epsilon":1e-9 }
         LOOKAHEAD_PARAMS = { "sync_period":4 , "slow_step_size":0.5}
+
+        model_type_settings = {'stochastic':False ,'stochastic_f_pass':50,
+                                'distr_type':"Normal", 'discrete_continuous':True,
+                                'precip_threshold':0.5 , 'var_model_type':"flipout"}
 
         self.params = {
             'model_name':"DeepSD",
-            'model_version': 4,
+            'model_version': 1,
+            'model_type_settings':model_type_settings,
 
             'input_dims':input_dims,
             'output_dims':output_dims,
-            'var_model_type':var_model_type,
 
             'conv1_params': CONV1_params,
             'conv2_params': CONV2_params,
@@ -117,10 +114,10 @@ class model_deepsd_hparameters(HParams):
             'conv3_output_node_count':conv3_output_node_count,
             'conv3_inp_channels':conv3_inp_channels,
 
-            'gradients_clip_norm':50.0,
-            'stochastic':True,
+            'gradients_clip_norm':150.0,
+            
             'rec_adam_params':REC_ADAM_PARAMS,
-            'lookahed_params':LOOKAHEAD_PARAMS,
+            'lookahead_params':LOOKAHEAD_PARAMS,
         }
 
 class model_THST_hparameters(HParams):
@@ -139,11 +136,11 @@ class model_THST_hparameters(HParams):
         DROPOUT = 0.05
 
         #Deployment Settings        
-        SEQ_LEN_FACTOR_REDUCTION = [4, 30, 4, 3 ] #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
+        SEQ_LEN_FACTOR_REDUCTION = [4, 30, 3, 4 ] #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
         seq_len_for_highest_hierachy_level = 2
 
         #Low Memory Testing Settings
-        SEQ_LEN_FACTOR_REDUCTION = [4, 2, 2, 2 ] #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
+        SEQ_LEN_FACTOR_REDUCTION = [4, 2, 2, 2] #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
         seq_len_for_highest_hierachy_level = 2
 
         
@@ -151,7 +148,7 @@ class model_THST_hparameters(HParams):
         NUM_OF_SPLITS = list(reversed((np.cumprod( list( reversed(SEQ_LEN_FACTOR_REDUCTION[1:] + [1] ) ) ) *seq_len_for_highest_hierachy_level ).tolist())) #for all rows except the first one
         
         # 5*3*4 5*3 5
-        # end region
+        # endregion
         
         # region Model Specific Data Generator Params
         mf_time_scale = 0.25 #days
@@ -171,11 +168,11 @@ class model_THST_hparameters(HParams):
 
         # region CLSTM params
         output_filters_enc = [10, 10, 10, 10] #output filters for each convLSTM2D layer in the encoder
-        output_filters_enc = [1, 1, 1, 1] #NOTE: development settings
+        output_filters_enc = [2, 1, 1, 1] #NOTE: development settings
         output_filters_enc = output_filters_enc + output_filters_enc[-1:] #the last two layers in the encoder must output the same number of channels
 
         kernel_size_enc = [ (4,4) , (4,4) , (4,4), (4,4), (4,4)]
-        kernel_size_enc = [ (3,3) , (3,3) , (3,3), (3,3), (3,3)]#NOTE: development settings
+        kernel_size_enc = [ (3,3) , (3,3) , (3,3), (3,3), (3,3)]
 
         attn_layers = encoder_layers - 1
         key_depth = [0 ]*attn_layers  #This will be updated dynamically during the first iteration of the model
@@ -258,24 +255,29 @@ class model_THST_hparameters(HParams):
         MODEL_VERSION = "1"
         dict_model_version = {1:False,2:False, 3:True, 4:True}
         """
-        1: These are non Bayesian Small Models
-        2: These are non Bayesian Large Models
-        3: These are Bayesian Small Models
-        4: These are Bayesian Large Models
+            1: These are non Bayesian Small Models
+            2: These are non Bayesian Large Models w/ Deformable & 
+            3: These are Bayesian Small Models
+            4: These are Bayesian Large Models
         """
+        dict_deformable_model_version = {1: False, 2: True, 3:False, 4:True}
 
-
-        STOCHASTIC = dict_model_version[ int(list(MODEL_VERSION)[0]) ]
+        model_type_settings = {
+            'stochastic':dict_model_version[ int(list(MODEL_VERSION)[0]) ],
+            'Deformable_Conv':dict_deformable_model_version[ int(list(MODEL_VERSION)[0]) ],
+            'var_model_type':"Deterministic"
+        }
 
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-4 , "warmup_proportion":0.6,
-            "min_lr": 1e-5, "beta_1":0.9 , "beta_2": 1.0, "epsilon":0.1
+            "learning_rate":1e-5 , "warmup_proportion":0.6,
+            "min_lr": 1e-6, "beta_1":0.9 , "beta_2": 1.0, "epsilon":1e-5
         }
-        LOOKAHEAD_PARAMS = { "sync_period":4 , "slow_step_size":0.5}
-
+        LOOKAHEAD_PARAMS = { "sync_period":3 , "slow_step_size":0.6}
+        
         self.params = {
             'model_version': MODEL_VERSION,
             'model_name':"THST",
+            'model_type_settings':model_type_settings,
 
 
             'encoder_params':ENCODER_PARAMS,
@@ -285,9 +287,8 @@ class model_THST_hparameters(HParams):
 
 
             'rec_adam_params':REC_ADAM_PARAMS,
-            'lookahed_params':LOOKAHEAD_PARAMS,
-            'gradients_clip_norm':None,
-            'stochastic':STOCHASTIC
+            'lookahead_params':LOOKAHEAD_PARAMS,
+            'gradients_clip_norm':200
 
         }
 
@@ -300,12 +301,18 @@ class train_hparameters(HParams):
     def _default_params(self):
         # region default params 
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE,
-        EPOCHS = 200
-        CHECKPOINTS_TO_KEEP = 3
-        TOTAL_DATUMS = 3650 #10 years worth of data apparently
-        TRAIN_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS*0.6)
-        VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS*0.2)
-        BATCH_SIZE = 15
+        EPOCHS = 342 #equivalent to Vandal
+        CHECKPOINTS_TO_KEEP = 50
+
+        start_date = np.datetime64('1981-01-01')
+        start_date = np.datetime64('2006-01-01')#removeee
+        end_date = np.datetime64('2015-01-31')
+        TOTAL_DATUMS = np.timedelta64( end_date-start_date, 'D').astype(int)
+
+        #need to use this ration ,0.73529, for training
+        TRAIN_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS*0.53529411764)
+        VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS*0.20)
+        BATCH_SIZE = 2
         DATA_DIR = "./Data"
         EARLY_STOPPING_PERIOD = 10
         BOOL_WATER_MASK = pickle.load( open( "Images/water_mask_156_352.dat","rb" ) )
@@ -326,9 +333,8 @@ class train_hparameters(HParams):
 
             'checkpoints_to_keep':CHECKPOINTS_TO_KEEP,
             
-            'dataset_trainval_batch_reporting_freq':0.5,
+            'dataset_trainval_batch_reporting_freq':0.10,
             'num_parallel_calls':NUM_PARALLEL_CALLS,
-            'train_monte_carlo_samples':1,
 
             'data_dir': DATA_DIR,
 
@@ -343,16 +349,16 @@ class test_hparameters(HParams):
     def _default_params(self):
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
         BATCH_SIZE = 15
-        N_PREDS = 5
 
-        MODEL_RECOVER_METHOD = 'checkpoint_epoch'
+        MODEL_RECOVER_METHOD = 'checkpoint_batch'
     
         trainable = 'test'
         TOTAL_DATUMS = 3650
         TEST_SET_SIZE_ELEMENTS = int( TOTAL_DATUMS * 0.2)
         STARTING_TEST_ELEMENT = TOTAL_DATUMS - TEST_SET_SIZE_ELEMENTS
         
-        DATE_TSS = pd.date_range( end=datetime(2015,12,31), periods=TEST_SET_SIZE_ELEMENTS, freq='D',normalize=True).astype('int64').tolist()
+        dates_tss = pd.date_range( end=datetime(2015,12,31), periods=TEST_SET_SIZE_ELEMENTS, freq='D',normalize=True)
+        EPOCHS = list ( (dates_tss - pd.Timestamp("1970-01-01") ) // pd.Timedelta('1s') )
 
         BOOL_WATER_MASK = pickle.load( open( "Images/water_mask_156_352.dat","rb" ) )
 
@@ -365,14 +371,12 @@ class test_hparameters(HParams):
             'dataset_pred_batch_reporting_freq':0.25,
             'num_parallel_calls':NUM_PARALLEL_CALLS,
 
-            'num_preds': N_PREDS,
-
             'model_recover_method':MODEL_RECOVER_METHOD,
             'trainable':trainable,
 
             'script_dir':None,
 
-            'dates_tss':DATE_TSS,
+            'epochs':EPOCHS,
 
             'bool_water_mask': BOOL_WATER_MASK
 
@@ -391,20 +395,18 @@ class train_hparameters_ati(HParams):
         MASK_FILL_VALUE = {
                                     "rain":-1.0,
                                     "model_field":-1.0 
-
-
         }
 
         NORMALIZATION_SCALES = {
                                     "rain":200.0,
-                                    "model_fields": np.array([1.0,1.0,1.0,1.0,1.0,1.0]) #TODO: Find the appropriate scaling terms for each of the model fields 
+                                    "model_fields": np.array([1.0,1.0,1.0,1.0,1.0,1.0]) #TODO: Find the appropriate scaling terms for each of the model fields, by inspecting data
                                                 #- unknown_local_param_137_128
                                                 # - unknown_local_param_133_128,  # - air_temperature, # - geopotential
                                                 # - x_wind, # - y_wind
         }
 
         WINDOW_SHIFT = self.lookback_target
-        
+        BATCH_SIZE = 2
         # endregion
 
 
@@ -418,7 +420,7 @@ class train_hparameters_ati(HParams):
         feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
         
         tar_end_date=  target_start_date + np.timedelta64( 14822, 'D')
-        feature_end_date  = feature_start_date + np.timedelta64(16072//4, 'D')
+        feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(16072, '6h'), 'D')
         
         if feature_start_date > target_start_date :
             train_start_date = feature_start_date
@@ -432,11 +434,11 @@ class train_hparameters_ati(HParams):
 
         #train_start_date = np.max(feature_start_date, target_start_date)
         #end_date = np.min( tar_end_date, feature_end_date)
-        val_start_date = train_start_date + (end_date - train_start_date)*0.6
-        val_end_date = train_start_date + (end_date - train_start_date)*0.8
+        val_start_date =    np.datetime64( train_start_date + (end_date - train_start_date)*0.6, 'D' )
+        val_end_date =      np.datetime64( train_start_date + (end_date - train_start_date)*0.8, 'D' )
 
         #TOTAL_DATUMS = int(end_date - start_date)//WINDOW_SHIFT - lookback  #By datums here we mean windows, for the target
-        TOTAL_DATUMS_TARGET = ( np.timedelta64(end_date - train_start_date,'D') - (self.lookback_target - 1) )  // WINDOW_SHIFT   #Think of better way to get the np.product info from model_params to train params
+        TOTAL_DATUMS_TARGET = np.timedelta64(end_date - train_start_date,'D')  / WINDOW_SHIFT   #Think of better way to get the np.product info from model_params to train params
         TOTAL_DATUMS_TARGET = TOTAL_DATUMS_TARGET.astype(int)
         # endregion
 
@@ -444,7 +446,7 @@ class train_hparameters_ati(HParams):
         TRAIN_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS_TARGET*0.6)
         
         VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS_TARGET*0.2)
-        BATCH_SIZE = 2 
+         
         DATA_DIR = "./Data/Rain_Data_Nov19" 
         EARLY_STOPPING_PERIOD = 10
 
@@ -474,7 +476,6 @@ class train_hparameters_ati(HParams):
             'data_dir': DATA_DIR,
 
             
-
             'mask_fill_value':MASK_FILL_VALUE,
             'normalization_scales' : NORMALIZATION_SCALES,
             'window_shift': WINDOW_SHIFT,
@@ -488,5 +489,97 @@ class train_hparameters_ati(HParams):
 
         }
 
-      
-#end region ATI
+class test_hparameters_ati(HParams):
+    def __init__(self, **kwargs):
+        self.lookback_target = kwargs['lookback_target']
+        super( test_hparameters_ati, self).__init__(**kwargs)
+    
+    def _default_params(self):
+        pass
+        # region -------data pipepline vars
+        trainable = True
+        MASK_FILL_VALUE = {
+            "rain":-1.0,
+            "model_field":-1.0 }
+
+        NORMALIZATION_SCALES = {
+            "rain":200.0,
+            "model_fields": np.array([1.0,1.0,1.0,1.0,1.0,1.0]) #TODO: Find the appropriate scaling terms for each of the model fields, by inspecting data
+                        #- unknown_local_param_137_128
+                        # - unknown_local_param_133_128,  # - air_temperature, # - geopotential
+                        # - x_wind, # - y_wind
+        }
+
+        WINDOW_SHIFT = self.lookback_target
+        NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
+        BATCH_SIZE = 2
+        N_PREDS = 50
+        MODEL_RECOVER_METHOD = 'checkpoint_epoch'
+        # endregion
+
+
+        # region ---- data information
+
+        target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
+        feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
+        
+        tar_end_date=  target_start_date + np.timedelta64( 14822, 'D')
+        feature_end_date  = feature_start_date + np.timedelta64(16072, '6h') #TODO: change when new data available
+        
+        if feature_start_date > target_start_date :
+            train_start_date = feature_start_date
+        else:
+            train_start_date = target_start_date
+
+        if tar_end_date < feature_end_date :
+            end_date = tar_end_date
+        else:
+            end_date = feature_end_date
+
+        #train_start_date = np.max(feature_start_date, target_start_date)
+        #end_date = np.min( tar_end_date, feature_end_date)
+        val_start_date = train_start_date + (end_date - train_start_date)*0.6
+        val_end_date = train_start_date + (end_date - train_start_date)*0.8
+
+        test_start_date = train_start_date + (end_date - train_start_date)*0.8
+        test_end_date = end_date
+
+        #TOTAL_DATUMS = int(end_date - start_date)//WINDOW_SHIFT - lookback  #By datums here we mean windows, for the target
+        TOTAL_DATUMS_TARGET = ( np.timedelta64(end_date - test_start_date,'D') - (self.lookback_target - 1) )  // WINDOW_SHIFT   #Think of better way to get the np.product info from model_params to train params
+        TOTAL_DATUMS_TARGET = TOTAL_DATUMS_TARGET.astype(int)
+        # endregion
+
+        TEST_SET_SIZE_DATUMS_TARGET = int( TOTAL_DATUMS_TARGET * 0.2)
+
+        date_tss = pd.date_range( end=test_end_date, periods=TEST_SET_SIZE_DATUMS_TARGET, freq='D',normalize=True)
+        EPOCHS = list ( (dates_tss - pd.Timestamp("1970-01-01") ) // pd.Timedelta('1s') )
+
+        DATA_DIR = "./Data/Rain_Data_Nov19" 
+
+        self.params = {
+            'batch_size':BATCH_SIZE,
+            'trainable':trainable,
+            
+            'total_datums':TOTAL_DATUMS_TARGET,
+            'test_set_size_elements':TEST_SET_SIZE_DATUMS_TARGET,
+            'num_preds':N_PREDS,
+
+            'model_recover_method':MODEL_RECOVER_METHOD,
+            'script_dir':None,
+            'data_dir':DATA_DIR,
+            
+            'epochs':EPOCHS,
+            
+            'mask_fill_value':MASK_FILL_VALUE,
+            'normalization_scales' : NORMALIZATION_SCALES,
+            'window_shift': WINDOW_SHIFT,
+
+            'test_start_date':test_start_date,
+            'test_end_date':test_end_date,
+
+            'feature_start_date':feature_start_date,
+            'feature_start_end':feature_end_date
+        }
+
+
+#endregion ATI

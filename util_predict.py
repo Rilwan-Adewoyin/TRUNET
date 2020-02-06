@@ -7,21 +7,30 @@ import glob
 
 def load_model(test_params, model_params):
     model = None
+    model_name = model_params['model_name']
 
         # Option 2 - From checkpoint and model.py
    
     if(test_params['model_recover_method'] == 'checkpoint_batch'):
         
-        model = models.SuperResolutionModel( test_params, model_params) 
-        if type(model_params == list):
-            model_params = model_params[0]
+        if(model_name=="DeepSD"):
+            model = models.SuperResolutionModel( test_params, model_params) 
+            if type(model_params)== list:
+                model_params = model_params[0]
 
-            #Just initliazing model so checkpoint method can work
-        init_inp = tf.ones( [1, model_params['input_dims'][0],
-                     model_params['input_dims'][1], model_params['conv1_inp_channels'] ] , dtype=tf.float32 )
+                #Just initliazing model so checkpoint method can work
+            init_inp = tf.ones( [1, model_params['input_dims'][0],
+                        model_params['input_dims'][1], model_params['conv1_inp_channels'] ] , dtype=tf.float32 )
+
+        elif(model_name=="THST"):
+            model = models.THST(test_params, model_params)
+            init_inp = tf.zeros(
+                [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ]
+            )
+
         model(init_inp, pred=False )
-
-        checkpoint_path = test_params['script_dir']+"/checkpoints/{}/batch/{}".format(model_params['model_name'], model_params['model_version'])
+        checkpoint_path = test_params['script_dir']+"/checkpoints/{}/{}_{}_{}/batch/{}".format(model_params['model_name'],
+                model_params['model_type_settings']['var_model_type'],model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']) ,model_params['model_version'])
 
         ckpt = tf.train.Checkpoint(att_con=model)
         checkpoint_code = "B"+ str(tf.train.latest_checkpoint(checkpoint_path)[-5:])
@@ -32,18 +41,25 @@ def load_model(test_params, model_params):
     elif(test_params['model_recover_method'] == 'checkpoint_epoch'):
         model = models.SuperResolutionModel( test_params, model_params)
 
+        if(model_name=="DeepSD"):
         #Just initliazing model so checkpoint method can work
-        if type(model_params == list):
-            model_params = model_params[0]
+            if type(model_params) == list:
+                model_params = model_params[0]
 
-        init_inp = tf.ones( [1, model_params['input_dims'][0],
-                     model_params['input_dims'][1], model_params['conv1_inp_channels'] ] , dtype=tf.float32 )
+            init_inp = tf.ones( [1, model_params['input_dims'][0],
+                        model_params['input_dims'][1], model_params['conv1_inp_channels'] ] , dtype=tf.float32 )
+        elif(model_name=="THST"):
+            model = models.THST(test_params, model_params)
+            init_inp = tf.zeros(
+                [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ]
+            )
         model(init_inp, pred=True )
 
-        ckpt = tf.train.Checkpoint(att_con=model)
+        ckpt = tf.train.Checkpoint(model=model)
 
         #We will use Optimal Checkpoint information from checkpoint_scores_model.csv
-        df_checkpoint_scores = pd.read_csv( test_params['script_dir']+'/checkpoints/{}/checkpoint_scores_model_{}.csv'.format(model_params['model_name'], model_params['model_version']), header=0 )
+        df_checkpoint_scores = pd.read_csv( test_params['script_dir']+'/checkpoints/{}/{}_{}_{}/checkpoint_scores_model_{}.csv'.format(model_params['model_name'],
+                model_params['model_type_settings']['var_model_type'],model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']),model_params['model_version']), header=0 )
         best_checkpoint_path = df_checkpoint_scores['Checkpoint_Path'][0]
         checkpoint_code = "E"+str(df_checkpoint_scores['Epoch'][0])
         status = ckpt.restore( best_checkpoint_path ).expect_partial()
@@ -56,10 +72,12 @@ def save_preds( test_params, model_params, li_preds, li_timestamps, li_truevalue
     """
     
     """
-    if type(model_params == list):
+    if type(model_params) == list:
         model_params = model_params[0]
 
-    _path_pred = test_params['script_dir'] + "/Output/{}/{}/Predictions".format(model_params['model_name'], model_params['model_version'])
+    _path_pred = test_params['script_dir'] + "/Output/{}/{}_{}_{}/{}/Predictions".format(model_params['model_name'],model_params['model_type_settings']['var_model_type'],
+        model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']), model_params['model_version'])
+
     fn = str(li_timestamps[0][0]) + "___" + str(li_timestamps[-1][-1]) + ".dat"
 
     if(not os.path.exists(_path_pred) ):

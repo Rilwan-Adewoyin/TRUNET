@@ -6,6 +6,7 @@
 data length :	 14822
 image_shape :	(100,140)
 
+-model fields
 #Information
 Start: 		1970-01-01
 End: 		2019-08-01

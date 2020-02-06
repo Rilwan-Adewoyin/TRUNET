@@ -5,6 +5,7 @@ import sys
 import os
 import argparse
 
+# region Vandal
 #precip data import - use in data pipeline
 def read_prism_precip(bil_path, hdr_path=None, hdr_known=True, tensorf = True):
     """
@@ -102,7 +103,8 @@ def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoc
         print("\nTop {} Performance Scores".format(5))
         df_training_info = df_training_info.sort_values(by=['Val_loss_MSE'], ascending=True)[:5]
         print(df_training_info[['Epoch','Val_loss_MSE']] )
-        df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores_model_{}.csv".format(model_params['model_name'],model_params['model_version']), header=True, index=False ) #saving df of scores                      
+        df_training_info.to_csv( path_or_buf="checkpoints/{}/{}_{}_{}/checkpoint_scores_model_{}.csv".format(model_params['model_name'],model_params['model_type_settings']['var_model_type'],
+            model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']),model_params['model_version']), header=True, index=False ) #saving df of scores                      
     return df_training_info
 
 def kl_loss_weighting_scheme( max_batch ):
@@ -110,8 +112,11 @@ def kl_loss_weighting_scheme( max_batch ):
 
 #standardising and de-standardizing 
 
-def standardize( _array, reverse=False ):
-    SCALE = 200
+def standardize( _array, reverse=False, distr_type="Normal" ):
+    if distr_type=="Normal":
+        SCALE = 100
+    elif distr_type=="LogNormal":
+        SCALE=1
 
     if(reverse==False):
         _array = _array/SCALE
@@ -141,12 +146,12 @@ def parse_arguments(s_dir=None):
     parser.add_argument('-dd','--data_dir', type=str, help='the directory for the Data', required=False,
                         default='./Data')
 
-    parser.add_argument('-vmt','--var_model_type', type=str, help="Type of Bnn to use", required=False, default="guassian_factorized",
-                                choices=["guassian_factorized", "horsehoe_factorized", "horseshoe structured" ] )
+    parser.add_argument('-vmt','--var_model_type', type=str, help="Type of Bnn to use", required=False, default="flipout",
+                                choices=["flipout", "horsehoe_factorized", "horseshoe structured" ] )
 
     parser.add_argument('-sdr','--script_dir', type=str, help="Directory for code", required=False, default=s_dir )
 
-    parser.add_argument('-mn','--model_name', type=str, help='Name of model to use', required=False, default="THST")                                      
+    parser.add_argument('-mn','--model_name', type=str, help='Name of model to use', required=False, default="DeepSD")                                      
         
     
     #parser.add_argument('-mv', '--model_version', type=str, help="Name for the model, used to help in saving predictions and related files", required=False, default="0")
@@ -154,3 +159,18 @@ def parse_arguments(s_dir=None):
     args_dict = vars(parser.parse_args() )
 
     return args_dict
+
+# endregion
+
+# region ATI modules
+def standardize_ati(_array, scale, reverse):
+    scale = scale
+
+    if(reverse==False):
+        _array = _array/scale
+    elif(reverse==True):
+        _array = _array*scale
+    
+    return _array
+
+# endregion

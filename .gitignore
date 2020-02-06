@@ -5,3 +5,4 @@ log_tensboard/
 mnt/
 checkpoints/
 Output/
+__pycache__/

@@ -18,6 +18,7 @@ import numpy as np
 import time
 
 from tensorflow.keras.layers import Bidirectional, ConvLSTM2D
+from tensorflow.keras import backend as K
 import layers_ConvLSTM2D
 
 # region DeepSD layers    
@@ -32,11 +33,12 @@ class SRCNN( tf.keras.layers.Layer ):
         self.model_params = model_params
         self.train_params = train_params                            
         
-        if self.model_params['var_model_type'] == 'horseshoe_structured':
+        if self.model_params['model_type_settings']['var_model_type'] == 'horseshoestructured':
             self.initialize_priors_dist()
             self.initialize_posteriors_vars()
             self.update_posteriors_dists() 
-            self.update_priors_dists()  
+            self.update_priors_dists()
+            self.sample_variational_params()  
 
             self.conv1 = tfpl.Convolution2DReparameterization( **self.model_params['conv1_params'] ,
                 kernel_posterior_fn = horseshoe_kernel_posterior_distribution( self, 1 ), 
@@ -44,8 +46,7 @@ class SRCNN( tf.keras.layers.Layer ):
                                             self.model_params['conv1_output_node_count'], self.model_params['conv1_params']['kernel_size'], self.model_params['conv1_inp_channels'],
                                             self.tape, 1, self) )  ,
                 kernel_prior_fn = None,
-                kernel_divergence_fn= None) #TODO: Figure out the appropriate posterior and prior for the bias
-                                            #TODO: Move the calculation for the kl divergence into this constructor
+                kernel_divergence_fn= None) 
 
             self.upSample = UpSampler( self.model_params['input_dims'], self.model_params['output_dims'] )
             
@@ -65,7 +66,7 @@ class SRCNN( tf.keras.layers.Layer ):
                     kernel_prior_fn = None , 
                     kernel_divergence_fn= None )
         
-        if self.model_params['var_model_type'] == 'horseshoe_factorized':
+        if self.model_params['model_type_settings']['var_model_type'] == 'horseshoefactorized':
             self.initialize_priors_dist()
             self.initialize_posteriors_vars()
             self.update_posteriors_dists() 
@@ -100,7 +101,7 @@ class SRCNN( tf.keras.layers.Layer ):
                     kernel_prior_fn = None , 
                     kernel_divergence_fn= None )   
 
-        if self.model_params['var_model_type'] == 'guassian_factorized':
+        if self.model_params['model_type_settings']['var_model_type'] == 'flipout':
 
             self.conv1 = tfpl.Convolution2DFlipout( **self.model_params['conv1_params'] )
 
@@ -109,11 +110,20 @@ class SRCNN( tf.keras.layers.Layer ):
             self.conv2 = tfpl.Convolution2DFlipout ( **self.model_params['conv2_params'] )
 
             self.conv3 = tfpl.Convolution2DFlipout( **self.model_params['conv3_params'] )                  
-    
+
+        if self.model_params['model_type_settings']['var_model_type'] == 'dropout':
+            self.conv1 = SpatialConcreteDropout( tf.keras.layers.Conv2D( **self.model_params['conv1_params'] ) )
+            
+            self.upSample = UpSampler( self.model_params['input_dims'], self.model_params['output_dims'] )
+            
+            self.conv2 = SpatialConcreteDropout( tf.keras.layers.Conv2D( **self.model_params['conv2_params'] ) )
+
+            self.conv3 = tf.keras.layers.Conv2D( **self.model_params['conv3_params'] )
+
     def call( self, _input, tape=None ,upsample_method=tf.constant("zero_padding"), pred=False ): #( batch, height, width)
         self.tape = tape
         
-        if pred==False and self.model_params['var_model_type'] in ['guassian_factorized']:
+        if pred==False and self.model_params['model_type_settings']['var_model_type'] in ['flipout']:
             self.conv1._built_kernel_divergence = False
             self.conv1._built_bias_divergence = False
             self.conv2._built_kernel_divergence = False
@@ -121,10 +131,11 @@ class SRCNN( tf.keras.layers.Layer ):
             self.conv3._built_kernel_divergence = False
             self.conv3._built_bias_divergence = False
 
-        if self.model_params['var_model_type'] in ['horseshoe_factorized','horseshoe_structured']:
+        elif self.model_params['model_type_settings']['var_model_type'] in ['horseshoefactorized','horseshoestructured']:
             if pred==False:
                 self.update_posteriors_dists()
-                self.update_priors_dists()        
+                self.update_priors_dists()
+                self.sample_variational_params()        
             if pred==True:
                 self.sample_variational_params()
         
@@ -133,10 +144,15 @@ class SRCNN( tf.keras.layers.Layer ):
         x = self.upSample( x )           #(batch, height_hr, width_hr, conv1_filters )
 
         x = self.conv2( x )         #(batch, height_hr, width_hr, conv2_filters )
-        #TODO:(akanni-ade) add layer norm or batch norm here
+
         x = self.conv3( x )       #(batch, height_hr, width_hr, 1 )
         
-        if self.model_params['var_model_type'] in ['horseshoe_factorized','horseshoe_structured']:
+        if self.model_params['model_type_settings']['var_model_type'] in ['dropout']:
+            if pred == False:
+                self.conv1.add_loss()
+                self.conv2.add_loss()
+
+        if self.model_params['model_type_settings']['var_model_type'] in ['horseshoefactorized','horseshoestructured']:
             if pred==False:
                 self.prior_cross_entropy()
                 self.posterior_entropy() #TODO check that layer losses are sent to model losses
@@ -177,14 +193,14 @@ class SRCNN( tf.keras.layers.Layer ):
         conv2_taus_prior_scale = tf.constant( tf.ones_like( conv2_taus_prior_loc, dtype=tf.float32) ) #b_0 in Soumya Paper #1.0 used in microsoft paper
         self.conv2_tau_prior_dist = tfd.HalfCauchy(conv2_taus_prior_loc, conv2_taus_prior_scale)
 
-        self.conv3_weights_prior_loc = tf.constant( tf.zeros( (self.model_params['conv3_input_weights_count']), dtype=tf.float32  ) )
+        self.conv3_weights_prior_loc = tf.Variable( tf.zeros( (self.model_params['conv3_input_weights_count']), dtype=tf.float32  ) )
         
         self.conv3_weights_prior_hyperprior_scaledist = tfd.HalfCauchy(0, 5)  #prior for kappa
         #self.conv3_weights_prior_dist = tfd.Normal(self.conv3_weights_prior_loc, self.conv3_kappa )
 
     def initialize_posteriors_vars(self):
         
-        if(self.model_params['var_model_type'] == "horseshoe_structured"):
+        if(self.model_params['model_type_settings']['var_model_type'] == "horseshoestructured"):
             #NOTE: I think we treat c as a value that changes during trainable, but that doesnt have a distribution. In fact it just gets updated at each step
             #TODO: create an initialization method for all these params
             #Global C Posterior
@@ -218,7 +234,7 @@ class SRCNN( tf.keras.layers.Layer ):
             conv3_scale = tf.constant( tf.cast(1.0 * tf.sqrt( 6. / (self.model_params['conv3_output_node_count'] + self.model_params['conv3_input_weights_count'] )  ),dtype=tf.float32))
             self.conv3_weights_post_loc = tf.Variable( initial_value = tf.random.uniform( [self.model_params['conv3_input_weights_count']] , -conv3_scale, conv3_scale,dtype=tf.float32 ), trainable=True, name="conv3_weights_post_loc",dtype=tf.float32 )
         
-        elif(self.model_params['var_model_type'] == "horseshoe_factorized"):
+        elif(self.model_params['model_type_settings']['var_model_type'] == "horseshoefactorized"):
             #Global C Posterior
             self.global_c_post_shape = tf.Variable( initial_value=1.0, trainable=True, dtype=tf.float32) 
             self.global_c_post_scale = tf.Variable( initial_value=0.2,  trainable=True, dtype=tf.float32)
@@ -235,13 +251,13 @@ class SRCNN( tf.keras.layers.Layer ):
             self.conv1_beta_post_loc = tf.Variable( initial_value=tf.random.uniform( [self.model_params['conv1_output_node_count'], self.model_params['conv1_input_weights_per_filter']] ,-conv1_scale, conv1_scale), trainable=True, dtype=tf.float32)  #This uses Xavier init
             self.conv1_beta_post_scale = tf.Variable( initial_value=tf.random.uniform( self.conv1_beta_post_loc.shape, 0.75, 1.1 ), trainable=True, dtype=tf.float32 )
             self.conv1_tau_post_loc = tf.Variable( initial_value= tfd.HalfCauchy(loc=self.conv1_tau_prior_dist.mode(),scale=0.1).sample(), trainable=True, name="conv1_tau_post_loc",dtype=tf.float32 )
-            self.conv1_tau_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv1_tau_post_loc.shape, .05, 0.2), trainable=True, dtype=tf.float32)
+            self.conv1_tau_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv1_tau_post_loc.shape, .05, 0.2), trainable=True,name="conv1_tau_post_scale" , dtype=tf.float32)
             
             conv2_scale = tf.constant(tf.cast(1.0 * tf.sqrt( 6. / (self.model_params['conv2_output_node_count'] + self.model_params['conv2_input_weights_per_filter'])), dtype=tf.float32)) #glorot uniform used in microsoft horeshoe
             self.conv2_beta_post_loc = tf.Variable( initial_value=tf.random.uniform( [self.model_params['conv2_output_node_count'], self.model_params['conv2_input_weights_per_filter']] ,-conv2_scale, conv2_scale), trainable=True, dtype=tf.float32)  #This uses Xavier init
             self.conv2_beta_post_scale = tf.Variable( initial_value=tf.random.uniform( self.conv2_beta_post_loc.shape, 0.75, 1.1 ), trainable=True, dtype=tf.float32 )
             self.conv2_tau_post_loc = tf.Variable( initial_value= tfd.HalfCauchy(loc=self.conv2_tau_prior_dist.mode(),scale=0.1).sample()  , trainable=True, name="conv2_tau_post_loc",dtype=tf.float32 )
-            self.conv2_tau_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv2_tau_post_loc.shape, .05, 0.2), trainable=True, dtype=tf.float32)
+            self.conv2_tau_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv2_tau_post_loc.shape, .05, 0.2), trainable=True, name="conv1_tau_post_scale",dtype=tf.float32)
 
             # Output Layer weights Posterior
             self.conv3_kappa_post_loc = tf.Variable( initial_value = 1.0, trainable=True, dtype=tf.float32) #My init strat
@@ -254,7 +270,7 @@ class SRCNN( tf.keras.layers.Layer ):
         self.conv3_weights_prior_dist = tfd.Normal(self.conv3_weights_prior_loc, self.conv3_kappa )
 
     def update_posteriors_dists(self):
-        if(self.model_params['var_model_type'] == "horseshoe_structured"):
+        if(self.model_params['model_type_settings']['var_model_type'] == "horseshoestructured"):
             #Global C Posterior
             #self.global_c_post_dist = tfd.LogNormal(self.global_c_post_shape, self.global_c_post_scale)
             self.global_c_post_dist = tfd.HalfCauchy(self.global_c_post_shape, self.global_c_post_scale)
@@ -285,7 +301,7 @@ class SRCNN( tf.keras.layers.Layer ):
             self.conv3_kappa = self.conv3_kappa_post_dist.sample() #This should technically be in sample_variational_params
             self.conv3_weights_dist = tfd.Normal( loc=self.conv3_weights_post_loc , scale=self.conv3_kappa )
         
-        elif(self.model_params['var_model_type'] == "horseshoe_factorized"):
+        elif(self.model_params['model_type_settings']['var_model_type'] == "horseshoefactorized"):
             #Global C Posterior
             #self.global_c_post_dist = tfd.LogNormal(self.global_c_post_shape, self.global_c_post_scale)
             self.global_c_post_dist = tfd.HalfCauchy(self.global_c_post_shape, self.global_c_post_scale)
@@ -308,13 +324,13 @@ class SRCNN( tf.keras.layers.Layer ):
             self.conv3_weights_dist = tfd.Normal( loc=self.conv3_weights_post_loc , scale=self.conv3_kappa )
 
     def sample_variational_params(self):
-        if(self.model_params['var_model_type'] == "horseshoe_structured"):
+        if(self.model_params['model_type_settings']['var_model_type'] == "horseshoestructured"):
             self.conv1_nu = self.conv1_nu_post_dist.sample() #TODO: currently this outputs 1, when in actuality it should be 
             self.conv2_nu = self.conv2_nu_post_dist.sample()
 
             self.c = self.global_c_post_dist.sample()
 
-        elif(self.model_params['var_model_type'] == "horseshoe_factorized"):
+        elif(self.model_params['model_type_settings']['var_model_type'] == "horseshoefactorized"):
             self.conv1_beta =   self.conv1_beta_post_dist.sample()
             self.conv2_beta =   self.conv2_beta_post_dist.sample()
 
@@ -335,7 +351,7 @@ class SRCNN( tf.keras.layers.Layer ):
             This is the prior part of the KL Divergence
             The negative of this should be passed in the return
         """
-        if(self.model_params['var_model_type'] == "horseshoe_structured"):
+        if(self.model_params['model_type_settings']['var_model_type'] == "horseshoestructured"):
             # Global Scale Param c
             ll_c = self.c2_prior_dist.log_prob(tf.square(self.c)) #TODO: Check the right prior distr for c is used
 
@@ -361,7 +377,7 @@ class SRCNN( tf.keras.layers.Layer ):
             #sum
             prior_cross_entropy = ll_c + ll_nus + ll_taus + ll_betas + ll_output_layer
         
-        elif(self.model_params['var_model_type'] == "horseshoe_factorized"):
+        elif(self.model_params['model_type_settings']['var_model_type'] == "horseshoefactorized"):
             # Global Scale Param c
             ll_c = self.c2_prior_dist.log_prob(tf.square(self.c)) #TODO: Check the right prior distr for c is used
 
@@ -386,12 +402,11 @@ class SRCNN( tf.keras.layers.Layer ):
             
             prior_cross_entropy = ll_c + ll_nus + ll_taus + ll_betas + ll_output_layer
 
-        
         self.add_loss(-prior_cross_entropy)
     
     def posterior_entropy(self):
         
-        if(self.model_params['var_model_type'] == "horseshoe_structured"):
+        if(self.model_params['model_type_settings']['var_model_type'] == "horseshoestructured"):
             # Node level mean: Beta and scale: Taus
             ll_conv1_beta_logtau = tf.reduce_sum(self.conv1_beta_logtau_post_dist.log_prob( self.conv1_beta_logtau )) 
             ll_conv2_beta_logtau = tf.reduce_sum(self.conv2_beta_logtau_post_dist.log_prob( self.conv2_beta_logtau ))
@@ -414,7 +429,7 @@ class SRCNN( tf.keras.layers.Layer ):
             posterior_shannon_entropy = ll_beta_logtau + ll_c + ll_nu + ll_output_layer
             self.add_loss(posterior_shannon_entropy)
         
-        elif(self.model_params['var_model_type'] == "horseshoe_factorized"):
+        elif(self.model_params['model_type_settings']['var_model_type'] == "horseshoefactorized"):
             # Node level mean: Beta
             ll_conv1_beta = tf.reduce_sum(self.conv1_beta_post_dist.log_prob( self.conv1_beta ))
             ll_conv2_beta = tf.reduce_sum(self.conv2_beta_post_dist.log_prob( self.conv2_beta ))
@@ -528,14 +543,14 @@ def horseshoe_kernel_posterior_distribution(obj, _conv_layer_no ):
     conv_layer = _conv_layer_no
 
     
-    var_model_type = obj.model_params['var_model_type']
+    var_model_type = obj.model_params['model_type_settings']['var_model_type']
 
     def _fn(dtype, shape, name, trainable, add_variable_fn ):
         
-        if( var_model_type == "horseshoe_structured" ): 
+        if( var_model_type == "horseshoestructured" ): 
             dist = tf.case( [ (tf.equal(conv_layer,tf.constant(1)),lambda: obj.conv1_beta_logtau_post_dist), (tf.equal(conv_layer,tf.constant(2)), lambda: obj.conv2_beta_logtau_post_dist) ] , exclusive=True )
         
-        elif( var_model_type == "horseshoe_factorized" ):
+        elif( var_model_type == "horseshoefactorized" ):
             dist = tf.case( [ (tf.equal(conv_layer,tf.constant(1)),lambda: obj.conv1_beta_post_dist), (tf.equal(conv_layer,tf.constant(2)), lambda: obj.conv2_beta_post_dist) ] , exclusive=True )
 
         return dist
@@ -548,7 +563,7 @@ def horsehoe_kernel_posterior_tensor_fn( dist, layer_nu , model_global_c, output
         :param filter_shape list: [h, w]
     """
         
-    if( obj.model_params['var_model_type'] == "horseshoe_structured"): 
+    if( obj.model_params['model_type_settings']['var_model_type'] == "horseshoestructured"): 
         _samples = dist.sample()
         beta = _samples[ : , :-1 ] 
         taus_local_scale = tf.math.exp(_samples[ : , -1: ])
@@ -569,7 +584,7 @@ def horsehoe_kernel_posterior_tensor_fn( dist, layer_nu , model_global_c, output
 
         _weights = tf.reshape( _weights, [kernel_shape[0], kernel_shape[1], inp_channels, output_count] ) 
     
-    elif(obj.model_params['var_model_type'] == "horseshoe_factorized"):
+    elif(obj.model_params['model_type_settings']['var_model_type'] == "horseshoefactorized"):
         #creating the non_centred_version of tau
         model_global_c2 = tf.square( model_global_c )
         taus_local_scale_2 = tf.square( factorised_tau )
@@ -722,17 +737,22 @@ class THST_CLSTM_Decoder_Layer(tf.keras.layers.Layer):
         return hidden_states
 
 class THST_OutputLayer(tf.keras.layers.Layer):
-    def __init__(self, train_params, layer_params):
+    def __init__(self, train_params, layer_params, model_type_settings):
         """
             :param list layer_params: a list of dicts of params for the layers
         """
         super( THST_OutputLayer, self ).__init__()
 
         self.trainable = train_params['trainable']
-        self.conv_hidden = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
-        #TODO: may have to add an upscaling mechanism here if model fields are on a lower dimension than the rain data for ati data
-        self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
-    
+        
+        if(model_type_settings['Deformable_Conv'] ==False):
+            self.conv_hidden = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
+            self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
+        
+        elif( model_type_settings['Deformable_Conv'] ==True ):
+            self.conv_hidden = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[0]) )
+            self.conv_output = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1]) )
+
     def call(self, _inputs ):
         """
         :param tnsr inputs: (bs, seq_len, h,w,c)
@@ -740,3 +760,149 @@ class THST_OutputLayer(tf.keras.layers.Layer):
         x = self.conv_hidden( _inputs )
         x = self.conv_output( x ) #shape (bs, height, width)
         return x
+
+class SpatialConcreteDropout(tf.keras.layers.Wrapper):
+    """This wrapper allows to learn the dropout probability for any given Conv2D input layer.
+        ```python
+            model = Sequential()
+            model.add(ConcreteDropout(Conv2D(64, (3, 3)),
+                                    input_shape=(299, 299, 3)))
+        ```
+        # Arguments
+            layer: a layer instance.
+            weight_regularizer:
+                A positive number which satisfies
+                    $weight_regularizer = l**2 / (\tau * N)$
+                with prior lengthscale l, model precision $\tau$ (inverse observation noise),
+                and N the number of instances in the dataset.
+                Note that kernel_regularizer is not needed.
+            dropout_regularizer:
+                A positive number which satisfies
+                    $dropout_regularizer = 2 / (\tau * N)$
+                with model precision $\tau$ (inverse observation noise) and N the number of
+                instances in the dataset.
+                Note the relation between dropout_regularizer and weight_regularizer:
+                    $weight_regularizer / dropout_regularizer = l**2 / 2$
+                with prior lengthscale l. Note also that the factor of two should be
+                ignored for cross-entropy loss, and used only for the eculedian loss.
+    """
+    def __init__(self, layer, weight_regularizer=1e-6, dropout_regularizer=1e-5,
+                 init_min=0.1, init_max=0.1, is_mc_dropout=True, data_format=None, **kwargs):
+        assert 'kernel_regularizer' not in kwargs
+        super(SpatialConcreteDropout, self).__init__(layer, **kwargs)
+        self.weight_regularizer =  1 # in your model, this regularlization is done in the train code  2/(1e-5*365*24 ) #weight_regularizer
+        self.dropout_regularizer = 1 # in your model, this regularlization is done in the train code 2/(1e-5*365*24 ) #dropout_regularizer
+        self.is_mc_dropout = is_mc_dropout
+        self.supports_masking = True
+        self.p_logit = None
+        self.p = None
+        self.init_min = np.log(init_min) - np.log(1. - init_min)
+        self.init_max = np.log(init_max) - np.log(1. - init_max)
+        self.data_format = 'channels_last' if data_format is None else 'channels_first'
+
+    def build(self, input_shape=None):
+        
+        self.input_spec = tf.keras.layers.InputSpec(shape=input_shape)
+
+        super(SpatialConcreteDropout, self).build(input_shape)
+        if self.layer.built: #Strange behaviour but layer needs to be built twice to work
+            self.layer.build(input_shape)
+            self.layer.built = True
+
+        # self.kernel = self.add_weight(
+        #     name='kernel',
+        #     shape=kernel_shape,
+        #     initializer=self.kernel_initializer,
+        #     regularizer=self.kernel_regularizer,
+        #     constraint=self.kernel_constraint,
+        #     trainable=True,
+        #     dtype=self.dtype)
+        # if self.use_bias:
+        #     self.bias = self.add_weight(
+        #         name='bias',
+        #         shape=(self.filters,),
+        #         initializer=self.bias_initializer,
+        #         regularizer=self.bias_regularizer,
+        #         constraint=self.bias_constraint,
+        #         trainable=True,
+        #         dtype=self.dtype)
+        
+                
+            # initialise p
+        self.p_logit = self.layer.add_weight(name='p_logit',
+                                            shape=(1,),
+                                            initializer=tf.keras.initializers.RandomUniform(self.init_min, self.init_max),
+                                            trainable=True)
+        # self.p = K.sigmoid(self.p_logit[0])
+
+        # initialise regulariser / prior KL term
+        assert len(input_shape) == 4, 'this wrapper only supports Conv2D layers'
+        if self.data_format == 'channels_first':
+            self.input_dim = input_shape[1] # we drop only channels
+        else:
+            self.input_dim = input_shape[3]
+        
+        # weight = self.layer.kernel
+        # kernel_regularizer = self.weight_regularizer * K.sum(K.square(weight)) / (1. - self.p)
+        # dropout_regularizer = self.p * K.log(self.p)
+        # dropout_regularizer += (1. - self.p) * K.log(1. - self.p)
+        # dropout_regularizer *= self.dropout_regularizer * input_dim
+        # regularizer = K.sum(kernel_regularizer + dropout_regularizer)
+        # self.layer.add_loss(regularizer)
+
+    def compute_output_shape(self, input_shape):
+        return self.layer.compute_output_shape(input_shape)
+
+    def spatial_concrete_dropout(self, x):
+        '''
+        Concrete dropout - used at training time (gradients can be propagated)
+        :param x: input
+        :return:  approx. dropped out input
+        '''
+        self.p = K.sigmoid(self.p_logit[0])
+        eps = K.cast_to_floatx(K.epsilon())
+        temp = 2. / 3.
+
+        input_shape = K.shape(x)
+        if self.data_format == 'channels_first':
+            noise_shape = (input_shape[0], input_shape[1], 1, 1)
+        else:
+            noise_shape = (input_shape[0], 1, 1, input_shape[3])
+        unif_noise = K.random_uniform(shape=noise_shape)
+        
+        drop_prob = (
+            K.log(self.p + eps)
+            - K.log(1. - self.p + eps)
+            + K.log(unif_noise + eps)
+            - K.log(1. - unif_noise + eps)
+        )
+        drop_prob = K.sigmoid(drop_prob / temp)
+        random_tensor = 1. - drop_prob
+
+        retain_prob = 1. - self.p
+        x *= random_tensor
+        x /= retain_prob
+        return x
+    
+    def call(self, inputs, training=None, pred=False):
+        
+        if self.is_mc_dropout:
+            return self.layer.call(self.spatial_concrete_dropout(inputs))
+        else:
+            def relaxed_dropped_inputs():
+                return self.layer.call(self.spatial_concrete_dropout(inputs))
+            return K.in_train_phase(relaxed_dropped_inputs,
+                                    self.layer.call(inputs),
+                                    training=training)
+    
+    def add_loss(self):
+        weight = self.layer.kernel
+        kernel_regularizer = self.weight_regularizer * K.sum(K.square(weight)) / (1. - self.p)
+        dropout_regularizer = self.p * K.log(self.p)
+        dropout_regularizer += (1. - self.p) * K.log(1. - self.p)
+        dropout_regularizer *= self.dropout_regularizer * self.input_dim
+        regularizer = K.sum(kernel_regularizer + dropout_regularizer)
+        self.layer.add_loss(regularizer)
+        return True
+
+# endregion

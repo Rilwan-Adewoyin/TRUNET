@@ -9,7 +9,7 @@ import utility
 
 # region Vandal related
 
-def load_data_vandal( elements_to_skip, hparams, _num_parallel_calls =tf.data.experimental.AUTOTUNE, data_dir="./Data"):
+def load_data_vandal( elements_to_skip, hparams, m_params,_num_parallel_calls =-1, data_dir="./Data"):
 
     # region prepare elevation Preprocess
     _path = data_dir+"/Preprocessed/elevation.pkl" #TODO:(akanni-ade) change to value passed in via a h-parameters dictionary
@@ -22,8 +22,10 @@ def load_data_vandal( elements_to_skip, hparams, _num_parallel_calls =tf.data.ex
             ## The square has dimensions (rel to i,j): 2 to the right, 2 down, 1 left, 1 right
             ## This achieves a dimension reduction of 4
 
-    AVG_ELEV = np.nanmean(arr_elev) #TODO: (akanni-ade) Find actual max elev
-    arr_elev = arr_elev / AVG_ELEV 
+    AVG_ELEV = np.nanmean(arr_elev) 
+    VAR_ELEV = np.nanvar(arr_elev)
+
+    arr_elev = ( arr_elev - AVG_ELEV ) / VAR_ELEV
         #now making all elevation values above 1, then converting all nan values to 0
     arr_elev = arr_elev + np.min(arr_elev) + 1
     arr_elev = np.nan_to_num( arr_elev, nan=0.0, posinf=0.0, neginf=0.0 )
@@ -99,7 +101,7 @@ def load_data_vandal( elements_to_skip, hparams, _num_parallel_calls =tf.data.ex
         """
         #standardisation and preprocess of nans
         MAX_RAIN = 200 #TODO:(akanni-ade) Find actual max rain
-        arr_images = utility.standardize(arr_images)
+        arr_images = utility.standardize(arr_images, distr_type=m_params['model_type_settings']['distr_type'])
         arr_images = utility.replace_inf_nan(arr_images)
 
         #features
@@ -160,45 +162,54 @@ def load_data_vandal( elements_to_skip, hparams, _num_parallel_calls =tf.data.ex
 
 class Generator():
     
-    def __init__(self, fn = "", all_at_once=False, train_size=0.75, channel=None ):
+    def __init__(self, fn = "", all_at_once=False, train_size=0.75, channel=None, start_idx=0 ):
         self.generator = None
         self.all_at_once = all_at_once
         self.fn = fn
         self.channel = channel
+        self.start_idx = start_idx
     
     def yield_all(self):
         pass
 
-    def yield_iter(self):
+    def yield_iter(self,start_idx):
         pass
 
     def long_lat(self):
         pass
 
-    def __call__(self, start_idx=0):
+    def __call__(self):
         if(self.all_at_once):
             return self.yield_all()
         else:
-            return self.yield_iter(start_idx)
+            return self.yield_iter()
     
 class Generator_rain(Generator):
     def __init__(self, **generator_params):
         super(Generator_rain, self).__init__(**generator_params)
+        self.data_len = 14822
 
-    def yield_all(self,start_idx=0):
+    def yield_all(self,):
         with Dataset(self.fn, "r", format="NETCDF4") as f:
-            _data = f.variables['rr'][start_idx:]
+            _data = f.variables['rr'][self.start_idx:]
             yield np.ma.getdata(_data), np.ma.getmask(_data)   
             
-    def yield_iter(self,start_idx=0):
-        f = Dataset(self.fn, "r", format="NETCDF4")
-        #with Dataset(self.fn, "r", format="NETCDF4") as f:
-            #for chunk in f.variables['rr'][start_idx:]:
+    def yield_iter(self):
         
-        #for chunk in f.variables['rr'][start_idx:]:
-        for chunk in f.variables['rr'][start_idx:]:
-            yield np.ma.getdata(chunk), np.ma.getmask(chunk)
-        
+        with Dataset(self.fn, "r", format="NETCDF4") as f:
+            _iter = iter(f.variables['rr'])
+            #for idx in range(self.data_len):
+            idx=0
+            while idx < self.data_len:
+                #if idx >= self.start_idx:
+                chunk = next(_iter)
+                idx = idx+1
+                yield np.ma.getdata(chunk), np.ma.getmask(chunk)
+                # else:
+                #     pass
+    def __call__(self):
+        return self.yield_iter()
+    
 class Generator_mf(Generator):
     """
         Creates a generator for the model_fields_data
@@ -216,37 +227,32 @@ class Generator_mf(Generator):
 
         self.vars_for_feature = ['unknown_local_param_137_128', 'unknown_local_param_133_128', 'air_temperature', 'geopotential', 'x_wind', 'y_wind' ]
         self.channel_count = len(self.vars_for_feature)
+        self.data_len = 16072
         
-
     def yield_all(self):
         raise NotImplementedError
     
-    def yield_iter(self,start_idx=0):
+    def yield_iter(self):
         with Dataset(self.fn, "r", format="NETCDF4") as f:
-            for tuple_mfs in zip( *[f.variables[var_name][start_idx:] for var_name in self.vars_for_feature ] ):
-                
-                list_datamask = [ (np.ma.getdata(_mar),np.ma.getmask(_mar) ) for _mar in tuple_mfs ]
-                
+            
+            li_iters = [ iter(f.variables[var_name]) for var_name in self.vars_for_feature  ]
+
+            #for idx in range(self.data_len):
+            idx=0
+            while idx < self.data_len:
+                list_maskarr = ( next(_iter) for _iter in li_iters )
+                idx = idx+1
+                #if idx >= self.start_idx:                
+                list_datamask = [ (np.ma.getdata(_mar), np.ma.getmask(_mar)) for _mar in list_maskarr ]
                 _data, _masks= list( zip (*list_datamask ) )
-                
-                
                 stacked_data = np.stack(_data, axis=-1 )
                 stacked_masks = np.stack(_masks, axis=-1 )
-                
-                yield stacked_data, stacked_masks #shape [ (h,w,6), (6) ]
-            
-            
-        
-    def location(self):
-        """
-        Returns a 2 1D arrays
-            arr_long: Longitudes
-            arr_lat: Latitdues
-        Example of how to use:
-
-
-        """
-        raise NotImplementedError
+                yield stacked_data, stacked_masks
+                # else:
+                #     pass
+    
+    def __call__(self):
+        return self.yield_iter()
 
 
 def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_at=None,_num_parallel_calls=tf.data.experimental.AUTOTUNE, data_dir="./Data/Rain_Data_Nov19" ):
@@ -274,7 +280,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     # rain_data = Generator_rain(fn=fn_rain, all_at_once=False)
     # rain_gen = rain_data(start_idx_tar)
 
-    ds_tar = tf.data.Dataset.from_generator(lambda: Generator_rain(fn=fn_rain, all_at_once=False)(start_idx_tar), output_types=( tf.float32, tf.bool) ) #(values, mask) 
+    ds_tar = tf.data.Dataset.from_generator( Generator_rain(fn=fn_rain, all_at_once=False, start_idx = start_idx_tar), output_types=( tf.float32, tf.bool) ) #(values, mask) 
 
     def rain_mask(arr_rain, arr_mask, fill_value):
         """ 
@@ -292,6 +298,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     def normalize_rain_values(arr_rain, arr_mask, scale):
 
         arr_rain = arr_rain/scale
+        utility.standardize_ati(arr_rain, scale, reverse=False  )
 
         return arr_rain, arr_mask
     
@@ -307,10 +314,10 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     # region prepare feature model fields
 
     fn_mf = data_dir + "/ana_input_1.nc"
-    mf_data = Generator_mf(fn=fn_mf, all_at_once=False)
-    mf_gen = mf_data(start_idx_feat)
+    # mf_data = Generator_mf(fn=fn_mf, all_at_once=False)
+    # mf_gen = mf_data(start_idx_feat)
 
-    ds_feat = tf.data.Dataset.from_generator( lambda: mf_gen , output_types=( tf.float32, tf.bool)) #(values, mask) 
+    ds_feat = tf.data.Dataset.from_generator( Generator_mf(fn=fn_mf, all_at_once=False,start_idx = start_idx_feat) , output_types=( tf.float32, tf.bool)) #(values, mask) 
 
     def mf_normalization_mask_align(arr_data, scales, arr_mask, fill_value):
         """
@@ -329,7 +336,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     ds_feat = ds_feat.map( lambda arr_data, arr_mask: mf_normalization_mask_align( arr_data, t_params['normalization_scales']['model_fields'],
                 arr_mask ,t_params['mask_fill_value']['model_field']  ),num_parallel_calls=_num_parallel_calls  )
 
-    ds_feat = ds_feat.window(size = m_params['data_pipeline_params']['lookback_feature'], stride=1, shift=m_params['data_pipeline_params']['target_to_feature_time_ratio']*t_params['window_shift'], drop_remainder=True )
+    ds_feat = ds_feat.window(size = m_params['data_pipeline_params']['lookback_feature'], stride=1, shift=m_params['data_pipeline_params']['lookback_feature'], drop_remainder=True )
 
     # ds_feat = ds_feat.interleave( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(m_params['data_pipeline_params']['lookback_feature']) for w in window ] ) ) 
     #                             ,block_length=1 , num_parallel_calls= tf.data.experimental.AUTOTUNE  ) #shape (lookback,h, w, 6)
@@ -340,7 +347,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     # endregion
 
     ds = tf.data.Dataset.zip( (ds_feat, ds_tar) ) #( model_fields, (rain, rain_mask) ) 
-    ds = ds.batch(t_params['batch_size'])
+    ds = ds.batch(t_params['batch_size'], drop_remainder=True)
     return ds
 
 def get_start_idx( start_date, t_params, m_params ):
@@ -351,10 +358,10 @@ def get_start_idx( start_date, t_params, m_params ):
     feature_start_date = t_params['feature_start_date']
     target_start_date = t_params['target_start_date']
 
-    feat_days_diff = ( np.timedelta64(start_date - feature_start_date,'D') ).astype(int)
+    feat_days_diff = ( np.timedelta64(start_date - feature_start_date,'6h') ).astype(int)
     tar_days_diff = ( np.timedelta64(start_date - target_start_date, 'D') ).astype(int)
 
-    feat_start_idx = feat_days_diff*4 #since the feature comes in four hour chunks
+    feat_start_idx = feat_days_diff #since the feature comes in four hour chunks
     tar_start_idx = tar_days_diff 
 
     return feat_start_idx, tar_start_idx

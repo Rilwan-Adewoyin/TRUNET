@@ -23,6 +23,8 @@ from skimage.transform import rescale, resize, downscale_local_mean
 #-----Normal----
 ##RMSE
 ##Bias
+##R20
+##SPII
 
 # ------Uncertainty Bands
 ##For all regions in every location calculate the frequency of predictions falling within a 95% confidence range
@@ -39,40 +41,50 @@ from skimage.transform import rescale, resize, downscale_local_mean
 def main(test_params, model_params):
     """"
     This script does 2 things
-        1) Evaluates Predictions: Saves (np_rmse, np_bias, np_lower_bands, np_upper_bands, true_in_pred_range) for each day in the test set predictions
-        2) 
+        1) Evaluates Predictions: Saves (np_rmse, np_bias, np_lower_bands, np_upper_bands, true_in_pred_range) for each day in the test set predictions: postproc_pipeline_evaluatepredictions
+        2) Summarises Predictions: Saves the averages of all evaluations for a given timestep across timesteps 
+        3) Creates a valisualization of Summarised Predictions
 
     """
 
-
     core_count = 2 #max( psutil.cpu_count(), 4  ) 
 
-    if type(model_params == list):
+    if type(model_params) == list:
         model_params = model_params[0]
     # with mp.Pool(core_count ) as pool:
-    #     _path_pred = test_params['scr_dir'] + "/Output/{}/{}/Predictions".format(model_params['model_name'], model_params['model_version'])
-    #     gen_data_preds = util_predict.load_predictions_gen(_path_pred)
-    #     res = pool.map_async( postproc_pipeline_evaluatepredictions, gen_data_preds, chunksize = 3  )
-    #     res.wait()
-    #     results = res.get()
-        #This produces evaluations for a timestamps in the batch
+        #     _path_pred = test_params['scr_dir'] + "/Output/{}/{}/Predictions".format(model_params['model_name'], model_params['model_version'])
+        #     gen_data_preds = util_predict.load_predictions_gen(_path_pred)
+        #     res = pool.map_async( postproc_pipeline_evaluatepredictions, gen_data_preds, chunksize = 3  )
+        #     res.wait()
+        #     results = res.get()
+            #This produces evaluations for a timestamps in the batch
     
-    _path_pred = test_params['script_dir'] + "/Output/{}/{}/Predictions".format(model_params['model_name'], model_params['model_version'])
+    #region 1
+    _path_pred = test_params['script_dir'] + "/Output/{}/{}_{}_{}/{}/Predictions".format(model_params['model_name'],model_params['model_type_settings']['var_model_type'],
+                                                        model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']), model_params['model_version'])
     gen_data_preds = util_predict.load_predictions_gen(_path_pred)
     res =  [postproc_pipeline_evaluatepredictions(pred, test_params, model_params) for pred in gen_data_preds ]
 
     print("Completed Prediction Evaluation")
-    
-    _path_pred_eval = test_params['script_dir'] + "/Output/{}/{}/EvaluatedPredictions".format(model_params['model_name'], model_params['model_version'])
+    # endregion
+
+    #region 2
+    _path_pred_eval = test_params['script_dir'] + "/Output/{}/{}_{}_{}/{}/EvaluatedPredictions".format(model_params['model_name'],model_params['model_type_settings']['var_model_type'],
+                                                        model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']),model_params['model_version'])
     gen_data_eval_preds = util_predict.load_predictions_gen(_path_pred_eval)
     postproc_pipeline_compress_evaluations(gen_data_eval_preds,test_params, model_params)
         #averaging all evaluations across timesteps across different 
     
     print("Completed Summarisation of Prediction Evaluation")
+    # endregion
 
-    _path_pred_eval_summ = test_params['script_dir'] + "/Output/{}/{}/SummarisedEvaluations".format(model_params['model_name'], model_params['model_version'])
+    #region 3
+    _path_pred_eval_summ = test_params['script_dir'] + "/Output/{}/}_{}_{}/{}/SummarisedEvaluations".format(model_params['model_name'], model_params['model_type_settings']['var_model_type'],
+                                                        model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']) ,model_params['model_version'])
     gen_data_eval_preds = util_predict.load_predictions_gen(_path_pred_eval_summ)
     postproc_pipeline_visualized_summary(gen_data_eval_preds, test_params, model_params)
+    # endregion
+
     return True
 
 
@@ -82,7 +94,7 @@ def postproc_pipeline_evaluatepredictions(batch_datum, test_params, model_params
         Each sublist represents the set of stochastic predictions for a timestep
     """
     ts = np.concatenate( batch_datum[0], axis=0 ) # [ ts ]
-    preds = np.squeeze( np.concatenate( batch_datum[1], axis=1 ) ) #(upload_batch_size, stochastic_pred_count, width, height)  [ [preds_np], ... ]
+    preds = np.squeeze( np.concatenate( batch_datum[1], axis=1 ) ) #(stochastic_pred_count, upload_batch_size, width, height)  [ [preds_np], ... ]
     true = np.concatenate( batch_datum[2], axis=0) #(upload_batch_size, width, height)   [true_np,...]
 
     #RMSE, bias Calc
@@ -92,9 +104,14 @@ def postproc_pipeline_evaluatepredictions(batch_datum, test_params, model_params
     np_lower_bands, np_upper_bands, true_in_pred_range = uncertainty_bands(preds, true) 
         #shape( batch_size, width, height), shape( batch_size, width, height), shape( batch_size, width, height)
 
-    data_tuple = (np_rmse, np_bias, np_lower_bands, np_upper_bands, true_in_pred_range)
+    np_r20_err = r20_error_calc(preds, true)
 
-    _path_pred_eval = _path_pred = test_params['script_dir'] + "/Output/{}/{}/EvaluatedPredictions".format(model_params['model_name'], model_params['model_version'])
+    sdII_data = sdII_error_calc(preds, true, wd=0.5)  #shape( batch_size, width, height) #(total_obs_precip_wd-total_pred_precip_wd, element_count_in_batch) 
+
+    data_tuple = (np_rmse, np_bias, np_lower_bands, np_upper_bands, true_in_pred_range, np_r20_err, sdII_data )
+
+    _path_pred_eval = _path_pred = test_params['script_dir'] + "/Output/{}/{}_{}_{}/{}/EvaluatedPredictions".format(model_params['model_name'], model_params['model_type_settings']['var_model_type'],
+                                                        model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']),model_params['model_version'])
     
     if(not os.path.exists(_path_pred_eval) ):
         os.makedirs(_path_pred_eval)
@@ -128,15 +145,50 @@ def uncertainty_bands(preds, true):
     
     return lower_quantiles.numpy(), upper_quantiles.numpy(), tf_int_true_in_range.numpy()
 
+#def copy_his_plots_for_mse_bias
+
+def r20_error_calc(preds, true):
+    """R20 - Very heavy wet days ≥ 20mm
+       This returns a matrices of differences for the predictions and observed occures of R20 events
+    """
+
+    bool_r20_true = tf.where( true >= 20, 1, 0 )
+    bool_r20_pred = tf.where( tf.reduce_mean( preds, axis=0) >= 20, 1, 0 )
+
+    return bool_r20_true-bool_r20_pred
+    
+def sdII_error_calc(preds, true, wd=0.5):
+    """
+    This calculates the unaverage sDII numbers for both preds and true, also includes a count of number of elements in batch
+        These can be used in the next step to create a weighted mean of SDII error across all batches
+    """
+
+    bool_wd = true>=wd
+
+    total_obs_precip_wd = np.sum( tf.boolean_mask( bool_wd, true ) )
+    total_pred_precip_wd = np.sum( tf.boolean_mask( bool_wd, tf.reduce_mean( preds, axis=0)) )
+    element_count_in_batch = tf.math.count_nonzero( bool_wd , dtype=tf.float32)
+
+    return (total_obs_precip_wd-total_pred_precip_wd,element_count_in_batch)
+
+
 def postproc_pipeline_compress_evaluations(gen_data_eval_preds, test_params, model_params):
     """
         This will operate on batch size amount of predictions
         Each invidual prediction represents an average already
         So This method averages for each position on the map across all timesteps
+
+        New Behaviour: Since we need to calculate standard deviations as well, all data must be held in memory
     """
     avg_rmse = None
     avg_bias = None
     avg_true_in_pred_range = None
+
+    r20_diffs = None
+    
+    li_sdII_errors = []
+    li_sdII_element_count = []
+
     elements_count = 0
 
     for idx, batch_datum in enumerate(gen_data_eval_preds):
@@ -149,15 +201,37 @@ def postproc_pipeline_compress_evaluations(gen_data_eval_preds, test_params, mod
             avg_rmse = np_rmse
             avg_bias = np_bias
             avg_true_in_pred_range = true_in_pred_range
+            r20_diffs = batch_datum[5]
+
+            li_sdII_errors.extend( batch_datum[6][0] )
+            li_sdII_element_count.extend( batch_datum[6][1] )
+
         
         else:
+            #old method
             avg_rmse = np.average( np.stack( [avg_rmse, np_rmse],axis=-1 ), axis=-1, weights=[ elements_count , batch_datum[0].shape[0] ]  )
             avg_bias = np.average( np.stack( [avg_bias, np_bias],axis=-1 ), axis=-1, weights=[ elements_count , batch_datum[0].shape[0] ]  )
             avg_true_in_pred_range = np.average( np.stack( [avg_true_in_pred_range, true_in_pred_range],axis=-1 ), axis=-1, weights=[ elements_count , batch_datum[0].shape[0] ]  )
+            
+            #new method
+            r20_diffs = np.concatenate( [r20_diffs, batch_datum[5]] ,axis=1 )
+
+            li_sdII_errors.extend( batch_datum[6][0] )
+            li_sdII_element_count.extend( batch_datum[6][1] )
         
         elements_count = elements_count + batch_datum[0].shape[0]
 
-    data_tuple = {"average_rmse": avg_rmse , "average_bias": avg_bias , "hit_rate": avg_true_in_pred_range }
+    #final calculations
+    r20_mean = np.mean(r20_diffs)
+    r20_stds = np.std(r20_diffs)
+
+    sdII_mean =np.sum(li_sdII_errors) / np.sum( li_sdII_element_count )
+    sdII_std = np.mean( np.square( np.array(li_sdII_errors) ) )
+    
+
+    data_tuple = {"rmse-mean": avg_rmse , "bias-mean": avg_bias , "hit-rate": avg_true_in_pred_range, "r20-mean":r20_mean,  "r20-stds":r20_stds, "sdII_mean":sdII_mean, "sdII_std": sdII_std }
+
+    # latex_table_maker(data_tuple)
 
     _path_pred_eval_summ = _path_pred = test_params['script_dir'] + "/Output/{}/{}/SummarisedEvaluations".format(model_params['model_name'], model_params['model_version'])
     fn = "summarised_predictions.dat"
@@ -165,6 +239,17 @@ def postproc_pipeline_compress_evaluations(gen_data_eval_preds, test_params, mod
     if(not os.path.exists(_path_pred_eval_summ) ):
         os.makedirs(_path_pred_eval_summ)
     pickle.dump( data_tuple, open( _path_pred_eval_summ + "/" +fn ,"wb") )
+    
+
+# def latex_table_maker(data_tuple):
+#     """ make the latex table containing results"""
+#     tab1 = pd.DataFrame(tab1).set_index('name')
+#     tabl.append(data_tuple)
+
+#     tab1_latex = tab1[['rmse-mean','bias-mean','hit-rate','r20-mean','r20-stds',"sdII_mean","sdII_std"]].to_latex(float_format='{:,.3f}'.format)
+
+    
+
 
 def postproc_pipeline_visualized_summary(gen_data_eval_preds, test_params, model_params):
     
@@ -201,19 +286,28 @@ def postproc_pipeline_visualized_summary(gen_data_eval_preds, test_params, model
 
 
 
+
 if __name__ == "__main__":
 
     s_dir = utility.get_script_directory(sys.argv[0])
-
+    
     args_dict = utility.parse_arguments(s_dir)
 
-    train_params = hparameters.train_hparameters( **args_dict )
-    
     #stacked DeepSd methodology
-    li_input_output_dims = [ {"input_dims": [39, 88 ], "output_dims": [98, 220 ] , 'var_model_type':'guassian_factorized' } ,
-                 {"input_dims": [98, 220 ] , "output_dims": [ 156, 352 ] , 'conv1_inp_channels':1, 'var_model_type':'guassian_factorized' }  ]
+    if( args_dict['model_name'] == "DeepSD" ):
+        test_params = hparameters.test_hparameters( **args_dict )()
 
-    model_params = [ hparameters.model_deepsd_hparameters(**_dict) for _dict in li_input_output_dims  ]
-    model_params = [ mp() for mp in model_params]
+        model_type_settings = {'stochastic':True ,'stochastic_f_pass':10,
+                        'distr_type':"Normal", 'discrete_continuous':True,
+                        'precip_threshold':0.5, 'var_model_type':"horseshoestructured" }
 
-    main(train_params(), model_params )
+        input_output_dims = {"input_dims": [39, 88 ], "output_dims": [ 156, 352 ], 'model_type_settings': model_type_settings } 
+
+        model_params = hparameters.model_deepsd_hparameters(**input_output_dims)()
+    
+    elif(args_dict['model_name'] == "THST"):
+        model_params = hparameters.model_THST_hparameters()()
+        args_dict['lookback_target'] = model_params['data_pipeline_params']['lookback_target']
+        test_params = hparameters.test_hparameters_ati( **args_dict )()
+    
+    main(test_params, model_params)
