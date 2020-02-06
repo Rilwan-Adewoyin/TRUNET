@@ -11,7 +11,10 @@ gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 print(gpu_devices)
 # for idx in range(len(gpu_devices)):
 #     tf.config.experimental.set_memory_growth(gpu_devices[idx], True)
-tf.config.experimental.set_memory_growth(gpu_devices[0], True)
+
+#tf.config.experimental.set_memory_growth(gpu_devices[0], True)
+tf.config.experimental.set_memory_growth(gpu_devices, True)
+
 import tensorflow_probability as tfp
 try:
     import tensorflow_addons as tfa
