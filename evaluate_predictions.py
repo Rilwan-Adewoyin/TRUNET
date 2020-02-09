@@ -80,7 +80,7 @@ def main(test_params, model_params):
     # endregion
 
     #region 3
-    _path_pred_eval_summ = test_params['script_dir'] + "/Output/{}/}_{}_{}/{}/SummarisedEvaluations".format(model_params['model_name'], model_params['model_type_settings']['var_model_type'],
+    _path_pred_eval_summ = test_params['script_dir'] + "/Output/{}/{}_{}_{}/{}/SummarisedEvaluations".format(model_params['model_name'], model_params['model_type_settings']['var_model_type'],
                                                         model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']) ,model_params['model_version'])
     gen_data_eval_preds = util_predict.load_predictions_gen(_path_pred_eval_summ)
     postproc_pipeline_visualized_summary(gen_data_eval_preds, test_params, model_params)
@@ -156,7 +156,7 @@ def r20_error_calc(preds, true):
     bool_r20_true = tf.where( true >= 20, 1, 0 )
     bool_r20_pred = tf.where( tf.reduce_mean( preds, axis=0) >= 20, 1, 0 )
 
-    return bool_r20_true-bool_r20_pred
+    return (bool_r20_true-bool_r20_pred).numpy()
     
 def sdII_error_calc(preds, true, wd=0.5):
     """
@@ -168,9 +168,9 @@ def sdII_error_calc(preds, true, wd=0.5):
 
     total_obs_precip_wd = np.sum( tf.boolean_mask( bool_wd, true ) )
     total_pred_precip_wd = np.sum( tf.boolean_mask( bool_wd, tf.reduce_mean( preds, axis=0)) )
-    element_count_in_batch = tf.math.count_nonzero( bool_wd , dtype=tf.float32)
+    element_count_in_batch = np.count_nonzero( bool_wd )
 
-    return (total_obs_precip_wd-total_pred_precip_wd,element_count_in_batch)
+    return [total_obs_precip_wd-total_pred_precip_wd,element_count_in_batch]
 
 
 def postproc_pipeline_compress_evaluations(gen_data_eval_preds, test_params, model_params):
@@ -202,10 +202,12 @@ def postproc_pipeline_compress_evaluations(gen_data_eval_preds, test_params, mod
             avg_rmse = np_rmse
             avg_bias = np_bias
             avg_true_in_pred_range = true_in_pred_range
+            
+            #new methods
             r20_diffs = batch_datum[5]
 
-            li_sdII_errors.extend( batch_datum[6][0] )
-            li_sdII_element_count.extend( batch_datum[6][1] )
+            li_sdII_errors.append( batch_datum[6][0] )
+            li_sdII_element_count.append( batch_datum[6][1] )
 
         
         else:
@@ -215,10 +217,10 @@ def postproc_pipeline_compress_evaluations(gen_data_eval_preds, test_params, mod
             avg_true_in_pred_range = np.average( np.stack( [avg_true_in_pred_range, true_in_pred_range],axis=-1 ), axis=-1, weights=[ elements_count , batch_datum[0].shape[0] ]  )
             
             #new method
-            r20_diffs = np.concatenate( [r20_diffs, batch_datum[5]] ,axis=1 )
+            r20_diffs = np.concatenate( [r20_diffs, batch_datum[5]] ,axis=0 )
 
-            li_sdII_errors.extend( batch_datum[6][0] )
-            li_sdII_element_count.extend( batch_datum[6][1] )
+            li_sdII_errors.append( batch_datum[6][0] )
+            li_sdII_element_count.append( batch_datum[6][1] )
         
         elements_count = elements_count + batch_datum[0].shape[0]
 
@@ -227,22 +229,25 @@ def postproc_pipeline_compress_evaluations(gen_data_eval_preds, test_params, mod
     r20_stds = np.std(r20_diffs)
 
     sdII_mean =np.sum(li_sdII_errors) / np.sum( li_sdII_element_count )
-    sdII_std = np.mean( np.square( np.array(li_sdII_errors) ) )
+    sdII_std = np.std( np.array(li_sdII_errors) ) 
     
 
     data_tuple = {"rmse-mean": avg_rmse , "bias-mean": avg_bias , "hit-rate": avg_true_in_pred_range, "r20-mean":r20_mean,  "r20-stds":r20_stds, "sdII_mean":sdII_mean, "sdII_std": sdII_std }
 
+    scores_for_table = {"rmse-mean-mean":np.mean(avg_rmse),  "bias-mean": np.mean(avg_bias) , "hit-rate": np.mean(avg_true_in_pred_range), "r20-mean":r20_mean,  "r20-stds":r20_stds, "sdII_mean":sdII_mean, "sdII_std": sdII_std  }
     # latex_table_maker(data_tuple)
 
     _path_pred_eval_summ = test_params['script_dir'] + "/Output/{}/{}_{}_{}/{}/SummarisedEvaluations".format(model_params['model_name'],  model_params['model_type_settings']['var_model_type'],
                                                         model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']), model_params['model_version'])
-    fn = "summarised_predictions.json"
+    fn = "summarised_predictions.dat"
 
     if(not os.path.exists(_path_pred_eval_summ) ):
         os.makedirs(_path_pred_eval_summ)
 
-    with open( _path_pred_eval_summ + "/" +fn ,"w") as f:
-        json.dump(data_tuple,f,sort_keys=True, indent=4)
+    pickle.dump( data_tuple, open( _path_pred_eval_summ + "/" +fn ,"wb") )
+
+    with open( _path_pred_eval_summ + "/" +"scores_for_table.json" ,"w") as f:
+        json.dump(scores_for_table,f,sort_keys=True, indent=4)
 
     
 
@@ -254,11 +259,7 @@ def postproc_pipeline_compress_evaluations(gen_data_eval_preds, test_params, mod
 #     tab1_latex = tab1[['rmse-mean','bias-mean','hit-rate','r20-mean','r20-stds',"sdII_mean","sdII_std"]].to_latex(float_format='{:,.3f}'.format)
 
     
-
-
-def postproc_pipeline_visualized_summary(gen_data_eval_preds, test_params, model_params):
-    
-        
+def postproc_pipeline_visualized_summary(gen_data_eval_preds, test_params, model_params):    
     try:
         image_usa = plt.imread(test_params['script_dir'] + '/Images/us_map.jpg')
     except Exception as e:
@@ -272,9 +273,12 @@ def postproc_pipeline_visualized_summary(gen_data_eval_preds, test_params, model
         _img.save(test_params['script_dir'] + '/Images/us_map.jpg','JPEG')
         image_usa = plt.imread(test_params['script_dir'] + '/Images/us_map.jpg')
 
-    dict_summarised = next(gen_data_eval_preds)
+    _dict = next(gen_data_eval_preds)
+    keys_to_keep = ["rmse-mean","bias-mean","hit-rate"]
+    dict_summarised = { k: _dict[k] for k in keys_to_keep }
 
-    _path_visual = test_params['script_dir'] + "/Output/{}/{}/Visualisations".format(model_params['model_name'], model_params['model_version'])
+    _path_visual = test_params['script_dir'] + "/Output/{}/{}_{}_{}/{}/Visualisations".format(model_params['model_name'], model_params['model_type_settings']['var_model_type'],
+                                                        model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']), model_params['model_version'])
     if(not os.path.exists(_path_visual) ):
         os.makedirs(_path_visual)
 
@@ -303,8 +307,8 @@ if __name__ == "__main__":
         test_params = hparameters.test_hparameters( **args_dict )()
 
         model_type_settings = {'stochastic':True ,'stochastic_f_pass':10,
-                        'distr_type':"Normal", 'discrete_continuous':True,
-                        'precip_threshold':0.5, 'var_model_type':"horseshoestructured" }
+                        'distr_type':"LogNormal", 'discrete_continuous':True,
+                        'precip_threshold':0.5, 'var_model_type':"horseshoefactorized" }
 
         input_output_dims = {"input_dims": [39, 88 ], "output_dims": [ 156, 352 ], 'model_type_settings': model_type_settings } 
 

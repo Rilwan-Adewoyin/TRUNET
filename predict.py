@@ -106,8 +106,8 @@ if __name__ == "__main__":
         test_params = hparameters.test_hparameters( **args_dict )()
 
         model_type_settings = {'stochastic':True ,'stochastic_f_pass':10,
-                        'distr_type':"Normal", 'discrete_continuous':True,
-                        'precip_threshold':0.5, 'var_model_type':"horseshoestructured" }
+                        'distr_type':"LogNormal", 'discrete_continuous':True,
+                        'precip_threshold':0.5, 'var_model_type':"horseshoefactorized" }
 
         input_output_dims = {"input_dims": [39, 88 ], "output_dims": [ 156, 352 ], 'model_type_settings': model_type_settings } 
 

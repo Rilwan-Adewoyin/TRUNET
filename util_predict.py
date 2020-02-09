@@ -93,6 +93,7 @@ def save_preds( test_params, model_params, li_preds, li_timestamps, li_truevalue
 
 def load_predictions_gen(_path_pred):
     li_pred_fns = list( glob.glob(_path_pred+"/*") )
+    li_pred_fns = [pred_fns for pred_fns in li_pred_fns if pred_fns[-4:]!="json" ]
     for pred_fn in li_pred_fns:
         pred = pickle.load(open(pred_fn,"rb"))
         yield pred # list of lists; each sublist [ts, [stochastic preds], true] #shape ( x, [(width, hieght),.. ], (width, hieght) )
