@@ -130,8 +130,8 @@ def train_loop(train_params, model_params):
 
     # region ---- Making Datasets
     if model_params['model_name'] == "DeepSD":
-        ds_train = data_generators.load_data_vandal( batches_to_skip*train_params['batch_size'], train_params, model_params  )
-        ds_val = data_generators.load_data_vandal( train_set_size_batches*train_params['batch_size'], train_params, model_params )
+        ds_train = data_generators.load_data_vandal( batches_to_skip*train_params['batch_size'], train_params, model_params, data_dir=train_params['data_dir'] )
+        ds_val = data_generators.load_data_vandal( train_set_size_batches*train_params['batch_size'], train_params, model_params, data_dir=train_params['data_dir'] )
 
     
     if model_params['model_name'] == "THST":
