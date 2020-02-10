@@ -7,13 +7,12 @@ import data_generators
 import utility
 
 import tensorflow as tf
-# gpu_devices = tf.config.experimental.list_physical_devices('GPU')
-# print(gpu_devices)
-# for idx, gpu_name in enumerate(gpu_devices):
-#      tf.config.experimental.set_memory_growth(gpu_name, True)
 
-#tf.config.experimental.set_memory_growth(gpu_devices[0], True)
-#tf.config.experimental.set_memory_growth(gpu_devices, True)
+gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+print(gpu_devices)
+for idx, gpu_name in enumerate(gpu_devices):
+    tf.config.experimental.set_memory_growth(gpu_name, True)
+
 
 import tensorflow_probability as tfp
 try:
@@ -469,15 +468,16 @@ if __name__ == "__main__":
     args_dict = utility.parse_arguments(s_dir)
 
     #region gpu set up
-    gpu_idxs = ast.literal_eval(args_dict['gpu_indx'])
-    gpu_devices = tf.config.experimental.list_physical_devices('GPU')
-    if len(gpu_devices)>0:
-        gpus_to_use = [ gpu_devices[gpu_idx] for gpu_idx in gpu_idxs ]
-        tf.config.set_visible_devices(gpus_to_use, 'GPU')
-        print(gpu_devices)
-        for gpu_name in gpus_to_use:
-            tf.config.experimental.set_memory_growth(gpu_name, True)
-    del args_dict['gpu_indx']
+    # gpu_idxs = ast.literal_eval(args_dict['gpu_indx'])
+    # gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+    # if len(gpu_devices)>0:
+    #     gpus_to_use = [ gpu_devices[gpu_idx] for gpu_idx in gpu_idxs ]
+    #     #tf.config.set_visible_devices(gpus_to_use, 'GPU')
+
+    #     print(gpu_devices)
+    #     for gpu_name in gpus_to_use:
+    #         tf.config.experimental.set_memory_growth(gpu_name, True)
+    # del args_dict['gpu_indx']
 
     print("GPU Available: ", tf.test.is_gpu_available() )
     
