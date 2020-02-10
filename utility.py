@@ -149,7 +149,7 @@ def parse_arguments(s_dir=None):
     # parser.add_argument('-vmt','--var_model_type', type=str, help="Type of Bnn to use", required=False, default="flipout",
     #                             choices=["flipout", "horsehoe_factorized", "horseshoe structured" ] )
     
-    parser.add_argument('--mts','--model_type_settings', type=str, help="dictionary Defining type of model to use", required=True)
+    parser.add_argument('-mts','--model_type_settings', type=str, help="dictionary Defining type of model to use", required=True)
 
     parser.add_argument('-sdr','--script_dir', type=str, help="Directory for code", required=False, default=s_dir )
 
