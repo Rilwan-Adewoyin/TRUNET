@@ -471,9 +471,12 @@ if __name__ == "__main__":
     #region gpu set up
     gpu_idxs = ast.literal_eval(args_dict['gpu_indx'])
     gpu_devices = tf.config.experimental.list_physical_devices('GPU')
-    print(gpu_devices)
-    for gpu_name in [ gpu_devices[gpu_idx] for gpu_idx in gpu_idxs ]:
-        tf.config.experimental.set_memory_growth(gpu_name, True)
+    if len(gpu_devices)>0:
+        gpus_to_use = [ gpu_devices[gpu_idx] for gpu_idx in gpu_idxs ]
+        tf.config.set_visible_devices(gpus_to_use, 'GPU')
+        print(gpu_devices)
+        for gpu_name in gpus_to_use:
+            tf.config.experimental.set_memory_growth(gpu_name, True)
     del args_dict['gpu_indx']
 
     print("GPU Available: ", tf.test.is_gpu_available() )
