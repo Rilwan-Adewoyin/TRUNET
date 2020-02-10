@@ -317,6 +317,8 @@ class train_hparameters(HParams):
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE,
         EPOCHS = 342 #equivalent to Vandal
         CHECKPOINTS_TO_KEEP = 50
+        CHECKPOINTS_TO_KEEP_EPOCH = 2
+        CHECKPOINTS_TO_KEEP_BATCH = 2
 
         start_date = np.datetime64('1981-01-01')
         end_date = np.datetime64('2015-01-31')
@@ -345,6 +347,8 @@ class train_hparameters(HParams):
             'val_set_size_batches':VAL_SET_SIZE_ELEMENTS//BATCH_SIZE,
 
             'checkpoints_to_keep':CHECKPOINTS_TO_KEEP,
+            'checkpoints_to_keep_epoch':CHECKPOINTS_TO_KEEP_EPOCH,
+            'checkpoints_to_keep_batch':CHECKPOINTS_TO_KEEP_BATCH,
             
             'dataset_trainval_batch_reporting_freq':0.10,
             'num_parallel_calls':NUM_PARALLEL_CALLS,
@@ -426,6 +430,8 @@ class train_hparameters_ati(HParams):
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
         EPOCHS = 200
         CHECKPOINTS_TO_KEEP = 3
+        CHECKPOINTS_TO_KEEP_EPOCH = 2
+        CHECKPOINTS_TO_KEEP_BATCH = 2
 
         # region ---- data information
 
@@ -480,6 +486,9 @@ class train_hparameters_ati(HParams):
             'val_set_size_batches':VAL_SET_SIZE_ELEMENTS//BATCH_SIZE,
 
             'checkpoints_to_keep':CHECKPOINTS_TO_KEEP,
+            'checkpoints_to_keep_epoch':CHECKPOINTS_TO_KEEP_EPOCH,
+            'checkpoints_to_keep_batch':CHECKPOINTS_TO_KEEP_BATCH,
+
 
             'dataset_trainval_batch_reporting_freq':0.1,
             'num_parallel_calls':NUM_PARALLEL_CALLS,

@@ -173,6 +173,8 @@ def sdII_error_calc(preds, true, wd=0.5):
     return [total_obs_precip_wd-total_pred_precip_wd,element_count_in_batch]
 
 
+#def pixel_calibration()
+
 def postproc_pipeline_compress_evaluations(gen_data_eval_preds, test_params, model_params):
     """
         This will operate on batch size amount of predictions
