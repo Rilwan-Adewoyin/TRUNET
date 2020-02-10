@@ -474,6 +474,7 @@ if __name__ == "__main__":
     print(gpu_devices)
     for gpu_name in [ gpu_devices[gpu_idx] for gpu_idx in gpu_idxs ]:
         tf.config.experimental.set_memory_growth(gpu_name, True)
+    del args_dict['gpu_indx']
     
     # endregion
 
