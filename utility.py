@@ -161,6 +161,10 @@ def parse_arguments(s_dir=None):
     
     parser.add_argument('-mv', '--model_version', type=str, help="Name for the model, used to help in saving predictions and related files", required=False, default="1")
 
+    parser.add_argument('-c1pc', '--conv1_param_custom', type=str, required=False, default="None")
+
+    parser.add_argument('-c2pc', '--conv2_param_custom', type=str, required=False, default="None")
+
     args_dict = vars(parser.parse_args() )
 
     return args_dict

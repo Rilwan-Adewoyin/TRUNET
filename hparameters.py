@@ -28,6 +28,17 @@ class model_deepsd_hparameters(HParams):
     def __init__(self, **kwargs):
         self.input_dims = kwargs['input_dims']
         self.output_dims = kwargs['output_dims']
+
+        if "conv1_param_custom" in kwargs:
+            self.conv1_param_custom = kwargs['conv1_param_custom']
+        else:
+            self.conv1_param_custom = None
+        
+        if "conv2_param_custom" in kwargs:
+            self.conv2_param_custom = kwargs['conv2_param_custom']
+        else:
+            self.conv2_param_custom = None
+        
         super( model_deepsd_hparameters, self ).__init__(**kwargs)
 
 
@@ -38,23 +49,26 @@ class model_deepsd_hparameters(HParams):
         output_dims = self.output_dims #[156,352]
 
         #TODO: (change filter sizes back to the ones used in the paper)
+        if type(self.conv1_param_custom) == dict: 
 
-        CONV1_params = {    'filters':40, #512
-                            'kernel_size': [5,5] , #[7,7] #TODO:use size from paper later
-                            'activation':'relu',
-                            'padding':'same',
-                            'data_format':'channels_last',
-                            'name':"Conv1" }
-
-        conv2_kernel_size = np.ceil( np.ceil( np.array(output_dims)/np.array(input_dims) )*1.5 )  #This makes sure that each filter in conv2, sees at least two of the real non zero values. The zero values occur due to the upscaling
-        CONV2_params = {    'filters':40, #512
-                            'kernel_size':  conv2_kernel_size.astype(np.int32).tolist() , #TODO:use size from paper later
-                            #each kernel covers 2 non original values from the upsampled tensor
-                            'activation':'relu',
-                            'padding':'same',
-                            'data_format':'channels_last',
-                            "name":"Conv2" }
-              
+            self.CONV1_params = {    'filters':40, #512
+                                'kernel_size': [5,5] , #[7,7] #TODO:use size from paper later
+                                'activation':'relu',
+                                'padding':'same',
+                                'data_format':'channels_last',
+                                'name':"Conv1" }
+            self.CONV1_params.update(self.conv1_param_custom)
+        if type(self.conv2_param_custom) == dict :
+            conv2_kernel_size = np.ceil( np.ceil( np.array(output_dims)/np.array(input_dims) )*1.5 )  #This makes sure that each filter in conv2, sees at least two of the real non zero values. The zero values occur due to the upscaling
+            CONV2_params = {    'filters':40, #512
+                                'kernel_size':  conv2_kernel_size.astype(np.int32).tolist() , #TODO:use size from paper later
+                                #each kernel covers 2 non original values from the upsampled tensor
+                                'activation':'relu',
+                                'padding':'same',
+                                'data_format':'channels_last',
+                                "name":"Conv2" }
+            self.CONV2_params.update(self.conv2_param_custom)
+                
 
         CONV3_params = {
                             'filters':1,
@@ -65,11 +79,11 @@ class model_deepsd_hparameters(HParams):
                             "name":"Conv3"  }
 
         conv1_inp_channels = 17
-        conv1_input_weights_per_filter = np.prod(CONV1_params['kernel_size']) * conv1_inp_channels
-        conv1_input_weights_count =  CONV1_params['filters'] * conv1_input_weights_per_filter
-        conv1_output_node_count = CONV1_params['filters']
+        conv1_input_weights_per_filter = np.prod(self.CONV1_params['kernel_size']) * conv1_inp_channels
+        conv1_input_weights_count =  self.CONV1_params['filters'] * conv1_input_weights_per_filter
+        conv1_output_node_count = self.CONV1_params['filters']
 
-        conv2_inp_channels = CONV1_params['filters']
+        conv2_inp_channels = self.CONV1_params['filters']
         conv2_input_weights_per_filter = np.prod(CONV2_params['kernel_size']) * conv2_inp_channels
         conv2_input_weights_count = CONV2_params['filters'] * conv2_input_weights_per_filter
         conv2_output_node_count = CONV2_params['filters']
@@ -96,7 +110,7 @@ class model_deepsd_hparameters(HParams):
             'input_dims':input_dims,
             'output_dims':output_dims,
 
-            'conv1_params': CONV1_params,
+            'conv1_params': self.CONV1_params,
             'conv2_params': CONV2_params,
             'conv3_params': CONV3_params,
 
