@@ -487,6 +487,7 @@ if __name__ == "__main__":
     #region model set up
     if( args_dict['model_name'] == "DeepSD" ):
         model_type_settings = ast.literal_eval( args_dict['model_type_settings'] )
+        
         model_layers = { 'conv1_param_custom': json.loads(args_dict['conv1_param_custom']) ,
                          'conv2_param_custom': json.loads(args_dict['conv2_param_custom']) }
 
