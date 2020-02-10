@@ -472,7 +472,7 @@ if __name__ == "__main__":
     gpu_idxs = ast.literal_eval(args_dict['gpu_indx'])
     gpu_devices = tf.config.experimental.list_physical_devices('GPU')
     print(gpu_devices)
-    for idx, gpu_name in enumerate(gpu_devices[gpu_idxs]):    
+    for gpu_name in [ gpu_devices[gpu_idx] for gpu_idx in gpu_idxs ]:
         tf.config.experimental.set_memory_growth(gpu_name, True)
     
     # endregion
