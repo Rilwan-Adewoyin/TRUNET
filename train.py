@@ -7,10 +7,10 @@ import data_generators
 import utility
 
 import tensorflow as tf
-gpu_devices = tf.config.experimental.list_physical_devices('GPU')
-print(gpu_devices)
-for idx, gpu_name in enumerate(gpu_devices):
-     tf.config.experimental.set_memory_growth(gpu_name, True)
+# gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+# print(gpu_devices)
+# for idx, gpu_name in enumerate(gpu_devices):
+#      tf.config.experimental.set_memory_growth(gpu_name, True)
 
 #tf.config.experimental.set_memory_growth(gpu_devices[0], True)
 #tf.config.experimental.set_memory_growth(gpu_devices, True)
@@ -41,7 +41,7 @@ import itertools
 # endregion
 
 def train_loop(train_params, model_params): 
-    print("GPU Available: ", tf.test.is_gpu_available() )
+    
     
     # region ----- Defining Model / Optimizer / Losses / Metrics / Records
     model = models.model_loader(train_params, model_params)
@@ -475,6 +475,8 @@ if __name__ == "__main__":
     for gpu_name in [ gpu_devices[gpu_idx] for gpu_idx in gpu_idxs ]:
         tf.config.experimental.set_memory_growth(gpu_name, True)
     del args_dict['gpu_indx']
+
+    print("GPU Available: ", tf.test.is_gpu_available() )
     
     # endregion
 
