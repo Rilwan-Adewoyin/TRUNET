@@ -9,8 +9,8 @@ import utility
 import tensorflow as tf
 gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 print(gpu_devices)
-# for idx in range(len(gpu_devices)):
-#     tf.config.experimental.set_memory_growth(gpu_devices[idx], True)
+for idx, gpu_name in enumerate(gpu_devices):
+     tf.config.experimental.set_memory_growth(gpu_name, True)
 
 #tf.config.experimental.set_memory_growth(gpu_devices[0], True)
 #tf.config.experimental.set_memory_growth(gpu_devices, True)
@@ -32,6 +32,7 @@ import argparse
 from tqdm import tqdm
 import traceback
 import time
+import ast
 
 import models
 import hparameters
@@ -467,17 +468,27 @@ if __name__ == "__main__":
 
     args_dict = utility.parse_arguments(s_dir)
 
+    #region gpu set up
+    gpu_idxs = ast.literal_eval(args_dict['gpu_indx'])
+    gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+    print(gpu_devices)
+    for idx, gpu_name in enumerate(gpu_devices[gpu_idxs]):    
+        tf.config.experimental.set_memory_growth(gpu_name, True)
+    
+    # endregion
+
+    #region model set up
     if( args_dict['model_name'] == "DeepSD" ):
+        model_type_settings = ast.literal_eval( args_dict['model_type_settings'] )
+        del args_dict['model_type_settings']
+
         train_params = hparameters.train_hparameters( **args_dict )
 
         #stacked DeepSd methodology
         # model_type_settings = {'stochastic':True ,'stochastic_f_pass':10,
         #                 'distr_type':"LogNormal", 'discrete_continuous':True,
         #                 'precip_threshold':0.5, 'var_model_type':"flipout" }
-
-        model_type_settings = {'stochastic':True ,'stochastic_f_pass':10,
-                        'distr_type':"LogNormal", 'discrete_continuous':True,
-                        'precip_threshold':0.5, 'var_model_type':"dropout" }
+       
 
         input_output_dims = {"input_dims": [39, 88 ], "output_dims": [ 156, 352 ], 'model_type_settings': model_type_settings } 
         model_params = hparameters.model_deepsd_hparameters(**input_output_dims)()
@@ -487,7 +498,7 @@ if __name__ == "__main__":
         args_dict['lookback_target'] = model_params['data_pipeline_params']['lookback_target']
         train_params = hparameters.train_hparameters_ati( **args_dict )
         
-        
+    # endregion
 
     train_loop(train_params(), model_params )
 

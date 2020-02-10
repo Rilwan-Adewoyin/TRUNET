@@ -305,7 +305,6 @@ class train_hparameters(HParams):
         CHECKPOINTS_TO_KEEP = 50
 
         start_date = np.datetime64('1981-01-01')
-        #start_date = np.datetime64('2006-01-01')#removeee
         end_date = np.datetime64('2015-01-31')
         TOTAL_DATUMS = np.timedelta64( end_date-start_date, 'D').astype(int)
 

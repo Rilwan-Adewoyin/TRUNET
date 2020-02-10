@@ -146,8 +146,10 @@ def parse_arguments(s_dir=None):
     parser.add_argument('-dd','--data_dir', type=str, help='the directory for the Data', required=False,
                         default='./Data')
 
-    parser.add_argument('-vmt','--var_model_type', type=str, help="Type of Bnn to use", required=False, default="flipout",
-                                choices=["flipout", "horsehoe_factorized", "horseshoe structured" ] )
+    # parser.add_argument('-vmt','--var_model_type', type=str, help="Type of Bnn to use", required=False, default="flipout",
+    #                             choices=["flipout", "horsehoe_factorized", "horseshoe structured" ] )
+    
+    parser.add_argument('--mts','--model_type_settings', type=str, help="dictionary Defining type of model to use", required=True)
 
     parser.add_argument('-sdr','--script_dir', type=str, help="Directory for code", required=False, default=s_dir )
 
@@ -155,8 +157,9 @@ def parse_arguments(s_dir=None):
         
     parser.add_argument('-ds','--distribution_strategy', type=str, help='The distribution strategy to be used by tensorflow', required=False, default="None" )
 
-    parser.add_argument('-gidx','--gpu_indx', type=str, help='The index of the gpu unit to use', required=False, default=0 )
-    #parser.add_argument('-mv', '--model_version', type=str, help="Name for the model, used to help in saving predictions and related files", required=False, default="0")
+    parser.add_argument('-gidx','--gpu_indx', type=str, help='The index of the gpu unit to use', required=False, default="[0]" )
+    
+    parser.add_argument('-mv', '--model_version', type=str, help="Name for the model, used to help in saving predictions and related files", required=False, default="1")
 
     args_dict = vars(parser.parse_args() )
 
