@@ -30,6 +30,8 @@ import hparameters
 import data_generators
 import util_predict
 import utility
+
+import ast
 # endregion
 
 def main( test_params, model_params):
