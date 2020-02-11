@@ -19,7 +19,7 @@ def load_model(test_params, model_params):
                 model_params = model_params[0]
 
                 #Just initliazing model so checkpoint method can work
-            init_inp = tf.ones( [1, model_params['input_dims'][0],
+            init_inp = tf.ones( [ test_params['batch_size'], model_params['input_dims'][0],
                         model_params['input_dims'][1], model_params['conv1_inp_channels'] ] , dtype=tf.float32 )
 
         elif(model_name=="THST"):
