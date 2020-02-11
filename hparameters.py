@@ -365,13 +365,16 @@ class test_hparameters(HParams):
     
     def _default_params(self):
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
-        BATCH_SIZE = 15
+        BATCH_SIZE = 2
 
-        MODEL_RECOVER_METHOD = 'checkpoint_batch'
+        MODEL_RECOVER_METHOD = 'checkpoint_epoch'
     
         trainable = 'test'
-        TOTAL_DATUMS = 3650
-        TEST_SET_SIZE_ELEMENTS = int( TOTAL_DATUMS * 0.2)
+        start_date = np.datetime64('1981-01-01')
+        end_date = np.datetime64('2015-01-31')
+        TOTAL_DATUMS = np.timedelta64( end_date-start_date, 'D').astype(int)
+
+        TEST_SET_SIZE_ELEMENTS = int( TOTAL_DATUMS * (1-0.2-0.53529411764) )
         STARTING_TEST_ELEMENT = TOTAL_DATUMS - TEST_SET_SIZE_ELEMENTS
         
         dates_tss = pd.date_range( end=datetime(2015,12,31), periods=TEST_SET_SIZE_ELEMENTS, freq='D',normalize=True)
