@@ -181,7 +181,15 @@ def save_model_settings(train_params, model_params):
     if not os.path.isdir(f_dir):
         os.makedirs( f_dir, exist_ok=True  )
     with open( f_dir+"/"+f_path, "w" ) as fp:
-        json.dump( model_params, fp )
+        json.dump( model_params, fp, default=default )
+
+def default(obj):
+    if type(obj).__module__ == np.__name__:
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        else:
+            return obj.item()
+    raise TypeError('Unknown type:', type(obj))
 
 
 # region ATI modules
