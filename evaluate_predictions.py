@@ -17,6 +17,7 @@ from PIL import Image
 import utility
 from skimage.transform import rescale, resize, downscale_local_mean
 import json
+import ast
 
 #This script needs to produce map plots of prediction quality and produce relevant statistics on performance
 
