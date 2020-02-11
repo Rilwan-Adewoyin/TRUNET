@@ -174,13 +174,13 @@ def save_model_settings(train_params, model_params):
     
     f_dir = "model_params/{}/{}_{}_{}".format(model_params['model_name'],model_params['model_type_settings']['var_model_type'],
             model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']) )
-    f_path = model_params_{}.json
 
-    if os.path.isdir(f_dir):
-        os.makedirs(  )
+    f_path = "model_params_{}.json".format(model_params['model_version'])    
 
-    json_path = "model_params/{}/{}_{}_{}/model_params_{}.json".format(,model_params['model_version'])    
-
+    if not os.path.isdir(f_dir):
+        os.makedirs( f_dir, exist_ok=True  )
+    with open( f_dir+"/"+f_path, "w" ) as fp:
+        json.dump( model_params, fp )
 
 
 # region ATI modules
