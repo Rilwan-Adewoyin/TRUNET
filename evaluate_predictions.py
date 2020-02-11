@@ -173,15 +173,19 @@ def sdII_error_calc(preds, true, wd=0.5):
     return [total_obs_precip_wd-total_pred_precip_wd,element_count_in_batch]
 
 
-def pixel_calibration(preds, true):
-    shape = true.shape
+# def pixel_calibration(preds, true):
+#     raise NotImplementedError
 
-    np_preds_means = np.mean( preds, axis=0)
-    np_preds_stds = np.std( preds, axis=0)
-    normal_distrs = tfp.distributions.Normal( loc=np_preds_means, scale=np_preds_stds)
+#     shape = true.shape
 
-    lower_quantiles = normal_distrs.quantile(0.15)
-    upper_quantiles = normal_distrs.quantile(0.85)
+#     np_preds_means = np.mean( preds, axis=0)
+#     np_preds_stds = np.std( preds, axis=0)
+#     normal_distrs = tfp.distributions.Normal( loc=np_preds_means, scale=np_preds_stds)
+
+#     lower_quantiles = normal_distrs.quantile(0.15)
+#     upper_quantiles = normal_distrs.quantile(0.85)
+
+#     return None
 
 
 def postproc_pipeline_compress_evaluations(gen_data_eval_preds, test_params, model_params):
