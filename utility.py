@@ -91,7 +91,7 @@ def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoc
 
         
         # Possibly removing old non top5 records from end of epoch
-        if( len(df_training_info.index) >= train_params['checkpoints_to_keep'] ):
+        if( len(df_training_info.index) >= train_params['checkpoints_to_keep_epoch'] ):
             df_training_info = df_training_info.sort_values(by=['Val_loss_MSE'], ascending=True)
             df_training_info = df_training_info.iloc[:-1]
             df_training_info.reset_index(drop=True)
@@ -100,8 +100,8 @@ def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoc
         df_training_info = df_training_info.append( other={ 'Epoch':epoch,'Train_loss_MSE':train_metric_mse_mean_epoch.result().numpy(), 'Val_loss_MSE':val_metric_mse_mean.result().numpy(),
                                                             'Checkpoint_Path': ckpt_save_path, 'Last_Trained_Batch':-1 }, ignore_index=True ) #A Train batch of -1 represents final batch of training step was completed
 
-        print("\nTop {} Performance Scores".format(5))
-        df_training_info = df_training_info.sort_values(by=['Val_loss_MSE'], ascending=True)[:5]
+        print("\nTop {} Performance Scores".format(train_params['checkpoints_to_keep_epoch']))
+        df_training_info = df_training_info.sort_values(by=['Val_loss_MSE'], ascending=True)[:train_params['checkpoints_to_keep_epoch']]
         print(df_training_info[['Epoch','Val_loss_MSE']] )
         df_training_info.to_csv( path_or_buf="checkpoints/{}/{}_{}_{}/checkpoint_scores_model_{}.csv".format(model_params['model_name'],model_params['model_type_settings']['var_model_type'],
             model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']),model_params['model_version']), header=True, index=False ) #saving df of scores                      
@@ -138,6 +138,7 @@ def water_mask(array, mask, mode=0):
         array = tf.where(mask, array, np.nan )
     return array
 
+# endregion
 
 # passing arguments to script
 def parse_arguments(s_dir=None):
@@ -169,7 +170,18 @@ def parse_arguments(s_dir=None):
 
     return args_dict
 
-# endregion
+def save_model_settings(train_params, model_params):
+    
+    f_dir = "model_params/{}/{}_{}_{}".format(model_params['model_name'],model_params['model_type_settings']['var_model_type'],
+            model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']) )
+    f_path = model_params_{}.json
+
+    if os.path.isdir(f_dir):
+        os.makedirs(  )
+
+    json_path = "model_params/{}/{}_{}_{}/model_params_{}.json".format(,model_params['model_version'])    
+
+
 
 # region ATI modules
 def standardize_ati(_array, scale, reverse):

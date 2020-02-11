@@ -515,7 +515,7 @@ if __name__ == "__main__":
         train_params = hparameters.train_hparameters_ati( **args_dict )
         
     # endregion
-
+    utility.save_model_settings( train_params, model_params )
     train_loop(train_params(), model_params )
 
     
