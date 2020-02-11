@@ -365,7 +365,7 @@ class test_hparameters(HParams):
     
     def _default_params(self):
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
-        BATCH_SIZE = 2
+        BATCH_SIZE = 15
 
         MODEL_RECOVER_METHOD = 'checkpoint_epoch'
     
