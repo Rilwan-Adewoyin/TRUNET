@@ -55,7 +55,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
 
     # region ----- Setting up datasets
     if(model_params['model_name']=="DeepSD"):
-        ds = data_generators.load_data_vandal( test_params['starting_test_element'], test_params, model_params,_num_parallel_calls=test_params['num_parallel_calls']  )
+        ds = data_generators.load_data_vandal( test_params['starting_test_element'], test_params, model_params,_num_parallel_calls=test_params['num_parallel_calls'], data_dir = train_params['data_dir']  )
     elif(model_params['model_name']=="THST" ):
         ds = data_generators.load_data_ati(test_params, model_params, None,
                                         day_to_start_at=test_params['val_end_date'] )
