@@ -10,7 +10,7 @@ import utility
 
 # region Vandal related
 
-def load_data_vandal( elements_to_skip, hparams, m_params,_num_parallel_calls =-1, data_dir="./Data"):
+def load_data_vandal( elements_to_skip, hparams, m_params,_num_parallel_calls =-1, data_dir="./Data", drop_remainder=True):
 
     # region prepare elevation Preprocess
     _path = data_dir+"/Preprocessed/elevation.pkl" #TODO:(akanni-ade) change to value passed in via a h-parameters dictionary
@@ -97,7 +97,7 @@ def load_data_vandal( elements_to_skip, hparams, m_params,_num_parallel_calls =-
 
     ds_precip_imgs = ds_fns_precip.map( lambda fn: tf.py_function(utility.read_prism_precip,[fn], [tf.float32] ) )#, num_parallel_calls=_num_parallel_calls ) #shape(bs, 621, 1405) #4km by 4km
 
-    ds_precip_imgs = ds_precip_imgs.batch(hparams['batch_size'] ,drop_remainder=True)
+    ds_precip_imgs = ds_precip_imgs.batch(hparams['batch_size'] ,drop_remainder=drop_remainder)
 
     def features_labels_mker( arr_images, li_elev_tiled=li_elev_tiled ):
         """Produces the precipitation features and the target for training

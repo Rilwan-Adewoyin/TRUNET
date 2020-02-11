@@ -173,15 +173,15 @@ def sdII_error_calc(preds, true, wd=0.5):
     return [total_obs_precip_wd-total_pred_precip_wd,element_count_in_batch]
 
 
-# def pixel_calibration(preds, true):
-#     shape = true.shape
+def pixel_calibration(preds, true):
+    shape = true.shape
 
-#     np_preds_means = np.mean( preds, axis=0)
-#     np_preds_stds = np.std( preds, axis=0)
-#     normal_distrs = tfp.distributions.Normal( loc=np_preds_means, scale=np_preds_stds)
+    np_preds_means = np.mean( preds, axis=0)
+    np_preds_stds = np.std( preds, axis=0)
+    normal_distrs = tfp.distributions.Normal( loc=np_preds_means, scale=np_preds_stds)
 
-#     lower_quantiles = normal_distrs.quantile(0.15)
-#     upper_quantiles = normal_distrs.quantile(0.85)
+    lower_quantiles = normal_distrs.quantile(0.15)
+    upper_quantiles = normal_distrs.quantile(0.85)
 
 
 def postproc_pipeline_compress_evaluations(gen_data_eval_preds, test_params, model_params):
@@ -265,7 +265,7 @@ def postproc_pipeline_compress_evaluations(gen_data_eval_preds, test_params, mod
 # def latex_table_maker(data_tuple):
 #     """ make the latex table containing results"""
 #     tab1 = pd.DataFrame(tab1).set_index('name')
-#     tabl.append(data_tuple)
+#     tab1.append(data_tuple)
 
 #     tab1_latex = tab1[['rmse-mean','bias-mean','hit-rate','r20-mean','r20-stds',"sdII_mean","sdII_std"]].to_latex(float_format='{:,.3f}'.format)
 

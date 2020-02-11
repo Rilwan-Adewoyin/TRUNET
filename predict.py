@@ -55,7 +55,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
 
     # region ----- Setting up datasets
     if(model_params['model_name']=="DeepSD"):
-        ds = data_generators.load_data_vandal( test_params['starting_test_element'], test_params, model_params,_num_parallel_calls=test_params['num_parallel_calls'], data_dir = test_params['data_dir']  )
+        ds = data_generators.load_data_vandal( test_params['starting_test_element'], test_params, model_params,_num_parallel_calls=test_params['num_parallel_calls'], data_dir = test_params['data_dir'], drop_remainder=False  )
     elif(model_params['model_name']=="THST" ):
         ds = data_generators.load_data_ati(test_params, model_params, None,
                                         day_to_start_at=test_params['val_end_date'] )
@@ -65,7 +65,10 @@ def predict( model, test_params, model_params ,checkpoint_no ):
 
     # region --- predictions
     for batch in range(1, int(1+test_params['test_set_size_elements']/test_params['batch_size']) ):
-        feature, target = next(iter_test)
+        try:
+            feature, target = next(iter_test)
+        except StopIteration as e:
+            break
 
         if model_params['model_name'] == "DeepSD":
             
@@ -94,6 +97,11 @@ def predict( model, test_params, model_params ,checkpoint_no ):
             li_timestamps_chunked = li_timestamps_chunked[len(li_predictions):]
             li_predictions = []
             li_true_values = []
+    
+    util_predict.save_preds(test_params, model_params, li_predictions, li_timestamps_chunked[:len(li_predictions)], li_true_values )
+    li_timestamps_chunked = li_timestamps_chunked[len(li_predictions):]
+    li_predictions = []
+    li_true_values = []
 
             
     # endregion

@@ -157,7 +157,7 @@ def parse_arguments(s_dir=None):
 
     parser.add_argument('-mn','--model_name', type=str, help='Name of model to use', required=False, default="DeepSD")                                      
         
-    parser.add_argument('-ds','--distribution_strategy', type=str, help='The distribution strategy to be used by tensorflow', required=False, default="None" )
+    parser.add_argument('-ds','--distribution_strategy', type=str, help='The distribution strategy to be used by tensorflow', required=False, default="None" ) #TODO: Implement ability to train on multiple cores tensorflow
 
     parser.add_argument('-gidx','--gpu_indx', type=str, help='The index of the gpu unit to use', required=False, default="[0]" )
     
