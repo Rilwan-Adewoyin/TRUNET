@@ -130,8 +130,10 @@ def train_loop(train_params, model_params):
 
     # region ---- Making Datasets
     if model_params['model_name'] == "DeepSD":
-        ds_train = data_generators.load_data_vandal( batches_to_skip*train_params['batch_size'], train_params, model_params, data_dir=train_params['data_dir'] )
+        #ds_train = data_generators.load_data_vandal( batches_to_skip*train_params['batch_size'], train_params, model_params, data_dir=train_params['data_dir'] )
         ds_val = data_generators.load_data_vandal( train_set_size_batches*train_params['batch_size'], train_params, model_params, data_dir=train_params['data_dir'] )
+            #temp fix to the problem where if we init ds_train at batches_to_skip, then every time we reuse ds_train then it will inevitably start from that skipped to region on the next iteration 
+        ds_train = data_generators.load_data_vandal( batches_to_skip*train_params['batch_size'], train_params, model_params, data_dir=train_params['data_dir'] )
 
     
     if model_params['model_name'] == "THST":
@@ -160,6 +162,7 @@ def train_loop(train_params, model_params):
         inp_time = None
         start_batch_time = time.time()
         
+        if( batches)
         iter_train = iter(ds_train)
         iter_val = iter(ds_val)
 
@@ -447,7 +450,7 @@ def train_loop(train_params, model_params):
         # li_iter_val[epoch] =None
         iter_val=None
 
-        gc.collect()
+        #gc.collect()
 
         #region Early iteration Stop Check
         if epoch > ( max( df_training_info.loc[:, 'Epoch'], default=0 ) + train_params['early_stopping_period']) :
