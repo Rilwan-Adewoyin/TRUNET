@@ -162,7 +162,6 @@ def train_loop(train_params, model_params):
         inp_time = None
         start_batch_time = time.time()
         
-        if( batches)
         iter_train = iter(ds_train)
         iter_val = iter(ds_val)
 
