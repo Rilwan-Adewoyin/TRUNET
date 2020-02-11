@@ -103,20 +103,30 @@ if __name__ == "__main__":
 
     #stacked DeepSd methodology
     if( args_dict['model_name'] == "DeepSD" ):
-        test_params = hparameters.test_hparameters( **args_dict )()
+        model_type_settings = ast.literal_eval( args_dict['model_type_settings'] )
+        model_layers = { 'conv1_param_custom': json.loads(args_dict['conv1_param_custom']) ,
+                         'conv2_param_custom': json.loads(args_dict['conv2_param_custom']) }
+        del args_dict['model_type_settings']
 
-        model_type_settings = {'stochastic':True ,'stochastic_f_pass':10,
-                        'distr_type':"LogNormal", 'discrete_continuous':True,
-                        'precip_threshold':0.5, 'var_model_type':"horseshoefactorized" }
+        test_params = hparameters.test_hparameters( **args_dict )
 
-        input_output_dims = {"input_dims": [39, 88 ], "output_dims": [ 156, 352 ], 'model_type_settings': model_type_settings } 
+        # model_type_settings = {'stochastic':True ,'stochastic_f_pass':10,
+        #                 'distr_type':"LogNormal", 'discrete_continuous':True,
+        #                 'precip_threshold':0.5, 'var_model_type':"horseshoefactorized" }
 
-        model_params = hparameters.model_deepsd_hparameters(**input_output_dims)()
+        init_params = {}
+        input_output_dims = {"input_dims": [39, 88 ], "output_dims": [ 156, 352 ] } 
+        model_layers
+        init_params.update(input_output_dims)
+        init_params.update({'model_type_settings': model_type_settings})
+        init_params.update(model_layers)
+
+        model_params = hparameters.model_deepsd_hparameters(**init_params)()
     
     elif(args_dict['model_name'] == "THST"):
         model_params = hparameters.model_THST_hparameters()()
         args_dict['lookback_target'] = model_params['data_pipeline_params']['lookback_target']
-        test_params = hparameters.test_hparameters_ati( **args_dict )()
+        test_params = hparameters.test_hparameters_ati( **args_dict )
     
-    main(test_params, model_params)
+    main(test_params(), model_params)
     

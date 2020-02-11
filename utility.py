@@ -84,7 +84,7 @@ def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoc
 
     df_training_info = df_training_info[ df_training_info['Epoch'] != epoch ] #rmv current batch records for compatability with code below
     
-    if( ( val_metric_mse_mean.result().numpy() < 0.995*max( df_training_info.loc[ : ,'Val_loss_MSE' ], default= val_metric_mse_mean.result().numpy()+1 ) ) ):
+    if( ( val_metric_mse_mean.result().numpy() < min( df_training_info.loc[ : ,'Val_loss_MSE' ], default= val_metric_mse_mean.result().numpy()+1 ) ) ):
         #NOTE: To prevent model overffitng and a small scale term being approached, we changed this to be at least 
 
         print('Saving Checkpoint for epoch {}'.format(epoch)) 
