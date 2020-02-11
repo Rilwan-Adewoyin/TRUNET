@@ -4,6 +4,7 @@ import tensorflow as tf
 import sys
 import os
 import argparse
+import json
 
 # region Vandal
 #precip data import - use in data pipeline
