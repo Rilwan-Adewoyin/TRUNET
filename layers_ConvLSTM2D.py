@@ -1559,14 +1559,14 @@ class MultiHead2DAttention(Layer):
                                 ksize=self.kq_downscale_kernelshape, padding="SAME")
         # endregion 
 
-        #not needed anymore
-        # if( self.layer_params['total_key_depth'] == 0) :
-        #     key_depth = tf.math.reduce_prod( queries.shape[-3:] )
-        #     value_depth = tf.math.reduce_prod( inputs_v.shape[-3:] )
-        #     self.layer_params['total_key_depth'] = tf.cast( (( key_depth / self.vector_k_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
-        #         #Key depth is used for key and queries in attention func
-        #     self.layer_params['total_value_depth'] = tf.cast( ( ( value_depth / self.vector_v_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
-        #     self.layer_params['output_depth'] = value_depth
+        #not needed anymore - remove
+        if( self.layer_params['total_key_depth'] == 0) :
+            key_depth = tf.math.reduce_prod( queries.shape[-3:] )
+            value_depth = tf.math.reduce_prod( inputs_v.shape[-3:] )
+            self.layer_params['total_key_depth'] = tf.cast( (( key_depth / self.vector_k_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
+                #Key depth is used for key and queries in attention func
+            self.layer_params['total_value_depth'] = tf.cast( ( ( value_depth / self.vector_v_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
+            self.layer_params['output_depth'] = value_depth
         
         # self.layer_params['total_key_depth'], self.layer_params['total_value_depth'],self.layer_params['output_depth']   = tf.cond( tf.equal(self.layer_params['total_key_depth'],0), 
         #                 lambda: self.attn_key_depth_init(queries, inputs_v), 

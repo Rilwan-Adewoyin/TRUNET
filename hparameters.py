@@ -198,11 +198,11 @@ class model_THST_hparameters(HParams):
         vector_v_downscale_factor = 1
 
         #new version
-        key_depth = [ (100*140*output_filters_enc[idx])/ int(np.prod([kq_downscale_kernelshape[1:]]))
-            #n' = floor((n+2*p-f)/s + 1)
-                        for idx in range(attn_layers) ] #The keydepth for any given layer will be equal to (h*w*c/avg_pool_strideh*avg_pool_stridew)
-                            # where h,w = 100,140 and c is from the output_filters_enc from the layer below
-        key_depth = [int(_val) for _val in key_depth]
+        # key_depth = [ (100*140*output_filters_enc[idx])/ int(np.prod([kq_downscale_kernelshape[1:]]))
+        #     #n' = floor((n+2*p-f)/s + 1)
+        #                 for idx in range(attn_layers) ] #The keydepth for any given layer will be equal to (h*w*c/avg_pool_strideh*avg_pool_stridew)
+        #                     # where h,w = 100,140 and c is from the output_filters_enc from the layer below
+        # key_depth = [int(_val) for _val in key_depth]
 
         ATTN_params_enc = [
             {'bias':None, 'total_key_depth': kd , 'total_value_depth':kd, 'output_depth': kd   ,
