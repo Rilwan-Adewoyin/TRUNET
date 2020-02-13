@@ -388,7 +388,7 @@ def train_loop(train_params, model_params):
                     preds_filtrd = tf.reshape( tf.boolean_mask( preds, train_params['bool_water_mask'],axis=1 ), [train_params['batch_size'], -1] )
                     val_metric_mse_mean( tf.reduce_mean( tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  ) #TODO: Ensure that both preds and target are reshaped prior 
                 
-                elif model_params['model_name'] == "THST" and model_params['stochastic'] ==False: #non stochastic version
+                elif model_params['model_name'] == "THST" and model_params['model_type_settings']['stochastic'] ==False: #non stochastic version
                     target, mask = target
                     preds = model(feature )
                     preds = tf.squeeze(preds)
