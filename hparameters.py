@@ -267,19 +267,14 @@ class model_THST_hparameters(HParams):
         # endregion
 
         MODEL_VERSION = "1"
-        dict_model_version = {1:False,2:False, 3:True, 4:True}
-        """
-            1: These are non Bayesian Small Models
-            2: These are non Bayesian Large Models w/ Deformable & 
-            3: These are Bayesian Small Models
-            4: These are Bayesian Large Models
-        """
-        dict_deformable_model_version = {1: False, 2: True, 3:False, 4:True}
+
 
         model_type_settings = {
-            'stochastic':dict_model_version[ int(list(MODEL_VERSION)[0]) ],
-            'Deformable_Conv':dict_deformable_model_version[ int(list(MODEL_VERSION)[0]) ],
-            'var_model_type':"Deterministic"
+            'stochastic': False ,
+            'Deformable_Conv': True ,
+            'var_model_type':"Deterministic" ,
+            'distr_type':"None",
+            'discrete_continuous':False
         }
 
         REC_ADAM_PARAMS = {
@@ -388,7 +383,7 @@ class test_hparameters(HParams):
             'starting_test_element':STARTING_TEST_ELEMENT,
             'test_set_size_elements': TEST_SET_SIZE_ELEMENTS,
 
-            'dataset_pred_batch_reporting_freq':0.25,
+            'dataset_pred_batch_reporting_freq':0.05,
             'num_parallel_calls':NUM_PARALLEL_CALLS,
 
             'model_recover_method':MODEL_RECOVER_METHOD,

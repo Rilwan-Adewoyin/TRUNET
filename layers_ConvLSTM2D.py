@@ -2062,7 +2062,7 @@ class DeformableConvLayer(Conv2D):
     def call(self, inputs, training=None, **kwargs):
         # get offset, shape [batch_size, out_h, out_w, filter_h, * filter_w * channel_out * 2]
         offset = tf.nn.conv2d(inputs,
-                              filter=self.offset_layer_kernel,
+                              filters=self.offset_layer_kernel,
                               strides=[1, *self.strides, 1],
                               padding=self.padding.upper(),
                               dilations=[1, *self.dilation_rate, 1])
@@ -2193,7 +2193,7 @@ class DeformableConvLayer(Conv2D):
         y, x = indices
         batch, h, w, n = y.get_shape().as_list()[0: 4]
 
-        batch_idx = tf.reshape(tf.range(0, batch), (batch, 1, 1, 1))
+        batch_idx = tf.reshape(tf.range(0.0, batch), (batch, 1, 1, 1))
         b = tf.tile(batch_idx, (1, h, w, n))
         pixel_idx = tf.stack([b, y, x], axis=-1)
-        return tf.gather_nd(inputs, pixel_idx)
+        return tf.gather_nd(inputs, tf.cast(pixel_idx, tf.int32 ) )

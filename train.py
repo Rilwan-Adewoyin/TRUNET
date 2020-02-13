@@ -138,9 +138,6 @@ def train_loop(train_params, model_params):
         ds_train = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['train_start_date'] )
         ds_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['val_start_date'] )   
     
-    # li_iter_train = itertools.tee( iter(ds_train),  int(train_params['epochs']) )
-    # li_iter_val = itertools.tee( iter(ds_val), int(train_params['epochs']) )
-
     # endregion
 
 
@@ -219,29 +216,6 @@ def train_loop(train_params, model_params):
                                                 )
                                             )  #This represents the expected log_likelihood corresponding to each target y_i in the mini batch
 
-                            elif(model_params['model_type_settings']['distr_type'] == "LogNormal" ):
-                                raise ValueError("Can not use LogNormal with non discrete continuous because log-Normal is undefined at 0")
-                                #     log_vals = tf.math.log(preds_stacked)
-                                #     #mask where preds_stacked==0
-                                #     mean_log_vals = tf.reduce_mean( log_vals, axis=-1)
-                                #     std_log_vals = tf.reduce_std( log_vals, axis=-1)
-
-
-                                #     preds_distribution = tfd.LogNormal( loc=tf.reduce_mean( tf.math.log(preds_stacked+1),axis=-1),
-                                #                                         scale= tf.math.reduce_std( tf.math.log( preds_stacked),axis=-1),
-                                #                                         validate_args=True, allow_nan_stats=False)
-                                #     log_likelihood = tf.reduce_mean( 
-                                #                         tf.boolean_mask( 
-                                #                             preds_distribution.log_prob( 
-                                #                                     tf.where(train_params['bool_water_mask'], target, 1) 
-                                #                             ),
-                                #                         train_params['bool_water_mask'],axis=1 
-                                #                     )
-                                #                 )  #This represents the expected log_likelihood corresponding to each target y_i in the mini batch
-                                # else:
-                                #     raise ValueError
-                            
-
                             kl_loss_weight = utility.kl_loss_weighting_scheme(train_set_size_batches) #TODO: Implement scheme where kl loss increases during training
                             kl_loss = tf.math.reduce_sum( model.losses ) * kl_loss_weight * (1/model_params['model_type_settings']['stochastic_f_pass'])  #This KL-loss is already normalized against the number of samples of weights drawn #TODO: Later implement your own Adam type method to determine this
                             
@@ -310,13 +284,15 @@ def train_loop(train_params, model_params):
 
                             preds = model(feature, tape=tape )
                             preds = tf.squeeze(preds)
+                            preds_mean = preds
+                            
                             preds_filtrd = tf.boolean_mask( preds, tf.logical_not(mask) )
                             target_filtrd = tf.boolean_mask( target, tf.logical_not(mask) )
 
                             loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd) #TODO: fix this line, remember mse is calculated on last axis only so ensure the dimensions are correct
                             metric_mse = loss_mse
                             l = loss_mse
-                        else:
+                        elif (model_params['model_type_settings']['stochastic'] ==True):
                             raise NotImplementedError
 
                         metric_mse = tf.reduce_mean( tf.boolean_mask( tf.keras.losses.MSE( target , preds_mean ), tf.logical_not(mask) ) )

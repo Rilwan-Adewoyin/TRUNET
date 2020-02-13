@@ -195,23 +195,34 @@ class Generator_rain(Generator):
         self.data_len = 14822
 
     def yield_all(self,):
-        with Dataset(self.fn, "r", format="NETCDF4") as f:
+        with Dataset(self.fn, "r", format="NETCDF4",keepweakref=True) as f:
             _data = f.variables['rr'][self.start_idx:]
             yield np.ma.getdata(_data), np.ma.getmask(_data)   
             
     def yield_iter(self):
-        
-        with Dataset(self.fn, "r", format="NETCDF4") as f:
-            _iter = iter(f.variables['rr'])
-            #for idx in range(self.data_len):
-            idx=0
-            while idx < self.data_len:
-                #if idx >= self.start_idx:
-                chunk = next(_iter)
-                idx = idx+1
-                yield np.ma.getdata(chunk), np.ma.getmask(chunk)
-                # else:
-                #     pass
+        fn = self.fn
+        # with Dataset(fn, "r", format="NETCDF4",keepweakref=True) as f:
+            
+        #     _iter = iter(f.variables['rr'])
+
+        #     for idx in range(self.data_len):
+        #     #idx=0
+        #     #while idx < self.data_len:
+        #         chunk = next(_iter)
+        #         #idx = idx+1
+        #         data = np.ma.getdata(chunk)
+        #         mask = np.ma.getmask(chunk)
+        #         yield data , mask
+        #     else:
+        #         f.close()
+        f = Dataset(fn, "r", format="NETCDF4",keepweakref=True)
+        start_idx = 0
+        for chunk in f.variables['rr']:
+            data = np.ma.getdata(chunk)
+            mask = np.ma.getmask(chunk)
+            yield data , mask
+
+
     def __call__(self):
         return self.yield_iter()
     
@@ -238,29 +249,42 @@ class Generator_mf(Generator):
         raise NotImplementedError
     
     def yield_iter(self):
-        with Dataset(self.fn, "r", format="NETCDF4") as f:
-            
-            li_iters = [ iter(f.variables[var_name]) for var_name in self.vars_for_feature  ]
 
-            #for idx in range(self.data_len):
-            idx=0
-            while idx < self.data_len:
-                list_maskarr = ( next(_iter) for _iter in li_iters )
-                idx = idx+1
-                #if idx >= self.start_idx:                
-                list_datamask = [ (np.ma.getdata(_mar), np.ma.getmask(_mar)) for _mar in list_maskarr ]
-                _data, _masks= list( zip (*list_datamask ) )
-                stacked_data = np.stack(_data, axis=-1 )
-                stacked_masks = np.stack(_masks, axis=-1 )
-                yield stacked_data, stacked_masks
-                # else:
-                #     pass
+        # with Dataset(self.fn, "r", format="NETCDF4",keepweakref=True) as f:
+            
+        #     li_iters = [ iter(f.variables[var_name]) for var_name in self.vars_for_feature  ]
+        #     #li_iters = [ f.variables[var_name] for var_name in self.vars_for_feature  ]
+
+
+        #     #for idx in range(self.data_len):
+        #     idx=0
+        #     while idx < self.data_len:
+        #         list_maskarr = [next(_iter) for _iter in li_iters ]
+        #         idx = idx+1
+        #         list_datamask = [ (np.ma.getdata(_mar), np.ma.getmask(_mar)) for _mar in list_maskarr ]
+        #         _data, _masks= list( zip (*list_datamask ) )
+        #         stacked_data = np.stack(_data, axis=-1 )
+        #         stacked_masks = np.stack(_masks, axis=-1 )
+        #         yield stacked_data, stacked_masks
+        #     else:
+        #         f.close()
+
+        start_idx = 0
+        f = Dataset(self.fn, "r", format="NETCDF4")
+        for tuple_mfs in zip( *[f.variables[var_name][start_idx:] for var_name in self.vars_for_feature] ):
+            list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar) ) for _mar in tuple_mfs]
+            _data, _masks = list(zip(*list_datamask))
+
+            stacked_data = np.stack(_data, axis=-1)
+            stacked_masks = np.stack(_masks, axis=-1)
+
+            yield stacked_data, stacked_masks #(h,w,6) (6)
     
     def __call__(self):
         return self.yield_iter()
 
 
-def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_at=None,_num_parallel_calls=tf.data.experimental.AUTOTUNE, data_dir="./Data/Rain_Data_Nov19" ):
+def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_at=None, _num_parallel_calls=1, data_dir="./Data/Rain_Data_Nov19" ):
     """
         This is specific for the following two files -> ana_input_1.nc and rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc
         :param day_to_start_at: should be of type np.datetime64
@@ -311,9 +335,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     
     ds_tar = ds_tar.window(size = m_params['data_pipeline_params']['lookback_target'], stride=1, shift=t_params['window_shift'] , drop_remainder=True )
     
-    ds_tar = ds_tar.interleave( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(m_params['data_pipeline_params']['lookback_target']) for w in window ] ) ) 
-                                ,block_length=1 , num_parallel_calls= tf.data.experimental.AUTOTUNE  ) #shape (lookback,h, w)
-
+    ds_tar = ds_tar.interleave( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(m_params['data_pipeline_params']['lookback_target']) for w in window ] ) ) ,block_length=1, num_parallel_calls= _num_parallel_calls  ) #shape (lookback,h, w)
     # endregion
 
     # region prepare feature model fields
@@ -339,20 +361,21 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
         return arr_data # (h,w,c)
 
     ds_feat = ds_feat.map( lambda arr_data, arr_mask: mf_normalization_mask_align( arr_data, t_params['normalization_scales']['model_fields'],
-                arr_mask ,t_params['mask_fill_value']['model_field']  ),num_parallel_calls=_num_parallel_calls  )
+                arr_mask ,t_params['mask_fill_value']['model_field'] ) ,num_parallel_calls= _num_parallel_calls) #_num_parallel_calls  )
 
     ds_feat = ds_feat.window(size = m_params['data_pipeline_params']['lookback_feature'], stride=1, shift=m_params['data_pipeline_params']['lookback_feature'], drop_remainder=True )
 
     # ds_feat = ds_feat.interleave( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(m_params['data_pipeline_params']['lookback_feature']) for w in window ] ) ) 
     #                             ,block_length=1 , num_parallel_calls= tf.data.experimental.AUTOTUNE  ) #shape (lookback,h, w, 6)
 
-    ds_feat = ds_feat.interleave( lambda window:  window.batch(m_params['data_pipeline_params']['lookback_feature'] )  
-                            ,block_length=1 , num_parallel_calls= tf.data.experimental.AUTOTUNE  ) #shape (lookback,h, w, 6)
+    ds_feat = ds_feat.interleave( lambda window:  window.batch(m_params['data_pipeline_params']['lookback_feature'] ),  
+                            block_length=1 , num_parallel_calls= _num_parallel_calls ) # tf.data.experimental.AUTOTUNE  ) #shape (lookback,h, w, 6)
     
     # endregion
 
     ds = tf.data.Dataset.zip( (ds_feat, ds_tar) ) #( model_fields, (rain, rain_mask) ) 
     ds = ds.batch(t_params['batch_size'], drop_remainder=True)
+    ds = ds.prefetch(1)
     return ds
 
 def get_start_idx( start_date, t_params, m_params ):
