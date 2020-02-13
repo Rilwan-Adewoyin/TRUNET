@@ -55,7 +55,7 @@ class THST(tf.keras.Model):
         self.decoder = layers.THST_Decoder( train_params, model_params['decoder_params'] )
         self.output_layer = layers.THST_OutputLayer( train_params, model_params['output_layer_params'], model_params['model_type_settings']  )
 
-    #@tf.function
+    @tf.function
     def call(self, _input, tape=None, pred=False):
         
         hidden_states_2_enc, hidden_states_3_enc, hidden_4_enc, hidden_5_enc = self.encoder( _input )
