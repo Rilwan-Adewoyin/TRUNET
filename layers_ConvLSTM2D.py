@@ -1534,19 +1534,19 @@ class MultiHead2DAttention(Layer):
 
         self.ln1 = tf.keras.layers.LayerNormalization(axis=-1 , epsilon=1e-4 , trainable=trainable )
 
-    def attn_key_depth_init(self, queries, inputs_v):
-            key_depth = tf.math.reduce_prod( queries.shape[-3:] )
-            value_depth = tf.math.reduce_prod( inputs_v.shape[-3:] )
-            self.layer_params['total_key_depth'] = tf.cast( (( key_depth / self.vector_k_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
-                #Key depth is used for key and queries in attention func
-            self.layer_params['total_value_depth'] = tf.cast( ( ( value_depth / self.vector_v_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
-            self.layer_params['output_depth'] = value_depth
-            return tf.constant(1.0)
+    def attn_key_depth_init(self, queries, inputs_v ):
+        key_depth = tf.math.reduce_prod( queries.shape[-3:] )
+        value_depth = tf.math.reduce_prod( inputs_v.shape[-3:] )
+
+        tkd = tf.cast( (( key_depth / self.vector_k_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
+        tvd = tf.cast( ( ( value_depth / self.vector_v_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
+        od = tvd
+        return  tkd, tvd, od
 
     def call(self, inputs, inputs_k, inputs_v):
         """
             :param inputs: The query 
-            Note: In the attention layer, keys and values are the same
+            Note: In the attention layer, keys and values are tShe same
             #TODO:Later consider alternative implementation where you cmbine the attention and lstm into one new layer. so the previous hidden state is used as the query for the current attention aggregation as opposed to just averaging
         """
       
@@ -1554,11 +1554,12 @@ class MultiHead2DAttention(Layer):
         output_shape = inputs_v.shape.as_list()
         output_shape[1] = 1
         queries = tf.nn.avg_pool3d( inputs, strides=self.kq_downscale_stride,
-                                ksize=self.kq_downscale_kernelshape, padding="VALID")
+                                ksize=self.kq_downscale_kernelshape, padding="SAME")
         keys = tf.nn.avg_pool3d( inputs_k, strides=self.kq_downscale_stride,
-                                ksize=self.kq_downscale_kernelshape, padding="VALID")
+                                ksize=self.kq_downscale_kernelshape, padding="SAME")
         # endregion 
 
+        #not needed anymore
         # if( self.layer_params['total_key_depth'] == 0) :
         #     key_depth = tf.math.reduce_prod( queries.shape[-3:] )
         #     value_depth = tf.math.reduce_prod( inputs_v.shape[-3:] )
@@ -1567,7 +1568,9 @@ class MultiHead2DAttention(Layer):
         #     self.layer_params['total_value_depth'] = tf.cast( ( ( value_depth / self.vector_v_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
         #     self.layer_params['output_depth'] = value_depth
         
-        result = tf.cond( tf.equal(self.layer_params['total_key_depth'],0), lambda: self.attn_key_depth_init(queries, inputs_v), lambda: tf.constant(0.0)  )
+        # self.layer_params['total_key_depth'], self.layer_params['total_value_depth'],self.layer_params['output_depth']   = tf.cond( tf.equal(self.layer_params['total_key_depth'],0), 
+        #                 lambda: self.attn_key_depth_init(queries, inputs_v), 
+        #                 lambda: (self.layer_params['total_key_depth'], self.layer_params['total_value_depth'], self.layer_params['output_depth'] )  )
          
         queries_flat = tf.reshape(queries, queries.shape.as_list()[:2]  + [-1] ) #( batch_size, seq_len, height*width*filters_in)
         keys_flat = tf.reshape( keys, keys.shape.as_list()[:2] +[-1] )
@@ -1579,6 +1582,7 @@ class MultiHead2DAttention(Layer):
             value_antecedent = values_flat,
             trainable=self.trainable,
             **self.layer_params   ) #( batch_size, seq_len, height*width*filters_in
+
         x = self.ln1(x) #( batch_size, seq_len, height*width*filters_in
         
         x = tf.reshape( x ,  output_shape ) #( batch_size, seq_len, height, width, filters_in)
@@ -1744,13 +1748,21 @@ def multihead_attention_custom(query_antecedent,
                 ValueError: if the key depth or value depth are not divisible by the
                 number of attention heads.
     """
-    if total_key_depth % num_heads != 0:
-        raise ValueError("Key depth (%d) must be divisible by the number of "
-                        "attention heads (%d)." % (total_key_depth, num_heads))
-    if total_value_depth % num_heads != 0:
-        raise ValueError("Value depth (%d) must be divisible by the number of "
-                        "attention heads (%d)." % (total_value_depth, num_heads))
-    vars_3d_num_heads = num_heads if vars_3d else 0
+    # if tf.math.floormod(total_key_depth ,num_heads) != 0:
+    #     print(total_key_depth)
+    #     print("\n")
+    #     print(num_heads)
+    #     raise ValueError("Key depth (%d) must be divisible by the number of "
+    #                     "attention heads (%d)." % (total_key_depth, num_heads))
+    # if tf.math.floormod(total_value_depth,num_heads) != 0:
+    #     raise ValueError("Value depth (%d) must be divisible by the number of "
+    #                     "attention heads (%d)." % (total_value_depth, num_heads))
+    #"Key/Value depth  must be divisible by the number of attention heads
+    assert_op1 = tf.Assert( tf.equal( tf.math.floormod(total_key_depth, num_heads), 0 ), [total_key_depth, tf.constant(num_heads)] )
+    assert_op2 = tf.Assert( tf.equal( tf.math.floormod(total_value_depth, num_heads), 0 ), [total_key_depth, tf.constant(num_heads)] )
+
+    with tf.control_dependencies([assert_op1, assert_op2]):
+        vars_3d_num_heads = num_heads if vars_3d else 0
 
     if layer_collection is not None:
         if cache is not None:

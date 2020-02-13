@@ -1,4 +1,5 @@
 import numpy as np
+import math
 import tensorflow as tf
 from operator import itemgetter
 import pandas as pd
@@ -189,13 +190,20 @@ class model_THST_hparameters(HParams):
         kernel_size_enc = [ (2,2) , (2,2) , (2,2), (2,2), (2,2)]
 
         attn_layers = encoder_layers - 1
-        key_depth = [0 ]*attn_layers  #This will be updated dynamically during the first iteration of the model
+        #key_depth = [0 ]*attn_layers  #This will be updated dynamically during the first iteration of the model
         attn_heads = [ 1]*attn_layers#NOTE: dev settings #must be a factor of h or w or c, so 100, 140 or 6 -> 2, 5, 7, 
         kq_downscale_stride = [1,13,13]
         kq_downscale_kernelshape = [1, 13, 13]
         vector_k_downscale_factor = 2
         vector_v_downscale_factor = 1
-    
+
+        #new version
+        key_depth = [ (100*140*output_filters_enc[idx])/ int(np.prod([kq_downscale_kernelshape[1:]]))
+            #n' = floor((n+2*p-f)/s + 1)
+                        for idx in range(attn_layers) ] #The keydepth for any given layer will be equal to (h*w*c/avg_pool_strideh*avg_pool_stridew)
+                            # where h,w = 100,140 and c is from the output_filters_enc from the layer below
+        key_depth = [int(_val) for _val in key_depth]
+
         ATTN_params_enc = [
             {'bias':None, 'total_key_depth': kd , 'total_value_depth':kd, 'output_depth': kd   ,
             'num_heads': nh , 'dropout_rate':DROPOUT, 'attention_type':"dot_product",

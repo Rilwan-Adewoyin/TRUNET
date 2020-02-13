@@ -17,7 +17,7 @@
             //     "-mn","DeepSD", "-gidx","[0]", "-mv", "1"]
 
             "args": [ "-mn","THST", "-gidx","[0]", "-mv", "1",
-                    "-mts", "{'stochastic':False,'stochastic_f_pass':10,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'deterministic' }"]    
+                    "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'deterministic'}","-dd","Data/Rain_Data_Nov19" ]    
         }
     ]
 }
