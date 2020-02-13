@@ -135,8 +135,8 @@ def train_loop(train_params, model_params):
 
     
     if model_params['model_name'] == "THST":
-        ds_train = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['train_start_date'] )
-        ds_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['val_start_date'] )   
+        ds_train = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['train_start_date'], data_dir=train_params['data_dir'] )
+        ds_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['val_start_date'], data_dir=train_params['data_dir'] )   
     
     # endregion
 
@@ -285,7 +285,7 @@ def train_loop(train_params, model_params):
                             preds = model(feature, tape=tape )
                             preds = tf.squeeze(preds)
                             preds_mean = preds
-                            
+
                             preds_filtrd = tf.boolean_mask( preds, tf.logical_not(mask) )
                             target_filtrd = tf.boolean_mask( target, tf.logical_not(mask) )
 
