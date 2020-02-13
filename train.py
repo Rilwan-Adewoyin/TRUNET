@@ -295,8 +295,6 @@ def train_loop(train_params, model_params):
                         elif (model_params['model_type_settings']['stochastic'] ==True):
                             raise NotImplementedError
 
-                        metric_mse = tf.reduce_mean( tf.boolean_mask( tf.keras.losses.MSE( target , preds_mean ), tf.logical_not(mask) ) )
-
                     gradients = tape.gradient( l, model.trainable_variables )
 
                     if (model_params['gradients_clip_norm']==None):
