@@ -186,7 +186,7 @@ class model_THST_hparameters(HParams):
         output_filters_enc = output_filters_enc + output_filters_enc[-1:] #the last two layers in the encoder must output the same number of channels
 
         kernel_size_enc = [ (4,4) , (4,4) , (4,4), (4,4), (4,4)]
-        kernel_size_enc = [ (3,3) , (3,3) , (3,3), (3,3), (3,3)]
+        kernel_size_enc = [ (2,2) , (2,2) , (2,2), (2,2), (2,2)]
 
         attn_layers = encoder_layers - 1
         key_depth = [0 ]*attn_layers  #This will be updated dynamically during the first iteration of the model
@@ -254,10 +254,10 @@ class model_THST_hparameters(HParams):
 
         # region --------------- OUTPUT_LAYER_PARAMS -----------------
         output_filters = [ 25, 1 ]
-        output_filters = [ 5, 1 ] #NOTE: development settings
+        output_filters = [ 3, 1 ] #NOTE: development settings
 
         output_kernel_size = [ (4,4), (5,5) ]
-        output_kernel_size = [ (3,3), (3,3) ] #NOTE: development settings
+        output_kernel_size = [ (2,2), (2,2) ] #NOTE: development settings
 
 
         OUTPUT_LAYER_PARAMS = [ 
