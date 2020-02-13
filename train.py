@@ -279,7 +279,7 @@ def train_loop(train_params, model_params):
 
 
                     elif( model_params['model_name'] == "THST"):
-                        if (model_params['model_type_settings']['model_type_settings']['stochastic'] ==False): #non stochastic version
+                        if (model_params['model_type_settings']['stochastic']==False): #non stochastic version
                             target, mask = target
 
                             preds = model(feature, tape=tape )
@@ -292,7 +292,7 @@ def train_loop(train_params, model_params):
                             loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd) #TODO: fix this line, remember mse is calculated on last axis only so ensure the dimensions are correct
                             metric_mse = loss_mse
                             l = loss_mse
-                        elif (model_params['model_type_settings']['model_type_settings']['stochastic'] ==True):
+                        elif (model_params['model_type_settings']['stochastic']==True) :
                             raise NotImplementedError
 
                     gradients = tape.gradient( l, model.trainable_variables )
