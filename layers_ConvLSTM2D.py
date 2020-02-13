@@ -1541,7 +1541,7 @@ class MultiHead2DAttention(Layer):
                 #Key depth is used for key and queries in attention func
             self.layer_params['total_value_depth'] = tf.cast( ( ( value_depth / self.vector_v_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
             self.layer_params['output_depth'] = value_depth
-            return tf.constant(1)
+            return tf.constant(1.0)
 
     def call(self, inputs, inputs_k, inputs_v):
         """
@@ -1567,7 +1567,7 @@ class MultiHead2DAttention(Layer):
         #     self.layer_params['total_value_depth'] = tf.cast( ( ( value_depth / self.vector_v_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
         #     self.layer_params['output_depth'] = value_depth
         
-        result = tf.cond( self.layer_params['total_key_depth'] == 0, lambda: self.attn_key_depth_init(queries, inputs_v), lambda: tf.constant(0)  )
+        result = tf.cond( tf.equal(self.layer_params['total_key_depth'],0), lambda: self.attn_key_depth_init(queries, inputs_v), lambda: tf.constant(0.0)  )
          
         queries_flat = tf.reshape(queries, queries.shape.as_list()[:2]  + [-1] ) #( batch_size, seq_len, height*width*filters_in)
         keys_flat = tf.reshape( keys, keys.shape.as_list()[:2] +[-1] )
