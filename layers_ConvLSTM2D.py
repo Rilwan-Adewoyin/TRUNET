@@ -1534,6 +1534,15 @@ class MultiHead2DAttention(Layer):
 
         self.ln1 = tf.keras.layers.LayerNormalization(axis=-1 , epsilon=1e-4 , trainable=trainable )
 
+    def attn_key_depth_init(self, queries, inputs_v):
+            key_depth = tf.math.reduce_prod( queries.shape[-3:] )
+            value_depth = tf.math.reduce_prod( inputs_v.shape[-3:] )
+            self.layer_params['total_key_depth'] = tf.cast( (( key_depth / self.vector_k_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
+                #Key depth is used for key and queries in attention func
+            self.layer_params['total_value_depth'] = tf.cast( ( ( value_depth / self.vector_v_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
+            self.layer_params['output_depth'] = value_depth
+            return tf.constant(1)
+
     def call(self, inputs, inputs_k, inputs_v):
         """
             :param inputs: The query 
@@ -1550,15 +1559,16 @@ class MultiHead2DAttention(Layer):
                                 ksize=self.kq_downscale_kernelshape, padding="VALID")
         # endregion 
 
-        if( self.layer_params['total_key_depth'] == 0) :
-            key_depth = tf.math.reduce_prod( queries.shape[-3:] )
-            value_depth = tf.math.reduce_prod( inputs_v.shape[-3:] )
-            self.layer_params['total_key_depth'] = tf.cast( (( key_depth / self.vector_k_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
-                #Key depth is used for key and queries in attention func
-            self.layer_params['total_value_depth'] = tf.cast( ( ( value_depth / self.vector_v_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
-            self.layer_params['output_depth'] = value_depth
-
-
+        # if( self.layer_params['total_key_depth'] == 0) :
+        #     key_depth = tf.math.reduce_prod( queries.shape[-3:] )
+        #     value_depth = tf.math.reduce_prod( inputs_v.shape[-3:] )
+        #     self.layer_params['total_key_depth'] = tf.cast( (( key_depth / self.vector_k_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
+        #         #Key depth is used for key and queries in attention func
+        #     self.layer_params['total_value_depth'] = tf.cast( ( ( value_depth / self.vector_v_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
+        #     self.layer_params['output_depth'] = value_depth
+        
+        result = tf.cond( self.layer_params['total_key_depth'] == 0, lambda: self.attn_key_depth_init(queries, inputs_v), lambda: tf.constant(0)  )
+         
         queries_flat = tf.reshape(queries, queries.shape.as_list()[:2]  + [-1] ) #( batch_size, seq_len, height*width*filters_in)
         keys_flat = tf.reshape( keys, keys.shape.as_list()[:2] +[-1] )
         values_flat = tf.reshape(inputs_v, inputs_v.shape.as_list()[:2] + [-1] )
