@@ -304,7 +304,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
 
     # region prepare target_rain_data
     fn_rain = data_dir+"/rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc"
-    fn_rain = "/home/u1862646/ATI/BNN/Data/Rain_Data_Nov19/rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc" 
+    #fn_rain = "/home/u1862646/ATI/BNN/Data/Rain_Data_Nov19/rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc" 
 
     # rain_data = Generator_rain(fn=fn_rain, all_at_once=False)
     # rain_gen = rain_data(start_idx_tar)
