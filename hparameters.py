@@ -320,7 +320,7 @@ class train_hparameters(HParams):
 
     def _default_params(self):
         # region default params 
-        NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE,
+        NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
         EPOCHS = 342 #equivalent to Vandal
         CHECKPOINTS_TO_KEEP = 50
         CHECKPOINTS_TO_KEEP_EPOCH = 5
