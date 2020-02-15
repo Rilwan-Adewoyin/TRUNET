@@ -6,3 +6,4 @@ mnt/
 checkpoints/
 Output/
 __pycache__/
+model_params/
