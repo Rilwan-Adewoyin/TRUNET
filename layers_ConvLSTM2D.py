@@ -1529,7 +1529,6 @@ class MultiHead2DAttention(Layer):
         self.vector_k_downscale_factor = attention_scaling_params['vector_k_downscale_factor']
         self.vector_v_downscale_factor = attention_scaling_params['vector_v_downscale_factor']
 
-        
         self.layer_params = layer_params
 
         self.ln1 = tf.keras.layers.LayerNormalization(axis=-1 , epsilon=1e-4 , trainable=trainable )
@@ -1547,7 +1546,6 @@ class MultiHead2DAttention(Layer):
         """
             :param inputs: The query 
             Note: In the attention layer, keys and values are tShe same
-            #TODO:Later consider alternative implementation where you cmbine the attention and lstm into one new layer. so the previous hidden state is used as the query for the current attention aggregation as opposed to just averaging
         """
       
         # region size reduction
@@ -1559,19 +1557,21 @@ class MultiHead2DAttention(Layer):
                                 ksize=self.kq_downscale_kernelshape, padding="SAME")
         # endregion 
 
-        #not needed anymore - remove
-        if( self.layer_params['total_key_depth'] == 0) :
-            key_depth = tf.math.reduce_prod( queries.shape[-3:] )
-            value_depth = tf.math.reduce_prod( inputs_v.shape[-3:] )
-            self.layer_params['total_key_depth'] = tf.cast( (( key_depth / self.vector_k_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
-                #Key depth is used for key and queries in attention func
-            self.layer_params['total_value_depth'] = tf.cast( ( ( value_depth / self.vector_v_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
-            self.layer_params['output_depth'] = value_depth
+        # #version-1
+            # if( self.layer_params['total_key_depth'] == 0) :
+            #     key_depth = tf.math.reduce_prod( queries.shape[-3:] )
+            #     value_depth = tf.math.reduce_prod( inputs_v.shape[-3:] )
+            #     self.layer_params['total_key_depth'] = tf.cast( (( key_depth / self.vector_k_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
+            #         #Key depth is used for key and queries in attention func
+            #     self.layer_params['total_value_depth'] = tf.cast( ( ( value_depth / self.vector_v_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
+            #     self.layer_params['output_depth'] = value_depth
         
-        # self.layer_params['total_key_depth'], self.layer_params['total_value_depth'],self.layer_params['output_depth']   = tf.cond( tf.equal(self.layer_params['total_key_depth'],0), 
-        #                 lambda: self.attn_key_depth_init(queries, inputs_v), 
-        #                 lambda: (self.layer_params['total_key_depth'], self.layer_params['total_value_depth'], self.layer_params['output_depth'] )  )
-         
+        # version 2
+            # self.layer_params['total_key_depth'], self.layer_params['total_value_depth'],self.layer_params['output_depth']   = tf.cond( tf.equal(self.layer_params['total_key_depth'],0), 
+            #                 lambda: self.attn_key_depth_init(queries, inputs_v), 
+            #                 lambda: (self.layer_params['total_key_depth'], self.layer_params['total_value_depth'], self.layer_params['output_depth'] )  )
+        
+        # version 3
         queries_flat = tf.reshape(queries, queries.shape.as_list()[:2]  + [-1] ) #( batch_size, seq_len, height*width*filters_in)
         keys_flat = tf.reshape( keys, keys.shape.as_list()[:2] +[-1] )
         values_flat = tf.reshape(inputs_v, inputs_v.shape.as_list()[:2] + [-1] )
@@ -1646,9 +1646,9 @@ def multihead_attention_custom(query_antecedent,
                                 gap_size=0,
                                 num_memory_blocks=2,
                                 name="multihead_attention",
-                                save_weights_to=None,
+                                save_weights_to=None,      #TODO: Change for visualization
                                 make_image_summary=False, #NOTE: Change layer for visualization
-                                dropout_broadcast_dims=None,
+                                dropout_broadcast_dims=None, 
                                 vars_3d=False,
                                 layer_collection=None,
                                 recurrent_memory=None,
@@ -1748,6 +1748,7 @@ def multihead_attention_custom(query_antecedent,
                 ValueError: if the key depth or value depth are not divisible by the
                 number of attention heads.
     """
+    # replaced 
     # if tf.math.floormod(total_key_depth ,num_heads) != 0:
     #     print(total_key_depth)
     #     print("\n")
@@ -1924,17 +1925,17 @@ def multihead_attention_custom(query_antecedent,
         return x
 
 def compute_qkv_custom(query_antecedent,
-                   memory_antecedent,
-                   value_antecedent,
-                   total_key_depth,
-                   total_value_depth,
-                   q_filter_width=1,
-                   kv_filter_width=1,
-                   q_padding="VALID",
-                   kv_padding="VALID",
-                   vars_3d_num_heads=0,
-                   layer_collection=None,
-                    transform_value_antecedent = True):
+                        memory_antecedent,
+                            value_antecedent,
+                            total_key_depth,
+                            total_value_depth,
+                            q_filter_width=1,
+                            kv_filter_width=1,
+                            q_padding="VALID",
+                            kv_padding="VALID",
+                            vars_3d_num_heads=0,
+                            layer_collection=None,
+                                transform_value_antecedent = True):
     """Computes query, key and value.
         Args:
         query_antecedent: a Tensor with shape [batch, length_q, channels]

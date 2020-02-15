@@ -8,7 +8,8 @@ import utility
 
 import tensorflow as tf
 
-gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+gpu_devices = tf.config.list_physical_devices('GPU')
+
 print(gpu_devices)
 for idx, gpu_name in enumerate(gpu_devices):
     tf.config.experimental.set_memory_growth(gpu_name, True)
@@ -139,7 +140,6 @@ def train_loop(train_params, model_params):
         ds_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['val_start_date'], data_dir=train_params['data_dir'] )   
     
     # endregion
-
 
     # region --- Train and Val
     for epoch in range(starting_epoch, int(train_params['epochs']) ):
@@ -277,7 +277,6 @@ def train_loop(train_params, model_params):
 
                         metric_mse = tf.reduce_mean( tf.keras.losses.MSE( target_filtrd , preds_mean_filtrd)  )
 
-
                     elif( model_params['model_name'] == "THST"):
                         if (model_params['model_type_settings']['stochastic']==False): #non stochastic version
                             target, mask = target
@@ -371,8 +370,6 @@ def train_loop(train_params, model_params):
                 print("\nStarting Validation")
                 start_epoch_val = time.time()
                 start_batch_time = time.time()
-
-
             # endregion
 
             #region Validation Loop

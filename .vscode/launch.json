@@ -4,6 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
     
         {
             "name": "Python: Current File",
@@ -17,7 +18,8 @@
             //     "-mn","DeepSD", "-gidx","[0]", "-mv", "1"]
 
             "args": [ "-mn","THST", "-gidx","[0]", "-mv", "1",
-                    "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'deterministic'}","-dd","Data/Rain_Data_Nov19" ]    
+                    "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'deterministic'}",
+                        "-dd","Data/Rain_Data_Nov19" ]    
         }
     ]
 }
