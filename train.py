@@ -11,7 +11,7 @@ import tensorflow as tf
 try:
     gpu_devices = tf.config.list_physical_devices('GPU')
 except Exception as e:
-    gpu_devices = tf.experimental.config.list_physical_devices('GPU')
+    gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 
 print(gpu_devices)
 for idx, gpu_name in enumerate(gpu_devices):
