@@ -102,7 +102,7 @@ class model_deepsd_hparameters(HParams):
         model_type_settings = {'stochastic':False ,'stochastic_f_pass':50,
                                 'distr_type':"Normal", 'discrete_continuous':True,
                                 'precip_threshold':0.5 , 'var_model_type':"flipout"}
-
+        
         self.params = {
             'model_name':"DeepSD",
             'model_version': 1,
@@ -129,7 +129,7 @@ class model_deepsd_hparameters(HParams):
             'conv3_output_node_count':conv3_output_node_count,
             'conv3_inp_channels':conv3_inp_channels,
 
-            'gradients_clip_norm':150.0,
+            'gradients_clip_norm':550.0,
             
             'rec_adam_params':REC_ADAM_PARAMS,
             'lookahead_params':LOOKAHEAD_PARAMS
