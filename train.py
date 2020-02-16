@@ -177,7 +177,15 @@ def train_loop(train_params, model_params):
             # region Train Loop
             if(batch<train_set_size_batches):
                 #feature, target = next( li_iter_train[epoch-1] )
+                try:
+                    feature,target =( None, None)
+                    del feature
+                    del target
+                    
+                except Exception as e:
+                    pass
 
+                gc.collect()
                 feature, target = next(iter_train)
 
                 with tf.GradientTape(persistent=False) as tape:
@@ -292,6 +300,8 @@ def train_loop(train_params, model_params):
                         preds_mean_filtrd = tf.reshape( tf.boolean_mask( preds_mean, train_params['bool_water_mask'],axis=1 ), [train_params['batch_size'], -1] )
 
                         metric_mse = tf.reduce_mean( tf.keras.losses.MSE( target_filtrd , preds_mean_filtrd)  )
+
+                        gc.collect()
 
                     elif( model_params['model_name'] == "THST"):
                         if (model_params['model_type_settings']['stochastic']==False): #non stochastic version
@@ -430,13 +440,22 @@ def train_loop(train_params, model_params):
                 tf.summary.scalar('Validation Loss MSE', val_metric_mse_mean.result() , step =  epoch )
 
             batches_to_skip = 0
-                    
-        df_training_info = utility.update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoch, val_metric_mse_mean, ckpt_manager_epoch, train_params, model_params )
-        # li_iter_train[epoch] = None
-        # li_iter_val[epoch] =None
-        iter_val=None
 
-        #gc.collect()
+
+        df_training_info = utility.update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoch, val_metric_mse_mean, ckpt_manager_epoch, train_params, model_params )
+
+        
+        
+        try:
+            feature,target, iter_train, iter_val =( None, None, None,None)
+            del feature
+            del target
+            del iter_train
+            del iter_val
+            
+        except Exception as e:
+            pass
+            gc.collect()
 
         #region Early iteration Stop Check
         if epoch > ( max( df_training_info.loc[:, 'Epoch'], default=0 ) + train_params['early_stopping_period']) :
