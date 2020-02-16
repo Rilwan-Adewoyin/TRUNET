@@ -8,6 +8,7 @@ import utility
 
 import tensorflow as tf
 
+
 try:
     gpu_devices = tf.config.list_physical_devices('GPU')
 except Exception as e:
@@ -49,7 +50,7 @@ def train_loop(train_params, model_params):
     model = models.model_loader(train_params, model_params)
     if type(model_params) == list:
         model_params = model_params[0]
-
+    
     if tfa==None:
         optimizer = tf.keras.optimizers.Adam( learning_rate=1e-4, beta_1=0.1, beta_2=0.99, epsilon=1e-5 )
     else:
@@ -145,6 +146,10 @@ def train_loop(train_params, model_params):
     # endregion
 
     # region --- Train and Val
+
+    if model_params['model_type_settings']['var_model_type'] in ['horseshoefactorized','horseshoestructured'] :
+        tf.config.experimental_run_functions_eagerly(True)
+
     for epoch in range(starting_epoch, int(train_params['epochs']) ):
         #region metrics, loss, dataset, and standardization
         train_metric_mse_mean_groupbatch.reset_states()
@@ -179,7 +184,17 @@ def train_loop(train_params, model_params):
                     if model_params['model_name'] == "DeepSD":
                         #region stochastic fward passes
                         if model_params['model_type_settings']['stochastic_f_pass']>1:
+                            
+                            # if model_params['model_type_settings']['var_model_type'] in ['horseshoefactorized'] :
+                            #     #tf.compat.v1.disable_eager_execution()
+                            #     feature = tf.constant(feature)
+                            #     with graph_mode():
+                            #         with tf.compat.v1.Session() as sess:
+                            #             li_preds = model.predict(feature, model_params['model_type_settings']['stochastic_f_pass'], pred=False )    
+                            #             sess.run(li_preds)
+                            # else:
                             li_preds = model.predict(feature, model_params['model_type_settings']['stochastic_f_pass'], pred=False )
+
                             #li_preds_masked = [ utility.water_mask(tf.squeeze(pred),train_params['bool_water_mask']) for pred in li_preds  ]
                             preds_stacked = tf.concat( li_preds,axis=-1)
                             preds_mean = tf.reduce_mean( preds_stacked, axis=-1)
@@ -206,18 +221,16 @@ def train_loop(train_params, model_params):
                         if( model_params['model_type_settings']['discrete_continuous']==False ):                                                            
                             #note - on discrete_continuous==False, there is a chance that the preds_scale term takes value 0 i.e. relu output is 0 all times. 
                             #  So for this scenario just use really high variance to reduce the effect of this loss
-                            preds_scale = tf.where(tf.equal(preds_scale,0), 1, preds_scale)
+                            preds_scale = tf.where(tf.equal(preds_scale,0.0), .01, preds_scale)
 
                             if(model_params['model_type_settings']['distr_type']=="Normal" ):
                                 preds_distribution = tfd.Normal( loc=preds_mean, scale= preds_scale)
-                                log_likelihood = tf.reduce_mean( 
-                                                tf.boolean_mask( 
-                                                    preds_distribution.log_prob( 
-                                                            tf.where(train_params['bool_water_mask'], target, 1e-2) 
-                                                    ),
-                                                    train_params['bool_water_mask'],axis=1 
-                                                )
-                                            )  #This represents the expected log_likelihood corresponding to each target y_i in the mini batch
+                                
+                                _1 = tf.where(train_params['bool_water_mask'], target, 1e-2) 
+                                _2 = preds_distribution.log_prob( _1)
+                                _3 = tf.boolean_mask( _2, train_params['bool_water_mask'],axis=1 )
+                                log_likelihood = tf.reduce_mean( _3)
+                                 #This represents the expected log_likelihood corresponding to each target y_i in the mini batch
 
                             kl_loss_weight = utility.kl_loss_weighting_scheme(train_set_size_batches) #TODO: Implement scheme where kl loss increases during training
                             kl_loss = tf.math.reduce_sum( model.losses ) * kl_loss_weight * (1/model_params['model_type_settings']['stochastic_f_pass'])  #This KL-loss is already normalized against the number of samples of weights drawn #TODO: Later implement your own Adam type method to determine this

@@ -170,7 +170,8 @@ class SRCNN( tf.keras.layers.Layer ):
         
         # Layerwise nu Prior #NOTE: here we put one nu per filter which has 153 weights
         conv1_nu_shape = tf.constant( 0.0, dtype=tf.float32  ) #This value of 0 used in the microsoft paper
-        conv1_nu_scale = tf.constant(tf.ones_like(conv1_nu_shape, dtype=tf.float32 ))/2 #b_g in Soumya paper #This is set to 1 in soumya paper 1, and 1 in microoft paper
+        conv1_nu_scale = tf.constant(tf.ones_like(conv1_nu_shape, dtype=tf.float32 )/2.0) #b_g in Soumya paper #This is set to 1 in soumya paper 1, and 1 in microoft paper
+        
         conv2_nu_shape = tf.constant( 0.0, dtype=tf.float32 ) #This value of 0 used in the microsoft paper
         conv2_nu_scale = tf.constant(tf.ones_like(conv2_nu_shape, dtype=tf.float32 ))/2 #b_g in Soumya paper #This is set to 1 in soumya paper 1, and 1 in microoft paper
         self.conv1_nu_prior_dist  = tfd.HalfCauchy( conv1_nu_shape, conv1_nu_scale) # Microsoft BNN use a value of 1
@@ -492,8 +493,7 @@ class UpSampler():
             self.outside_padding_w_l = tf.cast( tf.math.ceil(  outside_padding_w/2 ), dtype=tf.int32)
             self.outside_padding_w_r = tf.cast( outside_padding_w - self.outside_padding_w_l, dtype=tf.int32)
             
-
-    #@tf.function
+    @tf.function
     def __call__(self, _images):
         """
             :param _images: shape(batch, h, w, c)

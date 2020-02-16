@@ -16,9 +16,6 @@ def model_loader(train_params,model_params ):
             return SuperResolutionModel( train_params, model_params)
     
 
-    
-
-
 class SuperResolutionModel( tf.keras.Model ):
     def __init__(self, train_params, model_params ):
         super(SuperResolutionModel, self).__init__()
@@ -33,12 +30,14 @@ class SuperResolutionModel( tf.keras.Model ):
         
         return x
     
+    
     def predict( self, inputs, n_preds, pred=True):
         """
             Produces N predictions for each given input
         """
         preds = []
-        for count in tf.range(n_preds):
+        #for count in tf.range(n_preds):
+        for count in range(n_preds):
             pred = self.call( inputs, pred=pred ) #shape ( batch_size, output_h, output_w, 1 )
             preds.append( pred )
         
