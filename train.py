@@ -324,7 +324,7 @@ def train_loop(train_params, model_params):
 
                     if (model_params['gradients_clip_norm']==None or model_params['model_type_settings']['var_model_type'] in ['horseshoefactorized','horseshoestructured'] ):
                         gradients_clipped_global_norm = gradients
-                    elif(model_params['model_type_settings'])['var_model_type'] in ['flipout']):
+                    elif(model_params['model_type_settings']['var_model_type'] in ['flipout']):
                         gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, model_params['gradients_clip_norm']*2.5 ) 
                     else:
                         gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, model_params['gradients_clip_norm'] )
