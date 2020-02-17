@@ -323,8 +323,10 @@ def train_loop(train_params, model_params):
                 elif(model_params['model_type_settings']['var_model_type'] in ['flipout']):
                     gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, model_params['gradients_clip_norm']*2.5 ) 
                 else:
-                    gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, model_params['gradients_clip_norm'] )
-            
+                    gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, model_params['gradients_clip_norm']*2.5 )
+                    if tf.math.reduce_any( tf.math.is_nan( gradients_clipped_global_norm[0] ) ):
+                        gradients_clipped_global_norm = gradients
+                        
             optimizer.apply_gradients( zip( gradients_clipped_global_norm, model.trainable_variables ) )
             
             #region Tensorboard Update
