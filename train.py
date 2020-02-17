@@ -148,8 +148,8 @@ def train_loop(train_params, model_params):
     
     ds_train = ds_train.take(train_params['train_set_size_batches']).repeat(train_params['epochs'])
     ds_val = ds_val.take(train_params['val_set_size_batches']).repeat(train_params['epochs'])
-    iter_train = iter(ds_train)
-    iter_val = iter(ds_val)
+    iter_train = enumerate(ds_train)
+    iter_val = enumerate(ds_val)
     # endregion
 
     # region --- Train and Val
@@ -178,272 +178,9 @@ def train_loop(train_params, model_params):
         #endregion 
         batch=0
         print("\n\nStarting EPOCH {} Batch {}/{}".format(epoch, batches_to_skip+1, train_set_size_batches))
-
-        #region old version  
-        #for batch in range(batches_to_skip, train_set_size_batches+val_set_size_batches):
-            
-            # # region Train Loop
-            # if(batch<train_set_size_batches):
-            #     feature, target = next(iter_train)
-
-            #     with tf.GradientTape(persistent=False) as tape:
-            #         if model_params['model_name'] == "DeepSD":
-            #             #region stochastic fward passes
-            #             if model_params['model_type_settings']['stochastic_f_pass']>1:
-                            
-            #                 # if model_params['model_type_settings']['var_model_type'] in ['horseshoefactorized'] :
-            #                 #     #tf.compat.v1.disable_eager_execution()
-            #                 #     feature = tf.constant(feature)
-            #                 #     with graph_mode():
-            #                 #         with tf.compat.v1.Session() as sess:
-            #                 #             li_preds = model.predict(feature, model_params['model_type_settings']['stochastic_f_pass'], pred=False )    
-            #                 #             sess.run(li_preds)
-            #                 # else:
-            #                 li_preds = model.predict(feature, model_params['model_type_settings']['stochastic_f_pass'], pred=False )
-
-            #                 #li_preds_masked = [ utility.water_mask(tf.squeeze(pred),train_params['bool_water_mask']) for pred in li_preds  ]
-            #                 preds_stacked = tf.concat( li_preds,axis=-1)
-            #                 preds_mean = tf.reduce_mean( preds_stacked, axis=-1)
-            #                 preds_scale = tf.math.reduce_std( preds_stacked, axis=-1)
-
-            #                     #masking for water/sea predictions
-            #                 preds_mean = tf.where( train_params['bool_water_mask'] , preds_mean, 0 )
-            #                 preds_scale = tf.where( train_params['bool_water_mask'] , preds_scale, 1 )
-
-            #             elif model_params['model_type_settings']['stochastic_f_pass']==1:
-            #                 raise NotImplementedError("haven't handled case for mean of logarithms of predictoins") 
-
-            #                 preds = model( feature, tape=tape ) #shape batch_size, output_h, output_w, 1 #TODO Debug, remove tape variable from model later
-
-            #                 #noise_std = tfd.HalfNormal(scale=5)     #TODO(akanni-ade): remove (mask) eror for predictions that are water i.e. null, through water_mask
-            #                 preds = utility.water_mask( tf.squeeze(preds), train_params['bool_water_mask'])
-            #                 preds = tf.reshape( preds, [train_params['batch_size'], -1] )       #TODO:(akanni-ade) This should decrease exponentially during training #RESEARCH: NOVEL Addition #TODO:(akanni-ade) create tensorflow function to add this
-            #                 target = tf.reshape( target, [train_params['batch_size'], -1] )     #NOTE: In the original Model Selection paper they use Guassian Likelihoods for loss with a precision (noise_std) that is Gamma(6,6)
-            #                 preds_mean = preds
-            #                 preds_scale = 0.1
-            #             # endregion
-                        
-            #             #region Discrete continuous or not
-            #             if( model_params['model_type_settings']['discrete_continuous']==False ):                                                            
-            #                 #note - on discrete_continuous==False, there is a chance that the preds_scale term takes value 0 i.e. relu output is 0 all times. 
-            #                 #  So for this scenario just use really high variance to reduce the effect of this loss
-            #                 preds_scale = tf.where(tf.equal(preds_scale,0.0), .5, preds_scale)
-
-            #                 if(model_params['model_type_settings']['distr_type']=="Normal" ):
-            #                     preds_distribution = tfd.Normal( loc=preds_mean, scale= preds_scale)
-                                
-            #                     _1 = tf.where(train_params['bool_water_mask'], target, 1e-2) 
-            #                     _2 = preds_distribution.log_prob( _1)
-            #                     _3 = tf.boolean_mask( _2, train_params['bool_water_mask'],axis=1 )
-            #                     log_likelihood = tf.reduce_mean( _3)
-            #                      #This represents the expected log_likelihood corresponding to each target y_i in the mini batch
-
-            #                 kl_loss_weight = utility.kl_loss_weighting_scheme(train_set_size_batches) #TODO: Implement scheme where kl loss increases during training
-            #                 kl_loss = tf.math.reduce_sum( model.losses ) * kl_loss_weight * (1/model_params['model_type_settings']['stochastic_f_pass'])  #This KL-loss is already normalized against the number of samples of weights drawn #TODO: Later implement your own Adam type method to determine this
-                            
-            #                 var_free_nrg_loss = kl_loss  - log_likelihood
-
-            #                 l  = var_free_nrg_loss
-
-            #             elif( model_params['model_type_settings']['discrete_continuous']==True ):
-            #                 #get classification labels & predictions, true/1 means it has rained
-            #                 labels_true = tf.cast( tf.greater( target, utility.standardize( model_params['model_type_settings']['precip_threshold'],reverse=False,distr_type=model_params['model_type_settings']['distr_type'] ) ), tf.float32 )
-            #                 labels_pred = tf.cast( tf.greater( preds_mean, utility.standardize(model_params['model_type_settings']['precip_threshold'],reverse=False, distr_type= model_params['model_type_settings']['distr_type']) ),tf.float32 )
-
-            #                 #  gather predictions which are conditional on rain
-            #                 bool_indices_cond_rain = tf.where(tf.equal(labels_true,1),True,False )
-            #                 bool_water_mask = train_params['bool_water_mask']
-
-            #                 bool_cond_rain=  tf.math.logical_and(bool_indices_cond_rain, bool_water_mask )
-
-            #                 _preds_cond_rain_mean = tf.boolean_mask( preds_mean, bool_cond_rain)
-            #                 _preds_cond_rain_scale = tf.boolean_mask(preds_scale, bool_cond_rain)
-            #                 _target_cond_rain = tf.boolean_mask( target, bool_cond_rain )
-
-            #                 # making distributions
-            #                 if( model_params['model_type_settings']['distr_type'] =="Normal" ):
-            #                     preds_distribution_condrain = tfd.Normal( loc=_preds_cond_rain_mean, scale= tf.where( _preds_cond_rain_scale==0, 1e-7, _preds_cond_rain_scale  ) )
-
-            #                 elif(model_params['model_type_settings']['distr_type'] == "LogNormal" ):
-            #                     epsilon = tf.random.uniform( preds_stacked.shape.as_list(),minval=1e-10,maxval=1e-7 )
-            #                     preds_stacked_adj = tf.where( preds_stacked==0,epsilon,preds_stacked )
-            #                     log_vals = tf.math.log( preds_stacked_adj)
-            #                     log_distr_mean = tf.math.reduce_mean( log_vals, axis=-1)
-            #                     log_distr_std = tf.math.reduce_std(log_vals, axis=-1)
-            #                     #Filtering out value 
-
-            #                     preds_distribution_condrain = tfd.LogNormal( loc=tf.boolean_mask(log_distr_mean, bool_cond_rain) , 
-            #                                                                         scale=tf.boolean_mask( log_distr_std, bool_cond_rain) ) 
-                                
-            #                 else:
-            #                     raise ValueError
-
-            #                 # calculating log-likehoods
-            #                 log_cross_entropy_rainclassification = tf.reduce_mean( tf.boolean_mask(
-            #                                     tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=True),train_params['bool_water_mask'],axis=1 ) )
-
-            #                 log_likelihood_cond_rain =  tf.reduce_sum( preds_distribution_condrain.log_prob( _target_cond_rain ) ) / tf.size( tf.boolean_mask( target, train_params['bool_water_mask'], axis=1 ) , out_type=tf.float32) 
-            #                 log_likelihood = log_likelihood_cond_rain - log_cross_entropy_rainclassification
-
-            #                 kl_loss_weight = utility.kl_loss_weighting_scheme(train_set_size_batches) 
-            #                 kl_loss = tf.math.reduce_sum( model.losses ) * kl_loss_weight * (1/model_params['model_type_settings']['stochastic_f_pass'] )  #This KL-loss is already normalized against the number of samples of weights drawn #TODO: Later implement your own Adam type method to determine this
-
-            #                 var_free_nrg_loss = kl_loss  - log_likelihood
-            #                 l = var_free_nrg_loss
-
-            #                 loss_mse_condrain = tf.reduce_mean( tf.keras.losses.MSE( _target_cond_rain , _preds_cond_rain_mean) )
-            #             #endregion
-
-            #             target_filtrd = tf.reshape( tf.boolean_mask(  target , train_params['bool_water_mask'], axis=1 ), [train_params['batch_size'], -1] )
-            #             preds_mean_filtrd = tf.reshape( tf.boolean_mask( preds_mean, train_params['bool_water_mask'],axis=1 ), [train_params['batch_size'], -1] )
-
-            #             metric_mse = tf.reduce_mean( tf.keras.losses.MSE( target_filtrd , preds_mean_filtrd)  )
-
-            #             gc.collect()
-
-            #         elif( model_params['model_name'] == "THST"):
-            #             if (model_params['model_type_settings']['stochastic']==False): #non stochastic version
-            #                 target, mask = target
-
-            #                 preds = model(feature, tape=tape )
-            #                 preds = tf.squeeze(preds)
-            #                 preds_mean = preds
-
-            #                 preds_filtrd = tf.boolean_mask( preds, tf.logical_not(mask) )
-            #                 target_filtrd = tf.boolean_mask( target, tf.logical_not(mask) )
-
-            #                 loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd) #TODO: fix this line, remember mse is calculated on last axis only so ensure the dimensions are correct
-            #                 metric_mse = loss_mse
-            #                 l = loss_mse
-            #             elif (model_params['model_type_settings']['stochastic']==True) :
-            #                 raise NotImplementedError
-
-            #         gradients = tape.gradient( l, model.trainable_variables )
-
-            #         if (model_params['gradients_clip_norm']==None or model_params['model_type_settings']['var_model_type'] in ['horseshoefactorized','horseshoestructured'] ):
-            #             gradients_clipped_global_norm = gradients
-            #         elif(model_params['model_type_settings']['var_model_type'] in ['flipout']):
-            #             gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, model_params['gradients_clip_norm']*2.5 ) 
-            #         else:
-            #             gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, model_params['gradients_clip_norm'] )
-                
-            #     optimizer.apply_gradients( zip( gradients_clipped_global_norm, model.trainable_variables ) )
-                
-            #     #region Tensorboard Update
-            #     step = batch + (epoch-1)*train_set_size_batches
-            #     with writer.as_default():
-            #         if( model_params['model_type_settings']['stochastic']==True ):
-            #             tf.summary.scalar('train_loss_var_free_nrg', var_free_nrg_loss , step =  step )
-            #             tf.summary.scalar('kl_loss', kl_loss, step=step )
-            #             tf.summary.scalar('neg_log_likelihood', -log_likelihood, step=step )
-            #             tf.summary.scalar('train_metric_mse', metric_mse , step = step )
-
-            #             if model_params['model_type_settings']['discrete_continuous'] == True:
-            #                 tf.summary.scalar('train_loss_mse_condrain', loss_mse_condrain, step=step )
-                    
-            #         elif( model_params['model_type_settings']['stochastic']==False ):
-            #             tf.summary.scalar('train_loss_mse', loss_mse , step = step )
-            #             tf.summary.scalar('train_metric_mse', metric_mse , step = step )
-        
-
-            #         for grad, grad_clipped, _tensor in zip( gradients, gradients_clipped_global_norm ,model.trainable_variables):
-            #             if grad is not None:
-            #                 tf.summary.histogram( "Grad:{}".format( _tensor.name ) , grad, step = step  )
-            #                 tf.summary.histogram( "Grads_Norm:{}".format( _tensor.name ) , grad_clipped, step = step )
-            #                 tf.summary.histogram( "Weights:{}".format(_tensor.name), _tensor , step = step )
-                        
-            #     #endregion
-
-            #     #region training Reporting and Metrics updates
-            #     if( model_params['model_type_settings']['stochastic']==True ):
-            #         train_loss_var_free_nrg_mean_groupbatch( var_free_nrg_loss )
-            #         train_loss_var_free_nrg_mean_epoch( var_free_nrg_loss )
-            #         train_metric_mse_mean_groupbatch( metric_mse )
-            #         train_metric_mse_mean_epoch( metric_mse )
-
-            #     elif( model_params['model_type_settings']['stochastic']==False ):
-            #         train_metric_mse_mean_groupbatch( metric_mse )
-            #         train_metric_mse_mean_epoch( metric_mse )
-                                            
-            #     ckpt_manager_batch.save()
-            #     if( (batch+1)%train_batch_reporting_freq==0):
-            #         batches_report_time =  time.time() - start_batch_time
-
-            #         est_completion_time_seconds = (batches_report_time/train_params['dataset_trainval_batch_reporting_freq']) * (train_set_size_batches - batch)/train_set_size_batches
-            #         est_completion_time_mins = est_completion_time_seconds/60
-
-            #         print("\tBatch:{}/{}\tTrain MSE Loss: {:.5f} \t Batch Time:{:.4f}\tEpoch mins left:{:.1f}".format(batch, train_set_size_batches, train_metric_mse_mean_groupbatch.result(), batches_report_time, est_completion_time_mins ) )
-            #         train_metric_mse_mean_groupbatch.reset_states()
-            #         start_batch_time = time.time()
-
-            #         # Updating record of the last batch to be operated on in training epoch
-            #     df_training_info.loc[ ( df_training_info['Epoch']==epoch) , ['Last_Trained_Batch'] ] = batch
-            #     df_training_info.to_csv( path_or_buf="checkpoints/{}/{}_{}_{}/checkpoint_scores_model_{}.csv".format(model_params['model_name'], model_params['model_type_settings']['var_model_type'],
-            #                                             model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']),model_params['model_version']), header=True, index=False )
-            #     # endregion
-                
-            #     continue  
-            # # endregion
-
-            # # region Transition 
-            # if(batch==train_set_size_batches):
-            #     tf.keras.backend.clear_session()
-            #     if( model_params['model_type_settings']['stochastic']==True ):
-            #         print('EPOCH {}:\tVar_Free_Nrg: {:.5f} \tMSE: {:.5f}\tTime: {:.2f}'.format(epoch, train_loss_var_free_nrg_mean_epoch.result() ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
-            #     else:
-            #         print('EPOCH {}:\tMSE: {:.3f}\tTime: {:.2f}'.format(epoch ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
-
-            #     print("\nStarting Validation")
-            #     start_epoch_val = time.time()
-            #     start_batch_time = time.time()
-            # # endregion
-
-            # #region Validation Loop
-            # if(train_set_size_batches<= batch < train_set_size_batches + val_set_size_batches  ):
-            #     #feature, target = next(li_iter_val[epoch])
-            #     feature, target = next(iter_val)
-
-            #     if model_params['model_name'] == "DeepSD":
-            #         preds = model( feature )
-            #         preds = utility.water_mask( tf.squeeze(preds), train_params['bool_water_mask'])
-                    
-            #         target_filtrd = tf.reshape( tf.boolean_mask(  target , train_params['bool_water_mask'], axis=1 ), [train_params['batch_size'], -1] )
-            #         preds_filtrd = tf.reshape( tf.boolean_mask( preds, train_params['bool_water_mask'],axis=1 ), [train_params['batch_size'], -1] )
-            #         val_metric_mse_mean( tf.reduce_mean( tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  ) #TODO: Ensure that both preds and target are reshaped prior 
-                
-            #     elif model_params['model_name'] == "THST" and model_params['model_type_settings']['stochastic'] ==False: #non stochastic version
-            #         target, mask = target
-            #         preds = model(feature )
-            #         preds = tf.squeeze(preds)
-
-            #         preds_filtrd = tf.boolean_mask( preds, tf.logical_not(mask) )
-            #         target_filtrd = tf.boolean_mask( target, tf.logical_not(mask) )
-
-            #         val_metric_mse_mean( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
-
-            #     if ( (batch+1-train_set_size_batches) % val_batch_reporting_freq) ==0 or batch+1==(train_set_size_batches+ val_set_size_batches) :
-            #         batches_report_time =  time.time() - start_batch_time
-            #         est_completion_time_seconds = (batches_report_time/train_params['dataset_trainval_batch_reporting_freq']) *( 1 -  ((batch-train_set_size_batches)/val_set_size_batches ) )
-            #         est_completion_time_mins = est_completion_time_seconds/60
-
-            #         print("\tCompleted Validation Batch:{}/{} \t Time:{:.4f} \tEst Time Left:{:.1f}".format( batch-train_set_size_batches, val_set_size_batches ,batches_report_time,est_completion_time_mins ))
-                                                
-            #         start_batch_time = time.time()
-            #         #iter_train = None
-            #         if( batch +1 == train_set_size_batches+val_set_size_batches  ):
-            #             batches_to_skip = 0
-            #     continue
-
-            # # endregion
-
-            # print("Epoch:{}\t Train MSE:{:.5f}\tValidation Loss: MSE:{:.5f}\tTime:{:.5f}".format(epoch, train_metric_mse_mean_epoch.result(), val_metric_mse_mean.result(), time.time()-start_epoch_val  ) )
-            # with writer.as_default():
-            #     tf.summary.scalar('Validation Loss MSE', val_metric_mse_mean.result() , step =  epoch )
-        # endregion
-
         #region Train
         for batch in range(batches_to_skip,train_set_size_batches):
-            feature, target = next(iter_train)
+            idx, (feature, target) = next(iter_train)
 
             with tf.GradientTape(persistent=False) as tape:
                 if model_params['model_name'] == "DeepSD":
@@ -576,9 +313,11 @@ def train_loop(train_params, model_params):
                         l = loss_mse
                     elif (model_params['model_type_settings']['stochastic']==True) :
                         raise NotImplementedError
-
+                
+                #a = tape.watched_variables()
                 gradients = tape.gradient( l, model.trainable_variables )
-
+                gc.collect()
+                
                 if (model_params['gradients_clip_norm']==None or model_params['model_type_settings']['var_model_type'] in ['horseshoefactorized','horseshoestructured'] ):
                     gradients_clipped_global_norm = gradients
                 elif(model_params['model_type_settings']['var_model_type'] in ['flipout']):
@@ -589,27 +328,27 @@ def train_loop(train_params, model_params):
             optimizer.apply_gradients( zip( gradients_clipped_global_norm, model.trainable_variables ) )
             
             #region Tensorboard Update
-            # step = batch + (epoch-1)*train_set_size_batches
-            # with writer.as_default():
-            #     if( model_params['model_type_settings']['stochastic']==True ):
-            #         tf.summary.scalar('train_loss_var_free_nrg', var_free_nrg_loss , step =  step )
-            #         tf.summary.scalar('kl_loss', kl_loss, step=step )
-            #         tf.summary.scalar('neg_log_likelihood', -log_likelihood, step=step )
-            #         tf.summary.scalar('train_metric_mse', metric_mse , step = step )
+            step = batch + (epoch-1)*train_set_size_batches
+            with writer.as_default():
+                if( model_params['model_type_settings']['stochastic']==True ):
+                    tf.summary.scalar('train_loss_var_free_nrg', var_free_nrg_loss , step =  step )
+                    tf.summary.scalar('kl_loss', kl_loss, step=step )
+                    tf.summary.scalar('neg_log_likelihood', -log_likelihood, step=step )
+                    tf.summary.scalar('train_metric_mse', metric_mse , step = step )
 
-            #         if model_params['model_type_settings']['discrete_continuous'] == True:
-            #             tf.summary.scalar('train_loss_mse_condrain', loss_mse_condrain, step=step )
+                    if model_params['model_type_settings']['discrete_continuous'] == True:
+                        tf.summary.scalar('train_loss_mse_condrain', loss_mse_condrain, step=step )
                 
-            #     elif( model_params['model_type_settings']['stochastic']==False ):
-            #         tf.summary.scalar('train_loss_mse', loss_mse , step = step )
-            #         tf.summary.scalar('train_metric_mse', metric_mse , step = step )
+                elif( model_params['model_type_settings']['stochastic']==False ):
+                    tf.summary.scalar('train_loss_mse', loss_mse , step = step )
+                    tf.summary.scalar('train_metric_mse', metric_mse , step = step )
     
 
-            #     for grad, grad_clipped, _tensor in zip( gradients, gradients_clipped_global_norm ,model.trainable_variables):
-            #         if grad is not None:
-            #             tf.summary.histogram( "Grad:{}".format( _tensor.name ) , grad, step = step  )
-            #             tf.summary.histogram( "Grads_Norm:{}".format( _tensor.name ) , grad_clipped, step = step )
-            #             tf.summary.histogram( "Weights:{}".format(_tensor.name), _tensor , step = step ) 
+                for grad, grad_clipped, _tensor in zip( gradients, gradients_clipped_global_norm ,model.trainable_variables):
+                    if grad is not None:
+                        tf.summary.histogram( "Grad:{}".format( _tensor.name ) , grad, step = step  )
+                        tf.summary.histogram( "Grads_Norm:{}".format( _tensor.name ) , grad_clipped, step = step )
+                        tf.summary.histogram( "Weights:{}".format(_tensor.name), _tensor , step = step ) 
             #endregion
 
             #region training Reporting and Metrics updates
@@ -647,13 +386,16 @@ def train_loop(train_params, model_params):
         else:
             print('EPOCH {}:\tMSE: {:.3f}\tTime: {:.2f}'.format(epoch ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
             # endregion
+        feature, target = (None, None)
+        del feature
+        del target
         tf.keras.backend.clear_session()
         gc.collect()
         #endregion
 
         #region Valid
         for batch in range(val_set_size_batches):
-            feature, target = next(iter_val)
+            idx, (feature, target) = next(iter_val)
 
             if model_params['model_name'] == "DeepSD":
                 preds = model( feature )

@@ -15,7 +15,7 @@
             "console": "internalConsole",
             "justMyCode": false,
 
-            "args": [ "-mts" ,"{'stochastic':True,'stochastic_f_pass':10,'distr_type':'Normal','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'horseshoestructured' }", 
+            "args": [ "-mts" ,"{'stochastic':True,'stochastic_f_pass':10,'distr_type':'Normal','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'horseshoefactorized' }", 
                 "-mn","DeepSD", "-gidx","[0]", "-mv", "1"]
 
             // "args": [ "-mn","THST", "-gidx","[0]", "-mv", "1",

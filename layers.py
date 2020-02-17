@@ -123,6 +123,7 @@ class SRCNN( tf.keras.layers.Layer ):
     @tf.function
     def call( self, _input ,upsample_method=tf.constant("zero_padding"), pred=False ): #( batch, height, width)
         
+        #_input = tf.constant(_input)
         
         if pred==False and self.model_params['model_type_settings']['var_model_type'] in ['flipout']:
             self.conv1._built_kernel_divergence = False
@@ -139,7 +140,6 @@ class SRCNN( tf.keras.layers.Layer ):
                 self.sample_variational_params()        
             if pred==True:
                 self.sample_variational_params()
-        
         x = self.conv1( _input )    #( batch, height_lr, width_lr, conv1_filters ) #TODO:(akanni-ade) alot of zero values for x at this output
         
         x = self.upSample( x )           #(batch, height_hr, width_hr, conv1_filters )

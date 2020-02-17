@@ -19,12 +19,16 @@ def model_loader(train_params,model_params ):
 class SuperResolutionModel( tf.keras.Model ):
     def __init__(self, train_params, model_params ):
         super(SuperResolutionModel, self).__init__()
-        
+        self.train_params = train_params
+        self.model_params = model_params
         self.SRCNN_1 = layers.SRCNN( train_params, model_params )
         # self.SRCNN_2 = layers.SRCNN( train_params, model_params[1] )
         #self.SRCNN_3 = layers.SRCNN( train_params, model_params[2] )
          
     def call(self, inputs, pred=False):
+#        inputs = tf.keras.Input(shape= self.model_params['input_dims'].append(self.model_params['conv1_inp_channels']) , batch_size=self.train_params['batch_size'] , dtype=tf.float32, tensor=inputs )
+        #inputs = tf.constant(inputs)
+
         x = self.SRCNN_1(inputs, pred)
         # x = self.SRCNN_2( x, pred )
         
