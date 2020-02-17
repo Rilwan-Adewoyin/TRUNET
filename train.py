@@ -441,6 +441,8 @@ def train_loop(train_params, model_params):
                                                 
                     start_batch_time = time.time()
                     #iter_train = None
+                    if( batch +1 == train_set_size_batches+val_set_size_batches  ):
+                        batches_to_skip = 0
                 continue
 
             # endregion
@@ -448,8 +450,7 @@ def train_loop(train_params, model_params):
             print("Epoch:{}\t Train MSE:{:.5f}\tValidation Loss: MSE:{:.5f}\tTime:{:.5f}".format(epoch, train_metric_mse_mean_epoch.result(), val_metric_mse_mean.result(), time.time()-start_epoch_val  ) )
             with writer.as_default():
                 tf.summary.scalar('Validation Loss MSE', val_metric_mse_mean.result() , step =  epoch )
-            if( batch +1 == train_set_size_batches+val_set_size_batches  ):
-                batches_to_skip = 0
+
 
 
         df_training_info = utility.update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoch, val_metric_mse_mean, ckpt_manager_epoch, train_params, model_params )
