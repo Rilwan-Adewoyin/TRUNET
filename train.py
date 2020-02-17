@@ -175,11 +175,12 @@ def train_loop(train_params, model_params):
         print("\n\nStarting EPOCH {} Batch {}/{}".format(epoch, batches_to_skip+1, train_set_size_batches))
                 
         for batch in range(batches_to_skip, train_set_size_batches+val_set_size_batches+1):
-            tf.random.set_seed(1    ) 
+            tf.random.set_seed(1) 
             # region Train Loop
             if(batch<train_set_size_batches):
                 #feature, target = next( li_iter_train[epoch-1] )
                 try:
+                    tf.keras.backend.clear_graph() 
                     feature,target =( None, None)
                     del feature
                     del target
