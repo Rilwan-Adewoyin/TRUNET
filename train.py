@@ -187,14 +187,7 @@ def train_loop(train_params, model_params):
                     #region stochastic fward passes
                     if model_params['model_type_settings']['stochastic_f_pass']>1:
                         
-                        # if model_params['model_type_settings']['var_model_type'] in ['horseshoefactorized'] :
-                        #     #tf.compat.v1.disable_eager_execution()
-                        #     feature = tf.constant(feature)
-                        #     with graph_mode():
-                        #         with tf.compat.v1.Session() as sess:
-                        #             li_preds = model.predict(feature, model_params['model_type_settings']['stochastic_f_pass'], pred=False )    
-                        #             sess.run(li_preds)
-                        # else:
+
                         li_preds = model.predict(feature, model_params['model_type_settings']['stochastic_f_pass'], pred=False )
 
                         #li_preds_masked = [ utility.water_mask(tf.squeeze(pred),train_params['bool_water_mask']) for pred in li_preds  ]
@@ -322,8 +315,11 @@ def train_loop(train_params, model_params):
                     gradients_clipped_global_norm = gradients
                 elif(model_params['model_type_settings']['var_model_type'] in ['flipout']):
                     gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, model_params['gradients_clip_norm']*2.5 ) 
-                else:
+                elif( not( model_params['model_type_settings']['distr_type'] in ['Normal'] ) ):
                     gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, model_params['gradients_clip_norm']*2.5 )
+                else:
+                    gradients_clipped_global_norm = gradients
+
                 if tf.math.reduce_any( tf.math.is_nan( gradients_clipped_global_norm[0] ) ):
                     gradients_clipped_global_norm = gradients
 
