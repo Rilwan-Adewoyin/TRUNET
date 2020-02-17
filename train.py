@@ -18,6 +18,8 @@ print(gpu_devices)
 for idx, gpu_name in enumerate(gpu_devices):
     tf.config.experimental.set_memory_growth(gpu_name, True)
 
+#K.set_session(K.tf.Session(config=cfg))
+
 
 import tensorflow_probability as tfp
 try:
@@ -587,27 +589,27 @@ def train_loop(train_params, model_params):
             optimizer.apply_gradients( zip( gradients_clipped_global_norm, model.trainable_variables ) )
             
             #region Tensorboard Update
-            step = batch + (epoch-1)*train_set_size_batches
-            with writer.as_default():
-                if( model_params['model_type_settings']['stochastic']==True ):
-                    tf.summary.scalar('train_loss_var_free_nrg', var_free_nrg_loss , step =  step )
-                    tf.summary.scalar('kl_loss', kl_loss, step=step )
-                    tf.summary.scalar('neg_log_likelihood', -log_likelihood, step=step )
-                    tf.summary.scalar('train_metric_mse', metric_mse , step = step )
+            # step = batch + (epoch-1)*train_set_size_batches
+            # with writer.as_default():
+            #     if( model_params['model_type_settings']['stochastic']==True ):
+            #         tf.summary.scalar('train_loss_var_free_nrg', var_free_nrg_loss , step =  step )
+            #         tf.summary.scalar('kl_loss', kl_loss, step=step )
+            #         tf.summary.scalar('neg_log_likelihood', -log_likelihood, step=step )
+            #         tf.summary.scalar('train_metric_mse', metric_mse , step = step )
 
-                    if model_params['model_type_settings']['discrete_continuous'] == True:
-                        tf.summary.scalar('train_loss_mse_condrain', loss_mse_condrain, step=step )
+            #         if model_params['model_type_settings']['discrete_continuous'] == True:
+            #             tf.summary.scalar('train_loss_mse_condrain', loss_mse_condrain, step=step )
                 
-                elif( model_params['model_type_settings']['stochastic']==False ):
-                    tf.summary.scalar('train_loss_mse', loss_mse , step = step )
-                    tf.summary.scalar('train_metric_mse', metric_mse , step = step )
+            #     elif( model_params['model_type_settings']['stochastic']==False ):
+            #         tf.summary.scalar('train_loss_mse', loss_mse , step = step )
+            #         tf.summary.scalar('train_metric_mse', metric_mse , step = step )
     
 
-                for grad, grad_clipped, _tensor in zip( gradients, gradients_clipped_global_norm ,model.trainable_variables):
-                    if grad is not None:
-                        tf.summary.histogram( "Grad:{}".format( _tensor.name ) , grad, step = step  )
-                        tf.summary.histogram( "Grads_Norm:{}".format( _tensor.name ) , grad_clipped, step = step )
-                        tf.summary.histogram( "Weights:{}".format(_tensor.name), _tensor , step = step ) 
+            #     for grad, grad_clipped, _tensor in zip( gradients, gradients_clipped_global_norm ,model.trainable_variables):
+            #         if grad is not None:
+            #             tf.summary.histogram( "Grad:{}".format( _tensor.name ) , grad, step = step  )
+            #             tf.summary.histogram( "Grads_Norm:{}".format( _tensor.name ) , grad_clipped, step = step )
+            #             tf.summary.histogram( "Weights:{}".format(_tensor.name), _tensor , step = step ) 
             #endregion
 
             #region training Reporting and Metrics updates
