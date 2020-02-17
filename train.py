@@ -338,12 +338,6 @@ def train_loop(train_params, model_params):
                     else:
                         gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, model_params['gradients_clip_norm'] )
                 
-                try:
-                    del tape
-                    tape = None
-                except Exception as e:
-                    pass
-
                 optimizer.apply_gradients( zip( gradients_clipped_global_norm, model.trainable_variables ) )
                 
                 #region Tensorboard Update
@@ -438,7 +432,7 @@ def train_loop(train_params, model_params):
 
                     val_metric_mse_mean( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
 
-                if ( (batch+1-train_set_size_batches) % val_batch_reporting_freq) ==0 or batch==(train_set_size_batches+ val_set_size_batches) :
+                if ( (batch+1-train_set_size_batches) % val_batch_reporting_freq) ==0 or batch+1==(train_set_size_batches+ val_set_size_batches) :
                     batches_report_time =  time.time() - start_batch_time
                     est_completion_time_seconds = (batches_report_time/train_params['dataset_trainval_batch_reporting_freq']) *( 1 -  ((batch-train_set_size_batches)/val_set_size_batches ) )
                     est_completion_time_mins = est_completion_time_seconds/60
@@ -448,13 +442,14 @@ def train_loop(train_params, model_params):
                     start_batch_time = time.time()
                     #iter_train = None
                 continue
+
             # endregion
 
             print("Epoch:{}\t Train MSE:{:.5f}\tValidation Loss: MSE:{:.5f}\tTime:{:.5f}".format(epoch, train_metric_mse_mean_epoch.result(), val_metric_mse_mean.result(), time.time()-start_epoch_val  ) )
             with writer.as_default():
                 tf.summary.scalar('Validation Loss MSE', val_metric_mse_mean.result() , step =  epoch )
-
-            batches_to_skip = 0
+            if( batch +1 == train_set_size_batches+val_set_size_batches  ):
+                batches_to_skip = 0
 
 
         df_training_info = utility.update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoch, val_metric_mse_mean, ckpt_manager_epoch, train_params, model_params )
