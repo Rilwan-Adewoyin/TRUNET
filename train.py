@@ -144,6 +144,10 @@ def train_loop(train_params, model_params):
         ds_train = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['train_start_date'], data_dir=train_params['data_dir'] )
         ds_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['val_start_date'], data_dir=train_params['data_dir'] )   
     
+    ds_train = ds_train.take(train_params['train_set_size_batches']).repeat(train_params['epochs'])
+    ds_val = ds_val.take(train_params['train_set_size_batches']).repeat(train_params['epochs'])
+    iter_train = iter(ds_train)
+    iter_val = iter(ds_val)
     # endregion
 
     # region --- Train and Val
@@ -166,21 +170,21 @@ def train_loop(train_params, model_params):
         inp_time = None
         start_batch_time = time.time()
         
-        iter_train = iter(ds_train)
-        iter_val = iter(ds_val)
+        # iter_train = iter(ds_train)
+        # iter_val = iter(ds_val)
 
         #endregion 
 
         batch=0
         print("\n\nStarting EPOCH {} Batch {}/{}".format(epoch, batches_to_skip+1, train_set_size_batches))
                 
-        for batch in range(batches_to_skip, train_set_size_batches+val_set_size_batches+1):
+        for batch in range(batches_to_skip, train_set_size_batches+val_set_size_batches):
             tf.random.set_seed(1) 
             # region Train Loop
             if(batch<train_set_size_batches):
-                #feature, target = next( li_iter_train[epoch-1] )
                 try:
-                    tf.keras.backend.clear_graph() 
+                    tf.keras.backend.clear_graph()
+                    tf.compat.v1.reset_default_graph()
                     feature,target =( None, None)
                     del feature
                     del target
@@ -334,6 +338,12 @@ def train_loop(train_params, model_params):
                     else:
                         gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, model_params['gradients_clip_norm'] )
                 
+                try:
+                    del tape
+                    tape = None
+                except Exception as e:
+                    pass
+
                 optimizer.apply_gradients( zip( gradients_clipped_global_norm, model.trainable_variables ) )
                 
                 #region Tensorboard Update
@@ -436,7 +446,7 @@ def train_loop(train_params, model_params):
                     print("\tCompleted Validation Batch:{}/{} \t Time:{:.4f} \tEst Time Left:{:.1f}".format( batch-train_set_size_batches, val_set_size_batches ,batches_report_time,est_completion_time_mins ))
                                                 
                     start_batch_time = time.time()
-                    iter_train = None
+                    #iter_train = None
                 continue
             # endregion
 
@@ -452,11 +462,12 @@ def train_loop(train_params, model_params):
         
         
         try:
-            feature,target, iter_train, iter_val =( None, None, None,None)
+            feature,target = ( None, None)
+            #iter_train, iter_val =( None, None, None,None)
             del feature
             del target
-            del iter_train
-            del iter_val
+            #del iter_train
+            #del iter_val
             
         except Exception as e:
             pass

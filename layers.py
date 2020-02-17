@@ -44,7 +44,7 @@ class SRCNN( tf.keras.layers.Layer ):
                 kernel_posterior_fn = horseshoe_kernel_posterior_distribution( self, 1 ), 
                 kernel_posterior_tensor_fn= ( lambda dist: horsehoe_kernel_posterior_tensor_fn(dist, self.conv1_nu , self.c ,
                                             self.model_params['conv1_output_node_count'], self.model_params['conv1_params']['kernel_size'], self.model_params['conv1_inp_channels'],
-                                            self.tape, 1, self) )  ,
+                                             1, self) )  ,
                 kernel_prior_fn = None,
                 kernel_divergence_fn= None) 
 
@@ -55,7 +55,7 @@ class SRCNN( tf.keras.layers.Layer ):
                 
                 kernel_posterior_tensor_fn= ( lambda dist: horsehoe_kernel_posterior_tensor_fn(dist, self.conv2_nu , self.c,
                                             self.model_params['conv2_output_node_count'], self.model_params['conv2_params']['kernel_size'], self.model_params['conv2_inp_channels'],
-                                            self.tape, 2, self) )  ,
+                                            2, self) )  ,
                 kernel_prior_fn = None,
                 kernel_divergence_fn= None)
 
@@ -77,7 +77,7 @@ class SRCNN( tf.keras.layers.Layer ):
                 kernel_posterior_fn = horseshoe_kernel_posterior_distribution( self, 1 ), 
                 kernel_posterior_tensor_fn= ( lambda dist: horsehoe_kernel_posterior_tensor_fn(dist, None , self.c ,
                                             self.model_params['conv1_output_node_count'], self.model_params['conv1_params']['kernel_size'], self.model_params['conv1_inp_channels'],
-                                            self.tape, 1, self, self.conv1_beta, self.conv1_taus, self.conv1_nu) )  ,
+                                             1, self, self.conv1_beta, self.conv1_taus, self.conv1_nu) )  ,
                 kernel_prior_fn = None,
                 
                 kernel_divergence_fn= None) #TODO: Figure out the appropriate posterior and prior for the bias
@@ -90,7 +90,7 @@ class SRCNN( tf.keras.layers.Layer ):
                 
                 kernel_posterior_tensor_fn= ( lambda dist: horsehoe_kernel_posterior_tensor_fn(dist, None , self.c ,
                                             self.model_params['conv2_output_node_count'], self.model_params['conv2_params']['kernel_size'], self.model_params['conv2_inp_channels'],
-                                            self.tape, 1, self, self.conv2_beta, self.conv2_taus, self.conv2_nu) )  ,
+                                             1, self, self.conv2_beta, self.conv2_taus, self.conv2_nu) )  ,
                 kernel_prior_fn = None,
                 kernel_divergence_fn= None)
 
@@ -121,8 +121,8 @@ class SRCNN( tf.keras.layers.Layer ):
             self.conv3 = tf.keras.layers.Conv2D( **self.model_params['conv3_params'] )
 
     @tf.function
-    def call( self, _input, tape=None ,upsample_method=tf.constant("zero_padding"), pred=False ): #( batch, height, width)
-        self.tape = tape
+    def call( self, _input ,upsample_method=tf.constant("zero_padding"), pred=False ): #( batch, height, width)
+        
         
         if pred==False and self.model_params['model_type_settings']['var_model_type'] in ['flipout']:
             self.conv1._built_kernel_divergence = False
@@ -493,7 +493,6 @@ class UpSampler():
             self.outside_padding_w_l = tf.cast( tf.math.ceil(  outside_padding_w/2 ), dtype=tf.int32)
             self.outside_padding_w_r = tf.cast( outside_padding_w - self.outside_padding_w_l, dtype=tf.int32)
             
-    @tf.function
     def __call__(self, _images):
         """
             :param _images: shape(batch, h, w, c)
@@ -558,7 +557,7 @@ def horseshoe_kernel_posterior_distribution(obj, _conv_layer_no ):
     
     return _fn
    
-def horsehoe_kernel_posterior_tensor_fn( dist, layer_nu , model_global_c, output_count, kernel_shape, inp_channels, tape=None, conv_layer=1, obj=None,
+def horsehoe_kernel_posterior_tensor_fn( dist, layer_nu , model_global_c, output_count, kernel_shape, inp_channels, conv_layer=1, obj=None,
                                         factorised_beta=None, factorised_tau=None, factorised_nu=None ):
     """
         :param filter_shape list: [h, w]

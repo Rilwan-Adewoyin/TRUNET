@@ -24,8 +24,8 @@ class SuperResolutionModel( tf.keras.Model ):
         # self.SRCNN_2 = layers.SRCNN( train_params, model_params[1] )
         #self.SRCNN_3 = layers.SRCNN( train_params, model_params[2] )
          
-    def call(self, inputs, tape=None, pred=False):
-        x = self.SRCNN_1(inputs, tape, pred)
+    def call(self, inputs, pred=False):
+        x = self.SRCNN_1(inputs, pred)
         # x = self.SRCNN_2( x, pred )
         
         return x
