@@ -145,7 +145,7 @@ def train_loop(train_params, model_params):
         ds_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['val_start_date'], data_dir=train_params['data_dir'] )   
     
     ds_train = ds_train.take(train_params['train_set_size_batches']).repeat(train_params['epochs'])
-    ds_val = ds_val.take(train_params['train_set_size_batches']).repeat(train_params['epochs'])
+    ds_val = ds_val.take(train_params['val_set_size_batches']).repeat(train_params['epochs'])
     iter_train = iter(ds_train)
     iter_val = iter(ds_val)
     # endregion
