@@ -129,7 +129,7 @@ class model_deepsd_hparameters(HParams):
             'conv3_output_node_count':conv3_output_node_count,
             'conv3_inp_channels':conv3_inp_channels,
 
-            'gradients_clip_norm':550.0,
+            'gradients_clip_norm':None,
             
             'rec_adam_params':REC_ADAM_PARAMS,
             'lookahead_params':LOOKAHEAD_PARAMS
