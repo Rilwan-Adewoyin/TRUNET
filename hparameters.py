@@ -335,7 +335,7 @@ class train_hparameters(HParams):
         VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS*0.20)
         BATCH_SIZE = 2
         DATA_DIR = "./Data"
-        EARLY_STOPPING_PERIOD = 15
+        EARLY_STOPPING_PERIOD = 30
         BOOL_WATER_MASK = pickle.load( open( "Images/water_mask_156_352.dat","rb" ) )
 
         
