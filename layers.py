@@ -17,7 +17,7 @@ import math
 import numpy as np
 import time
 
-from tensorflow.keras.layers import Bidirectional, ConvLSTM2D
+from tensorflow.keras.layers import Bidirectional
 from tensorflow.keras import backend as K
 import layers_ConvLSTM2D
 
@@ -691,7 +691,7 @@ class THST_CLSTM_Input_Layer(tf.keras.layers.Layer):
         self.trainable = train_params['trainable']
         self.layer_params = layer_params #list of dictionaries containing params for all layers
 
-        self.convLSTM = Bidirectional( ConvLSTM2D( **self.layer_params ), merge_mode=None ) 
+        self.convLSTM = Bidirectional( layers_ConvLSTM2D.ConvLSTM2D( **self.layer_params ), merge_mode=None ) 
 
     def call( self, _input ):
         #NOTE: consider addding multiple LSTM Layers to extract more latent features
@@ -762,8 +762,8 @@ class THST_OutputLayer(tf.keras.layers.Layer):
             self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
         
         elif( model_type_settings['Deformable_Conv'] ==True ):
-            self.conv_hidden = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[0]) )
-            self.conv_output = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1]) )
+            self.conv_hidden = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[0] ) )
+            self.conv_output = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
 
     def call(self, _inputs ):
         """

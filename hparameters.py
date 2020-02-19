@@ -194,21 +194,24 @@ class model_THST_hparameters(HParams):
         attn_heads = [ 1]*attn_layers#NOTE: dev settings #must be a factor of h or w or c, so 100, 140 or 6 -> 2, 5, 7, 
         kq_downscale_stride = [1,13,13]
         kq_downscale_kernelshape = [1, 13, 13]
+        #Downscale factor deprecated in favour of Average 3D pooling
         vector_k_downscale_factor = 2
         vector_v_downscale_factor = 1
 
         #new version
-        key_depth = [ (100*140*output_filters_enc[idx])/ int(np.prod([kq_downscale_kernelshape[1:]]))
-            #n' = floor((n+2*p-f)/s + 1)
-                        for idx in range(attn_layers) ] #The keydepth for any given layer will be equal to (h*w*c/avg_pool_strideh*avg_pool_stridew)
+        key_depth = [ (100*140*output_filters_enc[idx])/ int(np.prod([kq_downscale_kernelshape[1:]])) for idx in range(attn_layers) ] 
+            #This keeps the hidden representations equal in size to the incoming tensors
+        val_depth = [ (100*140)*(output_filters_enc[idx]*2) for idx in range(attn_layers)  ]
+            
+                         #The keydepth for any given layer will be equal to (h*w*c/avg_pool_strideh*avg_pool_stridew)
                             # where h,w = 100,140 and c is from the output_filters_enc from the layer below
         key_depth = [int(_val) for _val in key_depth]
 
         ATTN_params_enc = [
-            {'bias':None, 'total_key_depth': kd  ,'total_value_depth':kd, 'output_depth': kd   ,
+            {'bias':None, 'total_key_depth': kd  ,'total_value_depth':vd, 'output_depth': vd   ,
             'num_heads': nh , 'dropout_rate':DROPOUT, 'attention_type':"dot_product",
             "transform_value_antecedent":False ,  "transform_output":False } 
-            for kd, nh in zip( key_depth  ,attn_heads )
+            for kd, vd ,nh in zip( key_depth, val_depth, attn_heads )
         ] #using key depth and Value depth smaller to reduce footprint
         #Add the below to attention dicts to get visualization
         #   make_image_summary=True,
@@ -279,7 +282,6 @@ class model_THST_hparameters(HParams):
 
         MODEL_VERSION = "1"
 
-
         model_type_settings = {
             'stochastic': False ,
             'Deformable_Conv': True ,
@@ -337,8 +339,6 @@ class train_hparameters(HParams):
         DATA_DIR = "./Data"
         EARLY_STOPPING_PERIOD = 30
         BOOL_WATER_MASK = pickle.load( open( "Images/water_mask_156_352.dat","rb" ) )
-
-        
 
         #endregion
         self.params = {
@@ -517,7 +517,6 @@ class train_hparameters_ati(HParams):
 
             'feature_start_date':feature_start_date,
             'target_start_date':target_start_date
-
         }
 
 class test_hparameters_ati(HParams):

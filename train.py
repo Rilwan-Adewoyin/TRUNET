@@ -7,7 +7,9 @@ import data_generators
 import utility
 
 import tensorflow as tf
-
+from tensorflow.keras.mixed_precision import experimental as mixed_precision
+policy = mixed_precision.Policy('mixed_float16')
+mixed_precision.set_policy(policy)
 
 try:
     gpu_devices = tf.config.list_physical_devices('GPU')
@@ -59,6 +61,9 @@ def train_loop(train_params, model_params):
     else:
         radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=int(train_params['train_set_size_batches']*0.55) )
         optimizer = tfa.optimizers.Lookahead(radam, **model_params['lookahead_params'])
+    if model_params['model_name'] == "THST":
+        optimizer = mixed_precision.LossScaleOptimizer(optimizer, loss_scale='dynamic' )
+    
 
     train_metric_mse_mean_groupbatch = tf.keras.metrics.Mean(name='train_loss_mse_obj')
     train_metric_mse_mean_epoch = tf.keras.metrics.Mean(name="train_loss_mse_obj_epoch")
@@ -288,13 +293,28 @@ def train_loop(train_params, model_params):
 
                     metric_mse = tf.reduce_mean( tf.keras.losses.MSE( target_filtrd , preds_mean_filtrd)  )
 
+                    gradients = tape.gradient( l, model.trainable_variables )
                     gc.collect()
 
+                    if (model_params['gradients_clip_norm']==None or model_params['model_type_settings']['var_model_type'] in ['horseshoefactorized','horseshoestructured'] ):
+                        gradients_clipped_global_norm = gradients
+                    elif(model_params['model_type_settings']['var_model_type'] in ['flipout']):
+                        gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, model_params['gradients_clip_norm']*2.5 ) 
+                    elif( not( model_params['model_type_settings']['distr_type'] in ['Normal'] ) ):
+                        gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, model_params['gradients_clip_norm']*2.5 )
+                    else:
+                        gradients_clipped_global_norm = gradients
+
+                    if tf.math.reduce_any( tf.math.is_nan( gradients_clipped_global_norm[0] ) ):
+                        gradients_clipped_global_norm = gradients
+
+                    optimizer.apply_gradients( zip( gradients_clipped_global_norm, model.trainable_variables ) )
+                    
                 elif( model_params['model_name'] == "THST"):
                     if (model_params['model_type_settings']['stochastic']==False): #non stochastic version
                         target, mask = target
 
-                        preds = model(feature, tape=tape )
+                        preds = model( tf.cast(feature,tf.float16), tape=tape )
                         preds = tf.squeeze(preds)
                         preds_mean = preds
 
@@ -302,29 +322,21 @@ def train_loop(train_params, model_params):
                         target_filtrd = tf.boolean_mask( target, tf.logical_not(mask) )
 
                         loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd) #TODO: fix this line, remember mse is calculated on last axis only so ensure the dimensions are correct
+                        scaled_loss_mse = optimizer.get_scaled_loss(loss_mse)
+                        
                         metric_mse = loss_mse
                         l = loss_mse
                     elif (model_params['model_type_settings']['stochastic']==True) :
                         raise NotImplementedError
                 
-                #a = tape.watched_variables()
-                gradients = tape.gradient( l, model.trainable_variables )
-                gc.collect()
+                    #a = tape.watched_variables()
+                    scaled_gradients = tape.gradient( scaled_loss_mse, model.trainable_variables )
+                    gradients = optimizer.get_unscaled_gradients(scaled_gradients)
+                    gradients_clipped_global_norm = gradients
+                    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
                 
-                if (model_params['gradients_clip_norm']==None or model_params['model_type_settings']['var_model_type'] in ['horseshoefactorized','horseshoestructured'] ):
-                    gradients_clipped_global_norm = gradients
-                elif(model_params['model_type_settings']['var_model_type'] in ['flipout']):
-                    gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, model_params['gradients_clip_norm']*2.5 ) 
-                elif( not( model_params['model_type_settings']['distr_type'] in ['Normal'] ) ):
-                    gradients_clipped_global_norm, _ = tf.clip_by_global_norm(gradients, model_params['gradients_clip_norm']*2.5 )
-                else:
-                    gradients_clipped_global_norm = gradients
-
-                if tf.math.reduce_any( tf.math.is_nan( gradients_clipped_global_norm[0] ) ):
-                    gradients_clipped_global_norm = gradients
-
-            optimizer.apply_gradients( zip( gradients_clipped_global_norm, model.trainable_variables ) )
-            
+                gc.collect()
+                            
             #region Tensorboard Update
             step = batch + (epoch-1)*train_set_size_batches
             with writer.as_default():
@@ -463,6 +475,7 @@ if __name__ == "__main__":
     #         tf.config.experimental.set_memory_growth(gpu_name, True)
     # del args_dict['gpu_indx']
 
+    
     print("GPU Available: ", tf.test.is_gpu_available() )
     
     # endregion
