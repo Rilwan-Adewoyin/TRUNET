@@ -330,6 +330,7 @@ def train_loop(train_params, model_params):
                         raise NotImplementedError
                 
                     #a = tape.watched_variables()
+                    #TODO: ensure gradient to attention modules is an average of the number of times module is repeatedly used
                     scaled_gradients = tape.gradient( scaled_loss_mse, model.trainable_variables )
                     gradients = optimizer.get_unscaled_gradients(scaled_gradients)
                     gradients_clipped_global_norm = gradients

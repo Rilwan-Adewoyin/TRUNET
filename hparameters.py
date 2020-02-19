@@ -209,7 +209,7 @@ class model_THST_hparameters(HParams):
 
         ATTN_params_enc = [
             {'bias':None, 'total_key_depth': kd  ,'total_value_depth':vd, 'output_depth': vd   ,
-            'num_heads': nh , 'dropout_rate':DROPOUT, 'attention_type':"dot_product",
+            'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
             "transform_value_antecedent":False ,  "transform_output":False } 
             for kd, vd ,nh in zip( key_depth, val_depth, attn_heads )
         ] #using key depth and Value depth smaller to reduce footprint
