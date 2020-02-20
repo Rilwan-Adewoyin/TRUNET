@@ -65,10 +65,10 @@ def main(test_params, model_params):
 
     
     #region 1
-    _path_pred = test_params['script_dir'] + "/Output/{}/{}_{}_{}/{}/Predictions".format(model_params['model_name'],model_params['model_type_settings']['var_model_type'],
-                                                        model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']), model_params['model_version'])
-    gen_data_preds = util_predict.load_predictions_gen(_path_pred)
-    res =  [postproc_pipeline_evaluatepredictions(pred, test_params, model_params) for pred in gen_data_preds ]
+    # _path_pred = test_params['script_dir'] + "/Output/{}/{}_{}_{}/{}/Predictions".format(model_params['model_name'],model_params['model_type_settings']['var_model_type'],
+    #                                                     model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']), model_params['model_version'])
+    # gen_data_preds = util_predict.load_predictions_gen(_path_pred)
+    # res =  [postproc_pipeline_evaluatepredictions(pred, test_params, model_params) for pred in gen_data_preds ]
 
     print("Completed Prediction Evaluation")
     # endregion
