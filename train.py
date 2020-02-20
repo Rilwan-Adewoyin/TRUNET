@@ -18,8 +18,8 @@ for idx, gpu_name in enumerate(gpu_devices):
 
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
 ##comment the below two lines out if training DEEPSD
-# policy = mixed_precision.Policy('mixed_float16')
-# mixed_precision.set_policy(policy)
+policy = mixed_precision.Policy('mixed_float16')
+mixed_precision.set_policy(policy)
 
 import tensorflow_probability as tfp
 try:
