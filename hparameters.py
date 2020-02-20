@@ -151,7 +151,7 @@ class model_THST_hparameters(HParams):
         DROPOUT = 0.05
 
         #Deployment Settings        
-        SEQ_LEN_FACTOR_REDUCTION = [4, 7, 4, 4 ] #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
+        SEQ_LEN_FACTOR_REDUCTION = [4, 7, 4]#, 4 ] #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
             # 6hrs,1Day,1Week,1Month
         seq_len_for_highest_hierachy_level = 2 #2 Months
 
@@ -182,7 +182,7 @@ class model_THST_hparameters(HParams):
 
         # region CLSTM params
         output_filters_enc = [10, 10, 10, 10] #output filters for each convLSTM2D layer in the encoder
-        #output_filters_enc = [1, 1, 1, 1] #NOTE: development settings
+        output_filters_enc = [5, 5, 5, 5] #NOTE: development settings
         output_filters_enc = output_filters_enc + output_filters_enc[-1:] #the last two layers in the encoder must output the same number of channels
 
         kernel_size_enc = [ (4,4) , (4,4) , (4,4), (4,4), (4,4)]
@@ -263,6 +263,7 @@ class model_THST_hparameters(HParams):
 
         # region --------------- OUTPUT_LAYER_PARAMS -----------------
         output_filters = [ 10, 1 ]
+        output_filters = [ 5, 1 ]
         #output_filters = [ 2, 1 ] #NOTE: development settings
 
         output_kernel_size = [ (4,4), (5,5) ]
