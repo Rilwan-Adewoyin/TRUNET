@@ -151,7 +151,7 @@ class model_THST_hparameters(HParams):
         DROPOUT = 0.05
 
         #Deployment Settings        
-        SEQ_LEN_FACTOR_REDUCTION = [4, 7, 4]#, 4 ] #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
+        SEQ_LEN_FACTOR_REDUCTION = [4, 7, 4, 4 ] #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
             # 6hrs,1Day,1Week,1Month
         seq_len_for_highest_hierachy_level = 2 #2 Months
 
