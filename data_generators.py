@@ -283,8 +283,7 @@ class Generator_mf(Generator):
     def __call__(self):
         return self.yield_iter()
 
-
-def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_at=None, _num_parallel_calls=1, data_dir="./Data/Rain_Data_Nov19" ):
+def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_at=None, _num_parallel_calls=-1, data_dir="./Data/Rain_Data_Nov19" ):
     """
         This is specific for the following two files -> ana_input_1.nc and rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc
         :param day_to_start_at: should be of type np.datetime64

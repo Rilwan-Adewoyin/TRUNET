@@ -5,13 +5,25 @@ import sys
 import utility
 
 import tensorflow as tf
-gpu_devices = tf.config.experimental.list_physical_devices('GPU')
-tf.config.experimental.set_memory_growth(gpu_devices[0], True)
+try:
+    gpu_devices = tf.config.list_physical_devices('GPU')
+except Exception as e:
+    gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+print(gpu_devices)
+for idx, gpu_name in enumerate(gpu_devices):
+    tf.config.experimental.set_memory_growth(gpu_name, True)
+
+from tensorflow.keras.mixed_precision import experimental as mixed_precision
+##comment the below two lines out if training DEEPSD
+policy = mixed_precision.Policy('mixed_float16')
+mixed_precision.set_policy(policy)
+
 import tensorflow_probability as tfp
 try:
     import tensorflow_addons as tfa
 except Exception as e:
     tfa = None
+
 from tensorflow_probability import layers as tfpl
 from tensorflow_probability import distributions as tfd
 from tensorboard.plugins.hparams import api as hp
@@ -55,18 +67,19 @@ def predict( model, test_params, model_params ,checkpoint_no ):
 
     # region ----- Setting up datasets
     if(model_params['model_name']=="DeepSD"):
-        ds = data_generators.load_data_vandal( test_params['starting_test_element'], test_params, model_params,_num_parallel_calls=test_params['num_parallel_calls'], data_dir = test_params['data_dir'], drop_remainder=True  )
+        ds = data_generators.load_data_vandal( test_params['starting_test_element'], 
+                test_params, model_params,_num_parallel_calls=test_params['num_parallel_calls'], data_dir = test_params['data_dir'], drop_remainder=True  )
     elif(model_params['model_name']=="THST" ):
         ds = data_generators.load_data_ati(test_params, model_params, None,
-                                        day_to_start_at=test_params['val_end_date'] )
+                                        day_to_start_at=test_params['val_end_date'], data_dir=train_params['data_dir'] )
 
-    iter_test = iter(ds)
+    iter_test = enumerate(ds)
     #endregion
 
     # region --- predictions
     for batch in range(1, int(1+test_params['test_set_size_elements']/test_params['batch_size']) ):
         try:
-            feature, target = next(iter_test)
+            idx,(feature, target) = next(iter_test)
         except StopIteration as e:
             break
 
@@ -81,14 +94,20 @@ def predict( model, test_params, model_params ,checkpoint_no ):
         elif model_params['model_name'] == "THST":
             target, mask = target
 
-            preds = model(feature )
-            preds = tf.squeeze(preds)
-
+            preds = model( tf.cast(feature,tf.float16) )
+            preds = tf.squeeze(preds) # (pred_count, bs, seq_len, h, w)
+            #splitting in the time dimension
             preds_masked = utility.water_mask( preds, tf.logical_not(mask)  )
             target_masked = utility.water_mask(target, tf.logical_not(mask) )
 
-            li_predictions.append( utility.standardize_ati(preds_masked, test_params['normalization_scales']['rain'], reverse=True) )
-            li_true_values.append( utility.standardize_ati(target_masked, test_params['normalization_scales']['rain'], reverse=True) )
+            preds_std = utility.standardize_ati(preds_masked, test_params['normalization_scales']['rain'], reverse=True)
+            targets_std = utility.standardize_ati(target_masked, test_params['normalization_scales']['rain'], reverse=True)
+
+            li_preds = tf.split(preds_std, preds.shape[2], axis=2 )
+            li_targets = tf.split(targets_std, targets.shape[1], axis=1)
+
+            li_predictions.extend( li_preds )
+            li_true_values.append( li_targets )
         
 
         if( len(li_predictions)>=upload_size ):

@@ -95,8 +95,8 @@ class model_deepsd_hparameters(HParams):
         #endregion params
 
         REC_ADAM_PARAMS = {
-            "learning_rate":2e-3 , "warmup_proportion":0.6,
-            "min_lr": 1e-3, "beta_1":0.9 , "beta_2": 1.0, "epsilon":1e-11 }
+            "learning_rate":2e-2 , "warmup_proportion":0.6,
+            "min_lr": 1e-2, "beta_1":0.9 , "beta_2": 1.0, "epsilon":1e-11 }
         LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":1}
 
         model_type_settings = {'stochastic':False ,'stochastic_f_pass':50,
@@ -538,7 +538,7 @@ class test_hparameters_ati(HParams):
         WINDOW_SHIFT = self.lookback_target
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
         BATCH_SIZE = 2
-        N_PREDS = 50
+        N_PREDS = 25
         MODEL_RECOVER_METHOD = 'checkpoint_epoch'
         # endregion
 
@@ -577,7 +577,7 @@ class test_hparameters_ati(HParams):
         TEST_SET_SIZE_DATUMS_TARGET = int( TOTAL_DATUMS_TARGET * 0.2)
 
         date_tss = pd.date_range( end=test_end_date, periods=TEST_SET_SIZE_DATUMS_TARGET, freq='D',normalize=True)
-        EPOCHS = list ( (dates_tss - pd.Timestamp("1970-01-01") ) // pd.Timedelta('1s') )
+        EPOCHS = list ( (date_tss - pd.Timestamp("1970-01-01") ) // pd.Timedelta('1s') )
 
         DATA_DIR = "./Data/Rain_Data_Nov19" 
 

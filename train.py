@@ -7,11 +7,6 @@ import data_generators
 import utility
 
 import tensorflow as tf
-from tensorflow.keras.mixed_precision import experimental as mixed_precision
-##comment the below two lines out if training DEEPSD
-# policy = mixed_precision.Policy('mixed_float16')
-# mixed_precision.set_policy(policy)
-
 try:
     gpu_devices = tf.config.list_physical_devices('GPU')
 except Exception as e:
@@ -21,8 +16,10 @@ print(gpu_devices)
 for idx, gpu_name in enumerate(gpu_devices):
     tf.config.experimental.set_memory_growth(gpu_name, True)
 
-#K.set_session(K.tf.Session(config=cfg))
-
+from tensorflow.keras.mixed_precision import experimental as mixed_precision
+##comment the below two lines out if training DEEPSD
+# policy = mixed_precision.Policy('mixed_float16')
+# mixed_precision.set_policy(policy)
 
 import tensorflow_probability as tfp
 try:
@@ -417,7 +414,7 @@ def train_loop(train_params, model_params):
             
             elif model_params['model_name'] == "THST" and model_params['model_type_settings']['stochastic'] ==False: #non stochastic version
                 target, mask = target
-                preds = model(feature )
+                preds = model(tf.cast(feature,tf.float16) )
                 preds = tf.squeeze(preds)
 
                 preds_filtrd = tf.boolean_mask( preds, tf.logical_not(mask) )

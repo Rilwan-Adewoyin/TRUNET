@@ -77,7 +77,7 @@ class THST(tf.keras.Model):
         """
         preds = []
         for count in tf.range(n_preds):
-            pred = self.call( inputs, training=True ) #shape ( batch_size, output_h, output_w, 1 )
+            pred = self.call( inputs, training=True ) #shape ( batch_size, output_h, output_w, 1 ) or # (pred_count, bs, seq_len, h, w)
             preds.append( pred )
         
         return preds
