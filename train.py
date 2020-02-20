@@ -114,8 +114,8 @@ def train_loop(train_params, model_params):
     train_set_size_batches= train_params['train_set_size_batches']
     val_set_size_batches = train_params['val_set_size_batches'] 
     
-    train_batch_reporting_freq = int(train_set_size_batches*train_params['dataset_trainval_batch_reporting_freq'] )
-    val_batch_reporting_freq = int(val_set_size_batches*2*train_params['dataset_trainval_batch_reporting_freq'] )
+    train_batch_reporting_freq = max( int(train_set_size_batches*train_params['dataset_trainval_batch_reporting_freq'] ), 1 )
+    val_batch_reporting_freq = max( int(val_set_size_batches*2*train_params['dataset_trainval_batch_reporting_freq'] ), 1)
     #endregion
 
     # region Logic for setting up resume location
