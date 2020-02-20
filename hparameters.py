@@ -95,9 +95,9 @@ class model_deepsd_hparameters(HParams):
         #endregion params
 
         REC_ADAM_PARAMS = {
-            "learning_rate":2e-4 , "warmup_proportion":0.6,
-            "min_lr": 1e-3, "beta_1":0.9 , "beta_2": 1.0, "epsilon":1e-10 }
-        LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":0.75}
+            "learning_rate":2e-3 , "warmup_proportion":0.6,
+            "min_lr": 1e-3, "beta_1":0.9 , "beta_2": 1.0, "epsilon":1e-11 }
+        LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":1}
 
         model_type_settings = {'stochastic':False ,'stochastic_f_pass':50,
                                 'distr_type':"Normal", 'discrete_continuous':True,

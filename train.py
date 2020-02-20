@@ -8,6 +8,7 @@ import utility
 
 import tensorflow as tf
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
+##comment the below two lines out if training DEEPSD
 # policy = mixed_precision.Policy('mixed_float16')
 # mixed_precision.set_policy(policy)
 
