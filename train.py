@@ -8,8 +8,8 @@ import utility
 
 import tensorflow as tf
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
-policy = mixed_precision.Policy('mixed_float16')
-mixed_precision.set_policy(policy)
+# policy = mixed_precision.Policy('mixed_float16')
+# mixed_precision.set_policy(policy)
 
 try:
     gpu_devices = tf.config.list_physical_devices('GPU')
