@@ -374,7 +374,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
 
     ds = tf.data.Dataset.zip( (ds_feat, ds_tar) ) #( model_fields, (rain, rain_mask) ) 
     ds = ds.batch(t_params['batch_size'], drop_remainder=True)
-    ds = ds.prefetch(1)
+    #ds = ds.prefetch(1)
     return ds
 
 def get_start_idx( start_date, t_params, m_params ):
