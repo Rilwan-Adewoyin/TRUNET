@@ -91,7 +91,8 @@ def main(test_params, model_params):
     li_gen_data_eval_preds = util_predict.load_predictions_gen(_path_pred_eval_summ)
 
     if model_params['model_name']=="DeepSD":
-        postproc_pipeline_visualized_summary(li_gen_data_eval_preds, test_params, model_params)
+        pass
+        #postproc_pipeline_visualized_summary(li_gen_data_eval_preds, test_params, model_params)
     # endregion
 
     return True

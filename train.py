@@ -134,8 +134,8 @@ def train_loop(train_params, model_params):
     # endregion
 
     # region --- Tensorboard
-    os.makedirs("log_tensboard/{}/{}_{}_{}/{}".format(model_params['model_name'],model_params['model_type_settings']['var_model_type'],model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']),model_params['model_version']), exist_ok=True )
-    writer = tf.summary.create_file_writer( "log_tensboard/{}/{}_{}_{}/{}/tblog".format(model_params['model_name'],model_params['model_type_settings']['var_model_type'],model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']),model_params['model_version']) )
+    # os.makedirs("log_tensboard/{}/{}_{}_{}/{}".format(model_params['model_name'],model_params['model_type_settings']['var_model_type'],model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']),model_params['model_version']), exist_ok=True )
+    # writer = tf.summary.create_file_writer( "log_tensboard/{}/{}_{}_{}/{}/tblog".format(model_params['model_name'],model_params['model_type_settings']['var_model_type'],model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']),model_params['model_version']) )
     # endregion
 
     # region ---- Making Datasets
@@ -336,27 +336,27 @@ def train_loop(train_params, model_params):
                 gc.collect()
                             
             #region Tensorboard Update
-            step = batch + (epoch-1)*train_set_size_batches
-            with writer.as_default():
-                if( model_params['model_type_settings']['stochastic']==True ):
-                    tf.summary.scalar('train_loss_var_free_nrg', var_free_nrg_loss , step =  step )
-                    tf.summary.scalar('kl_loss', kl_loss, step=step )
-                    tf.summary.scalar('neg_log_likelihood', -log_likelihood, step=step )
-                    tf.summary.scalar('train_metric_mse', metric_mse , step = step )
+            # step = batch + (epoch-1)*train_set_size_batches
+            # with writer.as_default():
+                # if( model_params['model_type_settings']['stochastic']==True ):
+                #     tf.summary.scalar('train_loss_var_free_nrg', var_free_nrg_loss , step =  step )
+                #     tf.summary.scalar('kl_loss', kl_loss, step=step )
+                #     tf.summary.scalar('neg_log_likelihood', -log_likelihood, step=step )
+                #     tf.summary.scalar('train_metric_mse', metric_mse , step = step )
 
-                    if model_params['model_type_settings']['discrete_continuous'] == True:
-                        tf.summary.scalar('train_loss_mse_condrain', loss_mse_condrain, step=step )
+                #     if model_params['model_type_settings']['discrete_continuous'] == True:
+                #         tf.summary.scalar('train_loss_mse_condrain', loss_mse_condrain, step=step )
                 
-                elif( model_params['model_type_settings']['stochastic']==False ):
-                    tf.summary.scalar('train_loss_mse', loss_mse , step = step )
-                    tf.summary.scalar('train_metric_mse', metric_mse , step = step )
+                # elif( model_params['model_type_settings']['stochastic']==False ):
+                #     tf.summary.scalar('train_loss_mse', loss_mse , step = step )
+                #     tf.summary.scalar('train_metric_mse', metric_mse , step = step )
     
 
-                for grad, grad_clipped, _tensor in zip( gradients, gradients_clipped_global_norm ,model.trainable_variables):
-                    if grad is not None:
-                        tf.summary.histogram( "Grad:{}".format( _tensor.name ) , grad, step = step  )
-                        tf.summary.histogram( "Grads_Norm:{}".format( _tensor.name ) , grad_clipped, step = step )
-                        tf.summary.histogram( "Weights:{}".format(_tensor.name), _tensor , step = step ) 
+                # for grad, grad_clipped, _tensor in zip( gradients, gradients_clipped_global_norm ,model.trainable_variables):
+                #     if grad is not None:
+                #         tf.summary.histogram( "Grad:{}".format( _tensor.name ) , grad, step = step  )
+                #         tf.summary.histogram( "Grads_Norm:{}".format( _tensor.name ) , grad_clipped, step = step )
+                #         tf.summary.histogram( "Weights:{}".format(_tensor.name), _tensor , step = step ) 
             #endregion
 
             #region training Reporting and Metrics updates
