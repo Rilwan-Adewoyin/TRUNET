@@ -173,7 +173,7 @@ def pixel_calibration(preds, true, dist_name,rainy_threshold=0.5):
 
 def distribution_getter( preds, dist_name):
     if dist_name=="Normal":
-        distr = tfp.distributions.Normal( loc= np.mean(preds,axis=0), scale=np.stds(preds,axis=0) )
+        distr = tfp.distributions.Normal( loc= np.mean(preds,axis=0), scale=np.std(preds,axis=0) )
     elif dist_name =="LogNormal":
         distr = tfp.distributions.LogNormal( loc=tf.math.reduce_mean( tf.math.log(preds),axis=0 ), scale=tf.math.reduce_std( tf.math.log(preds),axis=0 ) )
     if dist_name =="None":
