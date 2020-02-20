@@ -473,7 +473,7 @@ class ConvRNN2D(RNN):
         # TODO(anjalisridhar): consider batch calls to `set_value`.
         K.set_value(state, value)
 
-  def _maybe_reset_cell_dropout_mask(cell):
+  def _maybe_reset_cell_dropout_mask(self,cell):
       return super(ConvRNN2D,self)._maybe_reset_cell_dropout_mask(cell)
 
 ##Input layer
