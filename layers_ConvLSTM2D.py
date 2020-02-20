@@ -24,12 +24,12 @@ from tensorflow.python.util import nest
 from tensorflow.python.util.tf_export import keras_export
 #from tensorflow.python.keras.layers.convolutional_recurrent import ConvRNN2D
 
-from tensorflow.keras.layers import Conv2D
+from tensorflow.keras.layers import Conv2D, RNN
 
 
 
 #The calss below is adated to work with mixed precision
-class ConvRNN2D(tf.keras.layers.RNN):
+class ConvRNN2D(RNN):
   """Base class for convolutional-recurrent layers.
 
     Arguments:
@@ -473,6 +473,9 @@ class ConvRNN2D(tf.keras.layers.RNN):
         # TODO(anjalisridhar): consider batch calls to `set_value`.
         K.set_value(state, value)
 
+  def _maybe_reset_cell_dropout_mask(cell):
+      return super(ConvRNN2D,self)._maybe_reset_cell_dropout_mask(cell)
+
 ##Input layer
 class ConvLSTM2D(ConvRNN2D):
     """Convolutional LSTM.
@@ -651,7 +654,7 @@ class ConvLSTM2D(ConvRNN2D):
 
     @tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
-        #self._maybe_reset_cell_dropout_mask(self.cell)
+        self._maybe_reset_cell_dropout_mask(self.cell)
         return super(ConvLSTM2D, self).call(inputs,
                                             mask=mask,
                                             training=training,
@@ -1238,7 +1241,7 @@ class ConvLSTM2D_custom(ConvRNN2D):
 
     @tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
-        #self._maybe_reset_cell_dropout_mask(self.cell)
+        self._maybe_reset_cell_dropout_mask(self.cell)
 
         if self.stateful and (initial_state is not None):
             initial_state = self.states
@@ -1974,7 +1977,7 @@ class ConvLSTM2D_attn(ConvRNN2D):
 
     @tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
-        #self._maybe_reset_cell_dropout_mask(self.cell)
+        self._maybe_reset_cell_dropout_mask(self.cell)
         if initial_state is not None:
             pass
         elif self.stateful:
