@@ -95,8 +95,8 @@ class model_deepsd_hparameters(HParams):
         #endregion params
 
         REC_ADAM_PARAMS = {
-            "learning_rate":2e-1 , "warmup_proportion":0.6,
-            "min_lr": 1e-2, "beta_1":0.9 , "beta_2": 0.99, "epsilon":1e-12 }
+            "learning_rate":2e-2 , "warmup_proportion":0.6,
+            "min_lr": 1e-3, "beta_1":0.9 , "beta_2": 0.99, "epsilon":1e-10 }
         LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":1}
 
         model_type_settings = {'stochastic':False ,'stochastic_f_pass':50,
@@ -156,7 +156,7 @@ class model_THST_hparameters(HParams):
         seq_len_for_highest_hierachy_level = 2 #2 Months
 
         #Low Memory Testing Settings
-        SEQ_LEN_FACTOR_REDUCTION = [4, 2, 2, 2] #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
+        #SEQ_LEN_FACTOR_REDUCTION = [4, 2, 2, 2] #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
         #seq_len_for_highest_hierachy_level = 2
 
         
@@ -181,12 +181,12 @@ class model_THST_hparameters(HParams):
         encoder_layers = len( SEQ_LEN_FACTOR_REDUCTION ) +1
 
         # region CLSTM params
-        output_filters_enc = [10, 10, 10, 10] #output filters for each convLSTM2D layer in the encoder
-        output_filters_enc = [1, 1, 1, 1] #NOTE: development settings
+        output_filters_enc = [50, 50, 50, 50] #output filters for each convLSTM2D layer in the encoder
+        #output_filters_enc = [1, 1, 1, 1] #NOTE: development settings
         output_filters_enc = output_filters_enc + output_filters_enc[-1:] #the last two layers in the encoder must output the same number of channels
 
-        #kernel_size_enc = [ (4,4) , (4,4) , (4,4), (4,4), (4,4)]
-        kernel_size_enc = [ (2,2) , (2,2) , (2,2), (2,2), (2,2)]
+        kernel_size_enc = [ (4,4) , (4,4) , (4,4), (4,4), (4,4)]
+        #kernel_size_enc = [ (2,2) , (2,2) , (2,2), (2,2), (2,2)]
 
         attn_layers = encoder_layers - 1
         attn_heads = [ 1]*attn_layers#NOTE: dev settings #must be a factor of h or w or c, so 100, 140 or 6 -> 2, 5, 7, 
@@ -263,10 +263,10 @@ class model_THST_hparameters(HParams):
 
         # region --------------- OUTPUT_LAYER_PARAMS -----------------
         output_filters = [ 25, 1 ]
-        output_filters = [ 2, 1 ] #NOTE: development settings
+        #output_filters = [ 2, 1 ] #NOTE: development settings
 
         output_kernel_size = [ (4,4), (5,5) ]
-        output_kernel_size = [ (2,2), (2,2) ] #NOTE: development settings
+        #output_kernel_size = [ (2,2), (2,2) ] #NOTE: development settings
 
 
         OUTPUT_LAYER_PARAMS = [ 

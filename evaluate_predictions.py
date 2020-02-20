@@ -1,8 +1,8 @@
 import tensorflow as tf
-gpu_devices = tf.config.experimental.list_physical_devices('GPU')
-print(gpu_devices)
-for idx, gpu_name in enumerate(gpu_devices):
-    tf.config.experimental.set_memory_growth(gpu_name, True)
+# gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+# print(gpu_devices)
+# for idx, gpu_name in enumerate(gpu_devices):
+#     tf.config.experimental.set_memory_growth(gpu_name, True)
 
 import pandas as pd
 import numpy as np
@@ -20,6 +20,7 @@ import sys
 from matplotlib import pyplot as plt
 from PIL import Image
 import utility
+import pywt
 from skimage.transform import rescale, resize, downscale_local_mean
 import json
 import ast
@@ -88,7 +89,9 @@ def main(test_params, model_params):
                                                         model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']) ,model_params['model_version'])
     
     li_gen_data_eval_preds = util_predict.load_predictions_gen(_path_pred_eval_summ)
-    postproc_pipeline_visualized_summary(li_gen_data_eval_preds, test_params, model_params)
+
+    if model_params['model_name']=="DeepSD":
+        postproc_pipeline_visualized_summary(li_gen_data_eval_preds, test_params, model_params)
     # endregion
 
     return True
@@ -150,8 +153,7 @@ def pixel_calibration(preds, true, dist_name,rainy_threshold=0.5):
     """
 
     p_range = np.arange(0,1.,0.01)
-    if dist_name == "None":
-        dist_name = "Normal" #just make fill in values for the sake of evaluation    
+
     distr = distribution_getter( preds, dist_name )
 
     bool_notrainydays = true<rainy_threshold
@@ -174,6 +176,8 @@ def distribution_getter( preds, dist_name):
         distr = tfp.distributions.Normal( loc= np.mean(preds,axis=0), scale=np.stds(preds,axis=0) )
     elif dist_name =="LogNormal":
         distr = tfp.distributions.LogNormal( loc=tf.math.reduce_mean( tf.math.log(preds),axis=0 ), scale=tf.math.reduce_std( tf.math.log(preds),axis=0 ) )
+    if dist_name =="None":
+        distr = tfp.distributions.Normal( loc=np.mean(preds,axis=0), scale=0.05 )
     else:
         raise ValueError
     return distr
