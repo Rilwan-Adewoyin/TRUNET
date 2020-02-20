@@ -60,8 +60,11 @@ def predict( model, test_params, model_params ,checkpoint_no ):
     # region ------ Setting up testing variables
     upload_size = int( (test_params['test_set_size_elements']/test_params['batch_size'] )* test_params['dataset_pred_batch_reporting_freq'] )
     li_predictions = [] #This will be a list of list of tensors, each list contain a set of (maybe stochastic) predictions for the corresponding ts
-    li_timestamps = test_params['epochs'] #TODO: add this to ATI code
-    li_timestamps_chunked = [li_timestamps[i:i+test_params['batch_size']] for i in range(0, len(li_timestamps), test_params['batch_size'])] 
+    li_timestamps = test_params['epochs']
+    if model_params['model_name']=="DeepSD" :
+        li_timestamps_chunked = [li_timestamps[i:i+test_params['batch_size']] for i in range(0, len(li_timestamps), test_params['batch_size'])] 
+    elif model_params['model_name'] == "THST":
+        li_timestamps_chunked = [li_timestamps[i:i+test_params['window_shift']] for i in range(0, len(li_timestamps), test_params['window_shift'])] 
     li_true_values = []
     # endregion
 
@@ -69,19 +72,20 @@ def predict( model, test_params, model_params ,checkpoint_no ):
     if(model_params['model_name']=="DeepSD"):
         ds = data_generators.load_data_vandal( test_params['starting_test_element'], 
                 test_params, model_params,_num_parallel_calls=test_params['num_parallel_calls'], data_dir = test_params['data_dir'], drop_remainder=True  )
+        ds = ds.take( int(test_params['test_set_size_elements']/test_params['batch_size']) )
+
     elif(model_params['model_name']=="THST" ):
         ds = data_generators.load_data_ati(test_params, model_params, None,
-                                        day_to_start_at=test_params['val_end_date'], data_dir=train_params['data_dir'] )
-
+                                        day_to_start_at=test_params['test_start_date'], data_dir=test_params['data_dir'] )
+        ds = ds.take( test_params['total_datums'] )
     iter_test = enumerate(ds)
     #endregion
 
     # region --- predictions
+    
     for batch in range(1, int(1+test_params['test_set_size_elements']/test_params['batch_size']) ):
-        try:
-            idx,(feature, target) = next(iter_test)
-        except StopIteration as e:
-            break
+
+        idx,(feature, target) = next(iter_test)
 
         if model_params['model_name'] == "DeepSD":
             
@@ -94,8 +98,11 @@ def predict( model, test_params, model_params ,checkpoint_no ):
         elif model_params['model_name'] == "THST":
             target, mask = target
 
-            preds = model( tf.cast(feature,tf.float16) )
-            preds = tf.squeeze(preds) # (pred_count, bs, seq_len, h, w)
+            preds = model( tf.cast(feature,tf.float16),training=False )
+            if model_params['model_type_settings']['stochastic'] == False:
+                preds = tf.expand_dims(preds, axis=0 )
+
+            preds = tf.squeeze(preds,axis=-1) # (pred_count, bs, seq_len, h, w)
             #splitting in the time dimension
             preds_masked = utility.water_mask( preds, tf.logical_not(mask)  )
             target_masked = utility.water_mask(target, tf.logical_not(mask) )
@@ -103,11 +110,13 @@ def predict( model, test_params, model_params ,checkpoint_no ):
             preds_std = utility.standardize_ati(preds_masked, test_params['normalization_scales']['rain'], reverse=True)
             targets_std = utility.standardize_ati(target_masked, test_params['normalization_scales']['rain'], reverse=True)
 
-            li_preds = tf.split(preds_std, preds.shape[2], axis=2 )
-            li_targets = tf.split(targets_std, targets.shape[1], axis=1)
+            #combining the batch and seq_len axis to represent timesteps
+            
+            preds_reshaped = tf.reshape(preds_std, [ preds_std.shape[0], -1] + preds_std.shape.as_list()[-2:] )
+            targets_reshaped = tf.reshape(targets_std, [-1]+preds_std.shape.as_list()[-2:] )
 
-            li_predictions.extend( li_preds )
-            li_true_values.append( li_targets )
+            li_predictions.append( preds_reshaped )
+            li_true_values.append( targets_reshaped )
         
 
         if( len(li_predictions)>=upload_size ):
@@ -117,10 +126,11 @@ def predict( model, test_params, model_params ,checkpoint_no ):
             li_predictions = []
             li_true_values = []
     
-    util_predict.save_preds(test_params, model_params, li_predictions, li_timestamps_chunked[:len(li_predictions)], li_true_values )
-    li_timestamps_chunked = li_timestamps_chunked[len(li_predictions):]
-    li_predictions = []
-    li_true_values = []
+    if len(li_predictions) >0:
+        util_predict.save_preds(test_params, model_params, li_predictions, li_timestamps_chunked[:len(li_predictions)], li_true_values )
+        li_timestamps_chunked = li_timestamps_chunked[len(li_predictions):]
+        li_predictions = []
+        li_true_values = []
 
             
     # endregion
@@ -155,7 +165,7 @@ if __name__ == "__main__":
     elif(args_dict['model_name'] == "THST"):
         model_params = hparameters.model_THST_hparameters()()
         args_dict['lookback_target'] = model_params['data_pipeline_params']['lookback_target']
-        test_params = hparameters.test_hparameters_ati( **args_dict )
+        test_params = hparameters.test_hparameters_ati( **args_dict )       
     
     main(test_params(), model_params)
     

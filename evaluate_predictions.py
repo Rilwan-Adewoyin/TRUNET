@@ -150,7 +150,8 @@ def pixel_calibration(preds, true, dist_name,rainy_threshold=0.5):
     """
 
     p_range = np.arange(0,1.,0.01)
-    
+    if dist_name == "None":
+        dist_name = "Normal" #just make fill in values for the sake of evaluation    
     distr = distribution_getter( preds, dist_name )
 
     bool_notrainydays = true<rainy_threshold

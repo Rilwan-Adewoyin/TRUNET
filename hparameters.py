@@ -95,8 +95,8 @@ class model_deepsd_hparameters(HParams):
         #endregion params
 
         REC_ADAM_PARAMS = {
-            "learning_rate":2e-2 , "warmup_proportion":0.6,
-            "min_lr": 1e-3, "beta_1":0.9 , "beta_2": 1.0, "epsilon":1e-11 }
+            "learning_rate":2e-1 , "warmup_proportion":0.6,
+            "min_lr": 1e-2, "beta_1":0.9 , "beta_2": 0.99, "epsilon":1e-12 }
         LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":1}
 
         model_type_settings = {'stochastic':False ,'stochastic_f_pass':50,
@@ -286,8 +286,8 @@ class model_THST_hparameters(HParams):
         }
 
         REC_ADAM_PARAMS = {
-            "learning_rate":2e-4 , "warmup_proportion":0.6,
-            "min_lr": 1e-4, "beta_1":0.9 , "beta_2": 1.0, "epsilon":1e-5
+            "learning_rate":2e-3 , "warmup_proportion":0.6,
+            "min_lr": 1e-3, "beta_1":0.9 , "beta_2": 1.0, "epsilon":1e-5
         }
         LOOKAHEAD_PARAMS = { "sync_period":3 , "slow_step_size":0.6}
         
@@ -539,7 +539,7 @@ class test_hparameters_ati(HParams):
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
         BATCH_SIZE = 2
         N_PREDS = 25
-        MODEL_RECOVER_METHOD = 'checkpoint_epoch'
+        MODEL_RECOVER_METHOD = 'checkpoint_batch'
         # endregion
 
 
@@ -576,7 +576,7 @@ class test_hparameters_ati(HParams):
 
         TEST_SET_SIZE_DATUMS_TARGET = int( TOTAL_DATUMS_TARGET * 0.2)
 
-        date_tss = pd.date_range( end=test_end_date, periods=TEST_SET_SIZE_DATUMS_TARGET, freq='D',normalize=True)
+        date_tss = pd.date_range( end=test_end_date, start=test_start_date, freq='D',normalize=True)
         EPOCHS = list ( (date_tss - pd.Timestamp("1970-01-01") ) // pd.Timedelta('1s') )
 
         DATA_DIR = "./Data/Rain_Data_Nov19" 
@@ -588,6 +588,7 @@ class test_hparameters_ati(HParams):
             'total_datums':TOTAL_DATUMS_TARGET,
             'test_set_size_elements':TEST_SET_SIZE_DATUMS_TARGET,
             'num_preds':N_PREDS,
+            'dataset_pred_batch_reporting_freq':0.05,
 
             'model_recover_method':MODEL_RECOVER_METHOD,
             'script_dir':None,
@@ -603,6 +604,7 @@ class test_hparameters_ati(HParams):
             'test_end_date':test_end_date,
 
             'feature_start_date':feature_start_date,
+            'target_start_date':target_start_date,
             'feature_start_end':feature_end_date
         }
 

@@ -21,6 +21,7 @@ def load_model(test_params, model_params):
                 #Just initliazing model so checkpoint method can work
             init_inp = tf.ones( [ test_params['batch_size'], model_params['input_dims'][0],
                         model_params['input_dims'][1], model_params['conv1_inp_channels'] ] , dtype=tf.float32 )
+            model(init_inp, pred=False )
 
         elif(model_name=="THST"):
             model = models.THST(test_params, model_params)
@@ -28,7 +29,7 @@ def load_model(test_params, model_params):
                 [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ]
             )
 
-        model(init_inp, pred=False )
+            model(init_inp, training=False )
         checkpoint_path = test_params['script_dir']+"/checkpoints/{}/{}_{}_{}/batch/{}".format(model_params['model_name'],
                 model_params['model_type_settings']['var_model_type'],model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']) ,model_params['model_version'])
 
@@ -48,12 +49,14 @@ def load_model(test_params, model_params):
 
             init_inp = tf.ones( [test_params['batch_size'], model_params['input_dims'][0],
                         model_params['input_dims'][1], model_params['conv1_inp_channels'] ] , dtype=tf.float32 )
+            model(init_inp, pred=True )
+
         elif(model_name=="THST"):
             model = models.THST(test_params, model_params)
             init_inp = tf.zeros(
                 [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ]
             )
-        model(init_inp, pred=True )
+            model(init_inp, training=True )
 
         ckpt = tf.train.Checkpoint(model=model)
 
