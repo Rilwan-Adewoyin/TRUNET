@@ -10,7 +10,7 @@ import utility
 
 # region Vandal related
 
-def load_data_vandal( elements_to_skip, hparams, m_params,_num_parallel_calls =1, data_dir="./Data", drop_remainder=True):
+def load_data_vandal( elements_to_skip, hparams, m_params,_num_parallel_calls =-1, data_dir="./Data", drop_remainder=True):
 
     # region prepare elevation Preprocess
     _path = data_dir+"/Preprocessed/elevation.pkl" #TODO:(akanni-ade) change to value passed in via a h-parameters dictionary

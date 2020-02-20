@@ -7,6 +7,8 @@ import data_generators
 import utility
 
 import tensorflow as tf
+from tensorflow.keras.mixed_precision import experimental as mixed_precision
+
 try:
     gpu_devices = tf.config.list_physical_devices('GPU')
 except Exception as e:
@@ -16,10 +18,9 @@ print(gpu_devices)
 for idx, gpu_name in enumerate(gpu_devices):
     tf.config.experimental.set_memory_growth(gpu_name, True)
 
-from tensorflow.keras.mixed_precision import experimental as mixed_precision
 ##comment the below two lines out if training DEEPSD
-policy = mixed_precision.Policy('mixed_float16')
-mixed_precision.set_policy(policy)
+# policy = mixed_precision.Policy('mixed_float16')
+# mixed_precision.set_policy(policy)
 
 import tensorflow_probability as tfp
 try:
