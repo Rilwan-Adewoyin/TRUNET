@@ -8,6 +8,7 @@ def model_loader(train_params,model_params ):
         model_name = model_params[0]['model_name']
     else:
         model_name = model_params['model_name']
+    
 
     if(model_name=="THST"):
         return THST(train_params, model_params)
@@ -60,12 +61,12 @@ class THST(tf.keras.Model):
 
         self.float32_output = tf.keras.layers.Activation('linear',dtype='float32')
 
-    #@tf.function
-    def call(self, _input, tape=None, pred=False):
+    @tf.function
+    def call(self, _input, tape=None, training=False):
         
-        hidden_states_2_enc, hidden_states_3_enc, hidden_4_enc, hidden_5_enc = self.encoder( _input )
-        hidden_states_dec = self.decoder( hidden_states_2_enc, hidden_states_3_enc, hidden_4_enc, hidden_5_enc )
-        output = self.output_layer(hidden_states_dec)
+        hidden_states_2_enc, hidden_states_3_enc, hidden_4_enc, hidden_5_enc = self.encoder( _input, training )
+        hidden_states_dec = self.decoder( hidden_states_2_enc, hidden_states_3_enc, hidden_4_enc, hidden_5_enc, training )
+        output = self.output_layer(hidden_states_dec, training)
         output = self.float32_output(output)
         
         return output
@@ -76,7 +77,7 @@ class THST(tf.keras.Model):
         """
         preds = []
         for count in tf.range(n_preds):
-            pred = self.call( inputs, pred=True ) #shape ( batch_size, output_h, output_w, 1 )
+            pred = self.call( inputs, training=True ) #shape ( batch_size, output_h, output_w, 1 )
             preds.append( pred )
         
         return preds

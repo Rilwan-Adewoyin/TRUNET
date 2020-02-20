@@ -96,7 +96,7 @@ class model_deepsd_hparameters(HParams):
 
         REC_ADAM_PARAMS = {
             "learning_rate":2e-4 , "warmup_proportion":0.6,
-            "min_lr": 1e-4, "beta_1":0.9 , "beta_2": 1.0, "epsilon":1e-9 }
+            "min_lr": 1e-3, "beta_1":0.9 , "beta_2": 1.0, "epsilon":1e-10 }
         LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":0.75}
 
         model_type_settings = {'stochastic':False ,'stochastic_f_pass':50,
@@ -145,18 +145,19 @@ class model_THST_hparameters(HParams):
         super( model_THST_hparameters, self ).__init__(**kwargs)
 
 
-    def _default_params(self):
+    def _default_params(self ):
         
         # region general params
         DROPOUT = 0.05
 
         #Deployment Settings        
-        SEQ_LEN_FACTOR_REDUCTION = [4, 30, 3, 4 ] #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
-        seq_len_for_highest_hierachy_level = 2
+        SEQ_LEN_FACTOR_REDUCTION = [4, 7, 4, 4 ] #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
+            # 6hrs,1Day,1Week,1Month
+        seq_len_for_highest_hierachy_level = 2 #2 Months
 
         #Low Memory Testing Settings
         SEQ_LEN_FACTOR_REDUCTION = [4, 2, 2, 2] #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
-        seq_len_for_highest_hierachy_level = 2
+        #seq_len_for_highest_hierachy_level = 2
 
         
         #NUM_OF_SPLITS = [ seq_len_for_highest_hierachy_level*SEQ_LEN_FACTOR_REDUCTION[1] , seq_len_for_highest_hierachy_level ] 
@@ -166,8 +167,6 @@ class model_THST_hparameters(HParams):
         # endregion
         
         # region Model Specific Data Generator Params
-        mf_time_scale = 0.25 #days
-        rain_time_scale = 1 #days
         
         target_to_feature_time_ratio = SEQ_LEN_FACTOR_REDUCTION[0] # int(rain_time_scale/mf_time_scale)
         lookback_feature = reduce( (lambda x,y: x*y ), SEQ_LEN_FACTOR_REDUCTION ) * seq_len_for_highest_hierachy_level
@@ -179,24 +178,20 @@ class model_THST_hparameters(HParams):
         # endregion
 
         # region --------------- ENCODER params -----------------
-        encoder_layers = 5
+        encoder_layers = len( SEQ_LEN_FACTOR_REDUCTION ) +1
 
         # region CLSTM params
         output_filters_enc = [10, 10, 10, 10] #output filters for each convLSTM2D layer in the encoder
-        output_filters_enc = [2, 1, 1, 1] #NOTE: development settings
+        output_filters_enc = [1, 1, 1, 1] #NOTE: development settings
         output_filters_enc = output_filters_enc + output_filters_enc[-1:] #the last two layers in the encoder must output the same number of channels
 
-        kernel_size_enc = [ (4,4) , (4,4) , (4,4), (4,4), (4,4)]
+        #kernel_size_enc = [ (4,4) , (4,4) , (4,4), (4,4), (4,4)]
         kernel_size_enc = [ (2,2) , (2,2) , (2,2), (2,2), (2,2)]
 
         attn_layers = encoder_layers - 1
-        #key_depth = [0 ]*attn_layers  #This will be updated dynamically during the first iteration of the model
         attn_heads = [ 1]*attn_layers#NOTE: dev settings #must be a factor of h or w or c, so 100, 140 or 6 -> 2, 5, 7, 
         kq_downscale_stride = [1,13,13]
         kq_downscale_kernelshape = [1, 13, 13]
-        #Downscale factor deprecated in favour of Average 3D pooling
-        vector_k_downscale_factor = 2
-        vector_v_downscale_factor = 1
 
         #new version
         key_depth = [ (100*140*output_filters_enc[idx])/ int(np.prod([kq_downscale_kernelshape[1:]])) for idx in range(attn_layers) ] 
@@ -218,14 +213,13 @@ class model_THST_hparameters(HParams):
         #   save_weights_to=None,
 
         ATTN_DOWNSCALING_params_enc = {
-             "vector_k_downscale_factor":vector_k_downscale_factor,
-             "vector_v_downscale_factor":vector_v_downscale_factor,
-            'kq_downscale_stride': kq_downscale_stride, 'kq_downscale_kernelshape':kq_downscale_kernelshape
+            'kq_downscale_stride': kq_downscale_stride,
+            'kq_downscale_kernelshape':kq_downscale_kernelshape
         }
 
         CLSTMs_params_enc = [
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
-                'return_sequences':True, 'dropout':DROPOUT, 'recurrent_dropout':DROPOUT,
+                'return_sequences':True, 'dropout':0.0, 'recurrent_dropout':0.0,
                 'stateful':True }
              for f, ks in zip( output_filters_enc, kernel_size_enc)
         ]
@@ -252,7 +246,7 @@ class model_THST_hparameters(HParams):
 
         CLSTMs_params_dec = [
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
-                'return_sequences':True, 'dropout':DROPOUT, 'gates_version':2, 'recurrent_dropout':DROPOUT,
+                'return_sequences':True, 'dropout':0.0, 'gates_version':2, 'recurrent_dropout':0.0,
                 'stateful':True }
              for f, ks in zip( output_filters_dec, kernel_size_dec)
         ]
@@ -262,13 +256,14 @@ class model_THST_hparameters(HParams):
             'CLSTMs_params' : CLSTMs_params_dec,
             'seq_len_factor_reduction': SEQ_LEN_FACTOR_REDUCTION[-decoder_layers:], #This is written in the correct order
             'num_of_splits': NUM_OF_SPLITS[-decoder_layers:],
+            'seq_len': NUM_OF_SPLITS[:decoder_layers],
             'dropout':DROPOUT
         }
         # endregion
 
         # region --------------- OUTPUT_LAYER_PARAMS -----------------
         output_filters = [ 25, 1 ]
-        output_filters = [ 3, 1 ] #NOTE: development settings
+        output_filters = [ 2, 1 ] #NOTE: development settings
 
         output_kernel_size = [ (4,4), (5,5) ]
         output_kernel_size = [ (2,2), (2,2) ] #NOTE: development settings

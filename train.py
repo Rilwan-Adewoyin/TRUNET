@@ -329,8 +329,6 @@ def train_loop(train_params, model_params):
                     elif (model_params['model_type_settings']['stochastic']==True) :
                         raise NotImplementedError
                 
-                    #a = tape.watched_variables()
-                    #TODO: ensure gradient to attention modules is an average of the number of times module is repeatedly used
                     scaled_gradients = tape.gradient( scaled_loss_mse, model.trainable_variables )
                     gradients = optimizer.get_unscaled_gradients(scaled_gradients)
                     gradients_clipped_global_norm = gradients
@@ -409,7 +407,7 @@ def train_loop(train_params, model_params):
             idx, (feature, target) = next(iter_val)
 
             if model_params['model_name'] == "DeepSD":
-                preds = model( feature )
+                preds = model( feature, training=False )
                 preds = utility.water_mask( tf.squeeze(preds), train_params['bool_water_mask'])
                 
                 target_filtrd = tf.reshape( tf.boolean_mask(  target , train_params['bool_water_mask'], axis=1 ), [train_params['batch_size'], -1] )
@@ -510,6 +508,8 @@ if __name__ == "__main__":
         model_params = hparameters.model_THST_hparameters()()
         args_dict['lookback_target'] = model_params['data_pipeline_params']['lookback_target']
         train_params = hparameters.train_hparameters_ati( **args_dict )
+        # if train_params['trainable'] == False:
+        # model_params = hparameters.model_THST_hparameters()()
         
     # endregion
     utility.save_model_settings( train_params, model_params )

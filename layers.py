@@ -639,20 +639,20 @@ class THST_Encoder(tf.keras.layers.Layer ):
         self.CLSTM_5 = THST_CLSTM_Attention_Layer( train_params, encoder_params['CLSTMs_params'][4], 
             encoder_params['ATTN_params'][3], encoder_params['ATTN_DOWNSCALING_params_enc'] ,
             encoder_params['seq_len_factor_reduction'][3], self.encoder_params['num_of_splits'][3] )
-
-    def call(self, _input):
+    @tf.function
+    def call(self, _input, training=True):
         """
             _input #shape( )
         """
-        hidden_states_1 =  self.CLSTM_1( _input ) #(bs, seq_len_1, h, w, c1)
+        hidden_states_1 =  self.CLSTM_1( _input, training ) #(bs, seq_len_1, h, w, c1)
 
-        hidden_states_2 = self.CLSTM_2( hidden_states_1) #(bs, seq_len_2, h, w, c2)
+        hidden_states_2 = self.CLSTM_2( hidden_states_1, training=training) #(bs, seq_len_2, h, w, c2)
 
-        hidden_states_3 =  self.CLSTM_3( hidden_states_2 ) #(bs, seq_len_3, h, w, c3)
+        hidden_states_3 =  self.CLSTM_3( hidden_states_2,training=training ) #(bs, seq_len_3, h, w, c3)
 
-        hidden_states_4 =  self.CLSTM_4( hidden_states_3 ) #(bs, seq_len_4, h, w, c3)
+        hidden_states_4 =  self.CLSTM_4( hidden_states_3,training=training ) #(bs, seq_len_4, h, w, c3)
 
-        hidden_states_5 =  self.CLSTM_5( hidden_states_4 ) #(bs, seq_len_5, h, w, c3)
+        hidden_states_5 =  self.CLSTM_5( hidden_states_4,training=training ) #(bs, seq_len_5, h, w, c3)
 
         return hidden_states_2, hidden_states_3, hidden_states_4, hidden_states_5    
 
@@ -666,19 +666,24 @@ class THST_Decoder(tf.keras.layers.Layer):
         self.train_params = train_params
 
         #TODO: REFACTOR so that each of these conv layers is made automatically using a forloop and and iterating through a dictionary of params
-        self.CLSTM_L4 = THST_CLSTM_Decoder_Layer( train_params, self.decoder_params['CLSTMs_params'][2], decoder_params['seq_len_factor_reduction'][2] )
-        self.CLSTM_L3 = THST_CLSTM_Decoder_Layer( train_params, self.decoder_params['CLSTMs_params'][1],  decoder_params['seq_len_factor_reduction'][1] )
-        self.CLSTM_L2 = THST_CLSTM_Decoder_Layer( train_params, self.decoder_params['CLSTMs_params'][0],  decoder_params['seq_len_factor_reduction'][0] )
-        
-    def call(self, hidden_states_2_enc, hidden_states_3_enc, hidden_states_4_enc, hidden_states_5_enc  ):
+        self.CLSTM_L4 = THST_CLSTM_Decoder_Layer( train_params, self.decoder_params['CLSTMs_params'][2], decoder_params['seq_len_factor_reduction'][2],
+                                                        decoder_params['seq_len'][2] )
+        self.CLSTM_L3 = THST_CLSTM_Decoder_Layer( train_params, self.decoder_params['CLSTMs_params'][1],  decoder_params['seq_len_factor_reduction'][1],
+                                                        decoder_params['seq_len'][1] )
+        self.CLSTM_L2 = THST_CLSTM_Decoder_Layer( train_params, self.decoder_params['CLSTMs_params'][0],  decoder_params['seq_len_factor_reduction'][0],
+                                                        decoder_params['seq_len'][0] )
+    
+    @tf.function
+    def call(self, hidden_states_2_enc, hidden_states_3_enc, hidden_states_4_enc, hidden_states_5_enc, training=True  ):
 
-        hidden_states_l4 = self.CLSTM_L4( hidden_states_4_enc , hidden_states_5_enc)
-
-        hidden_states_l3 = self.CLSTM_L3( hidden_states_3_enc, hidden_states_l4 ) #(bs, output_len2, height, width)
-
-        hidden_states_l2 = self.CLSTM_L2( hidden_states_2_enc, hidden_states_l3 )     #(bs, output_len1, height, width)     
-
+        hidden_states_l4 = self.CLSTM_L4( hidden_states_4_enc , hidden_states_5_enc, training)
+            #2, 4, 100, 140, 2
+        hidden_states_l3 = self.CLSTM_L3( hidden_states_3_enc, hidden_states_l4, training ) #(bs, output_len2, 100, 140, layer_below_filters*2)
+            #2, 8, 100, 140, 2
+        hidden_states_l2 = self.CLSTM_L2( hidden_states_2_enc, hidden_states_l3, training )     #(bs, output_len1, height, width)     
+            #2, 16, 100, 140, 4
         return hidden_states_l2
+            
 
 class THST_CLSTM_Input_Layer(tf.keras.layers.Layer):
     """
@@ -692,11 +697,12 @@ class THST_CLSTM_Input_Layer(tf.keras.layers.Layer):
         self.layer_params = layer_params #list of dictionaries containing params for all layers
 
         self.convLSTM = Bidirectional( layers_ConvLSTM2D.ConvLSTM2D( **self.layer_params ), merge_mode=None ) 
-
-    def call( self, _input ):
+    
+    #@tf.function
+    def call( self, _input, training ):
         #NOTE: consider addding multiple LSTM Layers to extract more latent features
 
-        hidden_states_f, hidden_states_b = self.convLSTM( _input, training=self.trainable ) #(bs, seq_len_1, h, w, c)
+        hidden_states_f, hidden_states_b = self.convLSTM( _input, training=training ) #(bs, seq_len_1, h, w, c)
         hidden_states = tf.concat([hidden_states_f, hidden_states_b],axis=-1)
                
         return hidden_states #(bs, seq_len_1, h, w, c*2)
@@ -717,35 +723,51 @@ class THST_CLSTM_Attention_Layer(tf.keras.layers.Layer):
                                                 attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable ),
                                                 merge_mode=None ) #stateful possibly set to True, return_state=True, return_sequences=True
 
-    def call(self, input_hidden_states):
-        
-        output_hidden_states = self.convLSTM_attn(input_hidden_states)
+        self.shape = ( train_params['batch_size'], self.num_of_splits, 100,140, clstm_params['filters'] )
 
-        return tf.concat(output_hidden_states,axis=-1) #shape(bs, seq_len, h, w, 2*c2)
+    @tf.function
+    def call(self, input_hidden_states, training=True):
+        
+        hidden_states_f, hidden_states_b = self.convLSTM_attn(input_hidden_states, training=training)
+        hidden_states_f.set_shape( self.shape )
+        hidden_states_b.set_shape( self.shape )
+        hidden_states = tf.concat( [hidden_states_f,hidden_states_b], axis=-1 )
+
+        return hidden_states #shape(bs, seq_len, h, w, 2*c2)
 
 class THST_CLSTM_Decoder_Layer(tf.keras.layers.Layer):
-    def __init__(self, train_params ,layer_params, input_2_factor_increase ):
+    def __init__(self, train_params ,layer_params, input_2_factor_increase, seq_len ):
         super( THST_CLSTM_Decoder_Layer, self ).__init__()
         
         self.layer_params = layer_params
         self.input_2_factor_increase = input_2_factor_increase
         self.trainable= train_params['trainable']
-
-        self.convLSTM =  tf.keras.layers.Bidirectional( layers_ConvLSTM2D.ConvLSTM2D_custom(**layer_params)  , merge_mode=None)
-
-    def call(self, input1, input2 ):
+        self.seq_len = seq_len
+        
+        self.shape = ( train_params['batch_size'], self.seq_len, 100,140, layer_params['filters'] )
+        self.convLSTM =  tf.keras.layers.Bidirectional( layers_ConvLSTM2D.ConvLSTM2D_custom(**layer_params )  , merge_mode=None)
+    
+    @tf.function
+    def call(self, input1, input2, training=True ):
         """
 
             input1 : Contains the hidden representations from the corresponding layer in the encoder #(bs, seq_len1, h,w,c1)
             input2: Contains the hidden repr from the previous decoder layer #(bs, seq_len2, h,w,c2)
 
         """
-        input2 = tf.keras.backend.repeat_elements( input2, self.input_2_factor_increase, axis=1)
+        input2 = tf.keras.backend.repeat_elements( input2, self.input_2_factor_increase, axis=1) #(bs, seq_len1, h,w,c2)
 
         tf.debugging.assert_equal(tf.shape(input1),tf.shape(input2), message="Decoder Input1, and Input2 not the same size")
 
         inputs = tf.concat( [input1, input2], axis=-1 ) #NOTE: At this point both input1 and input2, must be the same shape
-        hidden_states = tf.concat( self.convLSTM( inputs, training=self.trainable ), axis=-1)
+        #TODO: here add set shapes
+        #hidden_states = tf.concat( self.convLSTM( inputs, training=training ), axis=-1)
+        hidden_states_f, hidden_states_b = self.convLSTM( inputs, training=training )
+
+        #HERE
+        hidden_states_f.set_shape( self.shape )
+        hidden_states_b.set_shape( self.shape )
+        hidden_states = tf.concat( [hidden_states_f,hidden_states_b], axis=-1 ) 
         return hidden_states
 
 class THST_OutputLayer(tf.keras.layers.Layer):
@@ -764,13 +786,14 @@ class THST_OutputLayer(tf.keras.layers.Layer):
         elif( model_type_settings['Deformable_Conv'] ==True ):
             self.conv_hidden = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[0] ) )
             self.conv_output = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
-
-    def call(self, _inputs ):
+    
+    @tf.function
+    def call(self, _inputs, training=True ):
         """
         :param tnsr inputs: (bs, seq_len, h,w,c)
         """
-        x = self.conv_hidden( _inputs )
-        x = self.conv_output( x ) #shape (bs, height, width)
+        x = self.conv_hidden( _inputs,training=training )
+        x = self.conv_output( x, training=training ) #shape (bs, height, width)
         return x
 
 class SpatialConcreteDropout(tf.keras.layers.Wrapper):
