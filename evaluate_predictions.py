@@ -176,7 +176,7 @@ def distribution_getter( preds, dist_name):
         distr = tfp.distributions.Normal( loc= np.mean(preds,axis=0), scale=np.std(preds,axis=0) )
     elif dist_name =="LogNormal":
         distr = tfp.distributions.LogNormal( loc=tf.math.reduce_mean( tf.math.log(preds),axis=0 ), scale=tf.math.reduce_std( tf.math.log(preds),axis=0 ) )
-    if dist_name =="None":
+    elif dist_name =="None":
         distr = tfp.distributions.Normal( loc=np.mean(preds,axis=0), scale=0.05 )
     else:
         raise ValueError
