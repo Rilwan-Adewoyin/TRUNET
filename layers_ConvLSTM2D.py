@@ -473,8 +473,6 @@ class ConvRNN2D(RNN):
         # TODO(anjalisridhar): consider batch calls to `set_value`.
         K.set_value(state, value)
 
-  def _maybe_reset_cell_dropout_mask(self,cell):
-      return super(ConvRNN2D,self)._maybe_reset_cell_dropout_mask(cell)
 
 ##Input layer
 class ConvLSTM2D(ConvRNN2D):
@@ -654,7 +652,7 @@ class ConvLSTM2D(ConvRNN2D):
 
     @tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
-        self._maybe_reset_cell_dropout_mask(self.cell)
+        #self._maybe_reset_cell_dropout_mask(self.cell)
         return super(ConvLSTM2D, self).call(inputs,
                                             mask=mask,
                                             training=training,
@@ -1241,7 +1239,7 @@ class ConvLSTM2D_custom(ConvRNN2D):
 
     @tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
-        self._maybe_reset_cell_dropout_mask(self.cell)
+        #self._maybe_reset_cell_dropout_mask(self.cell)
 
         if self.stateful and (initial_state is not None):
             initial_state = self.states
@@ -1977,7 +1975,7 @@ class ConvLSTM2D_attn(ConvRNN2D):
 
     @tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
-        self._maybe_reset_cell_dropout_mask(self.cell)
+        #self._maybe_reset_cell_dropout_mask(self.cell)
         if initial_state is not None:
             pass
         elif self.stateful:
