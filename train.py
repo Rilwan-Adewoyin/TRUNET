@@ -307,6 +307,7 @@ def train_loop(train_params, model_params):
 
                         var_free_nrg_loss = kl_loss  - log_likelihood
                         l = var_free_nrg_loss
+                        
 
                         loss_mse_condrain = tf.reduce_mean( tf.keras.losses.MSE( _target_cond_rain , _preds_cond_rain_mean) )
                     #endregion
@@ -316,7 +317,8 @@ def train_loop(train_params, model_params):
 
                     metric_mse = tf.reduce_mean( tf.keras.losses.MSE( target_filtrd , preds_mean_filtrd)  )
 
-                    scaled_loss_mse = optimizer.get_scaled_loss(l)
+                    scaled_loss = optimizer.get_scaled_loss(l)
+                    scaled_gradients = tape.gradient( scaled_loss, model.trainable_variables )
                     gradients = optimizer.get_unscaled_gradients(scaled_gradients) 
                     gc.collect()
                     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
