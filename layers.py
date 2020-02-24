@@ -871,7 +871,8 @@ class SpatialConcreteDropout(tf.keras.layers.Wrapper):
         self.p_logit = self.layer.add_weight(name='p_logit',
                                             shape=(1,),
                                             initializer=tf.keras.initializers.RandomUniform(self.init_min, self.init_max),
-                                            trainable=True)
+                                            trainable=True,
+                                            dtype=tf.float16)
         # self.p = K.sigmoid(self.p_logit[0])
 
         # initialise regulariser / prior KL term
@@ -899,7 +900,8 @@ class SpatialConcreteDropout(tf.keras.layers.Wrapper):
         :return:  approx. dropped out input
         '''
         self.p = K.sigmoid(self.p_logit[0])
-        eps = K.cast_to_floatx(K.epsilon())
+        #eps = K.cast_to_floa6tx(K.epsilon())
+        eps = tf.cast( K.epsilon(), dtype=tf.float16)
         temp = 2. / 3.
 
         input_shape = K.shape(x)
@@ -907,7 +909,7 @@ class SpatialConcreteDropout(tf.keras.layers.Wrapper):
             noise_shape = (input_shape[0], input_shape[1], 1, 1)
         else:
             noise_shape = (input_shape[0], 1, 1, input_shape[3])
-        unif_noise = K.random_uniform(shape=noise_shape)
+        unif_noise = K.random_uniform(shape=noise_shape,dtype=tf.float16)
         
         drop_prob = (
             K.log(self.p + eps)
