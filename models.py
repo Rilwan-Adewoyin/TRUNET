@@ -35,7 +35,7 @@ class SuperResolutionModel( tf.keras.Model ):
          
     def call(self, inputs, pred=False):
         x = self.SRCNN_1(inputs, pred)
-        self.float32_output = tf.keras.layers.Activation('linear', dtype='float32' )
+        x = self.float32_output(x)
         # x = self.SRCNN_2( x, pred )
         return x
     
