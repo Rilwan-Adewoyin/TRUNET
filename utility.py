@@ -7,6 +7,7 @@ import argparse
 import json
 import hparameters
 import ast
+import datetime
 
 # region Vandal
 #precip data import - use in data pipeline
@@ -198,8 +199,6 @@ def parse_arguments(s_dir=None):
     parser.add_argument('-mn','--model_name', type=str, help='Name of model to use', required=False, default="DeepSD")                                      
         
     parser.add_argument('-ds','--distribution_strategy', type=str, help='The distribution strategy to be used by tensorflow', required=False, default="None" ) #TODO: Implement ability to train on multiple cores tensorflow
-
-    parser.add_argument('-gidx','--gpu_indx', type=str, help='The index of the gpu unit to use', required=False, default="[0]" )
     
     parser.add_argument('-mv', '--model_version', type=str, help="Name for the model, used to help in saving predictions and related files", required=False, default="1")
 
@@ -230,6 +229,7 @@ def save_model_settings(model_params,t_params):
         os.makedirs( f_dir, exist_ok=True  )
     with open( f_dir+"/"+m_path, "w" ) as fp:
         json.dump( model_params, fp, default=default )
+
     with open( f_dir+"/"+t_path, "w" ) as fp:
         json.dump( t_params, fp, default=default )
 
@@ -239,6 +239,12 @@ def default(obj):
             return obj.tolist()
         else:
             return obj.item()
+    elif type(obj).__module__ == datetime.__name__: 
+        if isinstance(obj, datetime.date):
+            return obj.isoformat()
+        else:
+            return obj.__str__()  
+
     raise TypeError('Unknown type:', type(obj))
 
 #end region
