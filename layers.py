@@ -1,3 +1,5 @@
+import numpy as np
+import pandas as pd
 import tensorflow as tf
 import tensor2tensor as t2t #NOTE: using tensor2tensors implementation, may cause tensorflow2 incompatibility bugs
 import tensorflow_probability as tfp
@@ -11,10 +13,10 @@ from tensorflow_probability import distributions as tfd
 import os
 import sys
 import utility
-import pandas as pd
+
 import pickle
 import math
-import numpy as np
+
 import time
 
 from tensorflow.keras.layers import Bidirectional
