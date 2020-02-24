@@ -220,11 +220,12 @@ class Generator_rain(Generator):
     def yield_iter(self):
         fn = self.fn
 
-        f = Dataset(fn, "r", format="NETCDF4", keepweakref=True)
-        for chunk in f.variables['rr']:
-            data = np.ma.getdata(chunk)
-            mask = np.ma.getmask(chunk)
-            yield data , mask
+        #f = Dataset(fn, "r", format="NETCDF4", keepweakref=True)
+        with Dataset(self.fn, "r", format="NETCDF4",keepweakref=True) as f:
+            for chunk in f.variables['rr']:
+                data = np.ma.getdata(chunk)
+                mask = np.ma.getmask(chunk)
+                yield data , mask
 
 
     def __call__(self):
@@ -255,22 +256,23 @@ class Generator_mf(Generator):
     def yield_iter(self):
 
         
-        f = Dataset(self.fn, "r", format="NETCDF4")
-        for tuple_mfs in zip( *[f.variables[var_name] for var_name in self.vars_for_feature] ):
-            list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar) ) for _mar in tuple_mfs]
-            _data, _masks = list(zip(*list_datamask))
-            _masks = [ np.full(_data[0].shape, np.logical_not(_mask_val) , dtype=bool) for _mask_val in _masks ] #projecting masks from the (6,) shape to a square array shape
+        #f = Dataset(self.fn, "r", format="NETCDF4")
+        with Dataset(self.fn, "r", format="NETCDF4",keepweakref=True) as f:
+            for tuple_mfs in zip( *[f.variables[var_name] for var_name in self.vars_for_feature] ):
+                list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar) ) for _mar in tuple_mfs]
+                _data, _masks = list(zip(*list_datamask))
+                _masks = [ np.full(_data[0].shape, np.logical_not(_mask_val) , dtype=bool) for _mask_val in _masks ] #projecting masks from the (6,) shape to a square array shape
 
-            stacked_data = np.stack(_data, axis=-1)
-            stacked_masks = np.stack(_masks, axis=-1)
-            
-            yield stacked_data[ -2:1:-1 , 2:-2, :], stacked_masks[ -2:1:-1 , 2:-2, :] #(h,w,6) #(h,w,6)  #this aligns it to rain 
+                stacked_data = np.stack(_data, axis=-1)
+                stacked_masks = np.stack(_masks, axis=-1)
+                
+                yield stacked_data[ -2:1:-1 , 2:-2, :], stacked_masks[ -2:1:-1 , 2:-2, :] #(h,w,6) #(h,w,6)  #this aligns it to rain 
     
     def __call__(self):
         return self.yield_iter()
 
 def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_at=None, _num_parallel_calls=-1,
-                    data_dir="./Data/Rain_Data_Nov19", mode="Normal" ):
+                    data_dir="./Data/Rain_Data_Nov19" ):
     """
         This is specific for the following two files -> ana_input_1.nc and rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc
         :param day_to_start_at: should be of type np.datetime64

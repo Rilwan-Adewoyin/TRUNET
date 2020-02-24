@@ -176,7 +176,7 @@ def train_loop(train_params, model_params):
     ds_train = ds_train.take(train_params['train_set_size_batches']).repeat(train_params['epochs']-starting_epoch)
     ds_val = ds_val.take(train_params['val_set_size_batches']).repeat(train_params['epochs']-starting_epoch)
     ds_train = ds_train.skip(batches_to_skip)
-    ds_val = ds_val.skip(batches_to_skip)
+    #ds_val = ds_val.skip(batches_to_skip)
     iter_train = enumerate(ds_train)
     iter_val = enumerate(ds_val)
     # endregion
@@ -208,7 +208,6 @@ def train_loop(train_params, model_params):
         
         #region Train
         for batch in range(batches_to_skip,train_set_size_batches):
-            if(batch>=5): break
             idx, (feature, target) = next(iter_train)
 
             with tf.GradientTape(persistent=False) as tape:

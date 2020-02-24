@@ -52,8 +52,8 @@ class model_deepsd_hparameters(HParams):
         #TODO: (change filter sizes back to the ones used in the paper)
         if type(self.conv1_param_custom) == dict: 
 
-            CONV1_params = {    'filters':40, #512
-                                'kernel_size': [5,5] , #[7,7] #TODO:use size from paper later
+            CONV1_params = {    'filters':300, #512
+                                'kernel_size': [7,7] , #[7,7] #TODO:use size from paper later
                                 'activation':'relu',
                                 'padding':'same',
                                 'data_format':'channels_last',
@@ -61,7 +61,7 @@ class model_deepsd_hparameters(HParams):
             CONV1_params.update(self.conv1_param_custom)
         if type(self.conv2_param_custom) == dict :
             conv2_kernel_size = np.ceil( np.ceil( np.array(output_dims)/np.array(input_dims) )*1.5 )  #This makes sure that each filter in conv2, sees at least two of the real non zero values. The zero values occur due to the upscaling
-            CONV2_params = {    'filters':40, #512
+            CONV2_params = {    'filters':300, #512
                                 'kernel_size':  conv2_kernel_size.astype(np.int32).tolist() , #TODO:use size from paper later
                                 #each kernel covers 2 non original values from the upsampled tensor
                                 'activation':'relu',
@@ -73,7 +73,7 @@ class model_deepsd_hparameters(HParams):
 
         CONV3_params = {
                             'filters':1,
-                            'kernel_size': [4,4], #[5,5] #TODO:use size from paper later
+                            'kernel_size': [5,5], #[5,5] #TODO:use size from paper later
                             'activation':'relu',
                             'padding':'same',
                             'data_format':'channels_last',
