@@ -427,9 +427,9 @@ def train_loop(train_params, model_params):
         start_epoch_val = time.time()
         start_batch_time = time.time()
         if( model_params['model_type_settings']['stochastic']==True ):
-            print('EPOCH {}:\tVar_Free_Nrg: {:.5f} \tMSE: {:.8f}\tTime: {:.2f}'.format(epoch, train_loss_var_free_nrg_mean_epoch.result() ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
+            print('\tEPOCH {}:\tVar_Free_Nrg: {:.5f} \tMSE: {:.8f}\tTime: {:.2f}'.format(epoch, train_loss_var_free_nrg_mean_epoch.result() ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
         else:
-            print('EPOCH {}:\tMSE: {:.8f}\tTime: {:.2f}'.format(epoch ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
+            print('\tEPOCH {}:\tMSE: {:.8f}\tTime: {:.2f}'.format(epoch ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
             # endregion
         print("\nStarting Validation")
         model.reset_states()
@@ -484,7 +484,7 @@ def train_loop(train_params, model_params):
                     batches_to_skip = 0
         model.reset_states()
 
-        print("Epoch:{}\t Train MSE:{:.8f}\tValidation Loss: MSE:{:.5f}\tTime:{:.5f}".format(epoch, train_metric_mse_mean_epoch.result(), val_metric_mse_mean.result(), time.time()-start_epoch_val  ) )
+        print("\tEpoch:{}\t Train MSE:{:.8f}\tValidation Loss: MSE:{:.5f}\tTime:{:.5f}".format(epoch, train_metric_mse_mean_epoch.result(), val_metric_mse_mean.result(), time.time()-start_epoch_val  ) )
         with writer.as_default():
             tf.summary.scalar('Validation Loss MSE', val_metric_mse_mean.result() , step =  epoch )
         df_training_info = utility.update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoch, val_metric_mse_mean, ckpt_manager_epoch, train_params, model_params )

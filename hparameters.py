@@ -96,7 +96,7 @@ class model_deepsd_hparameters(HParams):
 
         REC_ADAM_PARAMS = {
             "learning_rate":1e-4 , "warmup_proportion":0.5,
-            "min_lr": 1e-5, "beta_1":0.99 , "beta_2": 0.99, "epsilon":1e-5 }
+            "min_lr": 5e-5, "beta_1":0.99 , "beta_2": 0.99 }
         LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":0.75}
 
         model_type_settings = {'stochastic':False ,'stochastic_f_pass':10,
@@ -285,11 +285,10 @@ class model_THST_hparameters(HParams):
         }
 
         REC_ADAM_PARAMS = {
-            "learning_rate":2e-3 , "warmup_proportion":0.6,
-            "min_lr": 1e-3, "beta_1":0.99 , "beta_2": 0.99,
-            "epsilon":1e-5
+            "learning_rate":1e-4 , "warmup_proportion":0.6,
+            "min_lr": 5e-5, "beta_1":0.99 , "beta_2": 0.99
         }
-        LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.6}
+        LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99}
         
         self.params = {
             'model_name':"THST",
@@ -337,9 +336,9 @@ class model_SimpleLSTM_hparameters(HParams):
         #training proc
         REC_ADAM_PARAMS = {
             "learning_rate":1e-4 , "warmup_proportion":0.6,
-            "min_lr": 1e-5, "beta_1":0.99 , "beta_2": 0.99 }
+            "min_lr": 5e-5, "beta_1":0.99 , "beta_2": 0.99 }
 
-        LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":0.5 }
+        LOOKAHEAD_PARAMS = { "sync_period":4 , "slow_step_size":0.75 }
 
         model_type_settings = { }
 
