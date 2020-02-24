@@ -337,7 +337,7 @@ class model_SimpleLSTM_hparameters(HParams):
         #training proc
         REC_ADAM_PARAMS = {
             "learning_rate":1e-2 , "warmup_proportion":0.6,
-            "min_lr": 1e-3, "beta_1":0.99 , "beta_2": 0.99, "epsilon":1e-4 }
+            "min_lr": 1e-3, "beta_1":0.99 , "beta_2": 0.99 }
 
         LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":10 }
 
