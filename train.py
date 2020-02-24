@@ -5,7 +5,7 @@ import sys
 
 import data_generators
 import utility
-
+import numpy as np
 import tensorflow as tf
 def is_compatible_with(self, other):
     """Returns True if the `other` DType will be converted to this DType.
@@ -55,7 +55,6 @@ from tensorboard.plugins.hparams import api as hp
 import pandas as pd
 
 import math
-import numpy as np
 
 import argparse 
 import time
