@@ -387,7 +387,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     else:
         raise ValueError
 
-    #ds = ds.prefetch(1)
+    ds = ds.prefetch(_num_parallel_calls)
     return ds
 
 def load_data_ati_select_location(mf, rain, rain_mask, idxs ):
