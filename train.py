@@ -142,12 +142,13 @@ def train_loop(train_params, model_params):
 
     if( len(df_batch_record)==0 or df_batch_record.iloc[0]==-1 ):
         batches_to_skip = 0
+        
     else:
         batches_to_skip = int(df_batch_record.iloc[0])
         if batches_to_skip == train_params['train_set_size_batches'] :
             starting_epoch = starting_epoch + 1
             batches_to_skip = 0
-    
+    print("batches to skip", batches_to_skip)
     #batches_to_skip_on_error = 2
     # endregion
 
