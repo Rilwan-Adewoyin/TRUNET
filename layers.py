@@ -173,33 +173,33 @@ class SRCNN( tf.keras.layers.Layer ):
         self.c2_prior_dist = tfd.InverseGamma(self.global_c2_priorshape, self.global_c2_priorscale )
         
         # Layerwise nu Prior #NOTE: here we put one nu per filter which has 153 weights
-        conv1_nu_shape = tf.constant( 0.0, dtype=tf.float32  ) #This value of 0 used in the microsoft paper
-        conv1_nu_scale = tf.constant(tf.ones_like(conv1_nu_shape, dtype=tf.float32 )/2.0) #b_g in Soumya paper #This is set to 1 in soumya paper 1, and 1 in microoft paper
+        conv1_nu_shape = tf.constant( 0.0, dtype=tf.float16  ) #This value of 0 used in the microsoft paper
+        conv1_nu_scale = tf.constant(tf.ones_like(conv1_nu_shape, dtype=tf.float16 )/2.0) #b_g in Soumya paper #This is set to 1 in soumya paper 1, and 1 in microoft paper
         
-        conv2_nu_shape = tf.constant( 0.0, dtype=tf.float32 ) #This value of 0 used in the microsoft paper
-        conv2_nu_scale = tf.constant(tf.ones_like(conv2_nu_shape, dtype=tf.float32 ))/2 #b_g in Soumya paper #This is set to 1 in soumya paper 1, and 1 in microoft paper
+        conv2_nu_shape = tf.constant( 0.0, dtype=tf.float16 ) #This value of 0 used in the microsoft paper
+        conv2_nu_scale = tf.constant(tf.ones_like(conv2_nu_shape, dtype=tf.float16 ))/2 #b_g in Soumya paper #This is set to 1 in soumya paper 1, and 1 in microoft paper
         self.conv1_nu_prior_dist  = tfd.HalfCauchy( conv1_nu_shape, conv1_nu_scale) # Microsoft BNN use a value of 1
         self.conv2_nu_prior_dist  = tfd.HalfCauchy( conv2_nu_shape, conv2_nu_scale) # Microsoft BNN use a value of 1
 
         # Betas for Nodes Prior
-        conv1_beta_prior_loc = tf.constant(tf.zeros([self.model_params['conv1_output_node_count'],self.model_params['conv1_input_weights_per_filter']], dtype=tf.float32  ))
-        conv1_beta_prior_scale_diag = tf.constant(tf.ones( [self.model_params['conv1_input_weights_per_filter']], dtype=tf.float32 ))
+        conv1_beta_prior_loc = tf.constant(tf.zeros([self.model_params['conv1_output_node_count'],self.model_params['conv1_input_weights_per_filter']], dtype=tf.float16  ))
+        conv1_beta_prior_scale_diag = tf.constant(tf.ones( [self.model_params['conv1_input_weights_per_filter']], dtype=tf.float16 ))
         self.conv1_Beta_prior_dist = tfd.MultivariateNormalDiag(conv1_beta_prior_loc, conv1_beta_prior_scale_diag)
 
-        conv2_beta_prior_loc = tf.constant(tf.zeros((self.model_params['conv2_output_node_count'],self.model_params['conv2_input_weights_per_filter']), dtype=tf.float32  ))
-        conv2_beta_prior_scale_diag = tf.constant( tf.ones([self.model_params['conv2_input_weights_per_filter']],dtype=tf.float32 ) )
+        conv2_beta_prior_loc = tf.constant(tf.zeros((self.model_params['conv2_output_node_count'],self.model_params['conv2_input_weights_per_filter']), dtype=tf.float16  ))
+        conv2_beta_prior_scale_diag = tf.constant( tf.ones([self.model_params['conv2_input_weights_per_filter']],dtype=tf.float16 ) )
         self.conv2_Beta_prior_dist = tfd.MultivariateNormalDiag(conv2_beta_prior_loc, conv2_beta_prior_scale_diag )
 
         # Taus for Nodes Prior
-        conv1_taus_prior_loc = tf.constant( tf.zeros([self.model_params['conv1_output_node_count'] , 1] , dtype=tf.float32) )
-        conv1_taus_prior_scale = tf.constant( tf.ones_like( conv1_taus_prior_loc, dtype=tf.float32) ) #b_0 in Soumya Paper #1.0 used in microsoft paper
+        conv1_taus_prior_loc = tf.constant( tf.zeros([self.model_params['conv1_output_node_count'] , 1] , dtype=tf.float16) )
+        conv1_taus_prior_scale = tf.constant( tf.ones_like( conv1_taus_prior_loc, dtype=tf.float16) ) #b_0 in Soumya Paper #1.0 used in microsoft paper
         self.conv1_tau_prior_dist = tfd.HalfCauchy(conv1_taus_prior_loc, conv1_taus_prior_scale)
 
-        conv2_taus_prior_loc = tf.constant( tf.zeros( [self.model_params['conv2_output_node_count'] , 1], dtype=tf.float32 ) ) 
-        conv2_taus_prior_scale = tf.constant( tf.ones_like( conv2_taus_prior_loc, dtype=tf.float32) ) #b_0 in Soumya Paper #1.0 used in microsoft paper
+        conv2_taus_prior_loc = tf.constant( tf.zeros( [self.model_params['conv2_output_node_count'] , 1], dtype=tf.float16 ) ) 
+        conv2_taus_prior_scale = tf.constant( tf.ones_like( conv2_taus_prior_loc, dtype=tf.float16) ) #b_0 in Soumya Paper #1.0 used in microsoft paper
         self.conv2_tau_prior_dist = tfd.HalfCauchy(conv2_taus_prior_loc, conv2_taus_prior_scale)
 
-        self.conv3_weights_prior_loc = tf.Variable( tf.zeros( (self.model_params['conv3_input_weights_count']), dtype=tf.float32  ) )
+        self.conv3_weights_prior_loc = tf.Variable( tf.zeros( (self.model_params['conv3_input_weights_count']), dtype=tf.float16  ) )
         
         self.conv3_weights_prior_hyperprior_scaledist = tfd.HalfCauchy(0, 5)  #prior for kappa
         #self.conv3_weights_prior_dist = tfd.Normal(self.conv3_weights_prior_loc, self.conv3_kappa )
@@ -210,67 +210,67 @@ class SRCNN( tf.keras.layers.Layer ):
             #NOTE: I think we treat c as a value that changes during trainable, but that doesnt have a distribution. In fact it just gets updated at each step
             #TODO: create an initialization method for all these params
             #Global C Posterior
-            self.global_c_post_shape = tf.Variable( initial_value=1.0, trainable=True, name="global_c_post_shape",dtype=tf.float32) 
-            self.global_c_post_scale = tf.Variable( initial_value=0.2,  trainable=True, name="global_c_post_scale",dtype=tf.float32) 
+            self.global_c_post_shape = tf.Variable( initial_value=1.0, trainable=True, name="global_c_post_shape",dtype=tf.float16) 
+            self.global_c_post_scale = tf.Variable( initial_value=0.2,  trainable=True, name="global_c_post_scale",dtype=tf.float16) 
             
             # Layerwise nu Posterior
-            self.conv1_nu_post_mean = tf.Variable( initial_value = tfd.HalfCauchy(loc=self.conv1_nu_prior_dist.mode(), scale=0.1).sample(), trainable=True, dtype=tf.float32, name="conv1_nu_post_mean") 
-            self.conv1_nu_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv1_nu_post_mean.shape, 0.05 ,0.2), trainable=True, dtype=tf.float32, name="conv1_nu_post_scale")  #TODO: In the future this should be based on the variance used in the HS prior half Cauchy be relating the Half Cuachy scale to the Lognormal variance
+            self.conv1_nu_post_mean = tf.Variable( initial_value = tfd.HalfCauchy(loc=self.conv1_nu_prior_dist.mode(), scale=0.1).sample(), trainable=True, dtype=tf.float16, name="conv1_nu_post_mean") 
+            self.conv1_nu_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv1_nu_post_mean.shape, 0.05 ,0.2), trainable=True, dtype=tf.float16, name="conv1_nu_post_scale")  #TODO: In the future this should be based on the variance used in the HS prior half Cauchy be relating the Half Cuachy scale to the Lognormal variance
 
-            self.conv2_nu_post_mean = tf.Variable( initial_value = tfd.HalfCauchy(loc=self.conv2_nu_prior_dist.mode(), scale=0.1).sample(), trainable=True, name="conv2_nu_post_mean",dtype=tf.float32) 
-            self.conv2_nu_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv2_nu_post_mean.shape, .05, 0.2), trainable=True, name="conv2_nu_post_scale",dtype=tf.float32) #TODO: change this intialization back
+            self.conv2_nu_post_mean = tf.Variable( initial_value = tfd.HalfCauchy(loc=self.conv2_nu_prior_dist.mode(), scale=0.1).sample(), trainable=True, name="conv2_nu_post_mean",dtype=tf.float16) 
+            self.conv2_nu_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv2_nu_post_mean.shape, .05, 0.2), trainable=True, name="conv2_nu_post_scale",dtype=tf.float16) #TODO: change this intialization back
             
             # Betas_LogTaus for Nodes Posterior
-            conv1_scale = tf.constant(tf.cast(1.0 *tf.sqrt( 6. / (self.model_params['conv1_output_node_count'] + self.model_params['conv1_input_weights_per_filter'] )), dtype=tf.float32)) #glorot uniform used in microsoft horeshoe
-            self.conv1_beta_post_loc = tf.Variable( initial_value=tf.random.uniform( [self.model_params['conv1_output_node_count'], self.model_params['conv1_input_weights_per_filter']] ,-conv1_scale, conv1_scale), trainable=True, name="conv1_beta_post_loc",dtype=tf.float32)  #This uses Xavier init
-            self.conv1_tau_post_loc = tf.Variable( initial_value= tfd.HalfCauchy(loc=self.conv1_tau_prior_dist.mode(),scale=0.1).sample()  , trainable=True, name="conv1_tau_post_loc",dtype=tf.float32 )
-            self.conv1_U_psi = tf.Variable( initial_value= tf.random.uniform( [self.model_params['conv1_output_node_count'], self.model_params['conv1_input_weights_per_filter'] + 1], minval=0.95, maxval=1.05 ), trainable=True, name="conv1_U_psi",dtype=tf.float32) # My init strategy
-            self.conv1_U_h =   tf.Variable( initial_value= tf.random.uniform( [self.model_params['conv1_output_node_count'], self.model_params['conv1_input_weights_per_filter'] + 1] , minval=-0.001, maxval=0.001 ), trainable=True, name="conv1_U_h",dtype=tf.float32) # My init strategy
+            conv1_scale = tf.constant(tf.cast(1.0 *tf.sqrt( 6. / (self.model_params['conv1_output_node_count'] + self.model_params['conv1_input_weights_per_filter'] )), dtype=tf.float16)) #glorot uniform used in microsoft horeshoe
+            self.conv1_beta_post_loc = tf.Variable( initial_value=tf.random.uniform( [self.model_params['conv1_output_node_count'], self.model_params['conv1_input_weights_per_filter']] ,-conv1_scale, conv1_scale), trainable=True, name="conv1_beta_post_loc",dtype=tf.float16)  #This uses Xavier init
+            self.conv1_tau_post_loc = tf.Variable( initial_value= tfd.HalfCauchy(loc=self.conv1_tau_prior_dist.mode(),scale=0.1).sample()  , trainable=True, name="conv1_tau_post_loc",dtype=tf.float16 )
+            self.conv1_U_psi = tf.Variable( initial_value= tf.random.uniform( [self.model_params['conv1_output_node_count'], self.model_params['conv1_input_weights_per_filter'] + 1], minval=0.95, maxval=1.05 ), trainable=True, name="conv1_U_psi",dtype=tf.float16) # My init strategy
+            self.conv1_U_h =   tf.Variable( initial_value= tf.random.uniform( [self.model_params['conv1_output_node_count'], self.model_params['conv1_input_weights_per_filter'] + 1] , minval=-0.001, maxval=0.001 ), trainable=True, name="conv1_U_h",dtype=tf.float16) # My init strategy
             
-            conv2_scale = tf.constant(tf.cast(1.0 * tf.sqrt( 6. / (self.model_params['conv2_output_node_count'] + self.model_params['conv2_input_weights_per_filter'])  ),dtype=tf.float32)) #glorot uniform used in microsoft horeshoe
-            self.conv2_beta_post_loc = tf.Variable( initial_value=tf.random.uniform( [self.model_params['conv2_output_node_count'], self.model_params['conv2_input_weights_per_filter']] ,-conv2_scale, conv2_scale), trainable=True, name="conv2_beta_post_loc",dtype=tf.float32)  #This uses Xavier init
-            self.conv2_tau_post_loc = tf.Variable( initial_value= tfd.HalfCauchy(loc=self.conv2_tau_prior_dist.mode(),scale=0.1).sample()  , trainable=True, name="conv2_tau_post_loc",dtype=tf.float32 )
-            self.conv2_U_psi = tf.Variable( initial_value= tf.random.uniform( [self.model_params['conv2_output_node_count'],self.model_params['conv2_input_weights_per_filter'] + 1], minval=0.95, maxval=1.05 ), trainable=True, name="conv2_U_psi",dtype=tf.float32) # My init strategy
-            self.conv2_U_h =   tf.Variable( initial_value= tf.random.uniform( [self.model_params['conv2_output_node_count'],self.model_params['conv2_input_weights_per_filter'] + 1],  minval=-0.001, maxval=0.001 ), trainable=True, name="conv2_U_h",dtype=tf.float32) # My init strategy
+            conv2_scale = tf.constant(tf.cast(1.0 * tf.sqrt( 6. / (self.model_params['conv2_output_node_count'] + self.model_params['conv2_input_weights_per_filter'])  ),dtype=tf.float16)) #glorot uniform used in microsoft horeshoe
+            self.conv2_beta_post_loc = tf.Variable( initial_value=tf.random.uniform( [self.model_params['conv2_output_node_count'], self.model_params['conv2_input_weights_per_filter']] ,-conv2_scale, conv2_scale), trainable=True, name="conv2_beta_post_loc",dtype=tf.float16)  #This uses Xavier init
+            self.conv2_tau_post_loc = tf.Variable( initial_value= tfd.HalfCauchy(loc=self.conv2_tau_prior_dist.mode(),scale=0.1).sample()  , trainable=True, name="conv2_tau_post_loc",dtype=tf.float16 )
+            self.conv2_U_psi = tf.Variable( initial_value= tf.random.uniform( [self.model_params['conv2_output_node_count'],self.model_params['conv2_input_weights_per_filter'] + 1], minval=0.95, maxval=1.05 ), trainable=True, name="conv2_U_psi",dtype=tf.float16) # My init strategy
+            self.conv2_U_h =   tf.Variable( initial_value= tf.random.uniform( [self.model_params['conv2_output_node_count'],self.model_params['conv2_input_weights_per_filter'] + 1],  minval=-0.001, maxval=0.001 ), trainable=True, name="conv2_U_h",dtype=tf.float16) # My init strategy
 
             # Output Layer weights Posterior
-            self.conv3_kappa_post_loc = tf.Variable( initial_value = 1.0, trainable=True, name="conv3_kappa_posterior_loc",dtype=tf.float32) #My init strat
-            self.conv3_kappa_post_scale = tf.Variable( initial_value = 0.1 , trainable=True, name="conv3_kappa_posterior_scale",dtype=tf.float32)    #This needs to be low since, log_normal distribution has extrememly large tails, so using a value higher, save above 1, can lead to a large scale term and then exploding gradientss
+            self.conv3_kappa_post_loc = tf.Variable( initial_value = 1.0, trainable=True, name="conv3_kappa_posterior_loc",dtype=tf.float16) #My init strat
+            self.conv3_kappa_post_scale = tf.Variable( initial_value = 0.1 , trainable=True, name="conv3_kappa_posterior_scale",dtype=tf.float16)    #This needs to be low since, log_normal distribution has extrememly large tails, so using a value higher, save above 1, can lead to a large scale term and then exploding gradientss
             
-            conv3_scale = tf.constant( tf.cast(1.0 * tf.sqrt( 6. / (self.model_params['conv3_output_node_count'] + self.model_params['conv3_input_weights_count'] )  ),dtype=tf.float32))
-            self.conv3_weights_post_loc = tf.Variable( initial_value = tf.random.uniform( [self.model_params['conv3_input_weights_count']] , -conv3_scale, conv3_scale,dtype=tf.float32 ), trainable=True, name="conv3_weights_post_loc",dtype=tf.float32 )
+            conv3_scale = tf.constant( tf.cast(1.0 * tf.sqrt( 6. / (self.model_params['conv3_output_node_count'] + self.model_params['conv3_input_weights_count'] )  ),dtype=tf.float16))
+            self.conv3_weights_post_loc = tf.Variable( initial_value = tf.random.uniform( [self.model_params['conv3_input_weights_count']] , -conv3_scale, conv3_scale,dtype=tf.float16 ), trainable=True, name="conv3_weights_post_loc",dtype=tf.float16 )
         
         elif(self.model_params['model_type_settings']['var_model_type'] == "horseshoefactorized"):
             #Global C Posterior
-            self.global_c_post_shape = tf.Variable( initial_value=1.0, trainable=True, dtype=tf.float32) 
-            self.global_c_post_scale = tf.Variable( initial_value=0.2,  trainable=True, dtype=tf.float32)
+            self.global_c_post_shape = tf.Variable( initial_value=1.0, trainable=True, dtype=tf.float16) 
+            self.global_c_post_scale = tf.Variable( initial_value=0.2,  trainable=True, dtype=tf.float16)
 
             # Layerwise nu Posterior
-            self.conv1_nu_post_mean = tf.Variable( initial_value = tfd.HalfCauchy(loc=self.conv1_nu_prior_dist.mode(), scale=0.1).sample(), trainable=True, dtype=tf.float32 ) 
-            self.conv1_nu_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv1_nu_post_mean.shape, 0.05 ,0.2), trainable=True, dtype=tf.float32)  #TODO: In the future this should be based on the variance used in the HS prior half Cauchy be relating the Half Cuachy scale to the Lognormal variance
+            self.conv1_nu_post_mean = tf.Variable( initial_value = tfd.HalfCauchy(loc=self.conv1_nu_prior_dist.mode(), scale=0.1).sample(), trainable=True, dtype=tf.float16 ) 
+            self.conv1_nu_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv1_nu_post_mean.shape, 0.05 ,0.2), trainable=True, dtype=tf.float16)  #TODO: In the future this should be based on the variance used in the HS prior half Cauchy be relating the Half Cuachy scale to the Lognormal variance
 
-            self.conv2_nu_post_mean = tf.Variable( initial_value = tfd.HalfCauchy(loc=self.conv2_nu_prior_dist.mode(), scale=0.1).sample(), trainable=True, dtype=tf.float32) 
-            self.conv2_nu_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv2_nu_post_mean.shape, .05, 0.2), trainable=True, dtype=tf.float32)
+            self.conv2_nu_post_mean = tf.Variable( initial_value = tfd.HalfCauchy(loc=self.conv2_nu_prior_dist.mode(), scale=0.1).sample(), trainable=True, dtype=tf.float16) 
+            self.conv2_nu_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv2_nu_post_mean.shape, .05, 0.2), trainable=True, dtype=tf.float16)
 
             # Betas_LogTaus for Nodes Posterior
-            conv1_scale = tf.constant(tf.cast(1.0 *tf.sqrt( 6. / (self.model_params['conv1_output_node_count'] + self.model_params['conv1_input_weights_per_filter'])), dtype=tf.float32)) #glorot uniform used in microsoft horeshoe
-            self.conv1_beta_post_loc = tf.Variable( initial_value=tf.random.uniform( [self.model_params['conv1_output_node_count'], self.model_params['conv1_input_weights_per_filter']] ,-conv1_scale, conv1_scale), trainable=True, dtype=tf.float32)  #This uses Xavier init
-            self.conv1_beta_post_scale = tf.Variable( initial_value=tf.random.uniform( self.conv1_beta_post_loc.shape, 0.75, 1.1 ), trainable=True, dtype=tf.float32 )
-            self.conv1_tau_post_loc = tf.Variable( initial_value= tfd.HalfCauchy(loc=self.conv1_tau_prior_dist.mode(),scale=0.1).sample(), trainable=True, name="conv1_tau_post_loc",dtype=tf.float32 )
-            self.conv1_tau_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv1_tau_post_loc.shape, .05, 0.2), trainable=True,name="conv1_tau_post_scale" , dtype=tf.float32)
+            conv1_scale = tf.constant(tf.cast(1.0 *tf.sqrt( 6. / (self.model_params['conv1_output_node_count'] + self.model_params['conv1_input_weights_per_filter'])), dtype=tf.float16)) #glorot uniform used in microsoft horeshoe
+            self.conv1_beta_post_loc = tf.Variable( initial_value=tf.random.uniform( [self.model_params['conv1_output_node_count'], self.model_params['conv1_input_weights_per_filter']] ,-conv1_scale, conv1_scale), trainable=True, dtype=tf.float16)  #This uses Xavier init
+            self.conv1_beta_post_scale = tf.Variable( initial_value=tf.random.uniform( self.conv1_beta_post_loc.shape, 0.75, 1.1 ), trainable=True, dtype=tf.float16 )
+            self.conv1_tau_post_loc = tf.Variable( initial_value= tfd.HalfCauchy(loc=self.conv1_tau_prior_dist.mode(),scale=0.1).sample(), trainable=True, name="conv1_tau_post_loc",dtype=tf.float16 )
+            self.conv1_tau_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv1_tau_post_loc.shape, .05, 0.2), trainable=True,name="conv1_tau_post_scale" , dtype=tf.float16)
             
-            conv2_scale = tf.constant(tf.cast(1.0 * tf.sqrt( 6. / (self.model_params['conv2_output_node_count'] + self.model_params['conv2_input_weights_per_filter'])), dtype=tf.float32)) #glorot uniform used in microsoft horeshoe
-            self.conv2_beta_post_loc = tf.Variable( initial_value=tf.random.uniform( [self.model_params['conv2_output_node_count'], self.model_params['conv2_input_weights_per_filter']] ,-conv2_scale, conv2_scale), trainable=True, dtype=tf.float32)  #This uses Xavier init
-            self.conv2_beta_post_scale = tf.Variable( initial_value=tf.random.uniform( self.conv2_beta_post_loc.shape, 0.75, 1.1 ), trainable=True, dtype=tf.float32 )
-            self.conv2_tau_post_loc = tf.Variable( initial_value= tfd.HalfCauchy(loc=self.conv2_tau_prior_dist.mode(),scale=0.1).sample()  , trainable=True, name="conv2_tau_post_loc",dtype=tf.float32 )
-            self.conv2_tau_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv2_tau_post_loc.shape, .05, 0.2), trainable=True, name="conv1_tau_post_scale",dtype=tf.float32)
+            conv2_scale = tf.constant(tf.cast(1.0 * tf.sqrt( 6. / (self.model_params['conv2_output_node_count'] + self.model_params['conv2_input_weights_per_filter'])), dtype=tf.float16)) #glorot uniform used in microsoft horeshoe
+            self.conv2_beta_post_loc = tf.Variable( initial_value=tf.random.uniform( [self.model_params['conv2_output_node_count'], self.model_params['conv2_input_weights_per_filter']] ,-conv2_scale, conv2_scale), trainable=True, dtype=tf.float16)  #This uses Xavier init
+            self.conv2_beta_post_scale = tf.Variable( initial_value=tf.random.uniform( self.conv2_beta_post_loc.shape, 0.75, 1.1 ), trainable=True, dtype=tf.float16 )
+            self.conv2_tau_post_loc = tf.Variable( initial_value= tfd.HalfCauchy(loc=self.conv2_tau_prior_dist.mode(),scale=0.1).sample()  , trainable=True, name="conv2_tau_post_loc",dtype=tf.float16 )
+            self.conv2_tau_post_scale = tf.Variable( initial_value = tf.random.uniform( self.conv2_tau_post_loc.shape, .05, 0.2), trainable=True, name="conv1_tau_post_scale",dtype=tf.float16)
 
             # Output Layer weights Posterior
-            self.conv3_kappa_post_loc = tf.Variable( initial_value = 1.0, trainable=True, dtype=tf.float32) #My init strat
-            self.conv3_kappa_post_scale = tf.Variable( initial_value = 0.1 , trainable=True, dtype=tf.float32)    #This needs to be low since, log_normal distribution has extrememly large tails, so using a value higher, save above 1, can lead to a large scale term and then exploding gradientss
+            self.conv3_kappa_post_loc = tf.Variable( initial_value = 1.0, trainable=True, dtype=tf.float16) #My init strat
+            self.conv3_kappa_post_scale = tf.Variable( initial_value = 0.1 , trainable=True, dtype=tf.float16)    #This needs to be low since, log_normal distribution has extrememly large tails, so using a value higher, save above 1, can lead to a large scale term and then exploding gradientss
 
-            conv3_scale = tf.constant( tf.cast(1.0 * tf.sqrt( 6. / (self.model_params['conv3_output_node_count'] + self.model_params['conv3_input_weights_count'] )  ),dtype=tf.float32))
-            self.conv3_weights_post_loc = tf.Variable( initial_value = tf.random.uniform( [self.model_params['conv3_input_weights_count']] , -conv3_scale, conv3_scale,dtype=tf.float32 ), trainable=True, dtype=tf.float32 )
+            conv3_scale = tf.constant( tf.cast(1.0 * tf.sqrt( 6. / (self.model_params['conv3_output_node_count'] + self.model_params['conv3_input_weights_count'] )  ),dtype=tf.float16))
+            self.conv3_weights_post_loc = tf.Variable( initial_value = tf.random.uniform( [self.model_params['conv3_input_weights_count']] , -conv3_scale, conv3_scale,dtype=tf.float16 ), trainable=True, dtype=tf.float16 )
 
     def update_priors_dists(self):
         self.conv3_weights_prior_dist = tfd.Normal(self.conv3_weights_prior_loc, self.conv3_kappa )
@@ -286,7 +286,7 @@ class SRCNN( tf.keras.layers.Layer ):
             self.conv2_nu_post_dist = tfd.LogNormal( self.conv2_nu_post_mean, self.conv2_nu_post_scale )
 
             #Layer weights
-            # conv1_logtau_post_loc = tf.expand_dims(tf.cast(tf.math.log( self.conv1_tau_post_loc) , dtype=tf.float32 ),-1)
+            # conv1_logtau_post_loc = tf.expand_dims(tf.cast(tf.math.log( self.conv1_tau_post_loc) , dtype=tf.float16 ),-1)
             conv1_logtau_post_loc = tf.math.log( self.conv1_tau_post_loc) 
             conv1_li_U_psi = tf.split( self.conv1_U_psi, self.model_params['conv1_params']['filters']  ) #len 10 shape (filterh*filter2w + 1) #TODO: This is new - explain in paper
             conv1_li_U_h = tf.split( self.conv1_U_h, self.model_params['conv1_params']['filters'] ) #len 10 shape (filterh*filter2w + 1) #TODO: This is new - explain in paper
@@ -317,7 +317,7 @@ class SRCNN( tf.keras.layers.Layer ):
             self.conv2_nu_post_dist = tfd.LogNormal( self.conv2_nu_post_mean, self.conv2_nu_post_scale )
 
             # Layer local scales
-            # conv1_logtau_post_loc = tf.expand_dims(tf.cast(tf.math.log( self.conv1_tau_post_loc) , dtype=tf.float32 ),-1)
+            # conv1_logtau_post_loc = tf.expand_dims(tf.cast(tf.math.log( self.conv1_tau_post_loc) , dtype=tf.float16 ),-1)
             self.conv1_tau_post_dist = tfd.LogNormal( loc = self.conv1_tau_post_loc, scale=self.conv1_tau_post_scale )
             self.conv2_tau_post_dist = tfd.LogNormal( loc = self.conv2_tau_post_loc, scale=self.conv2_tau_post_scale )
 
@@ -536,8 +536,8 @@ class UpSampler():
         d2 = np.einsum('ii->i', T_2[ :, ::stride_w+1] )
         d2 += 1
 
-        self.T_1 = tf.constant( T_1, dtype=tf.float32)
-        self.T_2 = tf.constant( T_2, dtype=tf.float32)
+        self.T_1 = tf.constant( T_1, dtype=tf.float16)
+        self.T_2 = tf.constant( T_2, dtype=tf.float16)
 
 def horseshoe_kernel_posterior_distribution(obj, _conv_layer_no ):
     """
