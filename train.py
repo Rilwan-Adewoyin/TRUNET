@@ -5,7 +5,9 @@ import sys
 
 import data_generators
 import utility
+os.environ["OMP_NUM_THREADS"] = "1"
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 def is_compatible_with(self, other):
     """Returns True if the `other` DType will be converted to this DType.
@@ -52,7 +54,6 @@ except Exception as e:
 from tensorflow_probability import layers as tfpl
 from tensorflow_probability import distributions as tfd
 from tensorboard.plugins.hparams import api as hp
-import pandas as pd
 
 import math
 

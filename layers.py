@@ -1,17 +1,19 @@
+import os
+import sys
+os.environ["OMP_NUM_THREADS"] = "1"
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-import tensor2tensor as t2t #NOTE: using tensor2tensors implementation, may cause tensorflow2 incompatibility bugs
-import tensorflow_probability as tfp
 try:
     import tensorflow_addons as tfa
 except:
     tfa=None
 from tensorflow_probability import layers as tfpl
 from tensorflow_probability import distributions as tfd
+import tensor2tensor as t2t #NOTE: using tensor2tensors implementation, may cause tensorflow2 incompatibility bugs
+import tensorflow_probability as tfp
 
-import os
-import sys
+
 import utility
 
 import pickle
