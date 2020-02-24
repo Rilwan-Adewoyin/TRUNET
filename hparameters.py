@@ -356,6 +356,8 @@ class model_SimpleLSTM_hparameters(HParams):
 
 class train_hparameters(HParams):
     def __init__(self, **kwargs):
+        self.batch_size = kwargs.get("batch_size",None)
+        kwargs.pop('batch_size')
         super( train_hparameters, self).__init__(**kwargs)
 
     def _default_params(self):
@@ -373,9 +375,9 @@ class train_hparameters(HParams):
         #need to use this ration ,0.73529, for training
         TRAIN_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS*0.53529411764)
         VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS*0.20)
-        BATCH_SIZE = 2
+        BATCH_SIZE = self.batch_size
         DATA_DIR = "./Data"
-        EARLY_STOPPING_PERIOD = 30
+        EARLY_STOPPING_PERIOD = 10
         BOOL_WATER_MASK = pickle.load( open( "Images/water_mask_156_352.dat","rb" ) )
 
         #endregion
@@ -406,11 +408,13 @@ class train_hparameters(HParams):
         
 class test_hparameters(HParams):
     def __init__(self, **kwargs):
+        self.batch_size = kwargs.get("batch_size",None)
+        kwargs.pop('batch_size')
         super( test_hparameters, self).__init__(**kwargs)
     
     def _default_params(self):
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
-        BATCH_SIZE = 2
+        BATCH_SIZE = self.batch_size
 
         MODEL_RECOVER_METHOD = 'checkpoint_epoch'
     
@@ -450,6 +454,9 @@ class test_hparameters(HParams):
 class train_hparameters_ati(HParams):
     def __init__(self, **kwargs):
         self.lookback_target = kwargs['lookback_target']
+        self.batch_size = kwargs.get("batch_size",None)
+        kwargs.pop('batch_size')
+        kwargs.pop('lookback_target')
         super( train_hparameters_ati, self).__init__(**kwargs)
 
     def _default_params(self):
@@ -469,7 +476,7 @@ class train_hparameters_ati(HParams):
         }
 
         WINDOW_SHIFT = self.lookback_target
-        BATCH_SIZE = 2
+        BATCH_SIZE = self.batch_size
         # endregion
 
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
@@ -558,6 +565,9 @@ class train_hparameters_ati(HParams):
 class test_hparameters_ati(HParams):
     def __init__(self, **kwargs):
         self.lookback_target = kwargs['lookback_target']
+        self.batch_size = kwargs.get("batch_size",None)
+        kwargs.pop('batch_size')
+        kwargs.pop('lookback_target')
         super( test_hparameters_ati, self).__init__(**kwargs)
     
     def _default_params(self):
@@ -578,7 +588,7 @@ class test_hparameters_ati(HParams):
 
         WINDOW_SHIFT = self.lookback_target
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
-        BATCH_SIZE = 2
+        BATCH_SIZE = self.batch_size
         N_PREDS = 25
         MODEL_RECOVER_METHOD = 'checkpoint_batch'
         # endregion
