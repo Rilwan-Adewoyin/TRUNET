@@ -9,6 +9,21 @@ import utility
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+
+#DType.is_compatible_with = is_compatible_with
+from tensorflow.keras.mixed_precision import experimental as mixed_precision
+try:
+    gpu_devices = tf.config.list_physical_devices('GPU')
+except Exception as e:
+    gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+
+print("GPU Available: {}\n GPU Devices:{} ".format(tf.test.is_gpu_available(), gpu_devices) )
+for idx, gpu_name in enumerate(gpu_devices):
+    tf.config.experimental.set_memory_growth(gpu_name, True)
+
+policy = mixed_precision.Policy('mixed_float16')
+mixed_precision.set_policy(policy)
+
 def is_compatible_with(self, other):
     """Returns True if the `other` DType will be converted to this DType.
     The conversion rules are as follows:
@@ -29,20 +44,6 @@ def is_compatible_with(self, other):
                                 other.base_dtype.as_datatype_enum)
 #from tensorflow.python.framework.dtypes import DType
 tf.DType.is_compatible_with = is_compatible_with
-#DType.is_compatible_with = is_compatible_with
-from tensorflow.keras.mixed_precision import experimental as mixed_precision
-try:
-    gpu_devices = tf.config.list_physical_devices('GPU')
-except Exception as e:
-    gpu_devices = tf.config.experimental.list_physical_devices('GPU')
-
-print("GPU Available: {}\n GPU Devices:{} ".format(tf.test.is_gpu_available(), gpu_devices) )
-for idx, gpu_name in enumerate(gpu_devices):
-    tf.config.experimental.set_memory_growth(gpu_name, True)
-
-policy = mixed_precision.Policy('mixed_float16')
-mixed_precision.set_policy(policy)
-
 
 import tensorflow_probability as tfp
 try:
