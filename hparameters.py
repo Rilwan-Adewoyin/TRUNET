@@ -453,7 +453,7 @@ class test_hparameters(HParams):
 
 class train_hparameters_ati(HParams):
     def __init__(self, **kwargs):
-        self.lookback_target = kwargs['lookback_target']
+        self.lookback_target = kwargs.get('lookback_target',None)
         self.batch_size = kwargs.get("batch_size",None)
         kwargs.pop('batch_size')
         kwargs.pop('lookback_target')
@@ -530,6 +530,7 @@ class train_hparameters_ati(HParams):
             'total_datums':TOTAL_DATUMS_TARGET,
             'early_stopping_period':EARLY_STOPPING_PERIOD,
             'trainable':trainable,
+            'lookback_target':self.lookback_target,
 
 
             'train_set_size_elements':TRAIN_SET_SIZE_ELEMENTS,
