@@ -89,11 +89,13 @@ class SimpleLSTM(tf.keras.Model):
         super(SimpleLSTM, self).__init__()
 
         self.model_params = model_params
-        self.LSTM_layers = [ tf.keras.layers.LSTM( **model_params['layer_params'][idx] ) for idx in range( model_params['layer_count'] ) ]
+        self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.LSTM( **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ]
         self.LSTM_init_state = [ [tf.Variable(tf.zeros( (train_params['batch_size'],model_params['layer_params'][idx]['units']), dtype=tf.float16)) ]*2 for idx in range( model_params['layer_count']) ]
         for idx in range(model_params['layer_count']):
             #layers._dtype = 'float16'
-            self.LSTM_layers[idx].states = self.LSTM_init_state[idx]
+            #self.LSTM_layers[idx].states = self.LSTM_init_state[idx]
+            self.LSTM_layers[idx].forward_layer.states = self.LSTM_init_state[idx]
+            self.LSTM_layers[idx].backward_layer.states = self.LSTM_init_state[idx]
             #layers.reset_states()
         self.output_dense = tf.keras.layers.Dense(units=1, activation='relu')
         self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
