@@ -303,7 +303,7 @@ def train_loop(train_params, model_params):
                         log_likelihood = log_likelihood_cond_rain - log_cross_entropy_rainclassification
 
                         kl_loss_weight = utility.kl_loss_weighting_scheme(train_set_size_batches) 
-                        kl_loss = tf.math.reduce_sum( model.losses ) * kl_loss_weight * (1/model_params['model_type_settings']['stochastic_f_pass'] )  #This KL-loss is already normalized against the number of samples of weights drawn #TODO: Later implement your own Adam type method to determine this
+                        kl_loss = tf.cast(tf.math.reduce_sum( model.losses ) * kl_loss_weight * (1/model_params['model_type_settings']['stochastic_f_pass'] ), tf.float32)  #This KL-loss is already normalized against the number of samples of weights drawn #TODO: Later implement your own Adam type method to determine this
 
                         var_free_nrg_loss = kl_loss  - log_likelihood
                         l = var_free_nrg_loss
