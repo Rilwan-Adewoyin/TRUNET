@@ -90,26 +90,28 @@ class SimpleLSTM(tf.keras.Model):
         super(SimpleLSTM, self).__init__()
 
         self.model_params = model_params
-        self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.LSTM( **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ]
-        self.LSTM_init_state = [ [tf.Variable(tf.zeros( (train_params['batch_size'],model_params['layer_params'][idx]['units']), dtype=tf.float16)) ]*2 for idx in range( model_params['layer_count']) ]
+        #self.LSTM_layers = [ tf.keras.layers.LSTM( implementation=2, **model_params['layer_params'][idx] ) for idx in range( model_params['layer_count'] ) ]
+        self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.LSTM( implementation=2, **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ]
+        
+        self.LSTM_init_state = [ [[tf.Variable(tf.zeros( (train_params['batch_size'],model_params['layer_params'][idx]['units']), dtype=tf.float16)) ]*2]*2 for idx in range( model_params['layer_count']) ]
         for idx in range(model_params['layer_count']):
             #layers._dtype = 'float16'
-            #self.LSTM_layers[idx].states = self.LSTM_init_state[idx]
-            self.LSTM_layers[idx].forward_layer.states = self.LSTM_init_state[idx]
-            self.LSTM_layers[idx].backward_layer.states = self.LSTM_init_state[idx]
+            # self.LSTM_layers[idx].states = self.LSTM_init_state[idx][0]
+            self.LSTM_layers[idx].forward_layer.states = self.LSTM_init_state[idx][0]
+            self.LSTM_layers[idx].backward_layer.states = self.LSTM_init_state[idx][1]
             #layers.reset_states()
         self.output_dense = tf.keras.layers.Dense(units=1, activation='relu')
         self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
 
         self.new_shape = tf.TensorShape( [train_params['batch_size'], train_params['lookback_target'], int(6*4)] )
 
-    def call(self, _input, training=False):
+    @tf.function
+    def call(self, _input, training=True):
         #_input shape (bs, seq_len, c)
         #shape = _input.shape
         x = tf.reshape( _input, self.new_shape )
-        for idx in tf.range(self.model_params['layer_count']):
-            x = self.LSTM_layers[idx](inputs=x ) #, initial_state=self.LSTM_init_state[idx] ) #returns hidden states at each level
-            #x = self.LSTM_layers[idx](inputs=x) #returns hidden states at each level
+        for idx in range(self.model_params['layer_count']):
+            x = self.LSTM_layers[idx](inputs=x,training=training )  
         x = self.output_dense(x)
         x = self.float32_output(x)
         return x

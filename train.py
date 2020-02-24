@@ -9,6 +9,8 @@ import utility
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+tf.keras.backend.set_floatx('float16')
+tf.keras.backend.set_epsilon(1e-3)
 
 #DType.is_compatible_with = is_compatible_with
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
@@ -351,7 +353,7 @@ def train_loop(train_params, model_params):
                     if( model_params['model_type_settings']['stochastic']==False):
                         target, mask = target # (bs, seq_len)
 
-                        preds = model( tf.cast(feature,tf.float16) ) #( bs, tar_seq_len)
+                        preds = model( tf.cast(feature,tf.float16), train_params['trainable'] ) #( bs, tar_seq_len)
                         preds = tf.squeeze(preds)
 
                         preds_filtrd = tf.boolean_mask( preds, mask )
@@ -422,7 +424,7 @@ def train_loop(train_params, model_params):
             df_training_info.loc[ ( df_training_info['Epoch']==epoch) , ['Last_Trained_Batch'] ] = batch
             df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(model_params)), header=True, index=False )
         
-        print("\nStarting Validation")
+        
         start_epoch_val = time.time()
         start_batch_time = time.time()
         if( model_params['model_type_settings']['stochastic']==True ):
@@ -430,6 +432,7 @@ def train_loop(train_params, model_params):
         else:
             print('EPOCH {}:\tMSE: {:.8f}\tTime: {:.2f}'.format(epoch ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
             # endregion
+        print("\nStarting Validation")
         model.reset_states()
         #endregion
 

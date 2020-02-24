@@ -118,9 +118,9 @@ def kl_loss_weighting_scheme( max_batch ):
 
 def standardize( _array, reverse=False, distr_type="Normal" ):
     if distr_type=="Normal":
-        SCALE = 100
+        SCALE = 2
     elif distr_type=="LogNormal":
-        SCALE=1
+        SCALE= 2
 
     if(reverse==False):
         _array = _array/SCALE
@@ -247,7 +247,7 @@ def default(obj):
 
     raise TypeError('Unknown type:', type(obj))
 
-#end region
+#endregion
 
 def model_name_mkr(model_params):
     if model_params['model_name'] == "THST":

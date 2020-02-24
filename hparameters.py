@@ -95,9 +95,9 @@ class model_deepsd_hparameters(HParams):
         #endregion params
 
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-2 , "warmup_proportion":0.6,
-            "min_lr": 1e-3, "beta_1":0.99 , "beta_2": 0.99, "epsilon":1e-6 }
-        LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":10}
+            "learning_rate":1e-4 , "warmup_proportion":0.5,
+            "min_lr": 1e-5, "beta_1":0.99 , "beta_2": 0.99, "epsilon":1e-5 }
+        LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":0.75}
 
         model_type_settings = {'stochastic':False ,'stochastic_f_pass':10,
                                 'distr_type':"Normal", 'discrete_continuous':True,
@@ -144,7 +144,7 @@ class model_THST_hparameters(HParams):
     def _default_params(self ):
         
         # region general params
-        DROPOUT = 0.05
+        DROPOUT = 0.15
 
         #Deployment Settings        
         SEQ_LEN_FACTOR_REDUCTION = [4, 7, 4, 4 ] #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
@@ -287,6 +287,7 @@ class model_THST_hparameters(HParams):
         REC_ADAM_PARAMS = {
             "learning_rate":2e-3 , "warmup_proportion":0.6,
             "min_lr": 1e-3, "beta_1":0.99 , "beta_2": 0.99,
+            "epsilon":1e-5
         }
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.6}
         
@@ -315,9 +316,10 @@ class model_SimpleLSTM_hparameters(HParams):
     def _default_params(self):
         #model
         li_units =  [128, 128, 128]
+        #li_units =  [2, 2, 2]
         li_rs =     [True, True, True]
         LAYER_PARAMS = [
-            {'units': un, 'dropout':0.25,
+            {'units': un, 'dropout':0.00,
                 'return_sequences':rs, 'stateful':True}
                 for un, rs in zip(li_units, li_rs)
         ]
@@ -335,7 +337,7 @@ class model_SimpleLSTM_hparameters(HParams):
         #training proc
         REC_ADAM_PARAMS = {
             "learning_rate":1e-2 , "warmup_proportion":0.6,
-            "min_lr": 1e-3, "beta_1":0.99 , "beta_2": 0.99 }
+            "min_lr": 1e-3, "beta_1":0.99 , "beta_2": 0.99, "epsilon":1e-4 }
 
         LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":10 }
 
@@ -377,7 +379,7 @@ class train_hparameters(HParams):
         VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS*0.20)
         BATCH_SIZE = self.batch_size
         DATA_DIR = "./Data"
-        EARLY_STOPPING_PERIOD = 10
+        EARLY_STOPPING_PERIOD = 5
         BOOL_WATER_MASK = pickle.load( open( "Images/water_mask_156_352.dat","rb" ) )
 
         #endregion
@@ -468,11 +470,25 @@ class train_hparameters_ati(HParams):
         }
 
         NORMALIZATION_SCALES = {
-                                    "rain":200.0,
-                                    "model_fields": np.array([1.0,1.0,1.0,1.0,1.0,1.0]) #TODO: Find the appropriate scaling terms for each of the model fields, by inspecting data
+                                    "rain":2.844,
+                                    "model_fields": np.array([15.442,
+                                                                0.003758,
+                                                                274.833,
+                                                                54309.66,
+                                                                3.08158+19.436,
+                                                                0.54810+24.104]) #TODO: Find the appropriate scaling terms for each of the model fields, by inspecting data
                                                 #- unknown_local_param_137_128
                                                 # - unknown_local_param_133_128,  # - air_temperature, # - geopotential
                                                 # - x_wind, # - y_wind
+        }
+
+        NORMALIZATION_SHIFT = {
+                                "model_fields": np.array([0.0,
+                                                0.0,
+                                                0.0,
+                                                0.0,
+                                                -19.436,
+                                                -24.104]) 
         }
 
         WINDOW_SHIFT = self.lookback_target
@@ -519,9 +535,7 @@ class train_hparameters_ati(HParams):
         VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS_TARGET*0.2)
          
         DATA_DIR = "./Data/Rain_Data_Nov19" 
-        EARLY_STOPPING_PERIOD = 10
-
-
+        EARLY_STOPPING_PERIOD = 5
  
         self.params = {
 
@@ -553,6 +567,7 @@ class train_hparameters_ati(HParams):
             
             'mask_fill_value':MASK_FILL_VALUE,
             'normalization_scales' : NORMALIZATION_SCALES,
+            'normalization_shift': NORMALIZATION_SHIFT,
             'window_shift': WINDOW_SHIFT,
 
             'train_start_date':train_start_date,
@@ -576,15 +591,30 @@ class test_hparameters_ati(HParams):
         # region -------data pipepline vars
         trainable = True
         MASK_FILL_VALUE = {
-            "rain":-1.0,
-            "model_field":-1.0 }
+                                    "rain":-1.0,
+                                    "model_field":-1.0 
+        }
 
         NORMALIZATION_SCALES = {
-            "rain":200.0,
-            "model_fields": np.array([1.0,1.0,1.0,1.0,1.0,1.0]) #TODO: Find the appropriate scaling terms for each of the model fields, by inspecting data
-                        #- unknown_local_param_137_128
-                        # - unknown_local_param_133_128,  # - air_temperature, # - geopotential
-                        # - x_wind, # - y_wind
+                                    "rain":2.844,
+                                    "model_fields": np.array([15.442,
+                                                                0.003758,
+                                                                274.833,
+                                                                54309.66,
+                                                                3.08158+19.436,
+                                                                0.54810+24.104]) #TODO: Find the appropriate scaling terms for each of the model fields, by inspecting data
+                                                #- unknown_local_param_137_128
+                                                # - unknown_local_param_133_128,  # - air_temperature, # - geopotential
+                                                # - x_wind, # - y_wind
+        }
+
+        NORMALIZATION_SHIFT = {
+                                "model_fields": np.array([0.0,
+                                                0.0,
+                                                0.0,
+                                                0.0,
+                                                -19.436,
+                                                -24.104]) 
         }
 
         WINDOW_SHIFT = self.lookback_target
@@ -650,6 +680,7 @@ class test_hparameters_ati(HParams):
             
             'mask_fill_value':MASK_FILL_VALUE,
             'normalization_scales' : NORMALIZATION_SCALES,
+            'normalization_shift': NORMALIZATION_SHIFT,
             'window_shift': WINDOW_SHIFT,
 
             'test_start_date':test_start_date,

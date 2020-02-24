@@ -222,9 +222,8 @@ class Generator_rain(Generator):
         #with Dataset(self.fn, "r", format="NETCDF4",keepweakref=True) as f:
         for chunk in f.variables['rr'][:]:
             data = np.ma.getdata(chunk)
-            mask = np.ma.getmask(chunk)
+            mask = np.logical_not( np.ma.getmask(chunk) )
             yield data , mask
-
 
     def __call__(self):
         return self.yield_iter()
@@ -302,7 +301,6 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
         raise ValueError("Either one of target_datums_to_skip or day_to_start_from must not be None")
     # endregion
 
-
     # region prepare target_rain_data
     fn_rain = data_dir+"/rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc"
     #fn_rain = "/home/u1862646/ATI/BNN/Data/Rain_Data_Nov19/rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc" 
@@ -311,6 +309,14 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     
     ds_tar = tf.data.Dataset.from_generator( rain_data, output_types=( tf.float32, tf.bool) ) #(values, mask) 
     ds_tar = ds_tar.skip(start_idx_tar) #skipping to correct point
+    
+    def normalize_rain_values(arr_rain, arr_mask, scale):
+
+        arr_rain = utility.standardize_ati(arr_rain, scale, reverse=False  )
+
+        return arr_rain, arr_mask
+    
+    ds_tar = ds_tar.map( lambda _vals, _mask: normalize_rain_values( _vals, _mask, t_params['normalization_scales']['rain'] ) ) # (values, mask)
 
     def rain_mask(arr_rain, arr_mask, fill_value):
         """ 
@@ -319,20 +325,13 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
             :param tnsr fill_value: 
 
         """
-        arr_rain = tf.where( arr_mask, fill_value ,arr_rain )
+        arr_rain = tf.where( arr_mask, arr_rain, fill_value )
 
         return arr_rain, arr_mask
     
     ds_tar = ds_tar.map( lambda _vals, _mask: rain_mask( _vals, _mask, t_params['mask_fill_value']['rain'] ) ) # (values, mask)
 
-    def normalize_rain_values(arr_rain, arr_mask, scale):
 
-        arr_rain = arr_rain/scale
-        utility.standardize_ati(arr_rain, scale, reverse=False  )
-
-        return arr_rain, arr_mask
-    
-    ds_tar = ds_tar.map( lambda _vals, _mask: normalize_rain_values( _vals, _mask, t_params['normalization_scales']['rain'] ) ) # (values, mask)
     
     ds_tar = ds_tar.window(size =t_params['lookback_target'], stride=1, shift=t_params['window_shift'] , drop_remainder=True )
     
@@ -346,7 +345,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     
     ds_feat = tf.data.Dataset.from_generator( mf_data , output_types=( tf.float32, tf.bool)) #(values, mask) 
     ds_feat = ds_feat.skip(start_idx_feat)
-    def mf_normalization_mask(arr_data, scales, arr_mask, fill_value):
+    def mf_normalization_mask(arr_data, scales, shift, arr_mask, fill_value):
         """
 
             :param tnsr arr_data: #shape (lb, h, w, n)
@@ -354,12 +353,14 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
 
         """
         #TODO: Find the appropriate values for scales, by finding the reasonable max/min for each weather datum 
-        arr_data = tf.divide( arr_data, scales)
+        arr_data = tf.subtract( arr_data, shift)  #shift
+        arr_data = tf.divide( arr_data, scales) #divide
 
         arr_data = tf.where( arr_mask, arr_data, fill_value )
         return arr_data # (h,w,c)
 
     ds_feat = ds_feat.map( lambda arr_data, arr_mask: mf_normalization_mask( arr_data, t_params['normalization_scales']['model_fields'],
+                t_params['normalization_shift']['model_fields'],
                 arr_mask ,t_params['mask_fill_value']['model_field'] ) ,num_parallel_calls= _num_parallel_calls) #_num_parallel_calls  )
 
     ds_feat = ds_feat.window(size = t_params['lookback_feature'], stride=1, shift=t_params['lookback_feature'], drop_remainder=True )
