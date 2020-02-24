@@ -168,7 +168,7 @@ def load_params_train_model(args_dict):
         init_t_params = {}
         init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
         init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
-        train_params = hparameters.train_hparameters_ati( **init_t_params )
+        train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
     
     elif(args_dict['model_name'] == "SimpleLSTM"):
         #use settings from THST to initialise the model generator
@@ -178,9 +178,10 @@ def load_params_train_model(args_dict):
         init_t_params = {}
         init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
         init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
-        train_params = hparameters.train_hparameters_ati( **init_t_params )
+        
+        train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
     
-    save_model_settings( model_params )
+    save_model_settings( model_params, train_params() )
 
     return train_params, model_params
 
@@ -208,20 +209,29 @@ def parse_arguments(s_dir=None):
 
     parser.add_argument('-opt','--optimizer_settings', type=str, required=False, default='{}')
 
+    parser.add_argument('-bs','--batch_size', type=int, required=False, default=2)
+
     args_dict = vars(parser.parse_args() )
 
     return args_dict
 
-def save_model_settings(model_params):
+def save_model_settings(model_params,t_params):
     
     f_dir = "model_params/{}".format( model_name_mkr(model_params) )
 
-    f_path = "model_params.json"    
+    m_path = "model_params.json"
+    
+    if t_params['trainable']==True:
+        t_path = "train_params.json"
+    else:
+        t_path = "test_params.json"
 
     if not os.path.isdir(f_dir):
         os.makedirs( f_dir, exist_ok=True  )
-    with open( f_dir+"/"+f_path, "w" ) as fp:
+    with open( f_dir+"/"+m_path, "w" ) as fp:
         json.dump( model_params, fp, default=default )
+    with open( f_dir+"/"+t_path, "w" ) as fp:
+        json.dump( t_params, fp, default=default )
 
 def default(obj):
     if type(obj).__module__ == np.__name__:

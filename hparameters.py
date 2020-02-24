@@ -384,6 +384,7 @@ class train_hparameters(HParams):
             'epochs':EPOCHS,
             'total_datums':TOTAL_DATUMS,
             'early_stopping_period':EARLY_STOPPING_PERIOD,
+            'trainable':True,
 
             'train_set_size_elements':TRAIN_SET_SIZE_ELEMENTS,
             'train_set_size_batches':TRAIN_SET_SIZE_ELEMENTS//BATCH_SIZE,
@@ -413,7 +414,7 @@ class test_hparameters(HParams):
 
         MODEL_RECOVER_METHOD = 'checkpoint_epoch'
     
-        trainable = 'test'
+        trainable = False
         start_date = np.datetime64('1981-01-01')
         end_date = np.datetime64('2015-12-31')
         TOTAL_DATUMS = np.timedelta64( end_date-start_date, 'D').astype(int)
