@@ -29,9 +29,6 @@ def is_compatible_with(self, other):
 tf.DType.is_compatible_with = is_compatible_with
 #DType.is_compatible_with = is_compatible_with
 
-from tensorflow.keras.mixed_precision import experimental as mixed_precision
-policy = mixed_precision.Policy('mixed_float16')
-mixed_precision.set_policy(policy)
 
 try:
     gpu_devices = tf.config.list_physical_devices('GPU')
@@ -42,7 +39,10 @@ print("GPU Available: {}\n GPU Devices:{} ".format(tf.test.is_gpu_available(), g
 for idx, gpu_name in enumerate(gpu_devices):
     tf.config.experimental.set_memory_growth(gpu_name, True)
 
-##comment the below two lines out if training DEEPSD
+from tensorflow.keras.mixed_precision import experimental as mixed_precision
+policy = mixed_precision.Policy('mixed_float16')
+mixed_precision.set_policy(policy)
+
 
 import tensorflow_probability as tfp
 try:
