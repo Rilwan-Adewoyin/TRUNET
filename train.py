@@ -414,7 +414,7 @@ def train_loop(train_params, model_params):
                 est_completion_time_seconds = (batches_report_time/train_params['dataset_trainval_batch_reporting_freq']) * (train_set_size_batches - batch)/train_set_size_batches
                 est_completion_time_mins = est_completion_time_seconds/60
 
-                print("\tBatch:{}/{}\tTrain MSE Loss: {:.5f} \t Batch Time:{:.4f}\tEpoch mins left:{:.1f}".format(batch, train_set_size_batches, train_metric_mse_mean_groupbatch.result(), batches_report_time, est_completion_time_mins ) )
+                print("\tBatch:{}/{}\tTrain MSE Loss: {:.8f} \t Batch Time:{:.4f}\tEpoch mins left:{:.1f}".format(batch, train_set_size_batches, train_metric_mse_mean_groupbatch.result(), batches_report_time, est_completion_time_mins ) )
                 train_metric_mse_mean_groupbatch.reset_states()
                 start_batch_time = time.time()
 
@@ -426,9 +426,9 @@ def train_loop(train_params, model_params):
         start_epoch_val = time.time()
         start_batch_time = time.time()
         if( model_params['model_type_settings']['stochastic']==True ):
-            print('EPOCH {}:\tVar_Free_Nrg: {:.5f} \tMSE: {:.5f}\tTime: {:.2f}'.format(epoch, train_loss_var_free_nrg_mean_epoch.result() ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
+            print('EPOCH {}:\tVar_Free_Nrg: {:.5f} \tMSE: {:.8f}\tTime: {:.2f}'.format(epoch, train_loss_var_free_nrg_mean_epoch.result() ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
         else:
-            print('EPOCH {}:\tMSE: {:.3f}\tTime: {:.2f}'.format(epoch ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
+            print('EPOCH {}:\tMSE: {:.8f}\tTime: {:.2f}'.format(epoch ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
             # endregion
         model.reset_states()
         #endregion
@@ -482,7 +482,7 @@ def train_loop(train_params, model_params):
                     batches_to_skip = 0
         model.reset_states()
 
-        print("Epoch:{}\t Train MSE:{:.5f}\tValidation Loss: MSE:{:.5f}\tTime:{:.5f}".format(epoch, train_metric_mse_mean_epoch.result(), val_metric_mse_mean.result(), time.time()-start_epoch_val  ) )
+        print("Epoch:{}\t Train MSE:{:.8f}\tValidation Loss: MSE:{:.5f}\tTime:{:.5f}".format(epoch, train_metric_mse_mean_epoch.result(), val_metric_mse_mean.result(), time.time()-start_epoch_val  ) )
         with writer.as_default():
             tf.summary.scalar('Validation Loss MSE', val_metric_mse_mean.result() , step =  epoch )
         df_training_info = utility.update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoch, val_metric_mse_mean, ckpt_manager_epoch, train_params, model_params )
