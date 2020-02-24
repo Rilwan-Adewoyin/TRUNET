@@ -5,6 +5,7 @@ import tensorflow as tf
 import pickle
 import glob
 import utility
+import json
 
 
 
@@ -167,20 +168,26 @@ def load_data_vandal( elements_to_skip, hparams, m_params,_num_parallel_calls =-
 
 class Generator():
     
-    def __init__(self, fn = "", all_at_once=False, train_size=0.75, channel=None, start_idx=0 ):
+    def __init__(self, fn = "", all_at_once=False, channel=None):
         self.generator = None
         self.all_at_once = all_at_once
         self.fn = fn
         self.channel = channel
-        self.start_idx = start_idx
+        self.city_location = {
+            "London": [51.5074, -0.1278],
+            #+0.15,-0.1 to avoid masking a coastal city
+            "Cardiff": [51.4816 + 0.15, -3.1791 -0.05], 
+            "Edinburgh": [55.9533, -3.1883],
+            "Belfast": [54.5973, -5.9301],
+            "Dublin": [53.3498, -6.2603]}
+        self.latitude_array = np.linspace(58.95, 49.05, 100)
+        self.longitude_array = np.linspace(-10.95, 2.95, 140)
+        
     
     def yield_all(self):
         pass
 
-    def yield_iter(self,start_idx):
-        pass
-
-    def long_lat(self):
+    def yield_iter(self):
         pass
 
     def __call__(self):
@@ -189,6 +196,17 @@ class Generator():
         else:
             return self.yield_iter()
     
+    def find_idx_of_city(self, city="London"):
+        coordinates = self.city_location[city]
+        return self.find_nearest_latitude_longitude( coordinates)
+
+    def find_nearest_latitude_longitude(self, coordinates):
+
+        latitude_index =    np.abs(self.latitude_array - coordinates[0] ).argmin()
+        longitude_index =   np.abs(self.longitude_array - coordinates[1]).argmin()
+
+        return(latitude_index, longitude_index)
+    
 class Generator_rain(Generator):
     def __init__(self, **generator_params):
         super(Generator_rain, self).__init__(**generator_params)
@@ -196,27 +214,13 @@ class Generator_rain(Generator):
 
     def yield_all(self,):
         with Dataset(self.fn, "r", format="NETCDF4",keepweakref=True) as f:
-            _data = f.variables['rr'][self.start_idx:]
+            _data = f.variables['rr'][:]
             yield np.ma.getdata(_data), np.ma.getmask(_data)   
             
     def yield_iter(self):
         fn = self.fn
-        # with Dataset(fn, "r", format="NETCDF4",keepweakref=True) as f:
-            
-        #     _iter = iter(f.variables['rr'])
 
-        #     for idx in range(self.data_len):
-        #     #idx=0
-        #     #while idx < self.data_len:
-        #         chunk = next(_iter)
-        #         #idx = idx+1
-        #         data = np.ma.getdata(chunk)
-        #         mask = np.ma.getmask(chunk)
-        #         yield data , mask
-        #     else:
-        #         f.close()
-        f = Dataset(fn, "r", format="NETCDF4",keepweakref=True)
-        start_idx = 0
+        f = Dataset(fn, "r", format="NETCDF4", keepweakref=True)
         for chunk in f.variables['rr']:
             data = np.ma.getdata(chunk)
             mask = np.ma.getmask(chunk)
@@ -250,51 +254,50 @@ class Generator_mf(Generator):
     
     def yield_iter(self):
 
-        # with Dataset(self.fn, "r", format="NETCDF4",keepweakref=True) as f:
-            
-        #     li_iters = [ iter(f.variables[var_name]) for var_name in self.vars_for_feature  ]
-        #     #li_iters = [ f.variables[var_name] for var_name in self.vars_for_feature  ]
-
-
-        #     #for idx in range(self.data_len):
-        #     idx=0
-        #     while idx < self.data_len:
-        #         list_maskarr = [next(_iter) for _iter in li_iters ]
-        #         idx = idx+1
-        #         list_datamask = [ (np.ma.getdata(_mar), np.ma.getmask(_mar)) for _mar in list_maskarr ]
-        #         _data, _masks= list( zip (*list_datamask ) )
-        #         stacked_data = np.stack(_data, axis=-1 )
-        #         stacked_masks = np.stack(_masks, axis=-1 )
-        #         yield stacked_data, stacked_masks
-        #     else:
-        #         f.close()
-
-        start_idx = 0
+        
         f = Dataset(self.fn, "r", format="NETCDF4")
-        for tuple_mfs in zip( *[f.variables[var_name][start_idx:] for var_name in self.vars_for_feature] ):
+        for tuple_mfs in zip( *[f.variables[var_name] for var_name in self.vars_for_feature] ):
             list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar) ) for _mar in tuple_mfs]
             _data, _masks = list(zip(*list_datamask))
+            _masks = [ np.full(_data[0].shape, np.logical_not(_mask_val) , dtype=bool) for _mask_val in _masks ] #projecting masks from the (6,) shape to a square array shape
 
             stacked_data = np.stack(_data, axis=-1)
             stacked_masks = np.stack(_masks, axis=-1)
-
-            yield stacked_data, stacked_masks #(h,w,6) (6)
+            
+            yield stacked_data[ -2:1:-1 , 2:-2, :], stacked_masks[ -2:1:-1 , 2:-2, :] #(h,w,6) #(h,w,6)  #this aligns it to rain 
     
     def __call__(self):
         return self.yield_iter()
 
-def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_at=None, _num_parallel_calls=-1, data_dir="./Data/Rain_Data_Nov19" ):
+def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_at=None, _num_parallel_calls=-1,
+                    data_dir="./Data/Rain_Data_Nov19", mode="Normal" ):
     """
         This is specific for the following two files -> ana_input_1.nc and rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc
         :param day_to_start_at: should be of type np.datetime64
 
     """
     # region Data Syncing/Skipping
+    def get_start_idx( start_date, t_params ):
+        """
+            :param start_date: a numpy datetime object
+        """
+
+        feature_start_date = t_params['feature_start_date']
+        target_start_date = t_params['target_start_date']
+
+        feat_days_diff = ( np.timedelta64(start_date - feature_start_date,'6h') ).astype(int)
+        tar_days_diff = ( np.timedelta64(start_date - target_start_date, 'D') ).astype(int)
+
+        feat_start_idx = feat_days_diff #since the feature comes in four hour chunks
+        tar_start_idx = tar_days_diff 
+
+        return feat_start_idx, tar_start_idx
+
     if(target_datums_to_skip!=None):
         raise NotImplementedError
     
     elif(day_to_start_at!=None):
-        start_idx_feat, start_idx_tar = get_start_idx(day_to_start_at, t_params, m_params)
+        start_idx_feat, start_idx_tar = get_start_idx(day_to_start_at, t_params)
 
     else:
         raise ValueError("Either one of target_datums_to_skip or day_to_start_from must not be None")
@@ -305,10 +308,10 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     fn_rain = data_dir+"/rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc"
     #fn_rain = "/home/u1862646/ATI/BNN/Data/Rain_Data_Nov19/rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc" 
 
-    # rain_data = Generator_rain(fn=fn_rain, all_at_once=False)
-    # rain_gen = rain_data(start_idx_tar)
-
-    ds_tar = tf.data.Dataset.from_generator( Generator_rain(fn=fn_rain, all_at_once=False, start_idx = start_idx_tar), output_types=( tf.float32, tf.bool) ) #(values, mask) 
+    rain_data = Generator_rain(fn=fn_rain, all_at_once=False)
+    
+    ds_tar = tf.data.Dataset.from_generator( rain_data, output_types=( tf.float32, tf.bool) ) #(values, mask) 
+    ds_tar = ds_tar.skip(start_idx_tar) #skipping to correct point
 
     def rain_mask(arr_rain, arr_mask, fill_value):
         """ 
@@ -332,21 +335,21 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     
     ds_tar = ds_tar.map( lambda _vals, _mask: normalize_rain_values( _vals, _mask, t_params['normalization_scales']['rain'] ) ) # (values, mask)
     
-    ds_tar = ds_tar.window(size = m_params['data_pipeline_params']['lookback_target'], stride=1, shift=t_params['window_shift'] , drop_remainder=True )
+    ds_tar = ds_tar.window(size =t_params['lookback_target'], stride=1, shift=t_params['window_shift'] , drop_remainder=True )
     
-    ds_tar = ds_tar.interleave( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(m_params['data_pipeline_params']['lookback_target']) for w in window ] ) ) ,block_length=1, num_parallel_calls= _num_parallel_calls  ) #shape (lookback,h, w)
+    ds_tar = ds_tar.flat_map( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(t_params['lookback_target']) for w in window ] ) ) ) #shape (lookback,h, w)
     # endregion
 
     # region prepare feature model fields
 
     fn_mf = data_dir + "/ana_input_1.nc"
-    # mf_data = Generator_mf(fn=fn_mf, all_at_once=False)
-    # mf_gen = mf_data(start_idx_feat)
-
-    ds_feat = tf.data.Dataset.from_generator( Generator_mf(fn=fn_mf, all_at_once=False,start_idx = start_idx_feat) , output_types=( tf.float32, tf.bool)) #(values, mask) 
-
-    def mf_normalization_mask_align(arr_data, scales, arr_mask, fill_value):
+    mf_data = Generator_mf(fn=fn_mf, all_at_once=False)
+    
+    ds_feat = tf.data.Dataset.from_generator( mf_data , output_types=( tf.float32, tf.bool)) #(values, mask) 
+    ds_feat = ds_feat.skip(start_idx_feat)
+    def mf_normalization_mask(arr_data, scales, arr_mask, fill_value):
         """
+
             :param tnsr arr_data: #shape (lb, h, w, n)
             :param tnsr scales: #shape ( n )
 
@@ -354,41 +357,49 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
         #TODO: Find the appropriate values for scales, by finding the reasonable max/min for each weather datum 
         arr_data = tf.divide( arr_data, scales)
 
-        arr_data = tf.where( arr_mask, fill_value, arr_data )
-        arr_data = arr_data[ -2:1:-1 , 2:-2 , : ] #long, lat, channels
-
+        arr_data = tf.where( arr_mask, arr_data, fill_value )
         return arr_data # (h,w,c)
 
-    ds_feat = ds_feat.map( lambda arr_data, arr_mask: mf_normalization_mask_align( arr_data, t_params['normalization_scales']['model_fields'],
+    ds_feat = ds_feat.map( lambda arr_data, arr_mask: mf_normalization_mask( arr_data, t_params['normalization_scales']['model_fields'],
                 arr_mask ,t_params['mask_fill_value']['model_field'] ) ,num_parallel_calls= _num_parallel_calls) #_num_parallel_calls  )
 
-    ds_feat = ds_feat.window(size = m_params['data_pipeline_params']['lookback_feature'], stride=1, shift=m_params['data_pipeline_params']['lookback_feature'], drop_remainder=True )
+    ds_feat = ds_feat.window(size = t_params['lookback_feature'], stride=1, shift=t_params['lookback_feature'], drop_remainder=True )
 
-    # ds_feat = ds_feat.interleave( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(m_params['data_pipeline_params']['lookback_feature']) for w in window ] ) ) 
-    #                             ,block_length=1 , num_parallel_calls= tf.data.experimental.AUTOTUNE  ) #shape (lookback,h, w, 6)
-
-    ds_feat = ds_feat.interleave( lambda window:  window.batch(m_params['data_pipeline_params']['lookback_feature'] ),  
-                            block_length=1 , num_parallel_calls= _num_parallel_calls ) # tf.data.experimental.AUTOTUNE  ) #shape (lookback,h, w, 6)
-    
+    ds_feat = ds_feat.flat_map( lambda window: tf.data.Dataset.zip( window.batch(t_params['lookback_feature']) ) )  #shape (lookback,h, w, 6)
     # endregion
-
+    
     ds = tf.data.Dataset.zip( (ds_feat, ds_tar) ) #( model_fields, (rain, rain_mask) ) 
     ds = ds.batch(t_params['batch_size'], drop_remainder=True)
+
+    # region mode of data
+    model_settings = m_params['model_type_settings']
+    if(model_settings['location']=="wholegrid"):
+        pass
+
+    elif(model_settings['location'] in rain_data.city_location.keys() ):
+        idxs = rain_data.find_idx_of_city( model_settings['location'] )
+        ds = ds.map( lambda mf, rain_rmask : load_data_ati_select_location(mf, rain_rmask[0], rain_rmask[1], idxs ), num_parallel_calls=_num_parallel_calls )
+
+    elif(model_settings['location']=="regiongrid"):
+        ds = ds.map( lambda mf, rain_rmask : load_data_ati_folded_regions(mf, rain_rmask[0], rain_rmask[1] ) )
+
+    else:
+        raise ValueError
+
     #ds = ds.prefetch(1)
     return ds
 
-def get_start_idx( start_date, t_params, m_params ):
+def load_data_ati_select_location(mf, rain, rain_mask, idxs ):
     """
-        :param start_date: a numpy datetime object
+        feature shape (bs, lookback, h, w, c)
+        target shape (bs, lookback, h, w, c)
     """
+    
+    mf = mf[:, :, idxs[0], idxs[1],:]
+    rain = rain[:, :, idxs[0], idxs[1]]
+    rain_mask = rain_mask[ :, :, idxs[0], idxs[1] ]
 
-    feature_start_date = t_params['feature_start_date']
-    target_start_date = t_params['target_start_date']
+    return mf, (rain, rain_mask)  #(bs, lookback, c)
 
-    feat_days_diff = ( np.timedelta64(start_date - feature_start_date,'6h') ).astype(int)
-    tar_days_diff = ( np.timedelta64(start_date - target_start_date, 'D') ).astype(int)
-
-    feat_start_idx = feat_days_diff #since the feature comes in four hour chunks
-    tar_start_idx = tar_days_diff 
-
-    return feat_start_idx, tar_start_idx
+def load_data_ati_folded_regions(feat, rain, rain_mask):
+    raise NotImplementedError

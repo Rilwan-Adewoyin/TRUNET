@@ -5,6 +5,8 @@ import sys
 import os
 import argparse
 import json
+import hparameters
+import ast
 
 # region Vandal
 #precip data import - use in data pipeline
@@ -104,8 +106,8 @@ def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoc
         print("\nTop {} Performance Scores".format(train_params['checkpoints_to_keep_epoch']))
         df_training_info = df_training_info.sort_values(by=['Val_loss_MSE'], ascending=True)[:train_params['checkpoints_to_keep_epoch']]
         print(df_training_info[['Epoch','Val_loss_MSE']] )
-        df_training_info.to_csv( path_or_buf="checkpoints/{}/{}_{}_{}/checkpoint_scores_model_{}.csv".format(model_params['model_name'],model_params['model_type_settings']['var_model_type'],
-            model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']),model_params['model_version']), header=True, index=False ) #saving df of scores                      
+        df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(model_name_mkr(model_params)),
+                                    header=True, index=False ) #saving df of scores                      
     return df_training_info
 
 def kl_loss_weighting_scheme( max_batch ):
@@ -141,15 +143,52 @@ def water_mask(array, mask, mode=0):
 
 # endregion
 
-# passing arguments to script
+# region passing arguments to script
+def load_params_train_model(args_dict):
+        
+    if( args_dict['model_name'] == "DeepSD" ):
+                      
+        init_params = {}
+        input_output_dims = {"input_dims": [39, 88 ], "output_dims": [ 156, 352 ] } 
+        init_params.update(input_output_dims)
+        init_params.update({'model_type_settings': ast.literal_eval( args_dict['model_type_settings'] )})
+        init_params.update({ 'conv1_param_custom': json.loads(args_dict['conv1_param_custom']) ,
+                         'conv2_param_custom': json.loads(args_dict['conv2_param_custom']) })
+
+        model_params = hparameters.model_deepsd_hparameters(**init_params)()
+        del args_dict['model_type_settings']
+        train_params = hparameters.train_hparameters( **args_dict )
+    
+    elif(args_dict['model_name'] == "THST"):
+        
+        init_m_params = {}
+        
+        init_m_params.update({'model_type_settings': ast.literal_eval( args_dict['model_type_settings'] ) } )
+        model_params = hparameters.model_THST_hparameters(**init_m_params)()
+        init_t_params = {}
+        init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
+        init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
+        train_params = hparameters.train_hparameters_ati( **init_t_params )
+    
+    elif(args_dict['model_name'] == "SimpleLSTM"):
+        #use settings from THST to initialise the model generator
+        init_m_params = {}
+        init_m_params.update({'model_type_settings': ast.literal_eval( args_dict['model_type_settings'] ) } )
+        model_params = hparameters.model_SimpleLSTM_hparameters(**init_m_params)()
+        init_t_params = {}
+        init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
+        init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
+        train_params = hparameters.train_hparameters_ati( **init_t_params )
+    
+    save_model_settings( model_params )
+
+    return train_params, model_params
+
 def parse_arguments(s_dir=None):
     parser = argparse.ArgumentParser(description="Receive input params")
 
     parser.add_argument('-dd','--data_dir', type=str, help='the directory for the Data', required=False,
                         default='./Data')
-
-    # parser.add_argument('-vmt','--var_model_type', type=str, help="Type of Bnn to use", required=False, default="flipout",
-    #                             choices=["flipout", "horsehoe_factorized", "horseshoe structured" ] )
     
     parser.add_argument('-mts','--model_type_settings', type=str, help="dictionary Defining type of model to use", required=True)
 
@@ -167,16 +206,17 @@ def parse_arguments(s_dir=None):
 
     parser.add_argument('-c2pc', '--conv2_param_custom', type=str, required=False, default='{}')
 
+    parser.add_argument('-opt','--optimizer_settings', type=str, required=False, default='{}')
+
     args_dict = vars(parser.parse_args() )
 
     return args_dict
 
-def save_model_settings(train_params, model_params):
+def save_model_settings(model_params):
     
-    f_dir = "model_params/{}/{}_{}_{}".format(model_params['model_name'],model_params['model_type_settings']['var_model_type'],
-            model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']) )
+    f_dir = "model_params/{}".format( model_name_mkr(model_params) )
 
-    f_path = "model_params_{}.json".format(model_params['model_version'])    
+    f_path = "model_params.json"    
 
     if not os.path.isdir(f_dir):
         os.makedirs( f_dir, exist_ok=True  )
@@ -191,6 +231,30 @@ def default(obj):
             return obj.item()
     raise TypeError('Unknown type:', type(obj))
 
+#end region
+
+def model_name_mkr(model_params):
+    if model_params['model_name'] == "THST":
+        model_name = "{}_{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
+                                          model_params['model_type_settings']['distr_type'], 
+                                          str(model_params['model_type_settings']['discrete_continuous']),
+                                          model_params['model_type_settings']['location'], model_params['model_type_settings']['model_version']   )
+    elif model_params['model_name'] == "DeepSD":
+        model_name =    "{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
+                                model_params['model_type_settings']['distr_type'], 
+                                str(model_params['model_type_settings']['discrete_continuous']),
+                                model_params['model_type_settings']['model_version'] )
+    
+    elif model_params['model_name'] == "SimpleLSTM":
+        model_name =    "{}_{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
+                                model_params['model_type_settings']['distr_type'], 
+                                str(model_params['model_type_settings']['discrete_continuous']),
+                                model_params['model_type_settings']['location'],model_params['model_type_settings']['model_version'] )
+    
+    elif model_params['model_name'] == "SimpleConvLSTM":
+        raise NotImplementedError
+        
+    return model_name
 
 # region ATI modules
 def standardize_ati(_array, scale, reverse):

@@ -104,8 +104,8 @@ def predict( model, test_params, model_params ,checkpoint_no ):
 
             preds = tf.squeeze(preds,axis=-1) # (pred_count, bs, seq_len, h, w)
             #splitting in the time dimension
-            preds_masked = utility.water_mask( preds, tf.logical_not(mask)  )
-            target_masked = utility.water_mask(target, tf.logical_not(mask) )
+            preds_masked = utility.water_mask( preds, mask  )
+            target_masked = utility.water_mask(target, mask )
 
             preds_std = utility.standardize_ati(preds_masked, test_params['normalization_scales']['rain'], reverse=True)
             targets_std = utility.standardize_ati(target_masked, test_params['normalization_scales']['rain'], reverse=True)
@@ -140,32 +140,7 @@ if __name__ == "__main__":
     
     args_dict = utility.parse_arguments(s_dir)
 
-    #stacked DeepSd methodology
-    if( args_dict['model_name'] == "DeepSD" ):
-        model_type_settings = ast.literal_eval( args_dict['model_type_settings'] )
-        model_layers = { 'conv1_param_custom': json.loads(args_dict['conv1_param_custom']) ,
-                         'conv2_param_custom': json.loads(args_dict['conv2_param_custom']) }
-        del args_dict['model_type_settings']
-
-        test_params = hparameters.test_hparameters( **args_dict )
-
-        # model_type_settings = {'stochastic':True ,'stochastic_f_pass':10,
-        #                 'distr_type':"LogNormal", 'discrete_continuous':True,
-        #                 'precip_threshold':0.5, 'var_model_type':"horseshoefactorized" }
-
-        init_params = {}
-        input_output_dims = {"input_dims": [39, 88 ], "output_dims": [ 156, 352 ] } 
-        model_layers
-        init_params.update(input_output_dims)
-        init_params.update({'model_type_settings': model_type_settings})
-        init_params.update(model_layers)
-
-        model_params = hparameters.model_deepsd_hparameters(**init_params)()
-    
-    elif(args_dict['model_name'] == "THST"):
-        model_params = hparameters.model_THST_hparameters()()
-        args_dict['lookback_target'] = model_params['data_pipeline_params']['lookback_target']
-        test_params = hparameters.test_hparameters_ati( **args_dict )       
+    train_params, model_params = utility.load_params_train_model()  
     
     main(test_params(), model_params)
     

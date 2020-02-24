@@ -95,17 +95,17 @@ class model_deepsd_hparameters(HParams):
         #endregion params
 
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-1 , "warmup_proportion":0.6,
-            "min_lr": 1e-2, "beta_1":0.9 , "beta_2": 0.99, "epsilon":1e-12 }
-        LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":1}
+            "learning_rate":1e-2 , "warmup_proportion":0.6,
+            "min_lr": 1e-3, "beta_1":0.99 , "beta_2": 0.99, "epsilon":1e-6 }
+        LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":10}
 
-        model_type_settings = {'stochastic':False ,'stochastic_f_pass':50,
+        model_type_settings = {'stochastic':False ,'stochastic_f_pass':10,
                                 'distr_type':"Normal", 'discrete_continuous':True,
-                                'precip_threshold':0.5 , 'var_model_type':"flipout"}
+                                'precip_threshold':0.5 , 'var_model_type':"flipout",
+                                'model_version': "1" }
         
         self.params = {
             'model_name':"DeepSD",
-            'model_version': 1,
             'model_type_settings':model_type_settings,
 
             'input_dims':input_dims,
@@ -128,8 +128,6 @@ class model_deepsd_hparameters(HParams):
             'conv3_input_weights_count': conv3_input_weights_count,
             'conv3_output_node_count':conv3_output_node_count,
             'conv3_inp_channels':conv3_inp_channels,
-
-            'gradients_clip_norm':None,
             
             'rec_adam_params':REC_ADAM_PARAMS,
             'lookahead_params':LOOKAHEAD_PARAMS
@@ -141,9 +139,7 @@ class model_THST_hparameters(HParams):
         """ 
             Hierachical 2D Convolution Model
         """
-
         super( model_THST_hparameters, self ).__init__(**kwargs)
-
 
     def _default_params(self ):
         
@@ -276,24 +272,25 @@ class model_THST_hparameters(HParams):
          ]
         # endregion
 
-        MODEL_VERSION = "1"
+        
 
         model_type_settings = {
             'stochastic': False ,
             'Deformable_Conv': True ,
             'var_model_type':"Deterministic" ,
             'distr_type':"None",
-            'discrete_continuous':False
+            'discrete_continuous':False,
+            "location":"wholegrid",
+            "model_version":"1"
         }
 
         REC_ADAM_PARAMS = {
             "learning_rate":2e-3 , "warmup_proportion":0.6,
-            "min_lr": 1e-3, "beta_1":0.9 , "beta_2": 1.0, "epsilon":1e-5
+            "min_lr": 1e-3, "beta_1":0.99 , "beta_2": 0.99,
         }
-        LOOKAHEAD_PARAMS = { "sync_period":3 , "slow_step_size":0.6}
+        LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.6}
         
         self.params = {
-            'model_version': MODEL_VERSION,
             'model_name':"THST",
             'model_type_settings':model_type_settings,
 
@@ -310,8 +307,53 @@ class model_THST_hparameters(HParams):
 
         }
 
+class model_SimpleLSTM_hparameters(HParams):
 
-#region vandal
+    def __init__(self, **kwargs):
+        super(model_SimpleLSTM_hparameters, self).__init__(**kwargs)
+    
+    def _default_params(self):
+        #model
+        li_units =  [128, 128, 128]
+        li_rs =     [True, True, True]
+        LAYER_PARAMS = [
+            {'units': un, 'dropout':0.25,
+                'return_sequences':rs, 'stateful':True}
+                for un, rs in zip(li_units, li_rs)
+        ]
+
+        target_to_feature_time_ratio = 4
+        lookback_feature = 20*target_to_feature_time_ratio
+        
+        #data pipeline
+        DATA_PIPELINE_PARAMS = {
+            'lookback_feature':lookback_feature,
+            'lookback_target': int(lookback_feature/target_to_feature_time_ratio),
+            'target_to_feature_time_ratio' :  target_to_feature_time_ratio
+        }
+
+        #training proc
+        REC_ADAM_PARAMS = {
+            "learning_rate":1e-2 , "warmup_proportion":0.6,
+            "min_lr": 1e-3, "beta_1":0.99 , "beta_2": 0.99 }
+
+        LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":10 }
+
+        model_type_settings = { }
+
+
+        self.params = {
+            'model_name':'SimpleLSTM',
+            'layer_count': 3,
+            'layer_params': LAYER_PARAMS,
+            
+            'data_pipeline_params': DATA_PIPELINE_PARAMS,
+            'model_type_settings': model_type_settings,
+
+            'rec_adam_params':REC_ADAM_PARAMS,
+            'lookahead_params':LOOKAHEAD_PARAMS
+        }
+
 class train_hparameters(HParams):
     def __init__(self, **kwargs):
         super( train_hparameters, self).__init__(**kwargs)
@@ -403,9 +445,7 @@ class test_hparameters(HParams):
             'bool_water_mask': BOOL_WATER_MASK
 
         }
-# endregion
 
-# region ATI
 class train_hparameters_ati(HParams):
     def __init__(self, **kwargs):
         self.lookback_target = kwargs['lookback_target']
@@ -430,7 +470,6 @@ class train_hparameters_ati(HParams):
         WINDOW_SHIFT = self.lookback_target
         BATCH_SIZE = 2
         # endregion
-
 
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
         EPOCHS = 200
@@ -609,5 +648,3 @@ class test_hparameters_ati(HParams):
             'feature_start_end':feature_end_date
         }
 
-
-#endregion ATI

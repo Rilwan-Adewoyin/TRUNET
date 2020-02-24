@@ -65,8 +65,7 @@ def main(test_params, model_params):
 
     
     #region 1
-    _path_pred = test_params['script_dir'] + "/Output/{}/{}_{}_{}/{}/Predictions".format(model_params['model_name'],model_params['model_type_settings']['var_model_type'],
-                                                        model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']), model_params['model_version'])
+    _path_pred = test_params['script_dir'] + "/Output/{}/Predictions".format(utility.model_name_mkr(model_params))
     gen_data_preds = util_predict.load_predictions_gen(_path_pred)
     res =  [postproc_pipeline_evaluatepredictions(pred, test_params, model_params) for pred in gen_data_preds ]
 
@@ -74,9 +73,7 @@ def main(test_params, model_params):
     # endregion
 
     #region 2
-    _path_pred_eval = test_params['script_dir'] + "/Output/{}/{}_{}_{}/{}/EvaluatedPredictions".format(model_params['model_name'],model_params['model_type_settings']['var_model_type'],
-                                                        model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']),model_params['model_version'])
-    #gen_data_eval_preds = util_predict.load_predictions_gen(_path_pred_eval)
+    _path_pred_eval = test_params['script_dir'] + "/Output/{}/EvaluatedPredictions".format(utility.model_name_mkr(model_params))
     li_gen_data_eval_preds = [ util_predict.load_predictions_gen(_path_pred_eval) for idx in range(4) ]
     postproc_pipeline_compress_evaluations(li_gen_data_eval_preds,test_params, model_params)
         #averaging all evaluations across timesteps across different 
@@ -85,8 +82,7 @@ def main(test_params, model_params):
     # endregion
 
     #region 3
-    _path_pred_eval_summ = test_params['script_dir'] + "/Output/{}/{}_{}_{}/{}/SummarisedEvaluations".format(model_params['model_name'], model_params['model_type_settings']['var_model_type'],
-                                                        model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']) ,model_params['model_version'])
+    _path_pred_eval_summ = test_params['script_dir'] + "/Output/{}/SummarisedEvaluations".format(utility.model_name_mkr(model_params))
     
     li_gen_data_eval_preds = util_predict.load_predictions_gen(_path_pred_eval_summ)
 
@@ -116,8 +112,7 @@ def postproc_pipeline_evaluatepredictions(batch_datum, test_params, model_params
 
     data_tuple = (np_rmse, np_bias, np_r20_err, pc_binary_in_range   )
 
-    _path_pred_eval = _path_pred = test_params['script_dir'] + "/Output/{}/{}_{}_{}/{}/EvaluatedPredictions".format(model_params['model_name'], model_params['model_type_settings']['var_model_type'],
-                                                        model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']),model_params['model_version'])
+    _path_pred_eval = _path_pred = test_params['script_dir'] + "/Output/{}/EvaluatedPredictions".format(utility.model_name_mkr(model_params))
     
     if(not os.path.exists(_path_pred_eval) ):
         os.makedirs(_path_pred_eval)
@@ -311,8 +306,7 @@ def postproc_pipeline_compress_evaluations(li_gen_data_eval_preds, test_params, 
                             "pc-all-rmse":float(pc_binary_rmses_all), "pc-all-rmse_std":float(pc_binary_rmses_all_std)  }
     # latex_table_maker(data_tuple)
 
-    _path_pred_eval_summ = test_params['script_dir'] + "/Output/{}/{}_{}_{}/{}/SummarisedEvaluations".format(model_params['model_name'],  model_params['model_type_settings']['var_model_type'],
-                                                        model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']), model_params['model_version'])
+    _path_pred_eval_summ = test_params['script_dir'] + "/Output/{}/SummarisedEvaluations".format(utility.model_name_mkr(model_params))
     fn = "summarised_predictions.dat"
 
     if(not os.path.exists(_path_pred_eval_summ) ):
@@ -350,8 +344,7 @@ def postproc_pipeline_visualized_summary(gen_data_eval_preds, test_params, model
     dict_vmin_max= { "rmse-mean":[0,6], "bias-mean":[-0.2,0.2], "pc-perpixel-rmse":[0,0.5] }
     dict_summarised = { k: _dict[k] for k in keys_to_keep }
 
-    _path_visual = test_params['script_dir'] + "/Output/{}/{}_{}_{}/{}/Visualisations".format(model_params['model_name'], model_params['model_type_settings']['var_model_type'],
-                                                        model_params['model_type_settings']['distr_type'],str(model_params['model_type_settings']['discrete_continuous']), model_params['model_version'])
+    _path_visual = test_params['script_dir'] + "/Output/{}/Visualisations".format(utility.model_name_mkr(model_params))
     if(not os.path.exists(_path_visual) ):
         os.makedirs(_path_visual)
 

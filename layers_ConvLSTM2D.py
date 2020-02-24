@@ -473,7 +473,6 @@ class ConvRNN2D(RNN):
         # TODO(anjalisridhar): consider batch calls to `set_value`.
         K.set_value(state, value)
 
-
 ##Input layer
 class ConvLSTM2D(ConvRNN2D):
     """Convolutional LSTM.
