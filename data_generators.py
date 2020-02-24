@@ -180,7 +180,7 @@ class Generator():
             "Edinburgh": [55.9533, -3.1883],
             "Belfast": [54.5973, -5.9301],
             "Dublin": [53.3498, -6.2603]}
-        self.latitude_array = np.linspace(58.95, 49.05, 100)
+        self.latitude_array = np.linspace(58.95,49.05, 100)
         self.longitude_array = np.linspace(-10.95, 2.95, 140)
         
     
@@ -205,7 +205,7 @@ class Generator():
         latitude_index =    np.abs(self.latitude_array - coordinates[0] ).argmin()
         longitude_index =   np.abs(self.longitude_array - coordinates[1]).argmin()
 
-        return(latitude_index, longitude_index)
+        return (latitude_index, longitude_index)
     
 class Generator_rain(Generator):
     def __init__(self, **generator_params):
@@ -223,7 +223,7 @@ class Generator_rain(Generator):
         for chunk in f.variables['rr'][:]:
             data = np.ma.getdata(chunk)
             mask = np.logical_not( np.ma.getmask(chunk) )
-            yield data , mask
+            yield data[ ::-1 , :] , mask[::-1, :]
 
     def __call__(self):
         return self.yield_iter()
@@ -262,7 +262,8 @@ class Generator_mf(Generator):
             stacked_data = np.stack(_data, axis=-1)
             stacked_masks = np.stack(_masks, axis=-1)
             
-            yield stacked_data[ -2:1:-1 , 2:-2, :], stacked_masks[ -2:1:-1 , 2:-2, :] #(h,w,6) #(h,w,6)  #this aligns it to rain 
+            #yield stacked_data[ -2:1:-1 , 2:-2, :], stacked_masks[ -2:1:-1 , 2:-2, :] #(h,w,6) #(h,w,6)  #this aligns it to rain 
+            yield stacked_data[ 1:-1, 2:-2, :], stacked_masks[ 1:-1 , 2:-2, :] #(h,w,6) #(h,w,6)  #this aligns it to rain 
     
     def __call__(self):
         return self.yield_iter()
@@ -395,8 +396,8 @@ def load_data_ati_select_location(mf, rain, rain_mask, idxs ):
         target shape (bs, lookback, h, w, c)
     """
     
-    mf = mf[:, :, idxs[0], idxs[1],:]
-    rain = rain[:, :, idxs[0], idxs[1]]
+    mf = mf[:, :, idxs[0], idxs[1],:] #(bs, seq_len1, h, w, c)
+    rain = rain[:, :, idxs[0], idxs[1]] #(bs, seq_len1, h, w)
     rain_mask = rain_mask[ :, :, idxs[0], idxs[1] ]
 
     return mf, (rain, rain_mask)  #(bs, lookback, c)

@@ -221,7 +221,6 @@ def train_loop(train_params, model_params):
                     #region stochastic fward passes
                     if model_params['model_type_settings']['stochastic_f_pass']>1:
                         
-
                         li_preds = model.predict(feature, model_params['model_type_settings']['stochastic_f_pass'], pred=False )
 
                         preds_stacked = tf.concat( li_preds,axis=-1)
