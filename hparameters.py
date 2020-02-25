@@ -95,8 +95,8 @@ class model_deepsd_hparameters(HParams):
 
         REC_ADAM_PARAMS = {
             "learning_rate":1e-4 , "warmup_proportion":0.5,
-            "min_lr": 4e-5, "beta_1":0.99 , "beta_2": 0.99 }
-        LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":0.75}
+            "min_lr": 1e-5, "beta_1":0.99 , "beta_2": 0.99 }
+        LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":0.85}
 
         model_type_settings = {'stochastic':False ,'stochastic_f_pass':10,
                                 'distr_type':"Normal", 'discrete_continuous':True,
@@ -282,8 +282,9 @@ class model_THST_hparameters(HParams):
         }
 
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-4 , "warmup_proportion":0.6,
-            "min_lr": 5e-5, "beta_1":0.99 , "beta_2": 0.99}
+            "learning_rate":1e-4, "warmup_proportion":0.6,
+            "min_lr": 1e-5, "beta_1":0.99 , "beta_2":0.99
+            }
             
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99}
         
@@ -291,18 +292,15 @@ class model_THST_hparameters(HParams):
             'model_name':"THST",
             'model_type_settings':model_type_settings,
 
-
             'encoder_params':ENCODER_PARAMS,
             'decoder_params':DECODER_PARAMS,
             'output_layer_params':OUTPUT_LAYER_PARAMS,
             'data_pipeline_params':DATA_PIPELINE_PARAMS,
 
-
             'rec_adam_params':REC_ADAM_PARAMS,
             'lookahead_params':LOOKAHEAD_PARAMS,
             'gradients_clip_norm':200
-
-        }
+            }
 
 class model_SimpleLSTM_hparameters(HParams):
 
@@ -336,7 +334,7 @@ class model_SimpleLSTM_hparameters(HParams):
             "min_lr":1e-5, "beta_1":0.99, "beta_2":0.99
             }
 
-        LOOKAHEAD_PARAMS = { "sync_period":4 , "slow_step_size":0.75 }
+        LOOKAHEAD_PARAMS = { "sync_period":4 , "slow_step_size":0.85 }
 
         model_type_settings = { }
 

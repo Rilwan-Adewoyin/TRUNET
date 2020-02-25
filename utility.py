@@ -149,8 +149,7 @@ def load_params_train_model(args_dict):
     if( args_dict['model_name'] == "DeepSD" ):
                       
         init_params = {}
-        input_output_dims = {"input_dims": [39, 88 ], "output_dims": [ 156, 352 ] } 
-        init_params.update(input_output_dims)
+        init_params.update({"input_dims": [39, 88 ], "output_dims": [ 156, 352 ] })
         init_params.update({'model_type_settings': ast.literal_eval( args_dict['model_type_settings'] )})
         init_params.update({ 'conv1_param_custom': json.loads(args_dict['conv1_param_custom']) ,
                          'conv2_param_custom': json.loads(args_dict['conv2_param_custom']) })

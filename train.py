@@ -283,7 +283,7 @@ def train_loop(train_params, model_params):
 
                         # making distributions
                         if( model_params['model_type_settings']['distr_type'] =="Normal" ):
-                            preds_distribution_condrain = tfd.Normal( loc=_preds_cond_rain_mean, scale= tf.where( _preds_cond_rain_scale==0, 1e-7, _preds_cond_rain_scale  ) )
+                            preds_distribution_condrain = tfd.Normal( loc=_preds_cond_rain_mean, scale= tf.where( _preds_cond_rain_scale==0, 1, _preds_cond_rain_scale  ) )
 
                         elif(model_params['model_type_settings']['distr_type'] == "LogNormal" ):
                             epsilon = tf.random.uniform( preds_stacked.shape.as_list(),minval=1e-10,maxval=1e-7 )

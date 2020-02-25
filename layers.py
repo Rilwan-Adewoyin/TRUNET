@@ -108,12 +108,17 @@ class SRCNN( tf.keras.layers.Layer ):
         if self.model_params['model_type_settings']['var_model_type'] == 'flipout':
 
             self.conv1 = tfpl.Convolution2DFlipout( **self.model_params['conv1_params'] )
+            self.conv1._dtype = 'float16'
 
             self.upSample = UpSampler( self.model_params['input_dims'], self.model_params['output_dims'] )
             
             self.conv2 = tfpl.Convolution2DFlipout ( **self.model_params['conv2_params'] )
+            self.conv2._dtype = 'float16'
 
-            self.conv3 = tfpl.Convolution2DFlipout( **self.model_params['conv3_params'] )                  
+            self.conv3 = tfpl.Convolution2DFlipout( **self.model_params['conv3_params'] ) 
+            self.conv3._dtype = 'float16'
+
+            #self.conv1.dtype =                  
 
         if self.model_params['model_type_settings']['var_model_type'] == 'dropout':
             self.conv1 = SpatialConcreteDropout( tf.keras.layers.Conv2D( **self.model_params['conv1_params'] ) )
