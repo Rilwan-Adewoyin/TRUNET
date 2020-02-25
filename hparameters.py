@@ -357,7 +357,8 @@ class model_SimpleConvLSTM_hparamaters(Hparams):
     
     def _default_params(self):
         #model
-        
+        pass
+
 
 
 class train_hparameters(HParams):
