@@ -490,8 +490,8 @@ class train_hparameters_ati(HParams):
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
         EPOCHS = 400
         CHECKPOINTS_TO_KEEP = 3
-        CHECKPOINTS_TO_KEEP_EPOCH = 10
-        CHECKPOINTS_TO_KEEP_BATCH = 10
+        CHECKPOINTS_TO_KEEP_EPOCH = 5
+        CHECKPOINTS_TO_KEEP_BATCH = 5
 
         # region ---- data information
 
@@ -527,7 +527,7 @@ class train_hparameters_ati(HParams):
         VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS_TARGET*0.2)
          
         DATA_DIR = "./Data/Rain_Data_Nov19" 
-        EARLY_STOPPING_PERIOD = 5
+        EARLY_STOPPING_PERIOD = 15
  
         self.params = {
             'batch_size':BATCH_SIZE,
