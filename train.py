@@ -259,7 +259,7 @@ def train_loop(train_params, model_params):
                             log_likelihood = tf.reduce_mean( _3)
                                 #This represents the expected log_likelihood corresponding to each target y_i in the mini batch
 
-                        kl_loss_weight = utility.kl_loss_weighting_scheme(train_set_size_batches) #TODO: Implement scheme where kl loss increases during training
+                        kl_loss_weight = utility.kl_loss_weighting_scheme(train_set_size_batches, batch, model_params['model_type_settings']['var_model_type'] ) #TODO: Implement scheme where kl loss increases during training
                         kl_loss = tf.cast( tf.math.reduce_sum( model.losses ) * kl_loss_weight * (1/model_params['model_type_settings']['stochastic_f_pass']), tf.float32)  #This KL-loss is already normalized against the number of samples of weights drawn #TODO: Later implement your own Adam type method to determine this
                         
                         var_free_nrg_loss = kl_loss  - log_likelihood
@@ -306,7 +306,7 @@ def train_loop(train_params, model_params):
                         log_likelihood_cond_rain =  tf.reduce_sum( preds_distribution_condrain.log_prob( _target_cond_rain ) ) / tf.size( tf.boolean_mask( target, train_params['bool_water_mask'], axis=1 ) , out_type=tf.float32) 
                         log_likelihood = log_likelihood_cond_rain - log_cross_entropy_rainclassification
 
-                        kl_loss_weight = utility.kl_loss_weighting_scheme(train_set_size_batches) 
+                        kl_loss_weight = utility.kl_loss_weighting_scheme(train_set_size_batches, batch, model_params['model_type_settings']['var_model_type'] ) 
                         kl_loss = tf.cast(tf.math.reduce_sum( model.losses ) * kl_loss_weight * (1/model_params['model_type_settings']['stochastic_f_pass'] ), tf.float32)  #This KL-loss is already normalized against the number of samples of weights drawn #TODO: Later implement your own Adam type method to determine this
 
                         var_free_nrg_loss = kl_loss  - log_likelihood

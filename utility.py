@@ -111,8 +111,15 @@ def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoc
                                     header=True, index=False ) #saving df of scores                      
     return df_training_info
 
-def kl_loss_weighting_scheme( max_batch ):
-    return 1/max_batch
+def kl_loss_weighting_scheme( max_batch, curr_batch, var_model_type="dropout" ):
+
+    if var_model_type in ["flipout"]:
+        idx = max_batch-curr_batch+1
+        weight = 1/(2**idx)
+    else:
+        weight = (1/max_batch)
+        
+    return weight
 
 #standardising and de-standardizing 
 def standardize( _array, reverse=False, distr_type="Normal" ):

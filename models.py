@@ -1,5 +1,6 @@
 import tensorflow as tf
 import layers
+import layers_ConvLSTM2D
 
 
 def model_loader(train_params,model_params ):
@@ -127,3 +128,21 @@ class SimpleLSTM(tf.keras.Model):
             
             return preds
 
+class SimpleConvLSTM(tf.keras.Model):
+
+    def __init__(self, train_params, model_params):
+        super(SimpleConvLSTM, self).__init__()
+
+        self.model_params = model_params
+        self.ConvLSTM_layers = [ tf.keras.layers.Bidirectional( layers_ConvLSTM2D.ConvLSTM2D( **self.layer_params ), merge_mode='concat' )  for idx in range( model_params['layer_count'] ) ]
+
+        self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
+    
+    def call(self, input, training):
+        for idx in range(self.model_params['layer_count']):
+            x = self.LSTM_layers[idx](inputs=x, training=training)
+        x = self.float32_output(x)
+        return x
+
+
+        

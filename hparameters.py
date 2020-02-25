@@ -350,6 +350,16 @@ class model_SimpleLSTM_hparameters(HParams):
             'lookahead_params':LOOKAHEAD_PARAMS
         }
 
+class model_SimpleConvLSTM_hparamaters(Hparams):
+
+    def __init__(self, **kwargs):
+        super(model_SimpleConvLSTM_hparamaters, self).__init__(**kwargs)
+    
+    def _default_params(self):
+        #model
+        
+
+
 class train_hparameters(HParams):
     def __init__(self, **kwargs):
         self.batch_size = kwargs.get("batch_size",None)
