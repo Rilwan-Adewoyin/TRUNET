@@ -253,12 +253,12 @@ def train_loop(train_params, model_params):
                     if( model_params['model_type_settings']['discrete_continuous']==False ):                                                            
                         #note - on discrete_continuous==False, there is a chance that the preds_scale term takes value 0 i.e. relu output is 0 all times. 
                             #  So for this scenario just use really high variance to reduce the effect of this loss
-                        preds_scale = tf.where(tf.equal(preds_scale,0.0), 10, preds_scale)
+                        preds_scale = tf.where(tf.equal(preds_scale,0.0), 5, preds_scale)
 
                         if(model_params['model_type_settings']['distr_type']=="Normal" ):
                             preds_distribution = tfd.Normal( loc=preds_mean, scale= preds_scale)
                             
-                            _1 = tf.where(train_params['bool_water_mask'], target, 1e-2) 
+                            _1 = tf.where(train_params['bool_water_mask'], target, 0) 
                             _2 = preds_distribution.log_prob( _1)
                             _3 = tf.boolean_mask( _2, train_params['bool_water_mask'],axis=1 )
                             log_likelihood = tf.reduce_mean( _3)
