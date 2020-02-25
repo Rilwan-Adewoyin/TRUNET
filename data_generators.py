@@ -442,39 +442,29 @@ def region_folding( mf, rain, rain_mask, tnsrs=None ,mode=1,
             rain = rain.numpy()
         if tf.is_tensor(rain_mask):
             rain_mask = rain_mask.numpy()
-                
-        li_arrays_unstitches = tuple([])
-        for a in [mf, rain, rain_mask]:
-            print(a.shape)
-            if len(a.shape) == 4: #handling case of arrs with channels
-                shape = a.shape[:1]+ ( np.array(input_image_shape)-np.array(outer_box_dims)+np.array([1,1]) ).tolist() + outer_box_dims + a.shape[-1:] # [10, 85//4, 31, 16, 16, c]
-                d0 = a.strides[-1]
-                d1 = a.strides[-2]
-                d2 = a.strides[-3]
-                d3 = d1*4
-                d4 = d2*4
-                d5 = d2*a.shape[2]
+            
+        shape_mf = list(mf.shape[:1])+ ( np.array(input_image_shape)-np.array(outer_box_dims)+np.array([1,1]) ).tolist() + outer_box_dims + list(mf.shape[-1:]) # [10, 85//4, 31, 16, 16, c]
+        d0 = mf.strides[-1]
+        d1 = mf.strides[-2]
+        d2 = mf.strides[-3]
+        d3 = d1*4
+        d4 = d2*4
+        d5 = d2*mf.shape[2]
+        strides = [d5, d4, d3, d2, d1]
+        mf_unstitched = as_strided( mf, shape_mf, strides)  #TODO: may have to add copy, but as of now it may lead to memory issues
+        print("here")    
+        shape_r = list(rain.shape[:1])+ ( np.array(input_image_shape)-np.array(outer_box_dims)+np.array([1,1]) ).tolist() + outer_box_dims # [10, 85//4, 31, 16, 16]
+        d0 = rain.strides[-1]
+        d1 = rain.strides[-2]
+        d2 = d0*horizontal_shift
+        d3 = d1*vertical_shift
+        d4 = d1*rain.shape[1]
+        strides = [ d4, d3, d2, d1, d0 ]
+        rain_unstitched = as_strided( rain, shape_r, strides ).copy()
+        rain_mask_unstitched = as_strided( rain_mask, shape_r, strides )
+        
 
-                strides = [d5, d4, d3, d2, d1]
-                a_unstitched = as_strided( a, shape, strides).copy()  #TODO: may have to add copy, but as of now it may lead to memory issues
-                li_arrays_unstitches += ( a_unstitched, )
-
-            elif len(a.shape) == 3:
-                shape = a.shape[:1]+ ( np.array(input_image_shape)-np.array(outer_box_dims)+np.array([1,1]) ).tolist() + outer_box_dims # [10, 85//4, 31, 16, 16]
-
-                d0 = a.strides[-1]
-                d1 = a.strides[-2]
-                d2 = d0*horizontal_shift
-                d3 = d1*vertical_shift
-                d4 = d1*a.shape[1]
-                strides = [ d4, d3, d2, d1, d0 ]
-                a_unstitched = as_strided( a, shape, strides ).copy()
-                li_arrays_unstitches += ( a_unstitched, )
-            else:
-                raise NotImplementedError
-                
-
-        return li_arrays_unstitches
+        return mf_unstitched, rain_unstitched, rain_mask_unstitched 
     
     elif mode==2: 
         #NOTE: mode 2 does not accept arrs w/ channel dim
