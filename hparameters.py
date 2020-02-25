@@ -13,15 +13,40 @@ class HParams():
         self._default_params()
         
         if( kwargs != None):
-            self.params.update( kwargs) 
-
+            self.params.update( kwargs)
+    
     def __call__(self):
         return self.params
     
     def _default_params(self):
         self.params = {}
 
-class model_deepsd_hparameters(HParams):
+class MParams(HParams):
+    def __init__(self,**kwargs):
+        super(MParams, self).__init__(**kwargs)
+        
+        if self.params['model_type_settings']['location'] == "region_grid":
+            self.regiongrid_param_adjustment()
+    
+    # def __call__(self):
+    #     super(MParams,self).__call__()
+
+    def regiongrid_param_adjustment(self):
+        self.params.update(
+            {'region_grid_params':{
+                'outer_box_dims':[16,16],
+                'inner_box_dims':[4,4],
+                'vertical_shift':4,
+                'horizontal_shift':4,
+                'input_image_shape':[100,140]}
+            }
+        )
+        vertical_slides = self.params['region_grid_params']['input_image_shape'][0] // self.params['region_grid_params']['vertical_shift']
+        horizontal_slides = self.params['region_grid_params']['input_image_shape'][1] // self.params['region_grid_params']['horizontal_shift']
+        self.params['region_grid_params'].update({'slides_v_h':[vertical_slides,horizontal_slides]})
+        self.params['lookahead_params']['sync_period'] == int( vertical_slides*horizontal_slides) * self.params['lookahead_params']['sync_period']
+
+class model_deepsd_hparameters(MParams):
     """
     model version 
     model version 5: Guassian BNN w/ 25 monte carlo forward passes /wo Discrete Continuous
@@ -132,7 +157,7 @@ class model_deepsd_hparameters(HParams):
             'lookahead_params':LOOKAHEAD_PARAMS
         }
 
-class model_THST_hparameters(HParams):
+class model_THST_hparameters(MParams):
 
     def __init__(self, **kwargs):
         """ 
@@ -302,7 +327,7 @@ class model_THST_hparameters(HParams):
             'gradients_clip_norm':200
             }
 
-class model_SimpleLSTM_hparameters(HParams):
+class model_SimpleLSTM_hparameters(MParams):
 
     def __init__(self, **kwargs):
         super(model_SimpleLSTM_hparameters, self).__init__(**kwargs)
@@ -318,10 +343,9 @@ class model_SimpleLSTM_hparameters(HParams):
                 for un, rs in zip(li_units, li_rs)
         ]
 
-        target_to_feature_time_ratio = 4
-        lookback_feature = 20*target_to_feature_time_ratio
-        
         #data pipeline
+        target_to_feature_time_ratio = 4
+        lookback_feature = 20*target_to_feature_time_ratio        
         DATA_PIPELINE_PARAMS = {
             'lookback_feature':lookback_feature,
             'lookback_target': int(lookback_feature/target_to_feature_time_ratio),
@@ -350,15 +374,58 @@ class model_SimpleLSTM_hparameters(HParams):
             'lookahead_params':LOOKAHEAD_PARAMS
         }
 
-class model_SimpleConvLSTM_hparamaters(HParams):
+class model_SimpleConvLSTM_hparamaters(MParams):
 
     def __init__(self, **kwargs):
         super(model_SimpleConvLSTM_hparamaters, self).__init__(**kwargs)
     
     def _default_params(self):
-        #model
-        pass
+        #ConvLayers
+        layer_count = 3
+        filters = [200]*layer_count
+        kernel_sizes = [[4,4]]*layer_count
+        paddings = ['same']*layer_count
+        return_sequences = [True]*layer_count
+        dropout = [0.00]*layer_count
+        recurrent_dropout = [0.00]*layer_count
+        
+        ConvLSTM_layer_params = [ { 'filters':fs, 'kernel_size':ks , 'padding': ps,
+                                'return_sequences':rs, "dropout": dp , "recurrent_dropout":rdp  }
+                                for fs,ks,ps,rs,dp,rdp in zip(filters, kernel_sizes, paddings, return_sequences, dropout, recurrent_dropout)  ]
+        
+        outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'relu' }
 
+        #data pipeline
+        target_to_feature_time_ratio = 4
+        lookback_feature = 10*target_to_feature_time_ratio  #TODO: Try with longer sequence if it fits into memory       
+        DATA_PIPELINE_PARAMS = {
+            'lookback_feature':lookback_feature,
+            'lookback_target': int(lookback_feature/target_to_feature_time_ratio),
+            'target_to_feature_time_ratio' :  target_to_feature_time_ratio
+        }
+
+        #training proc
+        REC_ADAM_PARAMS = {
+            "learning_rate":1e-4 , "warmup_proportion":0.6,
+            "min_lr":1e-5, "beta_1":0.99, "beta_2":0.99
+            }
+
+        LOOKAHEAD_PARAMS = { "sync_period":4 , "slow_step_size":0.85 }
+
+        model_type_settings = { }
+
+        self.params = {
+            'model_name':'SimpleConvLSTM',
+            'layer_count':layer_count,
+            'ConvLSTM_layer_params':ConvLSTM_layer_params,
+            'outpconv_layer_params': outpconv_layer_params,
+
+            'data_pipeline_params':DATA_PIPELINE_PARAMS,
+            'model_type_settings':model_type_settings,
+
+            'rec_adam_params':REC_ADAM_PARAMS,
+            'lookahead_params':LOOKAHEAD_PARAMS
+        }
 
 
 class train_hparameters(HParams):

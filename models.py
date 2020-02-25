@@ -20,7 +20,7 @@ def model_loader(train_params,model_params ):
         model = SimpleLSTM(train_params, model_params)
         
     elif(model_name == "SimpleConvLSTM"):
-        raise NotImplementedError
+        model = SimpleConvLSTM(train_params, model_params)
 
     return model
 
@@ -134,13 +134,15 @@ class SimpleConvLSTM(tf.keras.Model):
         super(SimpleConvLSTM, self).__init__()
 
         self.model_params = model_params
-        self.ConvLSTM_layers = [ tf.keras.layers.Bidirectional( layers_ConvLSTM2D.ConvLSTM2D( **self.layer_params ), merge_mode='concat' )  for idx in range( model_params['layer_count'] ) ]
+        self.ConvLSTM_layers = [ tf.keras.layers.Bidirectional( layers_ConvLSTM2D.ConvLSTM2D( **self.model_params['ConvLSTM_layer_params'][idx] ), merge_mode='concat' )  for idx in range( model_params['layer_count'] ) ]
+        self.output_conv = self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **self.model_params['outpconv_layer_params'] ) )
 
         self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
     
     def call(self, input, training):
         for idx in range(self.model_params['layer_count']):
             x = self.LSTM_layers[idx](inputs=x, training=training)
+        x = self.output_conv(x,training=training)
         x = self.float32_output(x)
         return x
 

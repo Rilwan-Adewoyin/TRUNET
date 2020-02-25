@@ -43,6 +43,17 @@
             "args": [ "-mn","SimpleLSTM", "-mv", "1",
                 "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'London', 'model_version':'1'}",
                 "-dd","Data/Rain_Data_Nov19","-bs","2" ]
+        },
+        {
+            "name": "SimpleConvLSTM",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "internalConsole",
+            "justMyCode": false,
+            "args": [ "-mn","SimpleConvLSTM", "-mv", "1",
+                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'region_grid', 'model_version':'1'}",
+                "-dd","Data/Rain_Data_Nov19","-bs","2" ]
         }
     ]
 }

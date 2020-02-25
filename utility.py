@@ -119,7 +119,7 @@ def kl_loss_weighting_scheme( max_batch, curr_batch, var_model_type="dropout" ):
     else:
         weight = (1/max_batch)
         
-    return weight
+    return weight*(1/10)
 
 #standardising and de-standardizing 
 def standardize( _array, reverse=False, distr_type="Normal" ):
@@ -179,7 +179,7 @@ def load_params_train_model(args_dict):
     elif(args_dict['model_name'] == "SimpleLSTM"):
         #use settings from THST to initialise the model generator
         init_m_params = {}
-        init_m_params.update({'model_type_settings': ast.literal_eval( args_dict['model_type_settings'] ) } )
+        init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
         model_params = hparameters.model_SimpleLSTM_hparameters(**init_m_params)()
         init_t_params = {}
         init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
@@ -187,6 +187,16 @@ def load_params_train_model(args_dict):
         
         train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
     
+    elif(args_dict['model_name']=="SimpleConvLSTM"):
+        init_m_params = {}
+        init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
+        model_params = hparameters.model_SimpleLSTM_hparameters(**init_m_params)()
+        init_t_params = {}
+        init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
+        init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
+        
+        train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
+
     save_model_settings( model_params, train_params() )
 
     return train_params, model_params
@@ -271,7 +281,10 @@ def model_name_mkr(model_params):
                                 str(model_params['model_type_settings']['discrete_continuous']),
                                 model_params['model_type_settings']['location'],model_params['model_type_settings']['model_version'] )
     elif model_params['model_name'] == "SimpleConvLSTM":
-        raise NotImplementedError
+        model_name =    "{}_{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
+                        model_params['model_type_settings']['distr_type'], 
+                        str(model_params['model_type_settings']['discrete_continuous']),
+                        model_params['model_type_settings']['location'],model_params['model_type_settings']['model_version'] )    
         
     return model_name
 

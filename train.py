@@ -131,8 +131,12 @@ def train_loop(train_params, model_params):
     # endregion     
 
     # region --- Setting up training parameters - to be moved to hparams file
-    train_set_size_batches= train_params['train_set_size_batches']
-    val_set_size_batches = train_params['val_set_size_batches'] 
+    if model_params['model_type_settings']['location'] == "region_grid":
+        train_set_size_batches= train_params['train_set_size_batches'] * np.prod(model_params['region_grid_params']['slides_v_h'])
+        val_set_size_batches = train_params['val_set_size_batches'] * np.prod(model_params['region_grid_params']['slides_v_h'])
+    else:
+        train_set_size_batches= train_params['train_set_size_batches'] 
+        val_set_size_batches = train_params['val_set_size_batches'] 
     
     train_batch_reporting_freq = max( int(train_set_size_batches*train_params['dataset_trainval_batch_reporting_freq'] ), 1 )
     val_batch_reporting_freq = max( int(val_set_size_batches*2*train_params['dataset_trainval_batch_reporting_freq'] ), 1)
@@ -177,7 +181,8 @@ def train_loop(train_params, model_params):
         ds_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['val_start_date'], data_dir=train_params['data_dir'] )
 
     elif model_params['model_name'] == "SimpleConvLSTM":
-        raise NotImplementedError
+        ds_train = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['train_start_date'], data_dir=train_params['data_dir'])
+        ds_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['val_start_date'], data_dir=train_params['data_dir'] )
     
     ds_train = ds_train.take(train_params['train_set_size_batches']).repeat(train_params['epochs']-starting_epoch)
     ds_val = ds_val.take(train_params['val_set_size_batches']).repeat(train_params['epochs']-starting_epoch)
@@ -362,7 +367,7 @@ def train_loop(train_params, model_params):
                         metric_mse = loss_mse
                         scaled_loss_mse = optimizer.get_scaled_loss(loss_mse)
 
-                    elif(model_params['model_type_settings']['stochatic']==True):
+                    elif(model_params['model_type_settings']['stochastic']==True):
                         raise NotImplementedError
                     
                     scaled_gradients = tape.gradient( scaled_loss_mse, model.trainable_variables )
@@ -370,10 +375,28 @@ def train_loop(train_params, model_params):
                     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
                 elif (model_params['model_name'] == "SimpleConvLSTM"):
-                    raise NotImplementedError
+                    target, mask = target # (bs, h, w) 
 
+                    if( model_params['model_type_settings']['stochastic']==False):
+
+                        preds = model( tf.cast(feature,tf.float16), train_params['trainable'] ) #( bs, tar_seq_len)
+                        preds = tf.squeeze(preds)
+
+                        preds_filtrd = tf.boolean_mask( preds, mask )
+                        target_filtrd = tf.boolean_mask( target, mask )
+
+                        loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd) 
+                        metric_mse = loss_mse
+                        scaled_loss_mse = optimizer.get_scaled_loss(loss_mse)
+
+                    elif(model_params['model_type_settings']['stochastic']==True):
+                        raise NotImplementedError
+                    
+                    scaled_gradients = tape.gradient( scaled_loss_mse, model.trainable_variables )
+                    gradients = optimizer.get_unscaled_gradients(scaled_gradients)
+                    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+                    
                 gc.collect()
-                            
             #region Tensorboard Update
             step = batch + (epoch-1)*train_set_size_batches
             with writer.as_default():
@@ -463,14 +486,35 @@ def train_loop(train_params, model_params):
             elif model_params['model_name'] == "SimpleLSTM":
                 if model_params['model_type_settings']['stochastic'] == False:
                     target, mask = target
-                    preds = model(tf.cast(feature,tf.float16) )
+                    preds = model(tf.cast(feature,tf.float16),training=False )
                     preds = tf.squeeze(preds)
 
                     preds_filtrd = tf.boolean_mask( preds, mask )
                     target_filtrd = tf.boolean_mask( target, mask )
 
                     val_metric_mse_mean( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
+                elif model_params['model_type_settings']['stochastic'] == True:
+                    raise NotImplementedError
+            
+            elif model_params['model_name'] == "SimpleConvLSTM":
+                if model_params['model_type_settings']['stochastic'] == False:
+                    target, mask = target
+                    preds = model(tf.cast(feature,tf.float16), training=False )
+                    preds_filtrd = tf.boolean_mask( preds, mask )
+                    target_filtrd = tf.boolean_mask( target, mask )
 
+                    loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd) 
+                    metric_mse = loss_mse
+                    scaled_loss_mse = optimizer.get_scaled_loss(loss_mse)
+            
+                elif(model_params['model_type_settings']['stochastic']==True):
+                    raise NotImplementedError
+
+                scaled_gradients = tape.gradient( scaled_loss_mse, model.trainable_variables )
+                gradients = optimizer.get_unscaled_gradients(scaled_gradients)
+                optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+                
+                
             if ( (batch+1) % val_batch_reporting_freq) ==0 or batch+1==val_set_size_batches :
                 batches_report_time =  time.time() - start_batch_time
                 est_completion_time_seconds = (batches_report_time/train_params['dataset_trainval_batch_reporting_freq']) *( 1 -  ((batch)/val_set_size_batches ) )
