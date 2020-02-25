@@ -115,7 +115,6 @@ def kl_loss_weighting_scheme( max_batch ):
     return 1/max_batch
 
 #standardising and de-standardizing 
-
 def standardize( _array, reverse=False, distr_type="Normal" ):
     if distr_type=="Normal":
         SCALE = 2
@@ -250,7 +249,7 @@ def default(obj):
 #endregion
 
 def model_name_mkr(model_params):
-    if model_params['model_name'] == "THST":
+    if  model_params['model_name'] == "THST":
         model_name = "{}_{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
                                           model_params['model_type_settings']['distr_type'], 
                                           str(model_params['model_type_settings']['discrete_continuous']),
@@ -260,13 +259,11 @@ def model_name_mkr(model_params):
                                 model_params['model_type_settings']['distr_type'], 
                                 str(model_params['model_type_settings']['discrete_continuous']),
                                 model_params['model_type_settings']['model_version'] )
-    
     elif model_params['model_name'] == "SimpleLSTM":
         model_name =    "{}_{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
                                 model_params['model_type_settings']['distr_type'], 
                                 str(model_params['model_type_settings']['discrete_continuous']),
                                 model_params['model_type_settings']['location'],model_params['model_type_settings']['model_version'] )
-    
     elif model_params['model_name'] == "SimpleConvLSTM":
         raise NotImplementedError
         

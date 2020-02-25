@@ -70,7 +70,6 @@ class model_deepsd_hparameters(HParams):
                                 "name":"Conv2" }
             CONV2_params.update(self.conv2_param_custom)
                 
-
         CONV3_params = {
                             'filters':1,
                             'kernel_size': [5,5], #[5,5] #TODO:use size from paper later
@@ -96,7 +95,7 @@ class model_deepsd_hparameters(HParams):
 
         REC_ADAM_PARAMS = {
             "learning_rate":1e-4 , "warmup_proportion":0.5,
-            "min_lr": 5e-5, "beta_1":0.99 , "beta_2": 0.99 }
+            "min_lr": 4e-5, "beta_1":0.99 , "beta_2": 0.99 }
         LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":0.75}
 
         model_type_settings = {'stochastic':False ,'stochastic_f_pass':10,
@@ -333,13 +332,13 @@ class model_SimpleLSTM_hparameters(HParams):
 
         #training proc
         REC_ADAM_PARAMS = {
-            "learning_rate":3e-3 , "warmup_proportion":0.6,
-            "min_lr": 3e-4, "beta_1":0.99 , "beta_2": 0.99 }
+            "learning_rate":1e-4 , "warmup_proportion":0.6,
+            "min_lr":1e-5, "beta_1":0.99, "beta_2":0.99
+            }
 
         LOOKAHEAD_PARAMS = { "sync_period":4 , "slow_step_size":0.75 }
 
         model_type_settings = { }
-
 
         self.params = {
             'model_name':'SimpleLSTM',
@@ -371,7 +370,7 @@ class train_hparameters(HParams):
         end_date = np.datetime64('2015-12-31')
         TOTAL_DATUMS = np.timedelta64( end_date-start_date, 'D').astype(int)
 
-        #need to use this ration ,0.73529, for training
+        #need to use this ration, 0.73529, for training
         TRAIN_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS*0.53529411764)
         VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS*0.20)
         BATCH_SIZE = self.batch_size
@@ -380,6 +379,7 @@ class train_hparameters(HParams):
         BOOL_WATER_MASK = pickle.load( open( "Images/water_mask_156_352.dat","rb" ) )
 
         #endregion
+
         self.params = {
             'batch_size':BATCH_SIZE,
             'epochs':EPOCHS,
