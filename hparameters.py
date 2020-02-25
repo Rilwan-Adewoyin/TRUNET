@@ -350,7 +350,7 @@ class model_SimpleLSTM_hparameters(HParams):
             'lookahead_params':LOOKAHEAD_PARAMS
         }
 
-class model_SimpleConvLSTM_hparamaters(Hparams):
+class model_SimpleConvLSTM_hparamaters(HParams):
 
     def __init__(self, **kwargs):
         super(model_SimpleConvLSTM_hparamaters, self).__init__(**kwargs)
