@@ -272,8 +272,6 @@ class model_THST_hparameters(HParams):
          ]
         # endregion
 
-        
-
         model_type_settings = {
             'stochastic': False ,
             'Deformable_Conv': True ,
@@ -286,8 +284,8 @@ class model_THST_hparameters(HParams):
 
         REC_ADAM_PARAMS = {
             "learning_rate":1e-4 , "warmup_proportion":0.6,
-            "min_lr": 5e-5, "beta_1":0.99 , "beta_2": 0.99
-        }
+            "min_lr": 5e-5, "beta_1":0.99 , "beta_2": 0.99}
+            
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99}
         
         self.params = {
@@ -432,7 +430,6 @@ class test_hparameters(HParams):
 
         BOOL_WATER_MASK = pickle.load( open( "Images/water_mask_156_352.dat","rb" ) )
 
-
         self.params = {
             'batch_size':BATCH_SIZE,
             'starting_test_element':STARTING_TEST_ELEMENT,
@@ -449,7 +446,6 @@ class test_hparameters(HParams):
             'epochs':EPOCHS,
 
             'bool_water_mask': BOOL_WATER_MASK
-
         }
 
 class train_hparameters_ati(HParams):
@@ -467,7 +463,6 @@ class train_hparameters_ati(HParams):
                                     "rain":-1.0,
                                     "model_field":-1.0 
         }
-
         NORMALIZATION_SCALES = {
                                     "rain":2.844,
                                     "model_fields": np.array([15.442,
@@ -480,7 +475,6 @@ class train_hparameters_ati(HParams):
                                                 # - unknown_local_param_133_128,  # - air_temperature, # - geopotential
                                                 # - x_wind, # - y_wind
         }
-
         NORMALIZATION_SHIFT = {
                                 "model_fields": np.array([0.0,
                                                 0.0,
@@ -489,7 +483,6 @@ class train_hparameters_ati(HParams):
                                                 -19.436,
                                                 -24.104]) 
         }
-
         WINDOW_SHIFT = self.lookback_target
         BATCH_SIZE = self.batch_size
         # endregion
@@ -497,8 +490,8 @@ class train_hparameters_ati(HParams):
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
         EPOCHS = 400
         CHECKPOINTS_TO_KEEP = 3
-        CHECKPOINTS_TO_KEEP_EPOCH = 5
-        CHECKPOINTS_TO_KEEP_BATCH = 5
+        CHECKPOINTS_TO_KEEP_EPOCH = 10
+        CHECKPOINTS_TO_KEEP_BATCH = 10
 
         # region ---- data information
 
@@ -537,14 +530,12 @@ class train_hparameters_ati(HParams):
         EARLY_STOPPING_PERIOD = 5
  
         self.params = {
-
             'batch_size':BATCH_SIZE,
             'epochs':EPOCHS,
             'total_datums':TOTAL_DATUMS_TARGET,
             'early_stopping_period':EARLY_STOPPING_PERIOD,
             'trainable':trainable,
             'lookback_target':self.lookback_target,
-
 
             'train_set_size_elements':TRAIN_SET_SIZE_ELEMENTS,
             'train_set_size_batches':TRAIN_SET_SIZE_ELEMENTS//BATCH_SIZE,
@@ -555,15 +546,12 @@ class train_hparameters_ati(HParams):
             'checkpoints_to_keep_epoch':CHECKPOINTS_TO_KEEP_EPOCH,
             'checkpoints_to_keep_batch':CHECKPOINTS_TO_KEEP_BATCH,
 
-
             'dataset_trainval_batch_reporting_freq':0.1,
             'num_parallel_calls':NUM_PARALLEL_CALLS,
 
             'train_monte_carlo_samples':1,
-
             'data_dir': DATA_DIR,
 
-            
             'mask_fill_value':MASK_FILL_VALUE,
             'normalization_scales' : NORMALIZATION_SCALES,
             'normalization_shift': NORMALIZATION_SHIFT,
