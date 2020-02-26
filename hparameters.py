@@ -399,7 +399,7 @@ class model_SimpleConvLSTM_hparamaters(MParams):
 
         #data pipeline
         target_to_feature_time_ratio = 4
-        lookback_feature = 16*target_to_feature_time_ratio  #TODO: Try with longer sequence if it fits into memory       
+        lookback_feature = 3*8*target_to_feature_time_ratio  #TODO: Try with longer sequence if it fits into memory       
         DATA_PIPELINE_PARAMS = {
             'lookback_feature':lookback_feature,
             'lookback_target': int(lookback_feature/target_to_feature_time_ratio),
