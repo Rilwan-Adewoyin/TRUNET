@@ -535,18 +535,11 @@ def train_loop(train_params, model_params):
 
                     preds_filtrd = tf.boolean_mask( preds, mask )
                     target_filtrd = tf.boolean_mask( target, mask )
+                    val_metric_mse_mean( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
 
-                    loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd) 
-                    metric_mse = loss_mse
-                    scaled_loss_mse = optimizer.get_scaled_loss(loss_mse)
             
                 elif(model_params['model_type_settings']['stochastic']==True):
-                    raise NotImplementedError
-
-                scaled_gradients = tape.gradient( scaled_loss_mse, model.trainable_variables )
-                gradients = optimizer.get_unscaled_gradients(scaled_gradients)
-                optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-                
+                    raise NotImplementedError                
                 
             if ( (batch+1) % val_batch_reporting_freq) ==0 or batch+1==val_set_size_batches :
                 batches_report_time =  time.time() - start_batch_time
