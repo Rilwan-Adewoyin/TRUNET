@@ -384,12 +384,12 @@ class model_SimpleConvLSTM_hparamaters(MParams):
     def _default_params(self):
         #ConvLayers
         layer_count = 3 #TODO: Shi uses 2 layers
-        filters = [64]*layer_count #Shi Precip nowcasting used 
+        filters = [64]*layer_count #[128]*layer_count #Shi Precip nowcasting used 
         kernel_sizes = [[4,4]]*layer_count
         paddings = ['same']*layer_count
         return_sequences = [True]*layer_count
-        dropout = [0.00]*layer_count
-        recurrent_dropout = [0.00]*layer_count
+        dropout = [0.15]*layer_count
+        recurrent_dropout = [0.15]*layer_count
         
         ConvLSTM_layer_params = [ { 'filters':fs, 'kernel_size':ks , 'padding': ps,
                                 'return_sequences':rs, "dropout": dp , "recurrent_dropout":rdp  }
