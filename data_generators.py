@@ -405,7 +405,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
         raise ValueError
     
     if(model_settings['location']=="region_grid"):
-        pass
+        ds = ds.prefetch(_num_parallel_calls)
     else:
         ds = ds.prefetch(_num_parallel_calls)
     return ds
