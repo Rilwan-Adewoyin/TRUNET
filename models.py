@@ -48,7 +48,7 @@ class SuperResolutionModel( tf.keras.Model ):
         preds = []
         #for count in tf.range(n_preds):
         for count in range(n_preds):
-            pred = self.call( inputs, pred=pred ) #shape ( batch_size, output_h, output_w, 1 )
+            pred = self.call( inputs, training==pred ) #shape ( batch_size, output_h, output_w, 1 )
             preds.append( pred )
         
         return preds
