@@ -41,10 +41,12 @@ class MParams(HParams):
                 'input_image_shape':[100,140]}
             }
         )
-        vertical_slides = self.params['region_grid_params']['input_image_shape'][0] // self.params['region_grid_params']['vertical_shift']
-        horizontal_slides = self.params['region_grid_params']['input_image_shape'][1] // self.params['region_grid_params']['horizontal_shift']
+        vertical_slides = (self.params['region_grid_params']['input_image_shape'][0] - self.params['region_grid_params']['outer_box_dims'][0] +1 )// self.params['region_grid_params']['vertical_shift']
+        horizontal_slides = (self.params['region_grid_params']['input_image_shape'][1] - self.params['region_grid_params']['outer_box_dims'][1] +1 ) // self.params['region_grid_params']['horizontal_shift']
+
+        
         self.params['region_grid_params'].update({'slides_v_h':[vertical_slides,horizontal_slides]})
-        self.params['lookahead_params']['sync_period'] == int( vertical_slides*horizontal_slides) * self.params['lookahead_params']['sync_period']
+        self.params['lookahead_params']['sync_period'] == int( vertical_slides*horizontal_slides) * 0.1
 
 class model_deepsd_hparameters(MParams):
     """
@@ -381,8 +383,8 @@ class model_SimpleConvLSTM_hparamaters(MParams):
     
     def _default_params(self):
         #ConvLayers
-        layer_count = 3
-        filters = [200]*layer_count
+        layer_count = 3 #TODO: Shi uses 2 layers
+        filters = [64]*layer_count #Shi Precip nowcasting used 
         kernel_sizes = [[4,4]]*layer_count
         paddings = ['same']*layer_count
         return_sequences = [True]*layer_count
@@ -397,7 +399,7 @@ class model_SimpleConvLSTM_hparamaters(MParams):
 
         #data pipeline
         target_to_feature_time_ratio = 4
-        lookback_feature = 10*target_to_feature_time_ratio  #TODO: Try with longer sequence if it fits into memory       
+        lookback_feature = 16*target_to_feature_time_ratio  #TODO: Try with longer sequence if it fits into memory       
         DATA_PIPELINE_PARAMS = {
             'lookback_feature':lookback_feature,
             'lookback_target': int(lookback_feature/target_to_feature_time_ratio),
@@ -407,7 +409,7 @@ class model_SimpleConvLSTM_hparamaters(MParams):
         #training proc
         REC_ADAM_PARAMS = {
             "learning_rate":1e-4 , "warmup_proportion":0.6,
-            "min_lr":1e-5, "beta_1":0.99, "beta_2":0.99
+            "min_lr":1e-5, "beta_1":0.99, "beta_2":0.99, "decay":0.95
             }
 
         LOOKAHEAD_PARAMS = { "sync_period":4 , "slow_step_size":0.85 }

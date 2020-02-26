@@ -219,7 +219,10 @@ def train_loop(train_params, model_params):
         
         #region Train
         for batch in range(batches_to_skip,train_set_size_batches):
-            idx, (feature, target) = next(iter_train)
+            if model_params['model_type_settings']['location'] == 'region_grid':
+                idx, (feature, target, mask) = next(iter_train)
+            else:
+                idx, (feature, target) = next(iter_train)
 
             with tf.GradientTape(persistent=False) as tape:
                 if model_params['model_name'] == "DeepSD":
@@ -333,6 +336,12 @@ def train_loop(train_params, model_params):
                     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
                     
                 elif( model_params['model_name'] == "THST"):
+                    if model_params['model_type_settings']['location'] == 'region_grid':
+                        if( tf.reduce_any( mask )==False ):
+                            continue
+                    else:
+                        target, mask = target # (bs, h, w) 
+
                     if (model_params['model_type_settings']['stochastic']==False): #non stochastic version
                         target, mask = target
 
@@ -375,12 +384,22 @@ def train_loop(train_params, model_params):
                     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
                 elif (model_params['model_name'] == "SimpleConvLSTM"):
-                    target, mask = target # (bs, h, w) 
+                    if model_params['model_type_settings']['location'] == 'region_grid':
+                        if( tf.reduce_any( mask[:, :, 6:10, 6:10] )==False ):
+                            continue
+                    else:
+                        target, mask = target # (bs, h, w) 
+
 
                     if( model_params['model_type_settings']['stochastic']==False):
 
-                        preds = model( tf.cast(feature,tf.float16), train_params['trainable'] ) #( bs, tar_seq_len)
+                        preds = model( tf.cast(feature,tf.float16), train_params['trainable'] ) #( bs, tar_seq_len, h, w)
                         preds = tf.squeeze(preds)
+
+                        if (model_params['model_type_settings']['location']=='region_grid' ): #focusing on centre of square only
+                            preds = preds[:, :, 6:10, 6:10]
+                            mask = mask[:, :, 6:10, 6:10]
+                            target = target[:, :, 6:10, 6:10]
 
                         preds_filtrd = tf.boolean_mask( preds, mask )
                         target_filtrd = tf.boolean_mask( target, mask )
@@ -449,11 +468,7 @@ def train_loop(train_params, model_params):
         
         start_epoch_val = time.time()
         start_batch_time = time.time()
-        if( model_params['model_type_settings']['stochastic']==True ):
-            print('\tEPOCH {}:\tVar_Free_Nrg: {:.5f} \tMSE: {:.8f}\tTime: {:.2f}'.format(epoch, train_loss_var_free_nrg_mean_epoch.result() ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
-        else:
-            print('\tEPOCH {}:\tMSE: {:.8f}\tTime: {:.2f}'.format(epoch ,train_metric_mse_mean_epoch.result(), (time.time()-start_epoch ) ) )
-            # endregion
+
         print("\nStarting Validation")
         model.reset_states()
         #endregion
@@ -529,6 +544,10 @@ def train_loop(train_params, model_params):
         model.reset_states()
 
         print("\tEpoch:{}\t Train MSE:{:.8f}\tValidation Loss: MSE:{:.5f}\tTime:{:.5f}".format(epoch, train_metric_mse_mean_epoch.result(), val_metric_mse_mean.result(), time.time()-start_epoch_val  ) )
+        if( model_params['model_type_settings']['stochastic']==True ):
+            print('\t\tVar_Free_Nrg: {:.5f} '.format(epoch, train_loss_var_free_nrg_mean_epoch.result()  ) )
+
+            # endregion
         with writer.as_default():
             tf.summary.scalar('Validation Loss MSE', val_metric_mse_mean.result() , step =  epoch )
         df_training_info = utility.update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoch, val_metric_mse_mean, ckpt_manager_epoch, train_params, model_params )

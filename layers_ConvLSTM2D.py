@@ -275,7 +275,7 @@ class ConvRNN2D(RNN):
     shape = list(self.cell.kernel_shape)
     shape[-1] = self.cell.filters
     initial_state = self.cell.input_conv(initial_state,
-                                         array_ops.zeros(tuple(shape)),
+                                         tf.cast( array_ops.zeros(tuple(shape)), dtype=self._compute_dtype),
                                          padding=self.cell.padding)
 
     if hasattr(self.cell.state_size, '__len__'):
@@ -650,7 +650,7 @@ class ConvLSTM2D(ConvRNN2D):
                                         **kwargs)
         self.activity_regularizer = regularizers.get(activity_regularizer)
 
-    @tf.function
+    #@tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
         #self._maybe_reset_cell_dropout_mask(self.cell)
         return super(ConvLSTM2D, self).call(inputs,

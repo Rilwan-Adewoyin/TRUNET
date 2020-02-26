@@ -363,6 +363,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
                 t_params['normalization_shift']['model_fields'],
                 arr_mask ,t_params['mask_fill_value']['model_field'] ) ,num_parallel_calls= _num_parallel_calls) #_num_parallel_calls  )
 
+
     ds_feat = ds_feat.window(size = t_params['lookback_feature'], stride=1, shift=t_params['lookback_feature'], drop_remainder=True )
 
     ds_feat = ds_feat.flat_map( lambda window: tf.data.Dataset.zip( window.batch(t_params['lookback_feature']) ) )  #shape (lookback,h, w, 6)
@@ -382,21 +383,31 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
         ds = ds.map( lambda mf, rain_rmask : load_data_ati_select_location(mf, rain_rmask[0], rain_rmask[1], idxs ), num_parallel_calls=_num_parallel_calls )
 
     elif(model_settings['location']=="region_grid"):
-        # ds = ds.map( lambda mf, rain_rmask : region_folding( [mf, rain_rmask[0], rain_rmask[1]], mode=1, **m_params['region_grid_params'] ),
-        #             num_parallel_calls=_num_parallel_calls )
-
-        ds = ds.map( lambda mf, rain_mask: tuple( [mf, rain_mask[0], rain_mask[1]] )  )
-        region_folding_partial = partial(region_folding, **m_params['region_grid_params'], mode=1,tnsrs=None )
-        ds = ds.map( lambda mf,rain,rmask : tf.py_function( region_folding_partial, [mf, rain, rmask], [tf.float32, tf.float32, tf.bool] ) )
         
-        ds = ds.map( lambda mf, rain, mask: load_data_ati_post_region_folding(mf, rain, mask), num_parallel_calls=_num_parallel_calls )
-        ds = ds.unbatch()
-        ds = ds.batch(t_params['batch_size'] , drop_remainder=True)
+
+        ds = ds.map( lambda mf, rain_mask: tuple( [mf, rain_mask[0], rain_mask[1]] )  )                         #mf=(80, 100,140,6)
+        
+        region_folding_partial = partial(region_folding, **m_params['region_grid_params'], mode=3,tnsrs=None )  
+
+        ds = ds.map( lambda mf,rain,rmask : tf.py_function( region_folding_partial, [mf, rain, rmask], [tf.float16, tf.float32, tf.bool] ) ) #mf = mode3(704, lookback, 16, 16, 6 )  mode1(80, 85//4, 125//4, 16, 16, 6)
+        ds = ds.unbatch().batch( t_params['batch_size'],drop_remainder=True )
+        #unzip and unbatch and rebatch and rezip and reshape
+        # ds_mf = ds.map(lambda mf, rain, mask: mf).unbatch()
+        # ds_rain = ds.map(lambda mf, rain, mask: rain).unbatch()
+        # ds_mask = ds.map(lambda mf, rain, mask: mask).unbatch()
+        # ds_rain_mask = tf.data.Dataset.zip( (ds_rain, ds_mask) )
+
+        # ds = tf.data.Dataset.zip( (ds_mf, ds_rain_mask) )
+
+        # ds = ds.batch(t_params['batch_size'],drop_remainder=True)
 
     else:
         raise ValueError
-
-    ds = ds.prefetch(_num_parallel_calls)
+    
+    if(model_settings['location']=="region_grid"):
+        pass
+    else:
+        ds = ds.prefetch(_num_parallel_calls)
     return ds
 
 def load_data_ati_select_location(mf, rain, rain_mask, idxs ):
@@ -437,34 +448,45 @@ def region_folding( mf, rain, rain_mask, tnsrs=None ,mode=1,
     """
     if mode==1: #Unstitch
         if tf.is_tensor(mf):
-            mf = mf.numpy()
+            mf = mf.numpy().astype(dtype=np.float16)
         if tf.is_tensor(rain):
-            rain = rain.numpy()
+            rain = rain.numpy()#.astype(dtype=np.float16)
         if tf.is_tensor(rain_mask):
             rain_mask = rain_mask.numpy()
-            
-        shape_mf = list(mf.shape[:1])+ ( np.array(input_image_shape)-np.array(outer_box_dims)+np.array([1,1]) ).tolist() + outer_box_dims + list(mf.shape[-1:]) # [10, 85//4, 31, 16, 16, c]
-        d0 = mf.strides[-1]
-        d1 = mf.strides[-2]
-        d2 = mf.strides[-3]
-        d3 = d1*4
-        d4 = d2*4
-        d5 = d2*mf.shape[2]
-        strides = [d5, d4, d3, d2, d1]
-        mf_unstitched = as_strided( mf, shape_mf, strides)  #TODO: may have to add copy, but as of now it may lead to memory issues
-        print("here")    
-        shape_r = list(rain.shape[:1])+ ( np.array(input_image_shape)-np.array(outer_box_dims)+np.array([1,1]) ).tolist() + outer_box_dims # [10, 85//4, 31, 16, 16]
-        d0 = rain.strides[-1]
-        d1 = rain.strides[-2]
-        d2 = d0*horizontal_shift
-        d3 = d1*vertical_shift
-        d4 = d1*rain.shape[1]
-        strides = [ d4, d3, d2, d1, d0 ]
-        rain_unstitched = as_strided( rain, shape_r, strides ).copy()
-        rain_mask_unstitched = as_strided( rain_mask, shape_r, strides )
         
 
-        return mf_unstitched, rain_unstitched, rain_mask_unstitched 
+        d0 = list(mf.shape[:1])
+        d1_2 = ( ( np.array(input_image_shape)-np.array(outer_box_dims)+np.array([1,1]) ) // np.array(inner_box_dims) ).tolist()
+        d3_4 = outer_box_dims
+        d_5 = list(mf.shape[-1:])
+        shape_mf = d0 + d1_2 + d3_4 + d_5 #[10, 85//4, 31, 16, 16, c]
+        
+        s0 = mf.strides[-1]
+        s1 = mf.strides[-2]
+        s2 = mf.strides[-3]
+        s3 = s1*horizontal_shift
+        s4 = s2*vertical_shift
+        s5 = s2*mf.shape[2]
+        strides_mf = [s5, s4, s3, s2, s1, s0]
+        mf_unstitched = as_strided( mf, shape_mf, strides_mf, writeable=False).copy(order='K')  #TODO: may have to add copy, but as of now it may lead to memory issues
+        
+        d0   = list(rain.shape[:1])
+        d1_2 = ( ( np.array(input_image_shape)-np.array(outer_box_dims)+np.array([1,1]) ) // np.array(inner_box_dims) ).tolist()
+        d3_4 = outer_box_dims
+        shape_r = d0 + d1_2 + d3_4         
+
+        s0 = rain.strides[-1]
+        s1 = rain.strides[-2]
+        s2 = s0*horizontal_shift
+        s3 = s1*vertical_shift
+        s4 = s1*rain.shape[1]
+        strides_r = [ s4, s3, s2, s1, s0 ]
+        
+        rain_unstitched = as_strided( rain, shape_r, strides_r,writeable=False ).copy(order='K')
+        rain_mask_unstitched = as_strided( rain_mask, shape_r, strides_r,writeable=False ).copy(order='K')
+        
+        return np.ones_like(mf_unstitched,dtype=np.float16 ), np.ones_like(rain_unstitched,dtype=np.float32 ), np.ones_like(rain_mask_unstitched,dtype=bool)
+        #return mf_unstitched, rain_unstitched, rain_mask_unstitched 
     
     elif mode==2: 
         #NOTE: mode 2 does not accept arrs w/ channel dim
@@ -491,6 +513,25 @@ def region_folding( mf, rain, rain_mask, tnsrs=None ,mode=1,
         stitched_array = _array.reshape([bs,h,w])
 
         return stitched_array
+    elif mode==3:
+        if tf.is_tensor(mf):
+            mf = mf.numpy().astype(dtype=np.float16)
+        if tf.is_tensor(rain):
+            rain = rain.numpy().astype(dtype=np.float16)
+        if tf.is_tensor(rain_mask):
+            rain_mask = rain_mask.numpy()
+        _li_data1 = []
+        _li_data2 = []
+        _li_data3 = []
+        for idx_h in range(0,input_image_shape[0]-outer_box_dims[0]+1, vertical_shift):
+            for idx_w  in range(0, input_image_shape[1]-outer_box_dims[1]+1, horizontal_shift):
+                _li_data1.append( mf[:, idx_h:idx_h+outer_box_dims[0], idx_w:idx_w+outer_box_dims[0], : ] )
+                _li_data2.append( rain[:, idx_h:idx_h+outer_box_dims[0], idx_w:idx_w+outer_box_dims[0] ] )
+                _li_data3.append( rain_mask[ :, idx_h:idx_h+outer_box_dims[0], idx_w:idx_w+outer_box_dims[0]] )
+        mf = np.stack(_li_data1, axis=0)
+        rain = np.stack(_li_data2, axis=0)
+        rain_mask = np.stack(_li_data3,axis=0)
+        return mf, rain, rain_mask
     else:
         raise ValueError
 
@@ -499,12 +540,11 @@ def load_data_ati_post_region_folding(mf, rain, mask):
         input shape (lookback, h_slices, v_slices, h1, w1)
         return shape (region_count,lookback,h1,w1)
     """
-    lookback = mf.shape[0]
-    h = mf.shape[-2]
-    w = mf.shape[-1]
-    mf = tf.reshape( mf,[ lookback, -1, h, w ] ).transpose(1,0,2,3)
-    rain = tf.reshape( rain,[ lookback, -1, h, w ] ).transpose(1,0,2,3)
-    mask = tf.reshape( mask,[ lookback, -1, h, w ] ).transpose(1,0,2,3) #NOTE: not sure if this is correct
+    mfs = mf.shape
+    rs = rain.shape
+    mf = tf.reshape( mf,[ mfs[-5],mfs[-4]*mfs[-3],mfs[-2],mfs[-1]]).transpose(1,0,2,3,4)
+    rain = tf.reshape( rain,[rs[-5],rs[-4]*rs[-3],rs[-2],rs[-1]]).transpose(1,0,2,3)
+    mask = tf.reshape( mask,[rs[-5],rs[-4]*rs[-3],rs[-2],rs[-1]]).transpose(1,0,2,3) #NOTE: not sure if this is correct
 
     return mf, (rain, mask)
 

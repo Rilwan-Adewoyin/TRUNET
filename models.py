@@ -35,8 +35,8 @@ class SuperResolutionModel( tf.keras.Model ):
         #self.SRCNN_3 = layers.SRCNN( train_params, model_params[2] )
     
     #@tf.function
-    def call(self, inputs, pred=False):
-        x = self.SRCNN_1(inputs, pred)
+    def call(self, inputs, training=False):
+        x = self.SRCNN_1(inputs, training)
         x = self.float32_output(x)
         # x = self.SRCNN_2( x, pred )
         return x
@@ -96,11 +96,9 @@ class SimpleLSTM(tf.keras.Model):
         
         self.LSTM_init_state = [ [[tf.Variable(tf.zeros( (train_params['batch_size'],model_params['layer_params'][idx]['units']), dtype=tf.float16)) ]*2]*2 for idx in range( model_params['layer_count']) ]
         for idx in range(model_params['layer_count']):
-            #layers._dtype = 'float16'
-            # self.LSTM_layers[idx].states = self.LSTM_init_state[idx][0]
             self.LSTM_layers[idx].forward_layer.states = self.LSTM_init_state[idx][0]
             self.LSTM_layers[idx].backward_layer.states = self.LSTM_init_state[idx][1]
-            #layers.reset_states()
+            
         self.output_dense = tf.keras.layers.Dense(units=1, activation='relu')
         self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
 
@@ -135,13 +133,23 @@ class SimpleConvLSTM(tf.keras.Model):
 
         self.model_params = model_params
         self.ConvLSTM_layers = [ tf.keras.layers.Bidirectional( layers_ConvLSTM2D.ConvLSTM2D( **self.model_params['ConvLSTM_layer_params'][idx] ), merge_mode='concat' )  for idx in range( model_params['layer_count'] ) ]
+               
         self.output_conv = self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **self.model_params['outpconv_layer_params'] ) )
 
+        #self.ConvLSTM_layers[0]._dtype = "float16"
         self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
+
+        self.new_shape1 = tf.TensorShape( [train_params['batch_size'],model_params['region_grid_params']['outer_box_dims'][0], model_params['region_grid_params']['outer_box_dims'][1],  train_params['lookback_target'] ,int(6*4)] )
     
-    def call(self, input, training):
+    #@tf.function
+    def call(self, _input, training):
+        
+        x = tf.transpose( _input, [0, 2,3,1,4])     # moving time axis next to channel axis
+        x = tf.reshape( x, self.new_shape1 )        # reshape time and channel axis
+        x = tf.transpose( x, [0,3,1,2,4 ] )   # converting back to bs, time, h,w, c
+
         for idx in range(self.model_params['layer_count']):
-            x = self.LSTM_layers[idx](inputs=x, training=training)
+            x = self.ConvLSTM_layers[idx](inputs=x, training=training)
         x = self.output_conv(x,training=training)
         x = self.float32_output(x)
         return x
