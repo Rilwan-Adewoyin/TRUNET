@@ -488,8 +488,13 @@ def train_loop(train_params, model_params):
                     val_metric_mse_mean( tf.reduce_mean( tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  ) #TODO: Ensure that both preds and target are reshaped prior 
             
             elif model_params['model_name'] == "THST":
+                if model_params['model_type_settings']['location'] == 'region_grid':
+                    if( tf.reduce_any( mask[:, :, 6:10, 6:10] )==False ):
+                            continue
+                else:
+                    target, mask = target # (bs, h, w) 
+
                 if model_params['model_type_settings']['stochastic'] ==False: #non stochastic version
-                    target, mask = target
                     preds = model(tf.cast(feature,tf.float16) )
                     preds = tf.squeeze(preds)
 
@@ -516,8 +521,8 @@ def train_loop(train_params, model_params):
                 if model_params['model_type_settings']['location'] == 'region_grid':
                     if( tf.reduce_any( mask[:, :, 6:10, 6:10] )==False ):
                             continue
-                    else:
-                        target, mask = target # (bs, h, w) 
+                else:
+                    target, mask = target # (bs, h, w) 
 
                 if model_params['model_type_settings']['stochastic'] == False:
 
