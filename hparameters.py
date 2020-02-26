@@ -46,7 +46,7 @@ class MParams(HParams):
 
         
         self.params['region_grid_params'].update({'slides_v_h':[vertical_slides,horizontal_slides]})
-        self.params['lookahead_params']['sync_period'] == int( vertical_slides*horizontal_slides) * 0.1
+        self.params['lookahead_params']['sync_period'] == int( vertical_slides*horizontal_slides) * min( [ self.params['lookahead_params']['sync_period'] // 2, 1] )
 
 class model_deepsd_hparameters(MParams):
     """
@@ -310,7 +310,7 @@ class model_THST_hparameters(MParams):
 
         REC_ADAM_PARAMS = {
             "learning_rate":1e-4, "warmup_proportion":0.6,
-            "min_lr": 1e-5, "beta_1":0.99 , "beta_2":0.99
+            "min_lr": 1e-5, "beta_1":0.99 , "beta_2":0.99, "decay":0.99
             }
             
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99}

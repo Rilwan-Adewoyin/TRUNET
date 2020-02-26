@@ -141,7 +141,7 @@ class SimpleConvLSTM(tf.keras.Model):
 
         self.new_shape1 = tf.TensorShape( [train_params['batch_size'],model_params['region_grid_params']['outer_box_dims'][0], model_params['region_grid_params']['outer_box_dims'][1],  train_params['lookback_target'] ,int(6*4)] )
     
-    #@tf.function
+    @tf.function
     def call(self, _input, training):
         
         x = tf.transpose( _input, [0, 2,3,1,4])     # moving time axis next to channel axis
