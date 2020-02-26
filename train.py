@@ -343,7 +343,6 @@ def train_loop(train_params, model_params):
                         target, mask = target # (bs, h, w) 
 
                     if (model_params['model_type_settings']['stochastic']==False): #non stochastic version
-                        target, mask = target
 
                         preds = model( tf.cast(feature,tf.float16), tape=tape )
                         preds = tf.squeeze(preds)
@@ -512,9 +511,23 @@ def train_loop(train_params, model_params):
                     raise NotImplementedError
             
             elif model_params['model_name'] == "SimpleConvLSTM":
+                
+                if model_params['model_type_settings']['location'] == 'region_grid':
+                    if( tf.reduce_any( mask[:, :, 6:10, 6:10] )==False ):
+                            continue
+                    else:
+                        target, mask = target # (bs, h, w) 
+
                 if model_params['model_type_settings']['stochastic'] == False:
-                    target, mask = target
+
                     preds = model(tf.cast(feature,tf.float16), training=False )
+                    preds = tf.squeeze(preds)
+
+                    if (model_params['model_type_settings']['location']=='region_grid' ): #focusing on centre of square only
+                        preds = preds[:, :, 6:10, 6:10]
+                        mask = mask[:, :, 6:10, 6:10]
+                        target = target[:, :, 6:10, 6:10]
+
                     preds_filtrd = tf.boolean_mask( preds, mask )
                     target_filtrd = tf.boolean_mask( target, mask )
 
