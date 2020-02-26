@@ -80,13 +80,11 @@ def train_loop(train_params, model_params):
     if tfa==None:
         optimizer = tf.keras.optimizers.Adam( learning_rate=1e-4, beta_1=0.1, beta_2=0.99, epsilon=1e-5 )
     else:
-        radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=int(train_params['train_set_size_batches']*0.55) )
+        radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=int(train_params['train_set_size_batches']* np.prod(model_params['region_grid_params']['slides_v_h']*0.55) ) )
         optimizer = tfa.optimizers.Lookahead(radam, **model_params['lookahead_params'])
     
     optimizer = mixed_precision.LossScaleOptimizer(optimizer, loss_scale='dynamic' )
     ##monkey patch so optimizer works with mixed precision
-    
-    
     
     train_metric_mse_mean_groupbatch = tf.keras.metrics.Mean(name='train_loss_mse_obj')
     train_metric_mse_mean_epoch = tf.keras.metrics.Mean(name="train_loss_mse_obj_epoch")
@@ -143,7 +141,7 @@ def train_loop(train_params, model_params):
     #endregion
 
     # region Logic for setting up resume location
-    starting_epoch =  int(max( df_training_info['Epoch'], default=1 )) 
+    starting_epoch =  int(max( df_training_info['Epoch'], default=0 )) 
     df_batch_record = df_training_info.loc[ df_training_info['Epoch'] == starting_epoch,'Last_Trained_Batch' ]
 
     if( len(df_batch_record)==0 or df_batch_record.iloc[0]==-1 ):
@@ -184,10 +182,9 @@ def train_loop(train_params, model_params):
         ds_train = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['train_start_date'], data_dir=train_params['data_dir'])
         ds_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['val_start_date'], data_dir=train_params['data_dir'] )
     
-    ds_train = ds_train.take(train_params['train_set_size_batches']).repeat(train_params['epochs']-starting_epoch)
-    ds_val = ds_val.take(train_params['val_set_size_batches']).repeat(train_params['epochs']-starting_epoch)
+    ds_train = ds_train.take(train_set_size_batches).repeat(train_params['epochs']-starting_epoch)
+    ds_val = ds_val.take(val_set_size_batches).repeat(train_params['epochs']-starting_epoch)
     ds_train = ds_train.skip(batches_to_skip)
-    #ds_val = ds_val.skip(batches_to_skip)
     iter_train = enumerate(ds_train)
     iter_val = enumerate(ds_val)
     # endregion
