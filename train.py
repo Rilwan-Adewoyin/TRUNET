@@ -132,8 +132,8 @@ def train_loop(train_params, model_params):
 
     # region --- Setting up training parameters - to be moved to hparams file
     if model_params['model_type_settings']['location'] == "region_grid":
-        train_set_size_batches= train_params['train_set_size_batches'] * np.prod(model_params['region_grid_params']['slides_v_h'])
-        val_set_size_batches = train_params['val_set_size_batches'] * np.prod(model_params['region_grid_params']['slides_v_h'])
+        train_set_size_batches= int(train_params['train_set_size_batches'] * np.prod(model_params['region_grid_params']['slides_v_h']) )
+        val_set_size_batches = int(train_params['val_set_size_batches'] * np.prod(model_params['region_grid_params']['slides_v_h']))
     else:
         train_set_size_batches= train_params['train_set_size_batches'] 
         val_set_size_batches = train_params['val_set_size_batches'] 
