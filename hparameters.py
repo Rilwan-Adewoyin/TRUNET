@@ -23,15 +23,21 @@ class HParams():
 
 class MParams(HParams):
     def __init__(self,**kwargs):
-        super(MParams, self).__init__(**kwargs)
         
         if self.params['model_type_settings']['location'] == "region_grid":
             self.regiongrid_param_adjustment()
-    
-    # def __call__(self):
-    #     super(MParams,self).__call__()
+        else:
+            self.params = {}
+
+        super(MParams, self).__init__(**kwargs)
+                
+        if self.params['model_type_settings']['location'] == "region_grid":
+            self.params['lookahead_params']['sync_period'] == int( np.prod( self.params['region_grid_params']['slides_v_h']  * min( [ self.params['lookahead_params']['sync_period'] // 2, 1] ) ) )
 
     def regiongrid_param_adjustment(self):
+        if not hasattr(self, 'params'):
+            self.params = {}
+
         self.params.update(
             {'region_grid_params':{
                 'outer_box_dims':[16,16],
@@ -46,7 +52,7 @@ class MParams(HParams):
 
         
         self.params['region_grid_params'].update({'slides_v_h':[vertical_slides,horizontal_slides]})
-        self.params['lookahead_params']['sync_period'] == int( vertical_slides*horizontal_slides) * min( [ self.params['lookahead_params']['sync_period'] // 2, 1] )
+        self.params['lookahead_params']['sync_period'] == int( np.prod( self.params['region_grid_params']['slides_v_h']  * min( [ self.params['lookahead_params']['sync_period'] // 2, 1] ) ) )
 
 class model_deepsd_hparameters(MParams):
     """
@@ -130,7 +136,7 @@ class model_deepsd_hparameters(MParams):
                                 'precip_threshold':0.5 , 'var_model_type':"flipout",
                                 'model_version': "1" }
         
-        self.params = {
+        self.params.update( {
             'model_name':"DeepSD",
             'model_type_settings':model_type_settings,
 
@@ -157,7 +163,7 @@ class model_deepsd_hparameters(MParams):
             
             'rec_adam_params':REC_ADAM_PARAMS,
             'lookahead_params':LOOKAHEAD_PARAMS
-        }
+        })
 
 class model_THST_hparameters(MParams):
 
@@ -165,11 +171,22 @@ class model_THST_hparameters(MParams):
         """ 
             Hierachical 2D Convolution Model
         """
+        self.helper = {
+            'region':kwargs['model_type']['location']
+        }
         super( model_THST_hparameters, self ).__init__(**kwargs)
 
     def _default_params(self ):
+        # region learning/convergence params
+        REC_ADAM_PARAMS = {
+            "learning_rate":1e-4, "warmup_proportion":0.6,
+            "min_lr": 1e-5, "beta_1":0.99 , "beta_2":0.99, "decay":0.99
+            }
+        DROPOUT = 0.15
+        LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99}
+        # endregion
         
-        #Key Model Size Settings
+        #region Key Model Size Settings
         seq_len_for_highest_hierachy_level = 3   # 2  
         SEQ_LEN_FACTOR_REDUCTION = [4, 7, 4] #[4, 2, 2, 2]
             #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
@@ -190,44 +207,47 @@ class model_THST_hparameters(MParams):
         enc_layer_count = len( SEQ_LEN_FACTOR_REDUCTION ) +1
 
         # region CLSTM params
-        output_filters_enc = [64]*enc_layer_count #[5] #output filters for each convLSTM2D layer in the encoder
+        output_filters_enc = [8]*(enc_layer_count-1)            #[64] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc = output_filters_enc + output_filters_enc[-1:] #the last two layers in the encoder must output the same number of channels
+        kernel_size_enc = [ (4,4) ] * (enc_layer_count)         # [(2,2)]
 
-        kernel_size_enc = [ (4,4) , (4,4) , (4,4), (4,4), (4,4)]
-        #kernel_size_enc = [ (2,2) , (2,2) , (2,2), (2,2), (2,2)]
+        attn_layers_count = enc_layer_count - 1
+        attn_heads = [ 6 ]*attn_layers_count                          #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 6 -> 6, 12, 
+        
+        #here
+        if self.params['model_type_settings']['location'] == 'wholeregion':
+            kq_downscale_stride = [1,13,13]
+            kq_downscale_kernelshape = [1, 13, 13]
 
-        attn_layers = enc_layer_count - 1
-        attn_heads = [ 1]*attn_layers#NOTE: dev settings #must be a factor of h or w or c, so 100, 140 or 6 -> 2, 5, 7, 
-        kq_downscale_stride = [1,13,13]
-        kq_downscale_kernelshape = [1, 13, 13]
-        ATTN_LAYERS_NUM_OF_SPLITS = list(reversed((np.cumprod( list( reversed(SEQ_LEN_FACTOR_REDUCTION[1:] + [1] ) ) ) *seq_len_for_highest_hierachy_level ).tolist())) 
-        #Defines Each encoder layer receives a seq of 3D tensors from layer below. NUM_OF_SPLITS codes in how many chunks to devide the incoming data. NOTE: This is defined only for Encoder-Attn layers
-
-
-        #new version
-        key_depth = [ (100*140*output_filters_enc[idx])/ int(np.prod([kq_downscale_kernelshape[1:]])) for idx in range(attn_layers) ] 
-            #This keeps the hidden representations equal in size to the incoming tensors
-        val_depth = [ (100*140)*(output_filters_enc[idx]*2) for idx in range(attn_layers)  ]
+            key_depth = [ int( (100*140*output_filters_enc[idx])/ int(np.prod([kq_downscale_kernelshape[1:]])) )for idx in range(attn_layers_count) ] 
+                #This keeps the hidden representations equal in size to the incoming tensors
+            val_depth = [ int(100*140*output_filters_enc[idx]*2) for idx in range(attn_layers_count)  ]
+                
+                            #The keydepth for any given layer will be equal to (h*w*c/avg_pool_strideh*avg_pool_stridew)
+                                # where h,w = 100,140 and c is from the output_filters_enc from the layer below
             
-                         #The keydepth for any given layer will be equal to (h*w*c/avg_pool_strideh*avg_pool_stridew)
-                            # where h,w = 100,140 and c is from the output_filters_enc from the layer below
-        key_depth = [int(_val) for _val in key_depth]
+        else:
+            kq_downscale_stride = None
+            kq_downscale_kernelshape = None
+
+            key_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims']) * output_filters_enc[idx]) for idx in range(attn_layers_count) ] 
+            val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims']) * output_filters_enc[idx]*2) for idx in range(attn_layers_count)  ]
+            
+        ATTN_LAYERS_NUM_OF_SPLITS = list(reversed((np.cumprod( list( reversed(SEQ_LEN_FACTOR_REDUCTION[1:] + [1] ) ) ) *seq_len_for_highest_hierachy_level ).tolist())) 
+            #Each encoder layer receives a seq of 3D tensors from layer below. NUM_OF_SPLITS codes in how many chunks to devide the incoming data. NOTE: This is defined only for Encoder-Attn layers
 
         ATTN_params_enc = [
             {'bias':None, 'total_key_depth': kd  ,'total_value_depth':vd, 'output_depth': vd   ,
             'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
             "transform_value_antecedent":False ,  "transform_output":False } 
             for kd, vd ,nh in zip( key_depth, val_depth, attn_heads )
-        ] #using key depth and Value depth smaller to reduce footprint
-        #Add the below to attention dicts to get visualization
-        #   make_image_summary=True,
-        #   save_weights_to=None,
+        ] 
 
         ATTN_DOWNSCALING_params_enc = {
             'kq_downscale_stride': kq_downscale_stride,
             'kq_downscale_kernelshape':kq_downscale_kernelshape
         }
-
+        #HERE
         CLSTMs_params_enc = [
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
                 'return_sequences':True, 'dropout':0.0, 'recurrent_dropout':0.0,
@@ -235,11 +255,12 @@ class model_THST_hparameters(MParams):
              for f, ks in zip( output_filters_enc, kernel_size_enc)
         ]
         # endregion
+        
 
 
         ENCODER_PARAMS = {
             'enc_layer_count': enc_layer_count,
-            'attn_layers': attn_layers,
+            'attn_layers': attn_layers_count,
             'CLSTMs_params' : CLSTMs_params_enc,
             'ATTN_params': ATTN_params_enc,
             'ATTN_DOWNSCALING_params_enc':ATTN_DOWNSCALING_params_enc,
@@ -297,16 +318,7 @@ class model_THST_hparameters(MParams):
             "model_version":"1"
         }
 
-        # region learning/convergence params
-        REC_ADAM_PARAMS = {
-            "learning_rate":1e-4, "warmup_proportion":0.6,
-            "min_lr": 1e-5, "beta_1":0.99 , "beta_2":0.99, "decay":0.99
-            }
-        DROPOUT = 0.15
-        LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99}
-        # endregion
-
-        self.params = {
+        self.params.update( {
             'model_name':"THST",
             'model_type_settings':model_type_settings,
 
@@ -318,7 +330,7 @@ class model_THST_hparameters(MParams):
             'rec_adam_params':REC_ADAM_PARAMS,
             'lookahead_params':LOOKAHEAD_PARAMS,
             'gradients_clip_norm':200
-            }
+            } )
 
 class model_SimpleLSTM_hparameters(MParams):
 
@@ -355,7 +367,7 @@ class model_SimpleLSTM_hparameters(MParams):
 
         model_type_settings = { }
 
-        self.params = {
+        self.params.update({
             'model_name':'SimpleLSTM',
             'layer_count': 3,
             'layer_params': LAYER_PARAMS,
@@ -365,7 +377,7 @@ class model_SimpleLSTM_hparameters(MParams):
 
             'rec_adam_params':REC_ADAM_PARAMS,
             'lookahead_params':LOOKAHEAD_PARAMS
-        }
+        })
 
 class model_SimpleConvLSTM_hparamaters(MParams):
 
@@ -407,7 +419,7 @@ class model_SimpleConvLSTM_hparamaters(MParams):
 
         model_type_settings = { }
 
-        self.params = {
+        self.params.update( {
             'model_name':'SimpleConvLSTM',
             'layer_count':layer_count,
             'ConvLSTM_layer_params':ConvLSTM_layer_params,
@@ -418,7 +430,7 @@ class model_SimpleConvLSTM_hparamaters(MParams):
 
             'rec_adam_params':REC_ADAM_PARAMS,
             'lookahead_params':LOOKAHEAD_PARAMS
-        }
+        })
 
 
 class train_hparameters(HParams):

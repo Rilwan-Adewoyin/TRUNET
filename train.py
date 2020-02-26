@@ -471,7 +471,11 @@ def train_loop(train_params, model_params):
 
         #region Valid
         for batch in range(val_set_size_batches):
-            idx, (feature, target) = next(iter_val)
+
+            if model_params['model_type_settings']['location'] == 'region_grid':
+                idx, (feature, target, mask) = next(iter_val)
+            else:
+                idx, (feature, target) = next(iter_val)
 
             if model_params['model_name'] == "DeepSD":
                 if model_params['model_type_settings']['stochastic'] ==True: #non stochastic version
