@@ -80,7 +80,7 @@ def train_loop(train_params, model_params):
     if tfa==None:
         optimizer = tf.keras.optimizers.Adam( learning_rate=1e-4, beta_1=0.1, beta_2=0.99, epsilon=1e-5 )
     else:
-        radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=int(train_params['train_set_size_batches']* np.prod(model_params['region_grid_params']['slides_v_h']*0.55) ) )
+        radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=int(train_params['train_set_size_batches']* np.prod(model_params['region_grid_params']['slides_v_h']) *0.55) ) )
         optimizer = tfa.optimizers.Lookahead(radam, **model_params['lookahead_params'])
     
     optimizer = mixed_precision.LossScaleOptimizer(optimizer, loss_scale='dynamic' )

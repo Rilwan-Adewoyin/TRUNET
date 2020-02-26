@@ -634,19 +634,19 @@ class THST_Encoder(tf.keras.layers.Layer ):
         
         self.CLSTM_2 = THST_CLSTM_Attention_Layer( train_params, encoder_params['CLSTMs_params'][1], 
             encoder_params['ATTN_params'][0], encoder_params['ATTN_DOWNSCALING_params_enc'] ,
-            encoder_params['seq_len_factor_reduction'][0], self.encoder_params['num_of_splits'][0] )
+            encoder_params['seq_len_factor_reduction'][0], self.encoder_params['attn_layers_num_of_splits'][0] )
 
         self.CLSTM_3 = THST_CLSTM_Attention_Layer( train_params, encoder_params['CLSTMs_params'][2], 
             encoder_params['ATTN_params'][1], encoder_params['ATTN_DOWNSCALING_params_enc'] ,
-            encoder_params['seq_len_factor_reduction'][1], self.encoder_params['num_of_splits'][1] )
+            encoder_params['seq_len_factor_reduction'][1], self.encoder_params['attn_layers_num_of_splits'][1] )
 
         self.CLSTM_4 = THST_CLSTM_Attention_Layer( train_params, encoder_params['CLSTMs_params'][3], 
             encoder_params['ATTN_params'][2], encoder_params['ATTN_DOWNSCALING_params_enc'] ,
-            encoder_params['seq_len_factor_reduction'][2], self.encoder_params['num_of_splits'][2] )
+            encoder_params['seq_len_factor_reduction'][2], self.encoder_params['attn_layers_num_of_splits'][2] )
             
         self.CLSTM_5 = THST_CLSTM_Attention_Layer( train_params, encoder_params['CLSTMs_params'][4], 
             encoder_params['ATTN_params'][3], encoder_params['ATTN_DOWNSCALING_params_enc'] ,
-            encoder_params['seq_len_factor_reduction'][3], self.encoder_params['num_of_splits'][3] )
+            encoder_params['seq_len_factor_reduction'][3], self.encoder_params['attn_layers_num_of_splits'][3] )
     @tf.function
     def call(self, _input, training=True):
         """

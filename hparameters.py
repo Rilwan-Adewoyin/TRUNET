@@ -169,21 +169,15 @@ class model_THST_hparameters(MParams):
 
     def _default_params(self ):
         
-        # region general params
-        DROPOUT = 0.15
-
-        #Deployment Settings
+        #Key Model Size Settings
         seq_len_for_highest_hierachy_level = 3   # 2  
-        SEQ_LEN_FACTOR_REDUCTION = [4, 7, 4, 4 ] #[4, 2, 2, 2]
+        SEQ_LEN_FACTOR_REDUCTION = [4, 7, 4] #[4, 2, 2, 2]
             #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
             # 6hrs,1Day,1Week,1Month,1quarter,1Year
-                        
-        # 5*3*4 5*3 5
         # endregion
         
         # region Model Specific Data Generator Params
-        
-        target_to_feature_time_ratio = SEQ_LEN_FACTOR_REDUCTION[0] # int(rain_time_scale/mf_time_scale)
+        target_to_feature_time_ratio = SEQ_LEN_FACTOR_REDUCTION[0] 
         lookback_feature = reduce( (lambda x,y: x*y ), SEQ_LEN_FACTOR_REDUCTION ) * seq_len_for_highest_hierachy_level
         DATA_PIPELINE_PARAMS = {
             'lookback_feature':lookback_feature,
@@ -196,8 +190,7 @@ class model_THST_hparameters(MParams):
         enc_layer_count = len( SEQ_LEN_FACTOR_REDUCTION ) +1
 
         # region CLSTM params
-        output_filters_enc = [10, 10, 10, 10] #output filters for each convLSTM2D layer in the encoder
-        output_filters_enc = [5, 5, 5, 5] #NOTE: development settings
+        output_filters_enc = [64]*enc_layer_count #[5] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc = output_filters_enc + output_filters_enc[-1:] #the last two layers in the encoder must output the same number of channels
 
         kernel_size_enc = [ (4,4) , (4,4) , (4,4), (4,4), (4,4)]
@@ -274,7 +267,7 @@ class model_THST_hparameters(MParams):
             'CLSTMs_params' : CLSTMs_params_dec,
             'seq_len_factor_reduction': SEQ_LEN_FACTOR_REDUCTION[-decoder_layers:], #This is written in the correct order
             'decoder_layers_num_of_splits': DECODER_LAYERS_NUM_OF_SPLITS[-decoder_layers:],
-            'seq_len': NUM_OF_SPLITS[:decoder_layers],
+            'seq_len': DECODER_LAYERS_NUM_OF_SPLITS[:decoder_layers],
             'dropout':DROPOUT
         }
         # endregion
@@ -304,13 +297,15 @@ class model_THST_hparameters(MParams):
             "model_version":"1"
         }
 
+        # region learning/convergence params
         REC_ADAM_PARAMS = {
             "learning_rate":1e-4, "warmup_proportion":0.6,
             "min_lr": 1e-5, "beta_1":0.99 , "beta_2":0.99, "decay":0.99
             }
-            
+        DROPOUT = 0.15
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99}
-        
+        # endregion
+
         self.params = {
             'model_name':"THST",
             'model_type_settings':model_type_settings,
