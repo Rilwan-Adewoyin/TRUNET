@@ -24,7 +24,7 @@ class HParams():
 class MParams(HParams):
     def __init__(self,**kwargs):
         
-        if self.params['model_type_settings']['location'] == "region_grid":
+        if kwargs['model_type_settings']['location'] == "region_grid":
             self.regiongrid_param_adjustment()
         else:
             self.params = {}
@@ -52,7 +52,7 @@ class MParams(HParams):
 
         
         self.params['region_grid_params'].update({'slides_v_h':[vertical_slides,horizontal_slides]})
-        self.params['lookahead_params']['sync_period'] == int( np.prod( self.params['region_grid_params']['slides_v_h']  * min( [ self.params['lookahead_params']['sync_period'] // 2, 1] ) ) )
+        #self.params['lookahead_params']['sync_period'] == int( np.prod( self.params['region_grid_params']['slides_v_h']  * min( [ self.params['lookahead_params']['sync_period'] // 2, 1] ) ) )
 
 class model_deepsd_hparameters(MParams):
     """
