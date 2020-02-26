@@ -182,7 +182,7 @@ class model_THST_hparameters(MParams):
             "learning_rate":1e-4, "warmup_proportion":0.6,
             "min_lr": 1e-5, "beta_1":0.99 , "beta_2":0.99, "decay":0.99
             }
-        DROPOUT = 0.15
+        DROPOUT = 0.00
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99}
         # endregion
         
@@ -391,8 +391,8 @@ class model_SimpleConvLSTM_hparamaters(MParams):
         kernel_sizes = [[4,4]]*layer_count
         paddings = ['same']*layer_count
         return_sequences = [True]*layer_count
-        dropout = [0.15]*layer_count
-        recurrent_dropout = [0.15]*layer_count
+        dropout = [0.0]*layer_count
+        recurrent_dropout = [0.0]*layer_count
         
         ConvLSTM_layer_params = [ { 'filters':fs, 'kernel_size':ks , 'padding': ps,
                                 'return_sequences':rs, "dropout": dp , "recurrent_dropout":rdp  }

@@ -525,7 +525,6 @@ def train_loop(train_params, model_params):
                     target, mask = target # (bs, h, w) 
 
                 if model_params['model_type_settings']['stochastic'] == False:
-
                     preds = model(tf.cast(feature,tf.float16), training=False )
                     preds = tf.squeeze(preds)
 
