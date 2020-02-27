@@ -186,7 +186,7 @@ class model_THST_hparameters(MParams):
         
         #region Key Model Size Settings
         seq_len_for_highest_hierachy_level = 3   # 2  
-        SEQ_LEN_FACTOR_REDUCTION = [4,2 ]#[4, 7, 4] # [4, 2 ] 
+        SEQ_LEN_FACTOR_REDUCTION = [4, 7, 4] # [4, 2 ] 
             #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
             # 6hrs,1Day,1Week,1Month
         # endregion
@@ -205,9 +205,9 @@ class model_THST_hparameters(MParams):
         enc_layer_count = len( SEQ_LEN_FACTOR_REDUCTION ) +1
 
         # region CLSTM params
-        output_filters_enc = [8]*enc_layer_count # [48]*(enc_layer_count-1)                      # [8] #output filters for each convLSTM2D layer in the encoder
+        output_filters_enc = [48]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc = output_filters_enc + output_filters_enc[-1:] # the last two layers in the encoder must output the same number of channels
-        kernel_size_enc =[(2,2)]*enc_layer_count #[ (4,4) ] * (enc_layer_count)                   # [(2,2)]
+        kernel_size_enc = [ (4,4) ] * (enc_layer_count)                   # [(2,2)]
 
         attn_layers_count = enc_layer_count - 1
         attn_heads = [ 8 ]*attn_layers_count                          #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
