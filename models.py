@@ -83,8 +83,8 @@ class THST(tf.keras.Model):
             hs_list_enc = self.encoder(_input, training=training)
         with tf.device('/GPU:1'):
             hs_dec = self.decoder(hs_list_enc, training=training)
-        output = self.output_layer(hs_dec, training)
-        output = self.float32_output(output)
+            output = self.output_layer(hs_dec, training)
+            output = self.float32_output(output)
         return output
 
     def predict( self, inputs, n_preds, training=True):

@@ -367,10 +367,10 @@ def train_loop(train_params, model_params):
 
                     elif (model_params['model_type_settings']['stochastic']==True) :
                         raise NotImplementedError
-                
-                    scaled_gradients = tape.gradient( scaled_loss_mse, model.trainable_variables )
-                    gradients = optimizer.get_unscaled_gradients(scaled_gradients)
-                    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+                    with tf.device('/GPU:2'):
+                        scaled_gradients = tape.gradient( scaled_loss_mse, model.trainable_variables )
+                        gradients = optimizer.get_unscaled_gradients(scaled_gradients)
+                        optimizer.apply_gradients(zip(gradients, model.trainable_variables))
                 
                 elif( model_params['model_name'] == "SimpleLSTM"):
                     if( model_params['model_type_settings']['stochastic']==False):
