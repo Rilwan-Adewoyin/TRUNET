@@ -660,7 +660,7 @@ class THST_Encoder(tf.keras.layers.Layer ):
                         h_w )
             self.CLSTM_Attn_layers.append(_layer)
 
-    #@tf.function
+    @tf.function
     def call(self, _input, training=True):
         """
             _input #shape( )
@@ -720,7 +720,7 @@ class THST_Decoder(tf.keras.layers.Layer):
     # @tf.function
     # def call(self, hidden_states_2_enc, hidden_states_3_enc, hidden_states_4_enc, hidden_states_5_enc, training=True  ):
 
-    #@tf.function
+    @tf.function
     def call(self, hs_list, training=True):
 
         # hidden_states_l4 = self.CLSTM_L4( hidden_states_4_enc , hidden_states_5_enc, training)

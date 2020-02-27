@@ -510,9 +510,13 @@ def train_loop(train_params, model_params):
                     preds = model(tf.cast(feature,tf.float16), training=False )
                     preds = tf.squeeze(preds)
 
+                    if (model_params['model_type_settings']['location']=='region_grid' ): #focusing on centre of square only
+                        preds = preds[:, :, 6:10, 6:10]
+                        mask = mask[:, :, 6:10, 6:10]
+                        target = target[:, :, 6:10, 6:10]
+
                     preds_filtrd = tf.boolean_mask( preds, mask )
                     target_filtrd = tf.boolean_mask( target, mask )
-
                     val_metric_mse_mean( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
                 
                 elif model_params['model_type_settings']['stochastic'] ==True:
