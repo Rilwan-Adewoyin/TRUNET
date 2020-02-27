@@ -249,7 +249,7 @@ class model_THST_hparameters(MParams):
         CLSTMs_params_enc = [
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
                 'return_sequences':True, 'dropout':0.0, 'recurrent_dropout':0.0,
-                'stateful':True }
+                'stateful':False }
              for f, ks in zip( output_filters_enc, kernel_size_enc)
         ]
         # endregion
@@ -643,9 +643,9 @@ class train_hparameters_ati(HParams):
 class test_hparameters_ati(HParams):
     def __init__(self, **kwargs):
         self.lookback_target = kwargs['lookback_target']
-        self.batch_size = kwargs.get("batch_size",None)
+        self.batch_size = kwargs.get("batch_size",2)
         kwargs.pop('batch_size')
-        kwargs.pop('lookback_target')
+        #kwargs.pop('lookback_target')
         super( test_hparameters_ati, self).__init__(**kwargs)
     
     def _default_params(self):
@@ -686,12 +686,12 @@ class test_hparameters_ati(HParams):
         MODEL_RECOVER_METHOD = 'checkpoint_batch'
         # endregion
 
-        # region ---- data information
+
         target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
         feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
         
-        tar_end_date    =  target_start_date + np.timedelta64( 14822, 'D')
-        feature_end_date  = feature_start_date + np.timedelta64(16072, '6h') #TODO: change when new data available
+        tar_end_date=  target_start_date + np.timedelta64( 14822, 'D')
+        feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(16072, '6h'), 'D')
         
         if feature_start_date > target_start_date :
             train_start_date = feature_start_date
@@ -705,18 +705,51 @@ class test_hparameters_ati(HParams):
 
         #train_start_date = np.max(feature_start_date, target_start_date)
         #end_date = np.min( tar_end_date, feature_end_date)
-        val_start_date = train_start_date + (end_date - train_start_date)*0.6
-        val_end_date = train_start_date + (end_date - train_start_date)*0.8
+        val_start_date =    np.datetime64( train_start_date + (end_date - train_start_date)*0.6, 'D' )
+        val_end_date =      np.datetime64( train_start_date + (end_date - train_start_date)*0.8, 'D' )
+
+        #TOTAL_DATUMS = int(end_date - start_date)//WINDOW_SHIFT - lookback  #By datums here we mean windows, for the target
+        TOTAL_DATUMS_TARGET = np.timedelta64(end_date - train_start_date,'D')   #Think of better way to get the np.product info from model_params to train params
+        TOTAL_DATUMS_TARGET = TOTAL_DATUMS_TARGET.astype(int)
 
         test_start_date = train_start_date + (end_date - train_start_date)*0.8
         test_end_date = end_date
 
-        #TOTAL_DATUMS = int(end_date - start_date)//WINDOW_SHIFT - lookback  #By datums here we mean windows, for the target
-        TOTAL_DATUMS_TARGET = ( np.timedelta64(end_date - test_start_date,'D') - (self.lookback_target - 1) )  // WINDOW_SHIFT   #Think of better way to get the np.product info from model_params to train params
-        TOTAL_DATUMS_TARGET = TOTAL_DATUMS_TARGET.astype(int)
+        TEST_SET_SIZE_DATUMS_TARGET = int( TOTAL_DATUMS_TARGET * 0.2)
         # endregion
 
-        TEST_SET_SIZE_DATUMS_TARGET = int( TOTAL_DATUMS_TARGET * 0.2)
+
+        # # region ---- data information
+        # target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
+        # feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
+        
+        # tar_end_date    =  target_start_date + np.timedelta64( 14822, 'D')
+        # feature_end_date  = feature_start_date + np.timedelta64(16072, '6h') #TODO: change when new data available
+        
+        # if feature_start_date > target_start_date :
+        #     train_start_date = feature_start_date
+        # else:
+        #     train_start_date = target_start_date
+
+        # if tar_end_date < feature_end_date :
+        #     end_date = tar_end_date
+        # else:
+        #     end_date = feature_end_date
+
+        # #train_start_date = np.max(feature_start_date, target_start_date)
+        # #end_date = np.min( tar_end_date, feature_end_date)
+        # val_start_date = train_start_date + (end_date - train_start_date)*0.6
+        # val_end_date = train_start_date + (end_date - train_start_date)*0.8
+
+        # test_start_date = train_start_date + (end_date - train_start_date)*0.8
+        # test_end_date = end_date
+
+        # #TOTAL_DATUMS = int(end_date - start_date)//WINDOW_SHIFT - lookback  #By datums here we mean windows, for the target
+        # TOTAL_DATUMS_TARGET = ( np.timedelta64(end_date - test_start_date,'D') - (self.lookback_target - 1) ) 
+        # TOTAL_DATUMS_TARGET = TOTAL_DATUMS_TARGET.astype(int)
+        # # endregion
+
+        # TEST_SET_SIZE_DATUMS_TARGET = int( TOTAL_DATUMS_TARGET * 0.2)
 
         date_tss = pd.date_range( end=test_end_date, start=test_start_date, freq='D',normalize=True)
         EPOCHS = list ( (date_tss - pd.Timestamp("1970-01-01") ) // pd.Timedelta('1s') )
@@ -730,7 +763,7 @@ class test_hparameters_ati(HParams):
             'total_datums':TOTAL_DATUMS_TARGET,
             'test_set_size_elements':TEST_SET_SIZE_DATUMS_TARGET,
             'num_preds':N_PREDS,
-            'dataset_pred_batch_reporting_freq':0.05,
+            'dataset_pred_batch_reporting_freq':0.01,
 
             'model_recover_method':MODEL_RECOVER_METHOD,
             'script_dir':None,

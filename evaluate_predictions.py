@@ -58,14 +58,12 @@ def main(test_params, model_params):
 
     """
 
-    core_count = 2 #max( psutil.cpu_count(), 4  ) 
-
     if type(model_params) == list:
         model_params = model_params[0]
 
     
     #region 1
-    _path_pred = test_params['script_dir'] + "/Output/{}/Predictions".format(utility.model_name_mkr(model_params))
+    _path_pred = test_params['output_dir'] + "/Output/{}/Predictions".format(utility.model_name_mkr(model_params))
     gen_data_preds = util_predict.load_predictions_gen(_path_pred)
     res =  [postproc_pipeline_evaluatepredictions(pred, test_params, model_params) for pred in gen_data_preds ]
 
@@ -73,7 +71,7 @@ def main(test_params, model_params):
     # endregion
 
     #region 2
-    _path_pred_eval = test_params['script_dir'] + "/Output/{}/EvaluatedPredictions".format(utility.model_name_mkr(model_params))
+    _path_pred_eval = test_params['output_dir'] + "/Output/{}/EvaluatedPredictions".format(utility.model_name_mkr(model_params))
     li_gen_data_eval_preds = [ util_predict.load_predictions_gen(_path_pred_eval) for idx in range(4) ]
     postproc_pipeline_compress_evaluations(li_gen_data_eval_preds,test_params, model_params)
         #averaging all evaluations across timesteps across different 
@@ -82,7 +80,7 @@ def main(test_params, model_params):
     # endregion
 
     #region 3
-    _path_pred_eval_summ = test_params['script_dir'] + "/Output/{}/SummarisedEvaluations".format(utility.model_name_mkr(model_params))
+    _path_pred_eval_summ = test_params['output_dir'] + "/Output/{}/SummarisedEvaluations".format(utility.model_name_mkr(model_params))
     
     li_gen_data_eval_preds = util_predict.load_predictions_gen(_path_pred_eval_summ)
 
@@ -97,22 +95,29 @@ def main(test_params, model_params):
 def postproc_pipeline_evaluatepredictions(batch_datum, test_params, model_params):
     """
         datum list [ [[timestamps],... ] , [ [preds_np], ... ], [[true_nps], .. ] 
+        li_ (li_timestamps, li_preds, li_truevalues) each inner item is a numpy array, with dim 0 = stochastic preds
+
         Each sublist represents the set of stochastic predictions for a timestep
     """
     ts = np.concatenate( batch_datum[0], axis=0 ) # [ ts ]
-    preds = np.squeeze( np.concatenate( batch_datum[1], axis=1 ) ) #(stochastic_pred_count, upload_batch_size, width, height)  [ [preds_np], ... ]
-    true = np.concatenate( batch_datum[2], axis=0) #(upload_batch_size, width, height)   [true_np,...]
+    preds = np.squeeze( np.concatenate( batch_datum[1], axis=1 ) ) #(stochastic_pred_count, ts, width, height) or  #(stochastic_pred_count, upload_batch_size )
+    true = np.concatenate( batch_datum[2], axis=0) #(ts, width, height)   [true_np,...]
 
     #RMSE, bias Calc
     np_rmse, np_bias = rmse_calc(preds, true) #shape( width, hieght )
 
     np_r20_err = r20_error_calc(preds, true)
+    if model_params['model_type_settings']['stochastic'] == True:
+        pc_binary_in_range = pixel_calibration(preds, true, model_params['model_type_settings']['distr_type'] ,rainy_threshold=0.5) #shape (bs, h, w, 100 ) , [list of indexes]
+    else:
+        pc_binary_in_range = "Nan"
+    
+    if model_params['model_type_settings']['stochastic'] == True:
+        data_tuple = (np_rmse, np_bias, np_r20_err, pc_binary_in_range   )
+    else:
+        data_tuple = (np_rmse, np_bias, np_r20_err )
 
-    pc_binary_in_range = pixel_calibration(preds, true, model_params['model_type_settings']['distr_type'] ,rainy_threshold=0.5) #shape (bs, h, w, 100 ) , [list of indexes]
-
-    data_tuple = (np_rmse, np_bias, np_r20_err, pc_binary_in_range   )
-
-    _path_pred_eval = _path_pred = test_params['script_dir'] + "/Output/{}/EvaluatedPredictions".format(utility.model_name_mkr(model_params))
+    _path_pred_eval = _path_pred = test_params['output_dir'] + "/Output/{}/EvaluatedPredictions".format(utility.model_name_mkr(model_params))
     
     if(not os.path.exists(_path_pred_eval) ):
         os.makedirs(_path_pred_eval)
@@ -224,7 +229,7 @@ def postproc_pipeline_compress_evaluations(li_gen_data_eval_preds, test_params, 
     # bias = None
     # r20_diffs = None
     # pc_binary_in_range = None
-
+    val = None
     for idx_stat, gen_data_eval_preds in enumerate(li_gen_data_eval_preds):
         for idx, batch_datum in enumerate( gen_data_eval_preds ):
             
@@ -236,22 +241,22 @@ def postproc_pipeline_compress_evaluations(li_gen_data_eval_preds, test_params, 
                 elif idx_stat in [3]:
                     np.save( "temp.npy",batch_datum[idx_stat])
                     prev_bs = batch_datum[idx_stat].shape[0]
-            
-            else:
-                if idx_stat in [0,1,2]:
-                    val = np.concatenate( [val, batch_datum[idx_stat]] , axis=0 )
-                elif idx_stat in [3]:
-                    mem_val = np.memmap("temp.npy", dtype='int8', mode='r+', shape=( prev_bs+batch_datum[idx_stat].shape[0] , batch_datum[idx_stat].shape[1], batch_datum[idx_stat].shape[2], batch_datum[idx_stat].shape[3] ), order='C' )
-                    mem_val[ prev_bs:, :, :, :] = batch_datum[idx_stat]
-                    prev_bs = mem_val.shape[0]
+        
+            elif idx_stat in [0,1,2]:
+                val = np.concatenate( [val, batch_datum[idx_stat]] , axis=0 )
 
-                # #new method
-                # rmse = np.concatenate( [rmse, batch_datum[0]],axis=0 )
-                # bias = np.concatenate( [rmse, batch_datum[1] ], axis=0 )
+            elif idx_stat in [3]:
+                mem_val = np.memmap("temp.npy", dtype='int16', mode='r+', shape=( prev_bs+batch_datum[idx_stat].shape[0] , batch_datum[idx_stat].shape[1], batch_datum[idx_stat].shape[2], batch_datum[idx_stat].shape[3] ), order='C' )
+                mem_val[ prev_bs:, :, :, :] = batch_datum[idx_stat]
+                prev_bs = mem_val.shape[0]
 
-                # r20_diffs = np.concatenate( [r20_diffs, batch_datum[2]] ,axis=0 )
+            # #new method
+            # rmse = np.concatenate( [rmse, batch_datum[0]],axis=0 )
+            # bias = np.concatenate( [rmse, batch_datum[1] ], axis=0 )
 
-                # pc_binary_in_range = np.concatenate( [pc_binary_in_range, batch_datum[3] ],axis=0 )
+            # r20_diffs = np.concatenate( [r20_diffs, batch_datum[2]] ,axis=0 )
+
+            # pc_binary_in_range = np.concatenate( [pc_binary_in_range, batch_datum[3] ],axis=0 )
         
         if idx_stat == 0:
             rmse_mean = np.mean(val, axis=0) #(h,w)
@@ -397,31 +402,8 @@ if __name__ == "__main__":
     
     args_dict = utility.parse_arguments(s_dir)
 
-    #stacked DeepSd methodology
-    if( args_dict['model_name'] == "DeepSD" ):
-        test_params = hparameters.test_hparameters( **args_dict )()
-
-        model_type_settings = ast.literal_eval( args_dict['model_type_settings'] )
-        
-        model_layers = { 'conv1_param_custom': json.loads(args_dict['conv1_param_custom']) ,
-                         'conv2_param_custom': json.loads(args_dict['conv2_param_custom']) }
-
-        del args_dict['model_type_settings']
-
-
-        init_params = {}
-        input_output_dims = {"input_dims": [39, 88 ], "output_dims": [ 156, 352 ] } 
-        model_layers
-        init_params.update(input_output_dims)
-        init_params.update({'model_type_settings': model_type_settings})
-        init_params.update(model_layers)
-
-        model_params = hparameters.model_deepsd_hparameters(**init_params)()
+    test_params, model_params = utility.load_params_test_model(args_dict)  
     
-    elif(args_dict['model_name'] == "THST"):
-        model_params = hparameters.model_THST_hparameters()()
-        args_dict['lookback_target'] = model_params['data_pipeline_params']['lookback_target']
-        test_params = hparameters.test_hparameters_ati( **args_dict )()
+    main(test_params(), model_params)
     
-    main(test_params, model_params)
 

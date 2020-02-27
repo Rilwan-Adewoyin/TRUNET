@@ -201,6 +201,56 @@ def load_params_train_model(args_dict):
 
     return train_params, model_params
 
+def load_params_test_model(args_dict):
+    if( args_dict['model_name'] == "DeepSD" ):
+                      
+        init_params = {}
+        init_params.update({"input_dims": [39, 88 ], "output_dims": [ 156, 352 ] })
+        init_params.update({'model_type_settings': ast.literal_eval( args_dict['model_type_settings'] )})
+        init_params.update({ 'conv1_param_custom': json.loads(args_dict['conv1_param_custom']) ,
+                         'conv2_param_custom': json.loads(args_dict['conv2_param_custom']) })
+
+        model_params = hparameters.model_deepsd_hparameters(**init_params)()
+        del args_dict['model_type_settings']
+        train_params = hparameters.test_hparameters( **args_dict )
+    
+    elif(args_dict['model_name'] == "THST"):
+        
+        init_m_params = {}
+        
+        init_m_params.update({'model_type_settings': ast.literal_eval( args_dict['model_type_settings'] ) } )
+        model_params = hparameters.model_THST_hparameters(**init_m_params)()
+        init_t_params = {}
+        init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
+        init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
+        train_params = hparameters.test_hparameters_ati( **{ **args_dict, **init_t_params} )
+    
+    elif(args_dict['model_name'] == "SimpleLSTM"):
+        #use settings from THST to initialise the model generator
+        init_m_params = {}
+        init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
+        model_params = hparameters.model_SimpleLSTM_hparameters(**init_m_params)()
+        init_t_params = {}
+        init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
+        init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
+        
+        train_params = hparameters.test_hparameters_ati( **{ **args_dict, **init_t_params} )
+    
+    elif(args_dict['model_name']=="SimpleConvLSTM"):
+        init_m_params = {}
+        init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
+        model_params = hparameters.model_SimpleConvLSTM_hparamaters(**init_m_params)()
+        init_t_params = {}
+        init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
+        init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
+        
+        train_params = hparameters.test_hparameters_ati( **{ **args_dict, **init_t_params} )
+
+    save_model_settings( model_params, train_params() )
+
+    return train_params, model_params
+
+
 def parse_arguments(s_dir=None):
     parser = argparse.ArgumentParser(description="Receive input params")
 
@@ -224,6 +274,8 @@ def parse_arguments(s_dir=None):
     parser.add_argument('-opt','--optimizer_settings', type=str, required=False, default='{}')
 
     parser.add_argument('-bs','--batch_size', type=int, required=False, default=2)
+
+    parser.add_argument('-od','--output_dir', type=str, required=False, default="./Output")
 
     args_dict = vars(parser.parse_args() )
 

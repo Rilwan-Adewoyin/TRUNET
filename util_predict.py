@@ -5,6 +5,7 @@ import os
 import pickle
 import glob
 import utility
+import numpy as np
 
 def load_model(test_params, model_params):
     model = None
@@ -21,16 +22,34 @@ def load_model(test_params, model_params):
 
                 #Just initliazing model so checkpoint method can work
             init_inp = tf.ones( [ test_params['batch_size'], model_params['input_dims'][0],
-                        model_params['input_dims'][1], model_params['conv1_inp_channels'] ] , dtype=tf.float32 )
-            model(init_inp, pred=False )
+                        model_params['input_dims'][1], model_params['conv1_inp_channels'] ] , dtype=tf.float16 )
+            model(init_inp, training=False )
 
         elif(model_name=="THST"):
             model = models.THST(test_params, model_params)
-            init_inp = tf.zeros(
-                [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ]
-            )
-
+            if model_params['model_type_settings']['location'] == "wholeregion":
+                init_inp = tf.zeros(
+                    [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ], dtype=tf.float16 )
+            elif model_params['model_type_settings']['location'] == "region_grid":
+                    init_inp = tf.zeros(
+                        [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] ,16 , 16,6 ], dtype=tf.float16 )
             model(init_inp, training=False )
+        
+        elif(model_name=="SimpleLSTM"):
+            model = models.SimpleLSTM(test_params, model_params)
+            init_inp = tf.zeros( [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'], 6 ], dtype=tf.float16 )
+            model( init_inp, training=False )
+        
+        elif(model_name=="SimpleConvLSTM"):
+            model = models.SimpleConvLSTM(test_params,model_params)
+            if model_params['model_type_settings']['location'] == "wholeregion":
+                init_inp = tf.zeros(
+                    [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ], dtype=tf.float16 )
+            elif model_params['model_type_settings']['location'] == "region_grid":
+                    init_inp = tf.zeros(
+                        [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] ,16 , 16,6 ], dtype=tf.float16 )
+            model(init_inp, training=False )
+
         checkpoint_path = test_params['script_dir']+"/checkpoints/{}/batch".format(utility.model_name_mkr(model_params))
 
         ckpt = tf.train.Checkpoint(att_con=model)
@@ -43,20 +62,38 @@ def load_model(test_params, model_params):
         model = models.SuperResolutionModel( test_params, model_params)
 
         if(model_name=="DeepSD"):
-        #Just initliazing model so checkpoint method can work
+            #Just initliazing model so checkpoint method can work
             if type(model_params) == list:
                 model_params = model_params[0]
 
-            init_inp = tf.ones( [test_params['batch_size'], model_params['input_dims'][0],
-                        model_params['input_dims'][1], model_params['conv1_inp_channels'] ] , dtype=tf.float32 )
-            model(init_inp, pred=True )
+            init_inp = tf.ones( [ test_params['batch_size'], model_params['input_dims'][0],
+                        model_params['input_dims'][1], model_params['conv1_inp_channels'] ] , dtype=tf.float16 )
+            model(init_inp, training=False )
 
         elif(model_name=="THST"):
-            model = models.THST(test_params, model_params)
-            init_inp = tf.zeros(
-                [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ]
-            )
-            model(init_inp, training=True )
+            if model_params['model_type_settings']['location'] == "wholeregion":
+                init_inp = tf.zeros(
+                    [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ], dtype=tf.float16 )
+            elif model_params['model_type_settings']['location'] == "region_grid":
+                    init_inp = tf.zeros(
+                        [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] ,16 , 16,6 ], dtype=tf.float16 )
+            model(init_inp, training=False )
+
+        elif(model_name=="SimpleLSTM"):
+            model = models.SimpleLSTM(test_params, model_params)
+            init_inp = tf.zeros( [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'], 6 ], dtype=tf.float16 )
+            model( init_inp, training=False )
+        
+        elif(model_name=="SimpleConvLSTM"):
+            model = models.SimpleConvLSTM(test_params,model_params)
+            if model_params['model_type_settings']['location'] == "wholeregion":
+                init_inp = tf.zeros(
+                    [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ], dtype=tf.float16 )
+            elif model_params['model_type_settings']['location'] == "region_grid":
+                    init_inp = tf.zeros(
+                        [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] ,16 , 16,6 ], dtype=tf.float16 )
+            model(init_inp, training=False )
+        
 
         ckpt = tf.train.Checkpoint(model=model)
 
@@ -77,16 +114,25 @@ def save_preds( test_params, model_params, li_preds, li_timestamps, li_truevalue
     if type(model_params) == list:
         model_params = model_params[0]
 
-    _path_pred = test_params['script_dir'] + "/Output/{}/Predictions".format(utility.model_name_mkr(model_params))
+    _path_pred = test_params['output_dir'] + "/{}/Predictions".format(utility.model_name_mkr(model_params))
 
     fn = str(li_timestamps[0][0]) + "___" + str(li_timestamps[-1][-1]) + ".dat"
 
     if(not os.path.exists(_path_pred) ):
         os.makedirs(_path_pred)
     
-    li_preds = [ [ tens.numpy() for tens in _li ] for _li in li_preds ]
-    li_truevalues = [ tens.numpy() for tens in li_truevalues]
+    #li_preds = [ tnsr.numpy() for tnsr in li_preds ] #shape of inner list [ timestemps, preds_dim ]
     
+
+    li_preds = [ tnsr.numpy() for tnsr in li_preds   ] #list of (bs, timesteps, preds_dim )
+    if( model_params['model_name'] == "SimpleLSTM"): 
+        li_truevalues = [ tens.numpy().reshape([-1]) for tens in li_truevalues]
+    elif( model_params['model_name'] in ["SimpleConvLSTM", "THST"] ): 
+        li_truevalues = [ tens.numpy() for tens in li_truevalues]
+    elif( model_params['model_name'] in ["DeepSD"] ): 
+        li_truevalues = [ tens.numpy() for tens in li_truevalues]
+    
+    li_timestamps = [ np.array(_li).reshape([-1]) for _li in li_timestamps ]
     data_tuple = (li_timestamps, li_preds, li_truevalues)
 
     pickle.dump( data_tuple, open( _path_pred + "/" +fn ,"wb"), protocol=4 )

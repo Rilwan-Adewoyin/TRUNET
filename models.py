@@ -106,15 +106,15 @@ class SimpleLSTM(tf.keras.Model):
         #self.LSTM_layers = [ tf.keras.layers.LSTM( implementation=2, **model_params['layer_params'][idx] ) for idx in range( model_params['layer_count'] ) ]
         self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.LSTM( implementation=2, **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ]
         
-        self.LSTM_init_state = [ [[tf.Variable(tf.zeros( (train_params['batch_size'],model_params['layer_params'][idx]['units']), dtype=tf.float16)) ]*2]*2 for idx in range( model_params['layer_count']) ]
-        for idx in range(model_params['layer_count']):
-            self.LSTM_layers[idx].forward_layer.states = self.LSTM_init_state[idx][0]
-            self.LSTM_layers[idx].backward_layer.states = self.LSTM_init_state[idx][1]
+        # self.LSTM_init_state = [ [[tf.Variable(tf.zeros( (train_params['batch_size'],model_params['layer_params'][idx]['units']), dtype=tf.float16)) ]*2]*2 for idx in range( model_params['layer_count']) ]
+        # for idx in range(model_params['layer_count']):
+        #     self.LSTM_layers[idx].forward_layer.states = self.LSTM_init_state[idx][0]
+        #     self.LSTM_layers[idx].backward_layer.states = self.LSTM_init_state[idx][1]
             
         self.output_dense = tf.keras.layers.Dense(units=1, activation='relu')
         self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
 
-        self.new_shape = tf.TensorShape( [train_params['batch_size'], train_params['lookback_target'], int(6*4)] )
+        self.new_shape = tf.TensorShape( [train_params['batch_size'], model_params['data_pipeline_params']['lookback_target'], int(6*4)] )
 
     @tf.function
     def call(self, _input, training=True):
