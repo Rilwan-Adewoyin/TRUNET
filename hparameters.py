@@ -271,7 +271,7 @@ class model_THST_hparameters(MParams):
         # region --------------- DECODER params -----------------
         decoder_layer_count = enc_layer_count-2
         
-        output_filters_dec = [8] + output_filters_enc[ :decoder_layer_count ]  #[64] 
+        output_filters_dec = output_filters_enc[:1] + output_filters_enc[ :decoder_layer_count ]  #The first part list needs to be changed, only works when all convlstm layers have the same number of filters
         kernel_size_dec = kernel_size_enc[ 1:1+decoder_layer_count  ]                             # This is written in the correct order
         
             #Each decoder layer sends in values into the layer below. 
@@ -295,8 +295,8 @@ class model_THST_hparameters(MParams):
 
         # region --------------- OUTPUT_LAYER_PARAMS -----------------
         
-        output_filters = [ 2, 1 ]   # [ 8, 1 ]
-        output_kernel_size = [ (2,2), (2,2) ] #NOTE:  [ (4,4), (4,4) ] 
+        output_filters = [ 8, 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
+        output_kernel_size = [ (4,4), (4,4) ] #[ (2,2), (2,2) ] #NOTE:  [ (4,4), (4,4) ] 
 
 
         OUTPUT_LAYER_PARAMS = [ 
