@@ -79,10 +79,10 @@ class THST(tf.keras.Model):
         # hidden_states_dec = self.decoder( hidden_states_2_enc, hidden_states_3_enc, hidden_4_enc, hidden_5_enc, training )
         # output = self.output_layer(hidden_states_dec, training)
         # output = self.float32_output(output)
-        #with tf.device('/GPU:0'):
-        hs_list_enc = self.encoder(_input, training=training)
-        #with tf.device('/GPU:1'):
-        hs_dec = self.decoder(hs_list_enc, training=training)
+        with tf.device('/GPU:0'):
+            hs_list_enc = self.encoder(_input, training=training)
+        with tf.device('/GPU:1'):
+            hs_dec = self.decoder(hs_list_enc, training=training)
         output = self.output_layer(hs_dec, training)
         output = self.float32_output(output)
         return output

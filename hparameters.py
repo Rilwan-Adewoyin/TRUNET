@@ -185,7 +185,7 @@ class model_THST_hparameters(MParams):
         # endregion
         
         #region Key Model Size Settings
-        seq_len_for_highest_hierachy_level = 4   # 2  
+        seq_len_for_highest_hierachy_level = 3   # 2  
         SEQ_LEN_FACTOR_REDUCTION = [4, 30] # [4, 2 ] 
             #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
             # 6hrs,1Day,1Week,1Month
