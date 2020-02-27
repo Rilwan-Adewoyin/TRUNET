@@ -14,6 +14,8 @@ tf.keras.backend.set_epsilon(1e-3)
 
 #DType.is_compatible_with = is_compatible_with
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
+tf.config.set_soft_device_placement(True)
+#tf.debugging.set_log_device_placement(True)
 try:
     gpu_devices = tf.config.list_physical_devices('GPU')
 except Exception as e:
@@ -22,7 +24,7 @@ except Exception as e:
 print("GPU Available: {}\n GPU Devices:{} ".format(tf.test.is_gpu_available(), gpu_devices) )
 for idx, gpu_name in enumerate(gpu_devices):
     tf.config.experimental.set_memory_growth(gpu_name, True)
-tf.config.set_soft_device_placement(True)
+
 policy = mixed_precision.Policy('mixed_float16')
 mixed_precision.set_policy(policy)
 

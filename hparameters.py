@@ -254,8 +254,6 @@ class model_THST_hparameters(MParams):
         ]
         # endregion
         
-
-
         ENCODER_PARAMS = {
             'enc_layer_count': enc_layer_count,
             'attn_layers_count': attn_layers_count,
