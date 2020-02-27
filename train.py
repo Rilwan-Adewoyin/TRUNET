@@ -83,7 +83,12 @@ def train_loop(train_params, model_params):
         if model_params['model_type_settings']['var_model_type']=="flipout":
             model_params['rec_adam_params']['learning_rate'] = 1e-8
             model_params['rec_adam_params']['min_lr'] = 1e-9
-        radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=int(train_params['train_set_size_batches']* np.prod(model_params['region_grid_params']['slides_v_h']) *0.55) ) 
+        if model_params['model_type_settings']['location'] == 'region_grid':
+            total_steps = int(train_params['train_set_size_batches']* np.prod(model_params['region_grid_params']['slides_v_h']) *0.55)
+        else:
+            total_steps =int(train_params['train_set_size_batches'] *0.55)
+        
+        radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=total_steps ) 
         optimizer = tfa.optimizers.Lookahead(radam, **model_params['lookahead_params'])
     
     optimizer = mixed_precision.LossScaleOptimizer(optimizer, loss_scale='dynamic' )
