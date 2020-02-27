@@ -1973,7 +1973,7 @@ class ConvLSTM2D_attn(ConvRNN2D):
         
         self.activity_regularizer = regularizers.get(activity_regularizer)
 
-    @tf.function
+    #@tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
         #self._maybe_reset_cell_dropout_mask(self.cell)
         if initial_state is not None:
@@ -1991,7 +1991,7 @@ class ConvLSTM2D_attn(ConvRNN2D):
                                             mask=mask,
                                             training=training,
                                             initial_state=initial_state) #Note: or here
-    # region pre exists properties
+    # region pre existing properties
 
     @property
     def filters(self):
@@ -2332,7 +2332,7 @@ class ConvLSTM2DCell_attn(DropoutRNNCellMixin, Layer):
             self.bias = None
         self.built = True
 
-    @tf.function
+    #@tf.function
     def call(self, inputs, states, training=None):
         #inputs #shape (bs, h, w, c*self.attn_factor_reduc)
 
@@ -2475,7 +2475,7 @@ class ConvLSTM2DCell_attn(DropoutRNNCellMixin, Layer):
         return dict(list(base_config.items()) + list(config.items()))
 
 class MultiHead2DAttention(Layer):
-    def __init__(self, layer_params, attention_scaling_params,trainable):
+    def __init__(self, layer_params, attention_scaling_params, trainable):
 
         """
             TODO: prior to the attention possibly add something like squeeze and excitation to reweight the feature maps. But only in the first layer since taking in the original feature maps, as it shouldnt be needed after
@@ -2487,6 +2487,8 @@ class MultiHead2DAttention(Layer):
 
         self.trainable = trainable
         super( MultiHead2DAttention, self ).__init__()
+
+        
         
         self.kq_downscale_kernelshape = attention_scaling_params['kq_downscale_kernelshape']
         self.kq_downscale_stride = attention_scaling_params['kq_downscale_stride']
@@ -2498,14 +2500,6 @@ class MultiHead2DAttention(Layer):
 
         self.ln1 = tf.keras.layers.LayerNormalization(axis=-1 , epsilon=1e-4 , trainable=trainable )
 
-    # def attn_key_depth_init(self, queries, inputs_v ):
-    #     key_depth = tf.math.reduce_prod( queries.shape[-3:] )
-    #     value_depth = tf.math.reduce_prod( inputs_v.shape[-3:] )
-
-    #     tkd = tf.cast( (( key_depth / self.vector_k_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
-    #     tvd = tf.cast( ( ( value_depth / self.vector_v_downscale_factor ) // self.layer_params['num_heads'] ) * self.layer_params['num_heads'], dtype=tf.int32 )
-    #     od = tvd
-    #     return  tkd, tvd, od
 
     @tf.function
     def call(self, q_antecedent, k_antecedent, v_antecedent):
@@ -2936,7 +2930,7 @@ class MultiHead2DAttention_v2(Layer):
                                 chunk_number=None,
                                 hard_attention_k=0,
                                 training=True,
-
+                                model_location="wholeregion",
                                 **kwargs):
 
         """
@@ -3056,25 +3050,38 @@ class MultiHead2DAttention_v2(Layer):
         super( MultiHead2DAttention_v2, self ).__init__()
 
         assert_op1 = tf.Assert( tf.equal( tf.math.floormod(total_key_depth, num_heads), 0 ), [total_key_depth, tf.constant(num_heads)] )
-        assert_op2 = tf.Assert( tf.equal( tf.math.floormod(total_value_depth, num_heads), 0 ), [total_key_depth, tf.constant(num_heads)] )
+        assert_op2 = tf.Assert( tf.equal( tf.math.floormod(total_value_depth, num_heads), 0 ), [total_value_depth, tf.constant(num_heads)] )
 
         with tf.control_dependencies([assert_op1, assert_op2]):
             self.ln1 = tf.keras.layers.LayerNormalization(axis=-1 , epsilon=1e-4 , trainable=self.trainable )
         # endregion
 
+        #region scaling
+        # if model_location == "wholeregion":
+        #     self.scaling_layer = tf.keras.layers.AveragePooling3D( pool_size=tuple(self.kq_downscale_kernelshape),
+        #                         strides=tuple(self.kq_downscale_stride), padding='same' )
+        # elif model_location == "region-grid":
+        #     self.scaling_layer = tf.keras.layers.AveragePooling3D( pool_size=tuple(self.kq_downscale_kernelshape),
+        # #                         strides=tuple(self.kq_downscale_stride), padding='same' )
+        # else:
+        #     raise ValueError
+        # endregion
+
         #region attention layers
         self.dense_query =  tf.keras.layers.Dense( total_key_depth, use_bias=False, activation="linear", name="q")
         self.dense_key =    tf.keras.layers.Dense( total_key_depth, use_bias=False, activation="linear", name="k")  
+        
         if transform_value_antecedent:
             self.dense_value = tf.keras.layers.Dense( total_value_depth, use_bias=False, activation="linear", name="v" )
         else:
             self.dense_value = tf.keras.layers.Activation("linear")
-        if(self.max_relative_position==None):
+        
+        if( self.max_relative_position==None ):
            self.max_relative_position =  tf.constant( int(self.attn_factor_reduc/2 - 1) , dtype=tf.int32 )
 
         vocab_size = int(self.attn_factor_reduc) #int(self.max_relative_position * 2 + 1)
-        self.embeddings_table_k = tf.Variable( tf.keras.initializers.glorot_uniform()(shape=[vocab_size, total_key_depth ], dtype=self._compute_dtype  ))
-        self.embeddings_table_v = tf.Variable( tf.keras.initializers.glorot_uniform()(shape=[vocab_size, total_value_depth ], dtype=self._compute_dtype  )) 
+        self.embeddings_table_k = tf.Variable( tf.keras.initializers.glorot_uniform()(shape=[vocab_size, total_key_depth//num_heads ], dtype=self._compute_dtype  ))
+        self.embeddings_table_v = tf.Variable( tf.keras.initializers.glorot_uniform()(shape=[vocab_size, total_value_depth//num_heads ], dtype=self._compute_dtype  )) 
 
         if transform_output:
             self.dense_output = tf.keras.layers.Dense( output_depth, use_bias=False  )
@@ -3082,7 +3089,7 @@ class MultiHead2DAttention_v2(Layer):
             self.dense_output = tf.keras.layers.Activation("linear")
         #endregion
 
-        
+    @tf.function
     def call(self, inputs , k_antecedent, v_antecedent):
         """
             :param inputs: q_antecedent This is required due to keras' need for layers to have an input argument
@@ -3093,15 +3100,14 @@ class MultiHead2DAttention_v2(Layer):
         # region size reduction
         output_shape = v_antecedent.shape.as_list() #NOTE shape.as_list()[:-1] may not work in graph mode
         output_shape[1] = 1 # inputs.shape[1]
-        # queries = tf.nn.avg_pool3d( inputs, strides=self.kq_downscale_stride,
-        #                         ksize=self.kq_downscale_kernelshape, padding="SAME")
-        # keys = tf.nn.avg_pool3d( inputs_k, strides=self.kq_downscale_stride,
-        #                         ksize=self.kq_downscale_kernelshape, padding="SAME")
+
 
         q_antecedent = tf.cast( tf.nn.avg_pool3d( tf.cast(inputs,tf.float32), strides=self.kq_downscale_stride,
                                 ksize=self.kq_downscale_kernelshape, padding="SAME"), tf.float16)
         k_antecedent = tf.cast(tf.nn.avg_pool3d( tf.cast(k_antecedent,tf.float32), strides=self.kq_downscale_stride,
                                 ksize=self.kq_downscale_kernelshape, padding="SAME"), tf.float16)
+        # q_antecedent = tf.cast( self.scaling_layer( tf.cast(inputs,tf.float32)  ), tf.float16)
+        # k_antecedent = tf.cast( self.scaling_layer( tf.cast(k_antecedent,tf.float32)  ), tf.float16)
 
         # endregion 
 
@@ -3218,9 +3224,9 @@ def _relative_attention_inner(x, y, z, transpose):
 
 class DeformableConvLayer(Conv2D):
     """Only support "channel last" data format
-    source: https://github.com/DHZS/tf-deformable-conv-layer/blob/master/nets/deformable_conv_layer.py
-    # AUTHOR: An Jiaoyang
-    # DATE: 2018-10-11
+        source: https://github.com/DHZS/tf-deformable-conv-layer/blob/master/nets/deformable_conv_layer.py
+        # AUTHOR: An Jiaoyang
+        # DATE: 2018-10-11
     """
 
     def __init__(self,

@@ -171,9 +171,7 @@ class model_THST_hparameters(MParams):
         """ 
             Hierachical 2D Convolution Model
         """
-        self.helper = {
-            'region':kwargs['model_type']['location']
-        }
+
         super( model_THST_hparameters, self ).__init__(**kwargs)
 
     def _default_params(self ):
@@ -187,10 +185,10 @@ class model_THST_hparameters(MParams):
         # endregion
         
         #region Key Model Size Settings
-        seq_len_for_highest_hierachy_level = 3   # 2  
-        SEQ_LEN_FACTOR_REDUCTION = [4, 7, 4] #[4, 2, 2, 2]
+        seq_len_for_highest_hierachy_level = 2   # 2  
+        SEQ_LEN_FACTOR_REDUCTION =  [4, 2 ] #[4, 7, 4]
             #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
-            # 6hrs,1Day,1Week,1Month,1quarter,1Year
+            # 6hrs,1Day,1Week,1Month
         # endregion
         
         # region Model Specific Data Generator Params
@@ -207,31 +205,31 @@ class model_THST_hparameters(MParams):
         enc_layer_count = len( SEQ_LEN_FACTOR_REDUCTION ) +1
 
         # region CLSTM params
-        output_filters_enc = [8]*(enc_layer_count-1)            #[64] #output filters for each convLSTM2D layer in the encoder
-        output_filters_enc = output_filters_enc + output_filters_enc[-1:] #the last two layers in the encoder must output the same number of channels
-        kernel_size_enc = [ (4,4) ] * (enc_layer_count)         # [(2,2)]
+        output_filters_enc = [8]*(enc_layer_count-1)                      # [64] #output filters for each convLSTM2D layer in the encoder
+        output_filters_enc = output_filters_enc + output_filters_enc[-1:] # the last two layers in the encoder must output the same number of channels
+        kernel_size_enc = [ (4,4) ] * (enc_layer_count)                   # [(2,2)]
 
         attn_layers_count = enc_layer_count - 1
-        attn_heads = [ 6 ]*attn_layers_count                          #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 6 -> 6, 12, 
+        attn_heads = [ 8 ]*attn_layers_count                          #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
         
-        #here
-        if self.params['model_type_settings']['location'] == 'wholeregion':
-            kq_downscale_stride = [1,13,13]
+        
+        if 'region_grid_params' in self.params.keys():
+            kq_downscale_stride = [1, 8, 8]
+            kq_downscale_kernelshape = [1, 8, 8]
+
+            key_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] / int(np.prod([kq_downscale_kernelshape[1:]])) ) for idx in range(attn_layers_count)  ]
+            val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 ) for idx in range(attn_layers_count)  ]
+
+        else:
+            kq_downscale_stride = [1, 13, 13]
             kq_downscale_kernelshape = [1, 13, 13]
 
-            key_depth = [ int( (100*140*output_filters_enc[idx])/ int(np.prod([kq_downscale_kernelshape[1:]])) )for idx in range(attn_layers_count) ] 
+            key_depth = [ int( (100*140*output_filters_enc[idx]) / int(np.prod([kq_downscale_kernelshape[1:]])) ) for idx in range(attn_layers_count) ] 
                 #This keeps the hidden representations equal in size to the incoming tensors
             val_depth = [ int(100*140*output_filters_enc[idx]*2) for idx in range(attn_layers_count)  ]
                 
-                            #The keydepth for any given layer will be equal to (h*w*c/avg_pool_strideh*avg_pool_stridew)
-                                # where h,w = 100,140 and c is from the output_filters_enc from the layer below
-            
-        else:
-            kq_downscale_stride = None
-            kq_downscale_kernelshape = None
-
-            key_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims']) * output_filters_enc[idx]) for idx in range(attn_layers_count) ] 
-            val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims']) * output_filters_enc[idx]*2) for idx in range(attn_layers_count)  ]
+            #The keydepth for any given layer will be equal to (h*w*c/avg_pool_strideh*avg_pool_stridew)
+                # where h,w = 100,140 and c is from the output_filters_enc from the layer below
             
         ATTN_LAYERS_NUM_OF_SPLITS = list(reversed((np.cumprod( list( reversed(SEQ_LEN_FACTOR_REDUCTION[1:] + [1] ) ) ) *seq_len_for_highest_hierachy_level ).tolist())) 
             #Each encoder layer receives a seq of 3D tensors from layer below. NUM_OF_SPLITS codes in how many chunks to devide the incoming data. NOTE: This is defined only for Encoder-Attn layers
@@ -247,7 +245,7 @@ class model_THST_hparameters(MParams):
             'kq_downscale_stride': kq_downscale_stride,
             'kq_downscale_kernelshape':kq_downscale_kernelshape
         }
-        #HERE
+        
         CLSTMs_params_enc = [
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
                 'return_sequences':True, 'dropout':0.0, 'recurrent_dropout':0.0,
@@ -260,7 +258,7 @@ class model_THST_hparameters(MParams):
 
         ENCODER_PARAMS = {
             'enc_layer_count': enc_layer_count,
-            'attn_layers': attn_layers_count,
+            'attn_layers_count': attn_layers_count,
             'CLSTMs_params' : CLSTMs_params_enc,
             'ATTN_params': ATTN_params_enc,
             'ATTN_DOWNSCALING_params_enc':ATTN_DOWNSCALING_params_enc,
@@ -271,35 +269,34 @@ class model_THST_hparameters(MParams):
         #endregion
 
         # region --------------- DECODER params -----------------
-        decoder_layers = enc_layer_count-2
+        decoder_layer_count = enc_layer_count-2
         
-        output_filters_dec = [ 2 ] + output_filters_enc[ decoder_layers-2:decoder_layers ] # This is written in the correct order
-        kernel_size_dec = kernel_size_enc[ 1:1+decoder_layers  ]                             # This is written in the correct order
-        DECODER_LAYERS_NUM_OF_SPLITS = ATTN_LAYERS_NUM_OF_SPLITS[:decoder_layers]
+        output_filters_dec = [8] + output_filters_enc[ :decoder_layer_count ]  #[64] 
+        kernel_size_dec = kernel_size_enc[ 1:1+decoder_layer_count  ]                             # This is written in the correct order
+        
+            #Each decoder layer sends in values into the layer below. 
         CLSTMs_params_dec = [
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
                 'return_sequences':True, 'dropout':0.0, 'gates_version':2, 'recurrent_dropout':0.0,
                 'stateful':True }
              for f, ks in zip( output_filters_dec, kernel_size_dec)
         ]
-
+        DECODER_LAYERS_NUM_OF_SPLITS = ATTN_LAYERS_NUM_OF_SPLITS[:decoder_layer_count]
+            #Each output from a decoder layer is split into n chunks the fed to n different nodes in the layer below. param above tracks teh value n for each dec layer
+        SEQ_LEN_FACTOR_EXPANSION = SEQ_LEN_FACTOR_REDUCTION[-decoder_layer_count:]
         DECODER_PARAMS = {
-            'decoder_layers': decoder_layers,
+            'decoder_layer_count': decoder_layer_count,
             'CLSTMs_params' : CLSTMs_params_dec,
-            'seq_len_factor_reduction': SEQ_LEN_FACTOR_REDUCTION[-decoder_layers:], #This is written in the correct order
-            'decoder_layers_num_of_splits': DECODER_LAYERS_NUM_OF_SPLITS[-decoder_layers:],
-            'seq_len': DECODER_LAYERS_NUM_OF_SPLITS[:decoder_layers],
+            'seq_len_factor_expansion': SEQ_LEN_FACTOR_EXPANSION, #This is written in the correct order
+            'seq_len': DECODER_LAYERS_NUM_OF_SPLITS[:decoder_layer_count],
             'dropout':DROPOUT
         }
         # endregion
 
         # region --------------- OUTPUT_LAYER_PARAMS -----------------
-        output_filters = [ 10, 1 ]
-        output_filters = [ 5, 1 ]
-        #output_filters = [ 2, 1 ] #NOTE: development settings
-
-        output_kernel_size = [ (4,4), (5,5) ]
-        #output_kernel_size = [ (2,2), (2,2) ] #NOTE: development settings
+        
+        output_filters = [ 2, 1 ]   # [ 8, 1 ]
+        output_kernel_size = [ (2,2), (2,2) ] #NOTE:  [ (4,4), (4,4) ] 
 
 
         OUTPUT_LAYER_PARAMS = [ 
@@ -310,7 +307,7 @@ class model_THST_hparameters(MParams):
 
         model_type_settings = {
             'stochastic': False ,
-            'Deformable_Conv': True ,
+            'deformable_conv': True ,
             'var_model_type':"Deterministic" ,
             'distr_type':"None",
             'discrete_continuous':False,
@@ -328,8 +325,7 @@ class model_THST_hparameters(MParams):
             'data_pipeline_params':DATA_PIPELINE_PARAMS,
 
             'rec_adam_params':REC_ADAM_PARAMS,
-            'lookahead_params':LOOKAHEAD_PARAMS,
-            'gradients_clip_norm':200
+            'lookahead_params':LOOKAHEAD_PARAMS
             } )
 
 class model_SimpleLSTM_hparameters(MParams):
@@ -692,13 +688,11 @@ class test_hparameters_ati(HParams):
         MODEL_RECOVER_METHOD = 'checkpoint_batch'
         # endregion
 
-
         # region ---- data information
-
         target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
         feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
         
-        tar_end_date=  target_start_date + np.timedelta64( 14822, 'D')
+        tar_end_date    =  target_start_date + np.timedelta64( 14822, 'D')
         feature_end_date  = feature_start_date + np.timedelta64(16072, '6h') #TODO: change when new data available
         
         if feature_start_date > target_start_date :

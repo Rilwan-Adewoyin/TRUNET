@@ -60,8 +60,13 @@ class THST(tf.keras.Model):
     def __init__(self, train_params, model_params):
         super(THST, self).__init__()
 
-        self.encoder = layers.THST_Encoder( train_params, model_params['encoder_params'] )
-        self.decoder = layers.THST_Decoder( train_params, model_params['decoder_params'] )
+        if model_params['model_type_settings']['location'] == "region_grid":
+            h_w = model_params['region_grid_params']['outer_box_dims']
+        else:
+            h_w = [100,140]
+
+        self.encoder = layers.THST_Encoder( train_params, model_params['encoder_params'], h_w )
+        self.decoder = layers.THST_Decoder( train_params, model_params['decoder_params'], h_w )
         self.output_layer = layers.THST_OutputLayer( train_params, model_params['output_layer_params'], model_params['model_type_settings']  )
 
         self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
@@ -69,9 +74,15 @@ class THST(tf.keras.Model):
     @tf.function
     def call(self, _input, tape=None, training=False):
         
-        hidden_states_2_enc, hidden_states_3_enc, hidden_4_enc, hidden_5_enc = self.encoder( _input, training )
-        hidden_states_dec = self.decoder( hidden_states_2_enc, hidden_states_3_enc, hidden_4_enc, hidden_5_enc, training )
-        output = self.output_layer(hidden_states_dec, training)
+        #old
+        # hidden_states_2_enc, hidden_states_3_enc, hidden_4_enc, hidden_5_enc = self.encoder( _input, training )
+        # hidden_states_dec = self.decoder( hidden_states_2_enc, hidden_states_3_enc, hidden_4_enc, hidden_5_enc, training )
+        # output = self.output_layer(hidden_states_dec, training)
+        # output = self.float32_output(output)
+
+        hs_list_enc = self.encoder(_input, training=training)
+        hs_dec = self.decoder(hs_list_enc, training=training)
+        output = self.output_layer(hs_dec, training)
         output = self.float32_output(output)
         return output
 

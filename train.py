@@ -80,6 +80,9 @@ def train_loop(train_params, model_params):
     if tfa==None:
         optimizer = tf.keras.optimizers.Adam( learning_rate=1e-4, beta_1=0.1, beta_2=0.99, epsilon=1e-5 )
     else:
+        if model_params['model_type_settings']['var_model_type']=="flipout":
+            model_params['rec_adam_params']['learning_rate'] = 1e-8
+            model_params['rec_adam_params']['min_lr'] = 1e-9
         radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=int(train_params['train_set_size_batches']* np.prod(model_params['region_grid_params']['slides_v_h']) *0.55) ) 
         optimizer = tfa.optimizers.Lookahead(radam, **model_params['lookahead_params'])
     
@@ -179,7 +182,7 @@ def train_loop(train_params, model_params):
         ds_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['val_start_date'], data_dir=train_params['data_dir'] )
 
     elif model_params['model_name'] == "SimpleConvLSTM":
-        ds_train = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['train_start_date'], data_dir=train_params['data_dir'])
+        ds_train = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['train_start_date'], data_dir=train_params['data_dir'] )
         ds_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['val_start_date'], data_dir=train_params['data_dir'] )
     
     ds_train = ds_train.take(train_set_size_batches).repeat(train_params['epochs']-starting_epoch)
@@ -190,7 +193,6 @@ def train_loop(train_params, model_params):
     # endregion
 
     # region --- Train and Val
-
     if model_params['model_type_settings']['var_model_type'] in ['horseshoefactorized','horseshoestructured'] :
         tf.config.experimental_run_functions_eagerly(True)
 
@@ -334,15 +336,20 @@ def train_loop(train_params, model_params):
                     
                 elif( model_params['model_name'] == "THST"):
                     if model_params['model_type_settings']['location'] == 'region_grid':
-                        if( tf.reduce_any( mask )==False ):
+                        if( tf.reduce_any( mask[:, :, 6:10, 6:10] )==False ):
                             continue
                     else:
                         target, mask = target # (bs, h, w) 
 
                     if (model_params['model_type_settings']['stochastic']==False): #non stochastic version
 
-                        preds = model( tf.cast(feature,tf.float16), tape=tape )
+                        preds = model( tf.cast(feature,tf.float16), train_params['trainable'] )
                         preds = tf.squeeze(preds)
+
+                        if (model_params['model_type_settings']['location']=='region_grid' ): #focusing on centre of square only
+                            preds = preds[:, :, 6:10, 6:10]
+                            mask = mask[:, :, 6:10, 6:10]
+                            target = target[:, :, 6:10, 6:10]
 
                         preds_filtrd = tf.boolean_mask( preds, mask )
                         target_filtrd = tf.boolean_mask( target, mask )
@@ -490,18 +497,21 @@ def train_loop(train_params, model_params):
             elif model_params['model_name'] == "THST":
                 if model_params['model_type_settings']['location'] == 'region_grid':
                     if( tf.reduce_any( mask[:, :, 6:10, 6:10] )==False ):
-                            continue
+                        continue
                 else:
                     target, mask = target # (bs, h, w) 
 
                 if model_params['model_type_settings']['stochastic'] ==False: #non stochastic version
-                    preds = model(tf.cast(feature,tf.float16) )
+                    preds = model(tf.cast(feature,tf.float16), training=False )
                     preds = tf.squeeze(preds)
 
                     preds_filtrd = tf.boolean_mask( preds, mask )
                     target_filtrd = tf.boolean_mask( target, mask )
 
                     val_metric_mse_mean( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
+                
+                elif model_params['model_type_settings']['stochastic'] ==True:
+                    raise NotImplementedError 
             
             elif model_params['model_name'] == "SimpleLSTM":
                 if model_params['model_type_settings']['stochastic'] == False:
@@ -520,7 +530,7 @@ def train_loop(train_params, model_params):
                 
                 if model_params['model_type_settings']['location'] == 'region_grid':
                     if( tf.reduce_any( mask[:, :, 6:10, 6:10] )==False ):
-                            continue
+                        continue
                 else:
                     target, mask = target # (bs, h, w) 
 
