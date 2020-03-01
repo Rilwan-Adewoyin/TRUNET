@@ -25,6 +25,7 @@ from tensorflow.keras.layers import Bidirectional
 from tensorflow.keras import backend as K
 import layers_ConvLSTM2D
 
+
 # region DeepSD layers    
 class SRCNN( tf.keras.layers.Layer ):
     """ 
@@ -624,6 +625,7 @@ def HalfCauchy_Guassian_posterior_tensor_fn(obj, dist_weights, kernel_shape, inp
 # endregion
 
 # region THST layers
+
 class THST_Encoder(tf.keras.layers.Layer ):
     def __init__(self, train_params, encoder_params, h_w):
         super( THST_Encoder, self ).__init__()
@@ -999,3 +1001,13 @@ class SpatialConcreteDropout(tf.keras.layers.Wrapper):
         return True
 
 # endregion
+
+# region general layers/functions
+
+def CustomRelu_maker(t_params):
+    CustomRelu = tf.keras.layers.ReLU( threshold= utility.standardize_ati( 0, t_params['normalization_shift']['rain'], 
+                                                            t_params['normalization_scales']['rain'], reverse=False) )
+    return CustomRelu
+
+
+# end region

@@ -91,9 +91,9 @@ def predict( model, test_params, model_params ,checkpoint_no ):
     
     test_set_size_batches = test_set_size_elements //( test_params['batch_size'] * model_params['data_pipeline_params']['lookback_target'] )
 
-    if(model_params['model_name']=="SimpleLSTM"):
+    if(model_params['model_name'] in ["SimpleLSTM","THST","SimpleConvLSTM","SimpleDense"]):
         upload_size = test_set_size_batches
-    else:
+    elif(model_params['model_name'] in ["DeepSD"]):
         upload_size = max( int( test_set_size_batches* test_params['dataset_pred_batch_reporting_freq']), 1 )
 
     li_predictions = [] #This will be a list of list of tensors, each list contain a set of (maybe stochastic) predictions for the corresponding ts
@@ -109,7 +109,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
         else:
             li_timestamps_chunked = [li_timestamps[i:i+test_params['window_shift']] for i in range(0, len(li_timestamps), test_params['window_shift'])] 
     
-    if model_params['model_name'] in ["SimpleLSTM"]:
+    if model_params['model_name'] in ["SimpleLSTM","SimpleDense"]:
         li_timestamps_chunked = [li_timestamps[i:i+test_params['window_shift']*test_params['batch_size'] ] for i in range(0, len(li_timestamps), test_params['window_shift']*test_params['batch_size'])]
 
     li_true_values = []
@@ -150,9 +150,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
 
         elif model_params['model_name'] in ["THST","SimpleConvLSTM"] :
             if model_params['model_type_settings']['location'] == 'region_grid':
-                preds = preds[:, :, 6:10, 6:10]
-                mask = mask[:, :, 6:10, 6:10]
-                target = target[:, :, 6:10, 6:10]
+                pass
             else:
                 target, mask = target # (bs, h, w) 
             
@@ -161,12 +159,20 @@ def predict( model, test_params, model_params ,checkpoint_no ):
                 preds = model( tf.cast(feature,tf.float16),training=False )
                 preds = tf.expand_dims(preds, axis=0 )
                 preds = tf.squeeze(preds,axis=-1) # (1, bs, seq_len, h, w)
+                
+                if model_params['model_type_settings']['location'] == 'region_grid':
+                    preds = preds[:, :, 6:10, 6:10]
+                    mask = mask[:, :, 6:10, 6:10]
+                    target = target[:, :, 6:10, 6:10]
+                
                 #splitting in the time dimension
-                preds_masked = utility.water_mask( preds, mask  )
-                target_masked = utility.water_mask(target, mask )
+
 
                 preds_std = utility.standardize_ati(preds_masked, test_params['normalization_scales']['rain'], reverse=True)
                 targets_std = utility.standardize_ati(target_masked, test_params['normalization_scales']['rain'], reverse=True)
+
+                preds_masked = utility.water_mask( preds, mask  )
+                target_masked = utility.water_mask(target, mask )
                 
 
                 #combining the batch and seq_len axis to represent timesteps
@@ -188,8 +194,8 @@ def predict( model, test_params, model_params ,checkpoint_no ):
             preds_masked = utility.water_mask( preds, mask  )
             target_masked = utility.water_mask(target, mask )
 
-            preds_std = utility.standardize_ati(preds_masked, test_params['normalization_scales']['rain'], reverse=True)
-            targets_std = utility.standardize_ati(target_masked, test_params['normalization_scales']['rain'], reverse=True)
+            preds_std = utility.standardize_ati(preds_masked, test_params['normalization_shift']['rain'] ,test_params['normalization_scales']['rain'], reverse=True)
+            targets_std = utility.standardize_ati(target_masked, test_params['normalization_shift']['rain'], test_params['normalization_scales']['rain'], reverse=True)
 
             preds_reshaped = tf.reshape( preds_std, [preds_std.shape[0] , -1])
             targets_reshaped = tf.reshape( targets_std, [preds_std.shape[0], -1])

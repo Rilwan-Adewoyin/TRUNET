@@ -128,7 +128,7 @@ class model_deepsd_hparameters(MParams):
 
         REC_ADAM_PARAMS = {
             "learning_rate":1e-5 , "warmup_proportion":0.5,
-            "min_lr": 1e-6, "beta_1":0.99 , "beta_2": 0.99 }
+            "min_lr": 1e-6, "beta_1":0.99 , "beta_2": 0.99, "decay":0.98 }
         LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":0.85}
 
         model_type_settings = {'stochastic':False ,'stochastic_f_pass':10,
@@ -178,7 +178,7 @@ class model_THST_hparameters(MParams):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
             "learning_rate":1e-4, "warmup_proportion":0.6,
-            "min_lr": 1e-5, "beta_1":0.99 , "beta_2":0.99, "decay":0.99
+            "min_lr": 1e-5, "beta_1":0.99 , "beta_2":0.99, "decay":0.98
             }
         DROPOUT = 0.00
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99}
@@ -276,7 +276,7 @@ class model_THST_hparameters(MParams):
         CLSTMs_params_dec = [
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
                 'return_sequences':True, 'dropout':0.0, 'gates_version':2, 'recurrent_dropout':0.0,
-                'stateful':True }
+                'stateful':False }
              for f, ks in zip( output_filters_dec, kernel_size_dec)
         ]
         DECODER_LAYERS_NUM_OF_SPLITS = ATTN_LAYERS_NUM_OF_SPLITS[:decoder_layer_count]
@@ -333,18 +333,18 @@ class model_SimpleLSTM_hparameters(MParams):
     
     def _default_params(self):
         #model
-        li_units =  [128, 128, 128]
+        li_units =  [512, 256, 6] #, 216, 216]
         #li_units =  [2, 2, 2]
-        li_rs =     [True, True, True]
+        li_rs =     [True]*len(li_units)
         LAYER_PARAMS = [
-            {'units': un, 'dropout':0.00,
-                'return_sequences':rs, 'stateful':True}
+            {'units': un, 'dropout':0.35, 'recurrent_dropout':0.35,
+                'return_sequences':rs, 'stateful':False}
                 for un, rs in zip(li_units, li_rs)
         ]
 
         #data pipeline
         target_to_feature_time_ratio = 4
-        lookback_feature = 20*target_to_feature_time_ratio        
+        lookback_feature = 4*target_to_feature_time_ratio        
         DATA_PIPELINE_PARAMS = {
             'lookback_feature':lookback_feature,
             'lookback_target': int(lookback_feature/target_to_feature_time_ratio),
@@ -353,17 +353,17 @@ class model_SimpleLSTM_hparameters(MParams):
 
         #training proc
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-4 , "warmup_proportion":0.6,
-            "min_lr":1e-5, "beta_1":0.99, "beta_2":0.99
+            "learning_rate":1e-2 , "warmup_proportion":0.6,
+            "min_lr":1e-3, "beta_1":0.99, "beta_2":0.99,"decay":0.90
             }
 
-        LOOKAHEAD_PARAMS = { "sync_period":4 , "slow_step_size":0.85 }
+        LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.999 }
 
         model_type_settings = { }
 
         self.params.update({
             'model_name':'SimpleLSTM',
-            'layer_count': 3,
+            'layer_count': len(li_units),
             'layer_params': LAYER_PARAMS,
             
             'data_pipeline_params': DATA_PIPELINE_PARAMS,
@@ -406,7 +406,7 @@ class model_SimpleConvLSTM_hparamaters(MParams):
         #training proc
         REC_ADAM_PARAMS = {
             "learning_rate":1e-4 , "warmup_proportion":0.6,
-            "min_lr":1e-5, "beta_1":0.99, "beta_2":0.99, "decay":0.95
+            "min_lr":1e-5, "beta_1":0.99, "beta_2":0.99, "decay":0.98
             }
 
         LOOKAHEAD_PARAMS = { "sync_period":4 , "slow_step_size":0.85 }
@@ -425,6 +425,43 @@ class model_SimpleConvLSTM_hparamaters(MParams):
             'rec_adam_params':REC_ADAM_PARAMS,
             'lookahead_params':LOOKAHEAD_PARAMS
         })
+
+class model_SimpleDense_hparameters(MParams):
+
+    def __init__(self, **kwargs):
+        super(model_SimpleDense_hparameters, self).__init__(**kwargs)
+    
+    def _default_params(self):
+        
+        #data pipeline
+        target_to_feature_time_ratio = 4
+        lookback_feature = 4*target_to_feature_time_ratio        
+        DATA_PIPELINE_PARAMS = {
+            'lookback_feature':lookback_feature,
+            'lookback_target': int(lookback_feature/target_to_feature_time_ratio),
+            'target_to_feature_time_ratio' :  target_to_feature_time_ratio
+        }
+
+        #training proc
+        REC_ADAM_PARAMS = {
+            "learning_rate":1e-3 , "warmup_proportion":0.6,
+            "min_lr":1e-4, "beta_1":0.99, "beta_2":0.99,"decay":0.98
+            }
+
+        LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.999 }
+
+        model_type_settings = { }
+
+        self.params.update({
+            'model_name':'SimpleDense',
+            
+            'data_pipeline_params': DATA_PIPELINE_PARAMS,
+            'model_type_settings': model_type_settings,
+
+            'rec_adam_params':REC_ADAM_PARAMS,
+            'lookahead_params':LOOKAHEAD_PARAMS
+        })
+
 
 
 class train_hparameters(HParams):
@@ -551,12 +588,39 @@ class train_hparameters_ati(HParams):
                                                 # - x_wind, # - y_wind
         }
         NORMALIZATION_SHIFT = {
+                                "rain":0,
                                 "model_fields": np.array([0.0,
                                                 0.0,
                                                 0.0,
                                                 0.0,
                                                 -19.436,
                                                 -24.104]) 
+        }
+        MASK_FILL_VALUE_v1 = {
+                                    "rain":0.0,
+                                    "model_field":0.0 
+        }
+
+        NORMALIZATION_SCALES_v1 = {
+                                    "rain":4.69872,
+                                    "model_fields": np.array([6.805,
+                                                              0.001786,
+                                                              5.458,
+                                                              1678.2178,
+                                                                5.107268,
+                                                                4.764533]) 
+                                                #- unknown_local_param_137_128
+                                                # - unknown_local_param_133_128,  # - air_temperature, # - geopotential
+                                                # - x_wind, # - y_wind
+        }
+        NORMALIZATION_SHIFT_v1 = {
+                                    "rain":2.844,
+                                    "model_fields": np.array([15.442,
+                                                                0.003758,
+                                                                274.833,
+                                                                54309.66,
+                                                                3.08158,
+                                                                0.54810]) 
         }
         WINDOW_SHIFT = self.lookback_target
         BATCH_SIZE = self.batch_size
@@ -602,7 +666,7 @@ class train_hparameters_ati(HParams):
         VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS_TARGET*0.2)
          
         DATA_DIR = "./Data/Rain_Data_Nov19" 
-        EARLY_STOPPING_PERIOD = 15
+        EARLY_STOPPING_PERIOD = 12
  
         self.params = {
             'batch_size':BATCH_SIZE,
@@ -627,9 +691,9 @@ class train_hparameters_ati(HParams):
             'train_monte_carlo_samples':1,
             'data_dir': DATA_DIR,
 
-            'mask_fill_value':MASK_FILL_VALUE,
-            'normalization_scales' : NORMALIZATION_SCALES,
-            'normalization_shift': NORMALIZATION_SHIFT,
+            'mask_fill_value':MASK_FILL_VALUE_v1,
+            'normalization_scales' : NORMALIZATION_SCALES_v1,
+            'normalization_shift': NORMALIZATION_SHIFT_v1,
             'window_shift': WINDOW_SHIFT,
 
             'train_start_date':train_start_date,
@@ -679,11 +743,38 @@ class test_hparameters_ati(HParams):
                                                 -24.104]) 
         }
 
+        MASK_FILL_VALUE_v1 = {
+                                    "rain":0.0,
+                                    "model_field":0.0 
+        }
+
+        NORMALIZATION_SCALES_v1 = {
+                                    "rain":4.69872,
+                                    "model_fields": np.array([6.805,
+                                                              0.001786,
+                                                              5.458,
+                                                              1678.2178,
+                                                                5.107268,
+                                                                4.764533]) 
+                                                #- unknown_local_param_137_128
+                                                # - unknown_local_param_133_128,  # - air_temperature, # - geopotential
+                                                # - x_wind, # - y_wind
+        }
+        NORMALIZATION_SHIFT_v1 = {
+                                    "rain":2.844,
+                                    "model_fields": np.array([15.442,
+                                                                0.003758,
+                                                                274.833,
+                                                                54309.66,
+                                                                3.08158,
+                                                                0.54810]) 
+        }
+
         WINDOW_SHIFT = self.lookback_target
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
         BATCH_SIZE = self.batch_size
         N_PREDS = 25
-        MODEL_RECOVER_METHOD = 'checkpoint_batch'
+        MODEL_RECOVER_METHOD = 'checkpoint_epoch'
         # endregion
 
 
@@ -716,7 +807,7 @@ class test_hparameters_ati(HParams):
         test_end_date = end_date
 
         TEST_SET_SIZE_DATUMS_TARGET = int( TOTAL_DATUMS_TARGET * 0.2)
-        # endregion
+        ## endregion
 
 
         # # region ---- data information
@@ -771,9 +862,9 @@ class test_hparameters_ati(HParams):
             
             'epochs':EPOCHS,
             
-            'mask_fill_value':MASK_FILL_VALUE,
-            'normalization_scales' : NORMALIZATION_SCALES,
-            'normalization_shift': NORMALIZATION_SHIFT,
+            'mask_fill_value':MASK_FILL_VALUE_v1,
+            'normalization_scales' : NORMALIZATION_SCALES_v1,
+            'normalization_shift': NORMALIZATION_SHIFT_v1,
             'window_shift': WINDOW_SHIFT,
 
             'test_start_date':test_start_date,

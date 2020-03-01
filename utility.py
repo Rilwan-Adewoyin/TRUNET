@@ -176,7 +176,7 @@ def load_params_train_model(args_dict):
         init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
         train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
     
-    elif(args_dict['model_name'] == "SimpleLSTM"):
+    elif(args_dict['model_name'] in ["SimpleLSTM"] ):
         #use settings from THST to initialise the model generator
         init_m_params = {}
         init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
@@ -187,6 +187,18 @@ def load_params_train_model(args_dict):
         
         train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
     
+    elif(args_dict['model_name'] in ["SimpleDense"] ):
+        #use settings from THST to initialise the model generator
+        init_m_params = {}
+        init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
+        model_params = hparameters.model_SimpleDense_hparameters(**init_m_params)()
+        init_t_params = {}
+        init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
+        init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
+        
+        train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
+    
+
     elif(args_dict['model_name']=="SimpleConvLSTM"):
         init_m_params = {}
         init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
@@ -264,8 +276,6 @@ def parse_arguments(s_dir=None):
     parser.add_argument('-mn','--model_name', type=str, help='Name of model to use', required=False, default="DeepSD")                                      
         
     parser.add_argument('-ds','--distribution_strategy', type=str, help='The distribution strategy to be used by tensorflow', required=False, default="None" ) #TODO: Implement ability to train on multiple cores tensorflow
-    
-    parser.add_argument('-mv', '--model_version', type=str, help="Name for the model, used to help in saving predictions and related files", required=False, default="1")
 
     parser.add_argument('-c1pc', '--conv1_param_custom', type=str, required=False, default='{}' )
 
@@ -327,7 +337,7 @@ def model_name_mkr(model_params):
                                 model_params['model_type_settings']['distr_type'], 
                                 str(model_params['model_type_settings']['discrete_continuous']),
                                 model_params['model_type_settings']['model_version'] )
-    elif model_params['model_name'] == "SimpleLSTM":
+    elif model_params['model_name'] in ["SimpleLSTM","SimpleDense"]:
         model_name =    "{}_{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
                                 model_params['model_type_settings']['distr_type'], 
                                 str(model_params['model_type_settings']['discrete_continuous']),
@@ -336,18 +346,18 @@ def model_name_mkr(model_params):
         model_name =    "{}_{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
                         model_params['model_type_settings']['distr_type'], 
                         str(model_params['model_type_settings']['discrete_continuous']),
-                        model_params['model_type_settings']['location'],model_params['model_type_settings']['model_version'] )    
+                        model_params['model_type_settings']['location'],model_params['model_type_settings']['model_version'] )  
         
     return model_name
 
 # region ATI modules
-def standardize_ati(_array, scale, reverse):
-    scale = scale
+def standardize_ati(_array, shift, scale, reverse):
+    
 
     if(reverse==False):
-        _array = _array/scale
+        _array = (_array-shift)/scale
     elif(reverse==True):
-        _array = _array*scale
+        _array = (_array*scale)+shift
     
     return _array
 

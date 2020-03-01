@@ -14,7 +14,7 @@ tf.keras.backend.set_epsilon(1e-3)
 
 #DType.is_compatible_with = is_compatible_with
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
-tf.config.set_soft_device_placement(True)
+#tf.config.set_soft_device_placement(True)
 #tf.debugging.set_log_device_placement(True)
 try:
     gpu_devices = tf.config.list_physical_devices('GPU')
@@ -93,7 +93,7 @@ def train_loop(train_params, model_params):
         radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=total_steps ) 
         optimizer = tfa.optimizers.Lookahead(radam, **model_params['lookahead_params'])
     
-    optimizer = mixed_precision.LossScaleOptimizer(optimizer, loss_scale='dynamic' )
+    optimizer = mixed_precision.LossScaleOptimizer(optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() )
     ##monkey patch so optimizer works with mixed precision
     
     train_metric_mse_mean_groupbatch = tf.keras.metrics.Mean(name='train_loss_mse_obj')
@@ -154,9 +154,11 @@ def train_loop(train_params, model_params):
     starting_epoch =  int(max( df_training_info['Epoch'], default=0 )) 
     df_batch_record = df_training_info.loc[ df_training_info['Epoch'] == starting_epoch,'Last_Trained_Batch' ]
 
-    if( len(df_batch_record)==0 or df_batch_record.iloc[0]==-1 ):
+    if( len(df_batch_record)==0 ):
         batches_to_skip = 0
-        
+    elif (df_batch_record.iloc[0]==-1 ):
+        starting_epoch = starting_epoch + 1
+        batches_to_skip = 0
     else:
         batches_to_skip = int(df_batch_record.iloc[0])
         if batches_to_skip >= train_set_size_batches :
@@ -180,25 +182,24 @@ def train_loop(train_params, model_params):
             #temp fix to the problem where if we init ds_train at batches_to_skip, then every time we reuse ds_train then it will inevitably start from that skipped to region on the next iteration 
         ds_train = data_generators.load_data_vandal( batches_to_skip*train_params['batch_size'], train_params, model_params, data_dir=train_params['data_dir'] )
 
-    elif model_params['model_name'] == "THST":
-        ds_train = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['train_start_date'], data_dir=train_params['data_dir'])
-        ds_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['val_start_date'], data_dir=train_params['data_dir'] )
+    elif model_params['model_name'] in ["THST", "SimpleLSTM","SimpleConvLSTM","SimpleDense"]:
+        # ds_train = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['train_start_date'], data_dir=train_params['data_dir'])
+        # ds_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['val_start_date'], data_dir=train_params['data_dir'] )
+        ds_train_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['train_start_date'], data_dir=train_params['data_dir'])
+        ds_train_val = ds_train_val.take(train_set_size_batches+val_set_size_batches).repeat(train_params['epochs']-starting_epoch)
+        ds_train_val = ds_train_val.skip(batches_to_skip)
+        iter_val_train = enumerate(ds_train_val)
+        iter_train = iter_val_train
+        iter_val = iter_val_train
     
-    elif model_params['model_name'] == "SimpleLSTM":
-        ds_train = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['train_start_date'], data_dir=train_params['data_dir'])
-        ds_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['val_start_date'], data_dir=train_params['data_dir'] )
-
-    elif model_params['model_name'] == "SimpleConvLSTM":
-        ds_train = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['train_start_date'], data_dir=train_params['data_dir'] )
-        ds_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['val_start_date'], data_dir=train_params['data_dir'] )
     
-    ds_train = ds_train.take(train_set_size_batches).repeat(train_params['epochs']-starting_epoch)
-    ds_val = ds_val.take(val_set_size_batches).repeat(train_params['epochs']-starting_epoch)
-    ds_train = ds_train.skip(batches_to_skip)
-    iter_train = enumerate(ds_train)
-    iter_val = enumerate(ds_val)
+    # ds_train = ds_train.take(train_set_size_batches).repeat(train_params['epochs']-starting_epoch)
+    # ds_train = ds_train.skip(batches_to_skip)
+    # ds_val = ds_val.take(val_set_size_batches).repeat(train_params['epochs']-starting_epoch)
+    # iter_val = enumerate(ds_val)
+    # iter_train = enumerate(ds_train)
     # endregion
-
+    
     # region --- Train and Val
     if model_params['model_type_settings']['var_model_type'] in ['horseshoefactorized','horseshoestructured'] :
         tf.config.experimental_run_functions_eagerly(True)
@@ -372,7 +373,7 @@ def train_loop(train_params, model_params):
                         gradients = optimizer.get_unscaled_gradients(scaled_gradients)
                         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
                 
-                elif( model_params['model_name'] == "SimpleLSTM"):
+                elif( model_params['model_name'] in ["SimpleLSTM","SimpleDense"]):
                     if( model_params['model_type_settings']['stochastic']==False):
                         target, mask = target # (bs, seq_len)
 
@@ -382,7 +383,16 @@ def train_loop(train_params, model_params):
                         preds_filtrd = tf.boolean_mask( preds, mask )
                         target_filtrd = tf.boolean_mask( target, mask )
 
-                        loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd) 
+                        #scaling them back up
+                        preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], 
+                                                                train_params['normalization_scales']['rain'], reverse=True)
+                        target_filtrd = utility.standardize_ati( target_filtrd, train_params['normalization_shift']['rain'], 
+                                                                train_params['normalization_scales']['rain'], reverse=True)
+
+                        # temp - re-weighting loss function focusing on predicting days with rain
+                        step = batch + (epoch)*train_set_size_batches
+
+                        loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd) + sum(model.losses)
                         metric_mse = loss_mse
                         scaled_loss_mse = optimizer.get_scaled_loss(loss_mse)
 
@@ -391,6 +401,7 @@ def train_loop(train_params, model_params):
                     
                     scaled_gradients = tape.gradient( scaled_loss_mse, model.trainable_variables )
                     gradients = optimizer.get_unscaled_gradients(scaled_gradients)
+                    #gradients = tape.gradient( loss_mse, model.trainable_variables)
                     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
                 elif (model_params['model_name'] == "SimpleConvLSTM"):
@@ -427,7 +438,7 @@ def train_loop(train_params, model_params):
                     
                 gc.collect()
             #region Tensorboard Update
-            step = batch + (epoch-1)*train_set_size_batches
+            step = batch + (epoch)*train_set_size_batches
             with writer.as_default():
                 if( model_params['model_type_settings']['stochastic']==True ):
                     tf.summary.scalar('train_loss_var_free_nrg', var_free_nrg_loss , step =  step )
@@ -479,11 +490,12 @@ def train_loop(train_params, model_params):
         start_epoch_val = time.time()
         start_batch_time = time.time()
 
-        print("\nStarting Validation")
+        print("\n\tStarting Validation")
         model.reset_states()
         #endregion
 
         #region Valid
+
         for batch in range(val_set_size_batches):
 
             if model_params['model_type_settings']['location'] == 'region_grid':
@@ -524,7 +536,7 @@ def train_loop(train_params, model_params):
                 elif model_params['model_type_settings']['stochastic'] ==True:
                     raise NotImplementedError 
             
-            elif model_params['model_name'] == "SimpleLSTM":
+            elif model_params['model_name'] in ["SimpleLSTM","SimpleDense"]:
                 if model_params['model_type_settings']['stochastic'] == False:
                     target, mask = target
                     preds = model(tf.cast(feature,tf.float16),training=False )
@@ -532,6 +544,14 @@ def train_loop(train_params, model_params):
 
                     preds_filtrd = tf.boolean_mask( preds, mask )
                     target_filtrd = tf.boolean_mask( target, mask )
+
+                    preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], 
+                                                            train_params['normalization_scales']['rain'], reverse=True)
+                    target_filtrd = utility.standardize_ati( target_filtrd, train_params['normalization_shift']['rain'], 
+                                                            train_params['normalization_scales']['rain'], reverse=True)
+
+                    step = batch + (epoch)*train_set_size_batches
+
 
                     val_metric_mse_mean( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
                 elif model_params['model_type_settings']['stochastic'] == True:

@@ -190,7 +190,7 @@ class Generator():
 
     def yield_iter(self):
         pass
-
+    
     def __call__(self):
         if(self.all_at_once):
             return self.yield_all()
@@ -208,8 +208,26 @@ class Generator():
 
         return (latitude_index, longitude_index)
     
+    def find_idx_of_city_in_folded_regions( self, city, region_grid_params ):
+        slides = region_grid_params['slides_h_w']
+        city_idx = self.find_idx_of_city(city) #[a,b]
+
+        _ = (region_grid_params['outer_box_dims']-region_grid_params['inner_box_dims'])//2 
+
+        idx_horiz = ( city_idx[1] - _[1]  ) // region_grid_params['horizontal_shift']
+        idx_vert = (city_idx[0] - _[0]) // region_grid_params['vertical_shift']
+        idx_region_in_whole_flat = idx_horiz + region_grid_params['slides_h_w'][1]*idx_vert
+        
+        periodicy = int( np.prod(slides) )
+
+        idx_horiz_city_in_region = ( city_idx[1] - _[1]  ) % region_grid_params['horizontal_shift']
+        idx_vert_city_in_region = (city_idx[0] - _[0]) // region_grid_params['vertical_shift']
+        idx_city_in_region = [idx_vert_city_in_region,idx_horiz_city_in_region  ]
+        
+        return idx_region_in_whole_flat, periodicy, idx_city_in_region
+
 class Generator_rain(Generator):
-    def __init__(self, **generator_params):
+    def __init__(self, **generator_params ):
         super(Generator_rain, self).__init__(**generator_params)
         self.data_len = 14822
 
@@ -255,7 +273,7 @@ class Generator_mf(Generator):
 
         f = Dataset(self.fn, "r", format="NETCDF4")
         #with Dataset(self.fn, "r", format="NETCDF4",keepweakref=True) as f:
-        for tuple_mfs in zip( *[f.variables[var_name][:] for var_name in self.vars_for_feature] ):
+        for tuple_mfs in zip( *[f.variables[var_name] for var_name in self.vars_for_feature] ):
             list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar) ) for _mar in tuple_mfs]
             _data, _masks = list(zip(*list_datamask))
             _masks = [ np.full(_data[0].shape, np.logical_not(_mask_val) , dtype=bool) for _mask_val in _masks ] #projecting masks from the (6,) shape to a square array shape
@@ -305,20 +323,18 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
 
     # region prepare target_rain_data
     fn_rain = data_dir+"/rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc"
-    #fn_rain = "/home/u1862646/ATI/BNN/Data/Rain_Data_Nov19/rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc" 
-
     rain_data = Generator_rain(fn=fn_rain, all_at_once=False)
     
     ds_tar = tf.data.Dataset.from_generator( rain_data, output_types=( tf.float32, tf.bool) ) #(values, mask) 
     ds_tar = ds_tar.skip(start_idx_tar) #skipping to correct point
     
-    def normalize_rain_values(arr_rain, arr_mask, scale):
+    def normalize_rain_values(arr_rain, arr_mask, shift, scale):
 
-        arr_rain = utility.standardize_ati(arr_rain, scale, reverse=False  )
+        arr_rain = utility.standardize_ati(arr_rain, shift, scale, reverse=False  )
 
         return arr_rain, arr_mask
     
-    ds_tar = ds_tar.map( lambda _vals, _mask: normalize_rain_values( _vals, _mask, t_params['normalization_scales']['rain'] ) ) # (values, mask)
+    ds_tar = ds_tar.map( lambda _vals, _mask: normalize_rain_values( _vals, _mask, t_params['normalization_shift']['rain'] ,t_params['normalization_scales']['rain'] ) ) # (values, mask)
 
     def rain_mask(arr_rain, arr_mask, fill_value):
         """ 
@@ -377,37 +393,31 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     if(model_settings['location']=="wholegrid"):
         ds = ds.batch(t_params['batch_size'], drop_remainder=True)
 
-    elif(model_settings['location'] in rain_data.city_location.keys() ):
+    elif( model_settings['location'] in rain_data.city_location.keys()  ):
         ds = ds.batch(t_params['batch_size'], drop_remainder=True)
         idxs = rain_data.find_idx_of_city( model_settings['location'] )
         ds = ds.map( lambda mf, rain_rmask : load_data_ati_select_location(mf, rain_rmask[0], rain_rmask[1], idxs ), num_parallel_calls=_num_parallel_calls )
 
     elif(model_settings['location']=="region_grid"):
         
-
         ds = ds.map( lambda mf, rain_mask: tuple( [mf, rain_mask[0], rain_mask[1]] )  )                         #mf=(80, 100,140,6)
         
         region_folding_partial = partial(region_folding, **m_params['region_grid_params'], mode=3,tnsrs=None )  
 
         ds = ds.map( lambda mf,rain,rmask : tf.py_function( region_folding_partial, [mf, rain, rmask], [tf.float16, tf.float32, tf.bool] ) ) #mf = mode3(704, lookback, 16, 16, 6 )  mode1(80, 85//4, 125//4, 16, 16, 6)
+        
+        if 'location_test' in model_settings.keys():
+            idx_region_flat, periodicy, city_idx = rain_data.find_idx_of_city_in_folded_regions( model_settings['location_test'], model_settings['region_grid_params'] )
+            ds = ds.map( lambda mf, rain, rmask: load_data_ati_select_region(mf, rain, rmask, idx_region_flat, periodicy )  )
+
         ds = ds.unbatch().batch( t_params['batch_size'],drop_remainder=True )
-        #unzip and unbatch and rebatch and rezip and reshape
-        # ds_mf = ds.map(lambda mf, rain, mask: mf).unbatch()
-        # ds_rain = ds.map(lambda mf, rain, mask: rain).unbatch()
-        # ds_mask = ds.map(lambda mf, rain, mask: mask).unbatch()
-        # ds_rain_mask = tf.data.Dataset.zip( (ds_rain, ds_mask) )
-
-        # ds = tf.data.Dataset.zip( (ds_mf, ds_rain_mask) )
-
-        # ds = ds.batch(t_params['batch_size'],drop_remainder=True)
 
     else:
         raise ValueError
+    #endregion
     
-    if(model_settings['location']=="region_grid"):
-        ds = ds.prefetch(_num_parallel_calls)
-    else:
-        ds = ds.prefetch(_num_parallel_calls)
+    #if len( tf.config.list_physical_devices('GPU') ) >0:
+    ds = ds.prefetch(_num_parallel_calls)
     return ds
 
 def load_data_ati_select_location(mf, rain, rain_mask, idxs ):
@@ -416,7 +426,7 @@ def load_data_ati_select_location(mf, rain, rain_mask, idxs ):
         target shape (bs, lookback, h, w, c)
     """
     
-    mf = mf[:, :, idxs[0], idxs[1],:] #(bs, seq_len1, h, w, c)
+    mf = mf[:, :, idxs[0], idxs[1],:] #(bs, seq_len1, c)
     rain = rain[:, :, idxs[0], idxs[1]] #(bs, seq_len1, h, w)
     rain_mask = rain_mask[ :, :, idxs[0], idxs[1] ]
 
@@ -525,15 +535,27 @@ def region_folding( mf, rain, rain_mask, tnsrs=None ,mode=1,
         _li_data3 = []
         for idx_h in range(0,input_image_shape[0]-outer_box_dims[0]+1, vertical_shift):
             for idx_w  in range(0, input_image_shape[1]-outer_box_dims[1]+1, horizontal_shift):
-                _li_data1.append( mf[:, idx_h:idx_h+outer_box_dims[0], idx_w:idx_w+outer_box_dims[0], : ] )
-                _li_data2.append( rain[:, idx_h:idx_h+outer_box_dims[0], idx_w:idx_w+outer_box_dims[0] ] )
-                _li_data3.append( rain_mask[ :, idx_h:idx_h+outer_box_dims[0], idx_w:idx_w+outer_box_dims[0]] )
-        mf = np.stack(_li_data1, axis=0)
-        rain = np.stack(_li_data2, axis=0)
+                _li_data1.append( mf[:, idx_h:idx_h+outer_box_dims[0], idx_w:idx_w+outer_box_dims[1], : ] )
+                _li_data2.append( rain[:, idx_h:idx_h+outer_box_dims[0], idx_w:idx_w+outer_box_dims[1] ] )
+                _li_data3.append( rain_mask[ :, idx_h:idx_h+outer_box_dims[0], idx_w:idx_w+outer_box_dims[1]] )
+        mf = np.stack(_li_data1, axis=0) #( h_strides*w_strides, seq_len ,h1, w1, c)
+        rain = np.stack(_li_data2, axis=0) #( h_strides*w_strides, seq_len ,h1, w1)
         rain_mask = np.stack(_li_data3,axis=0)
         return mf, rain, rain_mask
     else:
         raise ValueError
+
+def load_data_ati_select_region( mf, rain, rain_mask, idx_region_flat, periodicy):
+    """
+        Note: This only works following mode==3 of region folding
+        
+        periodicy represents how often the stacked regions represent that same regions in the first dimensions
+    """
+    mf = mf[ idx_region_flat::periodicy ,: , :, :, :] #( h_strides1*w_strides1, seq_len ,h1, w1, c )
+    rain = rain[idx_region_flat::periodicy, :, :, :] #( h_strides1*w_strides1, seq_len ,h1, w1 )
+    rain_mask = rain_mask[idx_region_flat::periodicy, :, :, :]
+
+    return mf, rain, rain_mask
 
 def load_data_ati_post_region_folding(mf, rain, mask):
     """
@@ -548,8 +570,6 @@ def load_data_ati_post_region_folding(mf, rain, mask):
 
     return mf, (rain, mask)
 
-def region_cutting():
-    pass
 
 
     

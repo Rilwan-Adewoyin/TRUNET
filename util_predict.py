@@ -6,6 +6,7 @@ import pickle
 import glob
 import utility
 import numpy as np
+import time
 
 def load_model(test_params, model_params):
     model = None
@@ -98,7 +99,7 @@ def load_model(test_params, model_params):
         ckpt = tf.train.Checkpoint(model=model)
 
         #We will use Optimal Checkpoint information from checkpoint_scores_model.csv
-        df_checkpoint_scores = pd.read_csv( test_params['script_dir']+'/checkpoints/{}/checkpoint_scores_model.csv'.format(utility.model_name_mkr(model_params), header=0 ) )
+        df_checkpoint_scores = pd.read_csv( test_params['script_dir']+'/checkpoints/{}/checkpoint_scores.csv'.format(utility.model_name_mkr(model_params), header=0 ) )
         best_checkpoint_path = df_checkpoint_scores['Checkpoint_Path'][0]
         checkpoint_code = "E"+str(df_checkpoint_scores['Epoch'][0])
         status = ckpt.restore( best_checkpoint_path ).expect_partial()
@@ -136,7 +137,11 @@ def save_preds( test_params, model_params, li_preds, li_timestamps, li_truevalue
     data_tuple = (li_timestamps, li_preds, li_truevalues)
 
     pickle.dump( data_tuple, open( _path_pred + "/" +fn ,"wb"), protocol=4 )
-    print("Saved predictions\t", fn)
+    
+    t1 = time.strftime('%Y-%m-%d', time.localtime(li_timestamps[0][0]))
+    t2 = time.strftime('%Y-%m-%d', time.localtime(li_timestamps[-1][-1]))
+    print("Saved predictions\t", t1, "--", t2)
+    return True
 
 def load_predictions_gen(_path_pred):
     li_pred_fns = list( glob.glob(_path_pred+"/*") )
