@@ -125,7 +125,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
         ds = data_generators.load_data_ati(test_params, model_params, None, day_to_start_at=test_params['test_start_date'], data_dir=test_params['data_dir'] )
         ds = ds.take( test_set_size_batches )
     
-    elif(model_params['model_name'] in ["SimpleLSTM"]):
+    elif(model_params['model_name'] in ["SimpleLSTM","SimpleDense"]):
         ds = data_generators.load_data_ati(test_params, model_params, None, day_to_start_at=test_params['test_start_date'], data_dir=test_params['data_dir'] )
         ds = ds.take( test_set_size_batches )
 
@@ -185,7 +185,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
             if model_params['model_type_settings']['stochastic'] == True:
                 raise NotImplementedError
         
-        elif model_params['model_name'] == 'SimpleLSTM':
+        elif model_params['model_name'] in ['SimpleLSTM','SimpleDense']:
             target, mask = target
             preds = model( tf.cast(feature,tf.float16),training=False ) # (bs, seq_len, 1)
             preds = tf.squeeze(preds,axis=-1) # (1, bs, seq_len, h, w)

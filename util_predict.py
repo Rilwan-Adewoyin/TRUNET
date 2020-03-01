@@ -41,6 +41,11 @@ def load_model(test_params, model_params):
             init_inp = tf.zeros( [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'], 6 ], dtype=tf.float16 )
             model( init_inp, training=False )
         
+        elif(model_name=="SimpleDense"):
+            model = models.SimpleDense(test_params, model_params)
+            init_inp = tf.zeros( [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'], 6 ], dtype=tf.float16 )
+            model( init_inp, training=False )
+        
         elif(model_name=="SimpleConvLSTM"):
             model = models.SimpleConvLSTM(test_params,model_params)
             if model_params['model_type_settings']['location'] == "wholeregion":
@@ -85,6 +90,11 @@ def load_model(test_params, model_params):
             init_inp = tf.zeros( [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'], 6 ], dtype=tf.float16 )
             model( init_inp, training=False )
         
+        elif(model_name=="SimpleDense"):
+            model = models.SimpleDense(test_params, model_params)
+            init_inp = tf.zeros( [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'], 6 ], dtype=tf.float16 )
+            model( init_inp, training=False )
+        
         elif(model_name=="SimpleConvLSTM"):
             model = models.SimpleConvLSTM(test_params,model_params)
             if model_params['model_type_settings']['location'] == "wholeregion":
@@ -126,7 +136,7 @@ def save_preds( test_params, model_params, li_preds, li_timestamps, li_truevalue
     
 
     li_preds = [ tnsr.numpy() for tnsr in li_preds   ] #list of (bs, timesteps, preds_dim )
-    if( model_params['model_name'] == "SimpleLSTM"): 
+    if( model_params['model_name'] in ["SimpleLSTM","SimpleDense"]): 
         li_truevalues = [ tens.numpy().reshape([-1]) for tens in li_truevalues]
     elif( model_params['model_name'] in ["SimpleConvLSTM", "THST"] ): 
         li_truevalues = [ tens.numpy() for tens in li_truevalues]
