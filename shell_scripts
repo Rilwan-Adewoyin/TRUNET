@@ -1,0 +1,1 @@
+python3 train.py -mn "SimpleLSTM" -mts "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'London', 'model_version':'1'}" -dd "Data/Rain_Data_Nov19" -bs 2 -od "./Output" 

@@ -183,23 +183,50 @@ def train_loop(train_params, model_params):
         ds_train = data_generators.load_data_vandal( batches_to_skip*train_params['batch_size'], train_params, model_params, data_dir=train_params['data_dir'] )
 
     elif model_params['model_name'] in ["THST", "SimpleLSTM","SimpleConvLSTM","SimpleDense"]:
+        # #Version 1 old
         # ds_train = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['train_start_date'], data_dir=train_params['data_dir'])
         # ds_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['val_start_date'], data_dir=train_params['data_dir'] )
-        ds_train_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['train_start_date'], data_dir=train_params['data_dir'])
-        ds_train_val = ds_train_val.take(train_set_size_batches+val_set_size_batches).repeat(train_params['epochs']-starting_epoch)
+        # ds_train_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['train_start_date'], data_dir=train_params['data_dir'])
+        # ds_train_val = ds_train_val.take(train_set_size_batches+val_set_size_batches).repeat(train_params['epochs']-starting_epoch)
+        # ds_train_val = ds_train_val.skip(batches_to_skip)
+        # iter_val_train = enumerate(ds_train_val)
+        # iter_train = iter_val_train
+        # iter_val = iter_val_train
+    
+        # version 2  for iters, will be used when you want to increase the size of training set, while doing stateful training
+        li_start_days_train = np.arange( train_params['train_start_date'], 
+                                    train_params['train_start_date'] + np.timedelta64(train_params['lookback_target'],'D'),
+                                    np.timedelta64(train_params['lookback_target']//train_params['strided_dataset_count'],'D'), dtype='datetime64[D]')[:train_params['strided_dataset_count']]
+        
+        li_start_days_val = np.arange( train_params['val_start_date'], 
+                                    train_params['val_start_date'] + np.timedelta64(train_params['lookback_target'],'D'),
+                                    np.timedelta64(train_params['lookback_target']//train_params['strided_dataset_count'],'D'), dtype='datetime64[D]')[:train_params['strided_dataset_count']]
+
+        li_ds_trains = [ data_generators.load_data_ati( train_params, model_params, day_to_start_at=sd, data_dir=train_params['data_dir']) for sd in li_start_days_train ]
+        li_ds_vals = [ data_generators.load_data_ati( train_params, model_params, day_to_start_at=sd, data_dir=train_params['data_dir']) for sd in li_start_days_val ]
+        
+        li_ds_trains = [ _ds.take( math.ceil( train_set_size_batches/train_params['strided_dataset_count'] ) )  if idx==0 
+                            else _ds.take( train_set_size_batches//train_params['strided_dataset_count'] )  #This ensures that the for loops switch between validation and train sets at the right counts
+                            for idx,_ds in  enumerate(li_ds_trains) ] #Only the first ds takes the full amount
+       
+        li_ds_vals = [ _ds.take( math.ceil( val_set_size_batches/train_params['strided_dataset_count'] ) )  if idx==0 
+                    else _ds.take( val_set_size_batches//train_params['strided_dataset_count'] )  #This ensures that the for loops switch between validation and train sets at the right counts
+                    for idx,_ds in  enumerate(li_ds_vals) ] #Only the first ds takes the full amount
+
+        ds_train = li_ds_trains[0]
+        for idx in range(1,len(li_ds_trains[1:]) ):
+            ds_train = ds_train.concatenate( li_ds_trains[idx] )
+
+        ds_val = li_ds_vals[0]
+        for idx in range(1,len(li_ds_vals[1:]) ):
+            ds_val = ds_val.concatenate( li_ds_vals[idx] )
+
+        ds_train_val = ds_train.concatenate(ds_val).repeat(train_params['epochs']-starting_epoch)
         ds_train_val = ds_train_val.skip(batches_to_skip)
         iter_val_train = enumerate(ds_train_val)
         iter_train = iter_val_train
         iter_val = iter_val_train
-    
-    
-    # ds_train = ds_train.take(train_set_size_batches).repeat(train_params['epochs']-starting_epoch)
-    # ds_train = ds_train.skip(batches_to_skip)
-    # ds_val = ds_val.take(val_set_size_batches).repeat(train_params['epochs']-starting_epoch)
-    # iter_val = enumerate(ds_val)
-    # iter_train = enumerate(ds_train)
-    # endregion
-    
+
     # region --- Train and Val
     if model_params['model_type_settings']['var_model_type'] in ['horseshoefactorized','horseshoestructured'] :
         tf.config.experimental_run_functions_eagerly(True)
@@ -362,9 +389,12 @@ def train_loop(train_params, model_params):
                         preds_filtrd = tf.boolean_mask( preds, mask )
                         target_filtrd = tf.boolean_mask( target, mask )
 
+                        preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], 
+                                        train_params['normalization_scales']['rain'], reverse=True)
+
                         loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd) 
                         metric_mse = loss_mse
-                        scaled_loss_mse = optimizer.get_scaled_loss(loss_mse)
+                        scaled_loss_mse = optimizer.get_scaled_loss(loss_mse + sum(model.losses))
 
                     elif (model_params['model_type_settings']['stochastic']==True) :
                         raise NotImplementedError
@@ -386,15 +416,12 @@ def train_loop(train_params, model_params):
                         #scaling them back up
                         preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], 
                                                                 train_params['normalization_scales']['rain'], reverse=True)
-                        target_filtrd = utility.standardize_ati( target_filtrd, train_params['normalization_shift']['rain'], 
-                                                                train_params['normalization_scales']['rain'], reverse=True)
 
-                        # temp - re-weighting loss function focusing on predicting days with rain
                         step = batch + (epoch)*train_set_size_batches
 
-                        loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd) + sum(model.losses)
+                        loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd)
                         metric_mse = loss_mse
-                        scaled_loss_mse = optimizer.get_scaled_loss(loss_mse)
+                        scaled_loss_mse = optimizer.get_scaled_loss(loss_mse + sum(model.losses) )
 
                     elif(model_params['model_type_settings']['stochastic']==True):
                         raise NotImplementedError
@@ -411,7 +438,6 @@ def train_loop(train_params, model_params):
                     else:
                         target, mask = target # (bs, h, w) 
 
-
                     if( model_params['model_type_settings']['stochastic']==False):
 
                         preds = model( tf.cast(feature,tf.float16), train_params['trainable'] ) #( bs, tar_seq_len, h, w)
@@ -425,13 +451,15 @@ def train_loop(train_params, model_params):
                         preds_filtrd = tf.boolean_mask( preds, mask )
                         target_filtrd = tf.boolean_mask( target, mask )
 
+                        preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], 
+                                                                train_params['normalization_scales']['rain'], reverse=True)
+
                         loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd) 
                         metric_mse = loss_mse
-                        scaled_loss_mse = optimizer.get_scaled_loss(loss_mse)
+                        scaled_loss_mse = optimizer.get_scaled_loss(loss_mse + sum(model.losses))
 
                     elif(model_params['model_type_settings']['stochastic']==True):
                         raise NotImplementedError
-                    
                     scaled_gradients = tape.gradient( scaled_loss_mse, model.trainable_variables )
                     gradients = optimizer.get_unscaled_gradients(scaled_gradients)
                     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -485,17 +513,20 @@ def train_loop(train_params, model_params):
                 # Updating record of the last batch to be operated on in training epoch
             df_training_info.loc[ ( df_training_info['Epoch']==epoch) , ['Last_Trained_Batch'] ] = batch
             df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(model_params)), header=True, index=False )
-        
+
+            if batch in np.arange(math.ceil( train_set_size_batches/train_params['strided_dataset_count'] ), train_set_size_batches,  train_set_size_batches//train_params['strided_dataset_count'] ).tolist() :
+                model.reset_states()
         
         start_epoch_val = time.time()
         start_batch_time = time.time()
 
         print("\n\tStarting Validation")
-        model.reset_states()
+        
         #endregion
+        # endregion
 
         #region Valid
-
+        model.reset_states()
         for batch in range(val_set_size_batches):
 
             if model_params['model_type_settings']['location'] == 'region_grid':
@@ -520,7 +551,7 @@ def train_loop(train_params, model_params):
                 else:
                     target, mask = target # (bs, h, w) 
 
-                if model_params['model_type_settings']['stochastic'] ==False: #non stochastic version
+                if model_params['model_type_settings']['stochastic'] == False: #non stochastic version
                     preds = model(tf.cast(feature,tf.float16), training=False )
                     preds = tf.squeeze(preds)
 
@@ -531,6 +562,8 @@ def train_loop(train_params, model_params):
 
                     preds_filtrd = tf.boolean_mask( preds, mask )
                     target_filtrd = tf.boolean_mask( target, mask )
+                    preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], 
+                                        train_params['normalization_scales']['rain'], reverse=True)
                     val_metric_mse_mean( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
                 
                 elif model_params['model_type_settings']['stochastic'] ==True:
@@ -547,11 +580,6 @@ def train_loop(train_params, model_params):
 
                     preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], 
                                                             train_params['normalization_scales']['rain'], reverse=True)
-                    target_filtrd = utility.standardize_ati( target_filtrd, train_params['normalization_shift']['rain'], 
-                                                            train_params['normalization_scales']['rain'], reverse=True)
-
-                    step = batch + (epoch)*train_set_size_batches
-
 
                     val_metric_mse_mean( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
                 elif model_params['model_type_settings']['stochastic'] == True:
@@ -576,9 +604,10 @@ def train_loop(train_params, model_params):
 
                     preds_filtrd = tf.boolean_mask( preds, mask )
                     target_filtrd = tf.boolean_mask( target, mask )
+                    preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], 
+                                                            train_params['normalization_scales']['rain'], reverse=True)
                     val_metric_mse_mean( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
 
-            
                 elif(model_params['model_type_settings']['stochastic']==True):
                     raise NotImplementedError                
                 
@@ -600,10 +629,11 @@ def train_loop(train_params, model_params):
             print('\t\tVar_Free_Nrg: {:.5f} '.format(epoch, train_loss_var_free_nrg_mean_epoch.result()  ) )
 
             # endregion
+        
         with writer.as_default():
             tf.summary.scalar('Validation Loss MSE', val_metric_mse_mean.result() , step =  epoch )
         df_training_info = utility.update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoch, val_metric_mse_mean, ckpt_manager_epoch, train_params, model_params )
-        # endregion
+        
             
         #region Early iteration Stop Check
         if epoch > ( max( df_training_info.loc[:, 'Epoch'], default=0 ) + train_params['early_stopping_period']) :

@@ -132,14 +132,15 @@ def save_preds( test_params, model_params, li_preds, li_timestamps, li_truevalue
     if(not os.path.exists(_path_pred) ):
         os.makedirs(_path_pred)
     
-    #li_preds = [ tnsr.numpy() for tnsr in li_preds ] #shape of inner list [ timestemps, preds_dim ]
     
+    li_preds = [ tnsr.numpy() for tnsr in li_preds   ] #list of 1D - (tss, preds_dim ) 2D-(samples, tss, h, w )
 
-    li_preds = [ tnsr.numpy() for tnsr in li_preds   ] #list of (bs, timesteps, preds_dim )
     if( model_params['model_name'] in ["SimpleLSTM","SimpleDense"]): 
-        li_truevalues = [ tens.numpy().reshape([-1]) for tens in li_truevalues]
+        li_truevalues = [ tens.numpy().reshape([-1]) for tens in li_truevalues]     #list of 1D - (tss, preds_dim ) 
+
     elif( model_params['model_name'] in ["SimpleConvLSTM", "THST"] ): 
-        li_truevalues = [ tens.numpy() for tens in li_truevalues]
+        li_truevalues = [ tens.numpy() for tens in li_truevalues] #2D - (tss, h, w) # 1D -(timesteps,)
+
     elif( model_params['model_name'] in ["DeepSD"] ): 
         li_truevalues = [ tens.numpy() for tens in li_truevalues]
     

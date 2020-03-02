@@ -31,8 +31,9 @@
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
-            "args": [ "-mts" ,"{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'region_grid','deformable_conv':True, 'model_version':'1'}", 
-                "-mn","THST","-dd","Data/Rain_Data_Nov19", "-bs","2"]  
+            "args": [ "-mn","THST","-dd","Data/Rain_Data_Nov19", "-bs","2",
+                "-mts" ,"{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'region_grid','deformable_conv':False, 'model_version':'1','location_test':'London'}"
+                ]  
         },
         {
             "name": "SimpleLSTM",
@@ -42,20 +43,8 @@
             "console": "internalConsole",
             "justMyCode": false,
             "args": [ "-mn","SimpleLSTM",
-                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'London', 'model_version':'2'}",
-                "-dd","Data/Rain_Data_Nov19","-bs","2", "-od","./Output" ]
-        },
-
-        {
-            "name": "SimpleLSTM_Test",
-            "type": "python",
-            "request": "launch",
-            "program": "${file}",
-            "console": "internalConsole",
-            "justMyCode": false,
-            "args": [ "-mn","SimpleLSTM",
-                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'London', 'model_version':'2'}",
-                "-dd","Data/Rain_Data_Nov19","-bs","2", "-od","./Output" ]
+                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'London', 'model_version':'16'}",
+                "-dd","Data/Rain_Data_Nov19","-bs","2", "-od","./Output","-sdc","4" ]
         },
 
         {
@@ -65,9 +54,31 @@
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
-            "args": [ "-mn","SimpleConvLSTM", "-mv", "1",
+            "args": [ "-mn","SimpleConvLSTM",
                 "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'region_grid', 'model_version':'1'}",
-                "-dd","Data/Rain_Data_Nov19","-bs","2" ]
-        }
+                "-dd","Data/Rain_Data_Nov19","-bs","3", "-sdc","4" ]
+        },
+        {
+            "name": "SimpleConvLSTMTest",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "internalConsole",
+            "justMyCode": false,
+            "args": [ "-mn","SimpleConvLSTM",
+                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'region_grid', 'model_version':'1','location_test':'London'}",
+                "-dd","Data/Rain_Data_Nov19","-bs","3", "-sdc","4" ]
+        },
+        {
+            "name": "SimpleDense",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "internalConsole",
+            "justMyCode": false,
+            "args": [ "-mn","SimpleLSTM",
+                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'London', 'model_version':'2'}",
+                "-dd","Data/Rain_Data_Nov19","-bs","2", "-od","./Output" ]
+        },
     ]
 }

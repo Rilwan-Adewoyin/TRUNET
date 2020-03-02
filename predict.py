@@ -2,8 +2,9 @@
 import os
 import sys
 
+import data_generators
 import utility
-
+import numpy as np
 import tensorflow as tf
 tf.keras.backend.set_floatx('float16')
 tf.keras.backend.set_epsilon(1e-3)
@@ -55,7 +56,7 @@ from tensorboard.plugins.hparams import api as hp
 import pandas as pd
 
 import math
-import numpy as np
+
 
 import argparse 
 from tqdm import tqdm
@@ -64,7 +65,6 @@ import time
 
 import models
 import hparameters
-import data_generators
 import util_predict
 import utility
 import json
@@ -75,16 +75,14 @@ import itertools
 def main( test_params, model_params):
     print("GPU Available: ", tf.test.is_gpu_available() )
 
-    # 1) Instantiate Model
     model, checkpoint_code = util_predict.load_model(test_params, model_params)
 
-    # 2) Form Predictions
     predict(model, test_params, model_params ,checkpoint_code )
 
 def predict( model, test_params, model_params ,checkpoint_no ):
     
     # region ------ Setting up testing variables
-    if model_params['model_type_settings']['location'] == 'region_grid':
+    if model_params['model_type_settings']['location'] == 'region_grid' and 'location_test' not in model_params['model_type_settings'].keys():
         test_set_size_elements = int(test_params['test_set_size_elements']* np.prod(model_params['region_grid_params']['slides_v_h']) )
     else:
         test_set_size_elements = test_params['test_set_size_elements']
@@ -122,8 +120,9 @@ def predict( model, test_params, model_params ,checkpoint_no ):
         ds = ds.take( test_set_size_batches )
 
     elif(model_params['model_name'] in [ "THST", "SimpleConvLSTM"] ):
-        ds = data_generators.load_data_ati(test_params, model_params, None, day_to_start_at=test_params['test_start_date'], data_dir=test_params['data_dir'] )
-        ds = ds.take( test_set_size_batches )
+        if 'location_test' in model_params['model_type_settings'].keys():
+            ds, idx_city_in_region = data_generators.load_data_ati(test_params, model_params, None, day_to_start_at=test_params['test_start_date'], data_dir=test_params['data_dir'] )
+            ds = ds.take( test_set_size_batches )
     
     elif(model_params['model_name'] in ["SimpleLSTM","SimpleDense"]):
         ds = data_generators.load_data_ati(test_params, model_params, None, day_to_start_at=test_params['test_start_date'], data_dir=test_params['data_dir'] )
@@ -157,27 +156,32 @@ def predict( model, test_params, model_params ,checkpoint_no ):
             if model_params['model_type_settings']['stochastic'] == False:
 
                 preds = model( tf.cast(feature,tf.float16),training=False )
-                preds = tf.expand_dims(preds, axis=0 )
                 preds = tf.squeeze(preds,axis=-1) # (1, bs, seq_len, h, w)
-                
+                preds = tf.expand_dims(preds, axis=0 )
+
                 if model_params['model_type_settings']['location'] == 'region_grid':
-                    preds = preds[:, :, 6:10, 6:10]
-                    mask = mask[:, :, 6:10, 6:10]
-                    target = target[:, :, 6:10, 6:10]
+                    preds = preds[:, :, :, 6:10, 6:10]
+                    mask = mask[:, :, :, 6:10, 6:10]
+                    target = target[:, :, :, 6:10, 6:10]
+
+                if 'location_test' in model_params['model_type_settings'].keys():
+                    preds = preds[:, :, :, idx_city_in_region[0], idx_city_in_region[0] ]
+                    mask = mask[:, :, :, idx_city_in_region[0], idx_city_in_region[0] ]
+                    target = target[:, :, :, idx_city_in_region[0], idx_city_in_region[0] ]
                 
                 #splitting in the time dimension
-
-
-                preds_std = utility.standardize_ati(preds_masked, test_params['normalization_scales']['rain'], reverse=True)
-                targets_std = utility.standardize_ati(target_masked, test_params['normalization_scales']['rain'], reverse=True)
-
-                preds_masked = utility.water_mask( preds, mask  )
+                preds_std = utility.standardize_ati(preds, test_params['normalization_shift']['rain'] ,test_params['normalization_scales']['rain'], reverse=True)
+                preds_masked = utility.water_mask( preds_std, mask  )
                 target_masked = utility.water_mask(target, mask )
                 
+                if "location_test" in model_params['model_type_settings'].keys():
+                    #combining the batch and seq_len axis to represent timesteps
+                    preds_reshaped = tf.reshape(preds_masked, [ preds_masked.shape[0], -1]  ) #(samples, timesteps)
+                    targets_reshaped = tf.reshape(target_masked, [-1] ) #(timesteps)
+                else:
+                    preds_reshaped = tf.reshape(preds_masked, [ preds_masked.shape[0], -1] + preds_masked.shape.as_list()[-2:] ) #(samples, timesteps, h, w)
+                    targets_reshaped = tf.reshape(target_masked, [-1]+target_masked.shape.as_list()[-2:] ) #(samples, timesteps, h, w)
 
-                #combining the batch and seq_len axis to represent timesteps
-                preds_reshaped = tf.reshape(preds_std, [ preds_std.shape[0], -1] + preds_std.shape.as_list()[-2:] )
-                targets_reshaped = tf.reshape(targets_std, [-1]+preds_std.shape.as_list()[-2:] )
                     
                 li_predictions.append( preds_reshaped )
                 li_true_values.append( targets_reshaped )
@@ -195,10 +199,9 @@ def predict( model, test_params, model_params ,checkpoint_no ):
             target_masked = utility.water_mask(target, mask )
 
             preds_std = utility.standardize_ati(preds_masked, test_params['normalization_shift']['rain'] ,test_params['normalization_scales']['rain'], reverse=True)
-            targets_std = utility.standardize_ati(target_masked, test_params['normalization_shift']['rain'], test_params['normalization_scales']['rain'], reverse=True)
 
             preds_reshaped = tf.reshape( preds_std, [preds_std.shape[0] , -1])
-            targets_reshaped = tf.reshape( targets_std, [preds_std.shape[0], -1])
+            targets_reshaped = tf.reshape( target_masked, [target_masked.shape[0], -1])
 
             li_predictions.append( preds_reshaped )
             li_true_values.append( targets_reshaped )

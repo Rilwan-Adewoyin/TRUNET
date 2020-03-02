@@ -297,6 +297,8 @@ def parse_arguments(s_dir=None):
 
     parser.add_argument('-od','--output_dir', type=str, required=False, default="./Output")
 
+    parser.add_argument('-sdc','--strided_dataset_count',type=int, required=False, default=1, help="The number of datasets to create. Each dataset has stride equal to window size, so for large window sizes dataset becomes very small and overfitting is likely")
+
     args_dict = vars(parser.parse_args() )
 
     return args_dict
@@ -330,7 +332,9 @@ def default(obj):
         if isinstance(obj, datetime.date):
             return obj.isoformat()
         else:
-            return obj.__str__()  
+            return obj.__str__()
+    elif isinstance( obj, tf.keras.regularizers.Regularizer ):
+        return obj.get_config() 
 
     raise TypeError('Unknown type:', type(obj))
 

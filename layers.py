@@ -633,24 +633,6 @@ class THST_Encoder(tf.keras.layers.Layer ):
         self.train_params = train_params
         self.layer_count = encoder_params['enc_layer_count']
         
-        #old
-            # self.CLSTM_1 = THST_CLSTM_Input_Layer( train_params, encoder_params['CLSTMs_params'][0] )
-            
-            # self.CLSTM_2 = THST_CLSTM_Attention_Layer( train_params, encoder_params['CLSTMs_params'][1], 
-            #     encoder_params['ATTN_params'][0], encoder_params['ATTN_DOWNSCALING_params_enc'] ,
-            #     encoder_params['seq_len_factor_reduction'][0], self.encoder_params['attn_layers_num_of_splits'][0] )
-
-            # self.CLSTM_3 = THST_CLSTM_Attention_Layer( train_params, encoder_params['CLSTMs_params'][2], 
-            #     encoder_params['ATTN_params'][1], encoder_params['ATTN_DOWNSCALING_params_enc'] ,
-            #     encoder_params['seq_len_factor_reduction'][1], self.encoder_params['attn_layers_num_of_splits'][1] )
-
-            # self.CLSTM_4 = THST_CLSTM_Attention_Layer( train_params, encoder_params['CLSTMs_params'][3], 
-            #     encoder_params['ATTN_params'][2], encoder_params['ATTN_DOWNSCALING_params_enc'] ,
-            #     encoder_params['seq_len_factor_reduction'][2], self.encoder_params['attn_layers_num_of_splits'][2] )
-                
-            # self.CLSTM_5 = THST_CLSTM_Attention_Layer( train_params, encoder_params['CLSTMs_params'][4], 
-            #     encoder_params['ATTN_params'][3], encoder_params['ATTN_DOWNSCALING_params_enc'] ,
-            #     encoder_params['seq_len_factor_reduction'][3], self.encoder_params['attn_layers_num_of_splits'][3] )
 
         self.CLSTM_Input_Layer = THST_CLSTM_Input_Layer( train_params, encoder_params['CLSTMs_params'][0] )
 
@@ -682,6 +664,7 @@ class THST_Encoder(tf.keras.layers.Layer ):
 
         #new
         hs_list = tf.TensorArray(dtype=self._compute_dtype, size=self.encoder_params['attn_layers_count'], infer_shape=False, dynamic_size=False, clear_after_read=False )
+        
         hidden_state =  self.CLSTM_Input_Layer( _input, training ) #(bs, seq_len_1, h, w, c1)
         
         for idx in range(self.encoder_params['attn_layers_count'] ):
@@ -703,15 +686,6 @@ class THST_Decoder(tf.keras.layers.Layer):
         self.layer_count = decoder_params['decoder_layer_count']
         #self.encoder_hidden_state_count = self.layer_count + 1
         
-
-        #old
-        # #TODO: REFACTOR so that each of these conv layers is made automatically using a forloop and and iterating through a dictionary of params
-        # self.CLSTM_L4 = THST_CLSTM_Decoder_Layer( train_params, self.decoder_params['CLSTMs_params'][2], decoder_params['seq_len_factor_expansion'][2],
-        #                                                 decoder_params['seq_len'][2] )
-        # self.CLSTM_L3 = THST_CLSTM_Decoder_Layer( train_params, self.decoder_params['CLSTMs_params'][1],  decoder_params['seq_len_factor_expansion'][1],
-        #                                                 decoder_params['seq_len'][1] )
-        # self.CLSTM_L2 = THST_CLSTM_Decoder_Layer( train_params, self.decoder_params['CLSTMs_params'][0],  decoder_params['seq_len_factor_expansion'][0],
-        #                                                 decoder_params['seq_len'][0] )
         
         self.CLSTM_2cell_layers = []
         for idx in range( self.layer_count ):
@@ -737,10 +711,8 @@ class THST_Decoder(tf.keras.layers.Layer):
         for idx in range(1, self.layer_count+1):
             dec_hs_outp =  self.CLSTM_2cell_layers[-idx]( hs_list.read( self.layer_count -idx ), dec_hs_outp, training )
         hs_list = hs_list.close()
-        #hs_list.close()
         return dec_hs_outp
             
-
 class THST_CLSTM_Input_Layer(tf.keras.layers.Layer):
     """
         This corresponds to the lower input layer

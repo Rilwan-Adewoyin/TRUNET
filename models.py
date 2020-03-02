@@ -73,6 +73,8 @@ class THST(tf.keras.Model):
         self.decoder = layers.THST_Decoder( train_params, model_params['decoder_params'], h_w )
         self.output_layer = layers.THST_OutputLayer( train_params, model_params['output_layer_params'], model_params['model_type_settings']  )
 
+
+        self.output_activation = layers.CustomRelu_maker(train_params)
         self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
 
     @tf.function
@@ -87,7 +89,9 @@ class THST(tf.keras.Model):
             hs_list_enc = self.encoder(_input, training=training)
         with tf.device('/GPU:1'):
             hs_dec = self.decoder(hs_list_enc, training=training)
+            
             output = self.output_layer(hs_dec, training)
+            output =self.output_activation(output)
             output = self.float32_output(output)
         return output
 
@@ -108,22 +112,16 @@ class SimpleLSTM(tf.keras.Model):
 
         self.model_params = model_params
         #self.LSTM_layers = [ tf.keras.layers.LSTM( implementation=2, **model_params['layer_params'][idx] ) for idx in range( model_params['layer_count'] ) ]
-        #self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.LSTM( implementation=2, **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ]
-        
-        # self.LSTM_init_state = [ [[tf.Variable(tf.zeros( (train_params['batch_size'],model_params['layer_params'][idx]['units']), dtype=tf.float16)) ]*2]*2 for idx in range( model_params['layer_count']) ]
-        # for idx in range(model_params['layer_count']):
-        #     self.LSTM_layers[idx].forward_layer.states = self.LSTM_init_state[idx][0]
-        #     self.LSTM_layers[idx].backward_layer.states = self.LSTM_init_state[idx][1]
-        self.dense0 = TimeDistributed( tf.keras.layers.Dense(units= 128, activation='relu',bias_regularizer=tf.keras.regularizers.l2(0.01)) )
-        self.dense1 = TimeDistributed( tf.keras.layers.Dense(units= 128, activation='relu',bias_regularizer=tf.keras.regularizers.l2(0.01)) )
-        self.dense2 = TimeDistributed( tf.keras.layers.Dense(units= 128, activation='relu',bias_regularizer=tf.keras.regularizers.l2(0.01)) )
+        self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.LSTM( **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ]
+
+        self.dense1 =  tf.keras.layers.Dense(units= 64, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.01) )
 
         self.output_dense = TimeDistributed( tf.keras.layers.Dense(units=1, activation='linear') )
         self.output_activation = layers.CustomRelu_maker(train_params)
         self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
+        self.do=tf.keras.layers.Dropout(0.05 )#, noise_shape=None, seed=None, **kwargs
 
         self.new_shape = tf.TensorShape( [train_params['batch_size'], model_params['data_pipeline_params']['lookback_target'], int(6*4)] )
-        self.do=tf.keras.layers.Dropout(0.20 )#, noise_shape=None, seed=None, **kwargs
 
     @tf.function
     def call(self, _input, training=True):
@@ -131,13 +129,17 @@ class SimpleLSTM(tf.keras.Model):
         #shape = _input.shape
 
         x = tf.reshape( _input, self.new_shape )
-        # for idx in range(self.model_params['layer_count']):
-        #     x = self.LSTM_layers[idx](inputs=x,training=training )  
+        #x =  self.dense0(self.do(x,training=training) )
+
+        for idx in range(self.model_params['layer_count']):
+            if idx==0:
+                x0 = self.LSTM_layers[idx](inputs=x,training=training )
+                x = x0
+            else:
+                x = x + self.LSTM_layers[idx](inputs=x,training=training )
         
-        x0 = self.dense0(x)
-        x1 = self.dense1(self.do(x0,training=training))
-        x2 = self.dense2(self.do(x1,training=training))
-        outp = self.output_dense( x2 )
+        x = self.dense1(self.do( (x + x0)/2,training=training) )
+        outp = self.output_dense( x )
         outp = self.output_activation(outp)
         outp = self.float32_output(outp)
         return outp
@@ -160,10 +162,10 @@ class SimpleDense(tf.keras.Model):
 
         self.model_params = model_params
 
-        self.dense0 = TimeDistributed( tf.keras.layers.Dense(units= 128, activation='relu',bias_regularizer=tf.keras.regularizers.l2(0.01)) )
-        self.dense1 = TimeDistributed( tf.keras.layers.Dense(units= 128, activation='relu',bias_regularizer=tf.keras.regularizers.l2(0.01)) )
-        self.dense2 = TimeDistributed( tf.keras.layers.Dense(units= 128, activation='relu',bias_regularizer=tf.keras.regularizers.l2(0.01)) )
-        self.dense3 = TimeDistributed( tf.keras.layers.Dense(units= 128, activation='relu',bias_regularizer=tf.keras.regularizers.l2(0.01)) )
+        self.dense0 = TimeDistributed( tf.keras.layers.Dense(units= 128, activation='relu',kernel_regularizer=tf.keras.regularizers.l2(0.01)) )
+        self.dense1 = TimeDistributed( tf.keras.layers.Dense(units= 128, activation='relu',kernel_regularizer=tf.keras.regularizers.l2(0.01)) )
+        self.dense2 = TimeDistributed( tf.keras.layers.Dense(units= 128, activation='relu',kernel_regularizer=tf.keras.regularizers.l2(0.01)) )
+        self.dense3 = TimeDistributed( tf.keras.layers.Dense(units= 128, activation='relu',kernel_regularizer=tf.keras.regularizers.l2(0.01)) )
 
         self.output_dense = TimeDistributed( tf.keras.layers.Dense(units=1, activation='linear') )
         self.output_activation = layers.CustomRelu_maker(train_params)
@@ -211,7 +213,10 @@ class SimpleConvLSTM(tf.keras.Model):
                
         self.output_conv = self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **self.model_params['outpconv_layer_params'] ) )
 
-        #self.ConvLSTM_layers[0]._dtype = "float16"
+        self.do = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=0.10, data_format = 'channels_last' ) )
+
+        self.output_activation = layers.CustomRelu_maker(train_params)
+
         self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
 
         self.new_shape1 = tf.TensorShape( [train_params['batch_size'],model_params['region_grid_params']['outer_box_dims'][0], model_params['region_grid_params']['outer_box_dims'][1],  train_params['lookback_target'] ,int(6*4)] )
@@ -223,10 +228,19 @@ class SimpleConvLSTM(tf.keras.Model):
         x = tf.reshape( x, self.new_shape1 )        # reshape time and channel axis
         x = tf.transpose( x, [0,3,1,2,4 ] )   # converting back to bs, time, h,w, c
 
+        # for idx in range(self.model_params['layer_count']):
+        #     x = self.ConvLSTM_layers[idx](inputs=x, training=training)
+
         for idx in range(self.model_params['layer_count']):
-            x = self.ConvLSTM_layers[idx](inputs=x, training=training)
-        x = self.output_conv(x,training=training)
-        x = self.float32_output(x)
+            if idx==0:
+                x0 = self.ConvLSTM_layers[idx](inputs=x,training=training )
+                x = x0
+            else:
+                x = x + self.ConvLSTM_layers[idx](inputs=x,training=training )
+
+        x = self.output_conv( self.do( (x + x0)/2),training=training)
+        outp = self.output_activation(x)
+        x = self.float32_output(outp)
         return x
 
 

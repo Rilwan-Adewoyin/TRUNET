@@ -205,7 +205,7 @@ class model_THST_hparameters(MParams):
         enc_layer_count = len( SEQ_LEN_FACTOR_REDUCTION ) +1
 
         # region CLSTM params
-        output_filters_enc = [48]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
+        output_filters_enc = [64]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc = output_filters_enc + output_filters_enc[-1:] # the last two layers in the encoder must output the same number of channels
         kernel_size_enc = [ (4,4) ] * (enc_layer_count)                   # [(2,2)]
 
@@ -298,8 +298,8 @@ class model_THST_hparameters(MParams):
 
 
         OUTPUT_LAYER_PARAMS = [ 
-            { "filters":fs, "kernel_size":ks ,  "padding":"same", "activation":'relu' } 
-                for fs, ks in zip( output_filters, output_kernel_size )
+            { "filters":fs, "kernel_size":ks ,  "padding":"same", "activation":act } 
+                for fs, ks, act in zip( output_filters, output_kernel_size, ['relu','linear'] )
          ]
         # endregion
 
@@ -333,18 +333,21 @@ class model_SimpleLSTM_hparameters(MParams):
     
     def _default_params(self):
         #model
-        li_units =  [512, 256, 6] #, 216, 216]
-        #li_units =  [2, 2, 2]
-        li_rs =     [True]*len(li_units)
+        layer_count = 3
+        li_units =  [128]*layer_count
+        li_rs =     [True]*layer_count
         LAYER_PARAMS = [
-            {'units': un, 'dropout':0.35, 'recurrent_dropout':0.35,
-                'return_sequences':rs, 'stateful':False}
+            {'units': un, 'dropout':0.1, 'recurrent_dropout':0.4,
+                'return_sequences':rs, 'stateful':True,
+                'kernel_regularizer': tf.keras.regularizers.l2(0.01),
+                'recurrent_regularizer': tf.keras.regularizers.l2(0.2),
+                'bias_regularizer':tf.keras.regularizers.l2(0.01) }
                 for un, rs in zip(li_units, li_rs)
         ]
 
         #data pipeline
         target_to_feature_time_ratio = 4
-        lookback_feature = 4*target_to_feature_time_ratio        
+        lookback_feature = 30*target_to_feature_time_ratio   #30     
         DATA_PIPELINE_PARAMS = {
             'lookback_feature':lookback_feature,
             'lookback_target': int(lookback_feature/target_to_feature_time_ratio),
@@ -353,17 +356,17 @@ class model_SimpleLSTM_hparameters(MParams):
 
         #training proc
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-2 , "warmup_proportion":0.6,
-            "min_lr":1e-3, "beta_1":0.99, "beta_2":0.99,"decay":0.90
+            "learning_rate":1e-4 , "warmup_proportion":0.6,
+            "min_lr":1e-5, "beta_1":0.99, "beta_2":0.99,"decay":0.95
             }
 
-        LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.999 }
+        LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }
 
         model_type_settings = { }
 
         self.params.update({
             'model_name':'SimpleLSTM',
-            'layer_count': len(li_units),
+            'layer_count': layer_count,
             'layer_params': LAYER_PARAMS,
             
             'data_pipeline_params': DATA_PIPELINE_PARAMS,
@@ -386,17 +389,20 @@ class model_SimpleConvLSTM_hparamaters(MParams):
         paddings = ['same']*layer_count
         return_sequences = [True]*layer_count
         dropout = [0.0]*layer_count
-        recurrent_dropout = [0.0]*layer_count
+        recurrent_dropout = [0.2]*layer_count
         
         ConvLSTM_layer_params = [ { 'filters':fs, 'kernel_size':ks , 'padding': ps,
-                                'return_sequences':rs, "dropout": dp , "recurrent_dropout":rdp  }
+                                'return_sequences':rs, "dropout": dp , "recurrent_dropout":rdp,
+                                'kernel_regularizer': tf.keras.regularizers.l2(0.01),
+                                'recurrent_regularizer': tf.keras.regularizers.l2(0.1),
+                                'bias_regularizer':tf.keras.regularizers.l2(0.01)  }
                                 for fs,ks,ps,rs,dp,rdp in zip(filters, kernel_sizes, paddings, return_sequences, dropout, recurrent_dropout)  ]
         
-        outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'relu' }
+        outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'linear','padding':'same' }
 
         #data pipeline
         target_to_feature_time_ratio = 4
-        lookback_feature = 3*8*target_to_feature_time_ratio  #TODO: Try with longer sequence if it fits into memory       
+        lookback_feature = 30*target_to_feature_time_ratio  #TODO: Try with longer sequence if it fits into memory       
         DATA_PIPELINE_PARAMS = {
             'lookback_feature':lookback_feature,
             'lookback_target': int(lookback_feature/target_to_feature_time_ratio),
@@ -406,10 +412,10 @@ class model_SimpleConvLSTM_hparamaters(MParams):
         #training proc
         REC_ADAM_PARAMS = {
             "learning_rate":1e-4 , "warmup_proportion":0.6,
-            "min_lr":1e-5, "beta_1":0.99, "beta_2":0.99, "decay":0.98
+            "min_lr":1e-5, "beta_1":0.99, "beta_2":0.99, "decay":0.94
             }
 
-        LOOKAHEAD_PARAMS = { "sync_period":4 , "slow_step_size":0.85 }
+        LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":0.85 }
 
         model_type_settings = { }
 
@@ -461,8 +467,6 @@ class model_SimpleDense_hparameters(MParams):
             'rec_adam_params':REC_ADAM_PARAMS,
             'lookahead_params':LOOKAHEAD_PARAMS
         })
-
-
 
 class train_hparameters(HParams):
     def __init__(self, **kwargs):
@@ -564,8 +568,10 @@ class train_hparameters_ati(HParams):
     def __init__(self, **kwargs):
         self.lookback_target = kwargs.get('lookback_target',None)
         self.batch_size = kwargs.get("batch_size",None)
+        self.strided_dataset_count = kwargs.get("strided_dataset_count", 1)
         kwargs.pop('batch_size')
         kwargs.pop('lookback_target')
+        kwargs.pop('strided_dataset_count')
         super( train_hparameters_ati, self).__init__(**kwargs)
 
     def _default_params(self):
@@ -661,25 +667,23 @@ class train_hparameters_ati(HParams):
         # endregion
 
         #TODO: correct the train_set_size_elems
-        TRAIN_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS_TARGET*0.6)
+        TRAIN_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS_TARGET*0.6) 
         
         VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS_TARGET*0.2)
-         
+        
         DATA_DIR = "./Data/Rain_Data_Nov19" 
         EARLY_STOPPING_PERIOD = 8
  
         self.params = {
             'batch_size':BATCH_SIZE,
             'epochs':EPOCHS,
-            'total_datums':TOTAL_DATUMS_TARGET,
             'early_stopping_period':EARLY_STOPPING_PERIOD,
             'trainable':trainable,
             'lookback_target':self.lookback_target,
 
-            'train_set_size_elements':TRAIN_SET_SIZE_ELEMENTS,
-            'train_set_size_batches':TRAIN_SET_SIZE_ELEMENTS//BATCH_SIZE,
-            'val_set_size_elements':VAL_SET_SIZE_ELEMENTS,
-            'val_set_size_batches':VAL_SET_SIZE_ELEMENTS//BATCH_SIZE,
+            'strided_dataset_count': self.strided_dataset_count,
+            'train_set_size_batches':(TRAIN_SET_SIZE_ELEMENTS//BATCH_SIZE) *self.strided_dataset_count - self.strided_dataset_count +1 ,
+            'val_set_size_batches':(VAL_SET_SIZE_ELEMENTS//BATCH_SIZE) *self.strided_dataset_count - self.strided_dataset_count +1,
 
             'checkpoints_to_keep':CHECKPOINTS_TO_KEEP,
             'checkpoints_to_keep_epoch':CHECKPOINTS_TO_KEEP_EPOCH,
