@@ -667,9 +667,15 @@ class THST_Encoder(tf.keras.layers.Layer ):
         
         hidden_state =  self.CLSTM_Input_Layer( _input, training ) #(bs, seq_len_1, h, w, c1)
         
-        for idx in range(self.encoder_params['attn_layers_count'] ):
-            hidden_state = self.CLSTM_Attn_layers[idx]( hidden_state, training=training)
-            hs_list = hs_list.write( idx, hidden_state )
+        #Note: Doing the foor loop this way so more operations can be given to gpu 1
+        with tf.device('/GPU:0'):
+            for idx in range(self.encoder_params['attn_layers_count'] -1):
+                hidden_state = self.CLSTM_Attn_layers[idx]( hidden_state, training=training)
+                hs_list = hs_list.write( idx, hidden_state )
+        
+        with tf.device('/GPU:1'):
+            hidden_state = self.CLSTM_Attn_layers[idx+1]( hidden_state, training=training)
+            hs_list = hs_list.write( idx+1, hidden_state )
         
         return hs_list
 

@@ -1,5 +1,6 @@
 import numpy as np
 import tensorflow as tf
+tf.keras.backend.set_floatx('float16')
 
 
 from tensor2tensor.layers.common_attention import split_heads, combine_heads, maybe_upcast
@@ -1396,11 +1397,11 @@ class ConvLSTM2D_custom(ConvRNN2D):
         shape_c_state[-1] = self.cell.filters*2
         
         initial_hidden_state = self.cell.input_conv(initial_state,
-                                            array_ops.zeros(tuple(shape_h_state)),
+                                            array_ops.zeros(tuple(shape_h_state) , self._compute_dtype),
                                             padding=self.cell.padding)
         
         initial_carry_state = self.cell.input_conv( initial_state,
-                                            array_ops.zeros(tuple(shape_c_state)),
+                                            array_ops.zeros(tuple(shape_c_state),self._compute_dtype ),
                                             padding=self.cell.padding)
 
         if hasattr(self.cell.state_size, '__len__'):
@@ -2145,7 +2146,7 @@ class ConvLSTM2D_attn(ConvRNN2D):
         # shape_c_state[-1] = self.cell.filters
         
         initial_hidden_state = self.cell.input_conv(initial_state,
-                                            array_ops.zeros(tuple(shape_h_state)),
+                                            array_ops.zeros(tuple(shape_h_state),self._compute_dtype),
                                             padding=self.cell.padding)
         
         # initial_carry_state = self.cell.input_conv( initial_state,
