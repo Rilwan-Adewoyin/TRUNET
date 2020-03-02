@@ -178,10 +178,10 @@ class model_THST_hparameters(MParams):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
             "learning_rate":1e-4, "warmup_proportion":0.6,
-            "min_lr": 1e-5, "beta_1":0.99 , "beta_2":0.99, "decay":0.98
+            "min_lr": 1e-5, "beta_1":0.99 , "beta_2":0.99, "decay":0.95
             }
-        DROPOUT = 0.00
-        LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99}
+        DROPOUT = 0.10
+        LOOKAHEAD_PARAMS = { "sync_period":2 , "slow_step_size":0.99}
         # endregion
         
         #region Key Model Size Settings
@@ -208,6 +208,10 @@ class model_THST_hparameters(MParams):
         output_filters_enc = [64]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc = output_filters_enc + output_filters_enc[-1:] # the last two layers in the encoder must output the same number of channels
         kernel_size_enc = [ (4,4) ] * (enc_layer_count)                   # [(2,2)]
+        recurrent_regularizers = [ tf.keras.regularizers.l2(0.2) ] * (enc_layer_count) 
+        kernel_regularizers = [ tf.keras.regularizers.l2(0.01) ] * (enc_layer_count)
+        bias_regularizers= [ tf.keras.regularizers.l2(0.01) ] * (enc_layer_count)
+        recurrent_dropouts = [0.4]*(enc_layer_count)
 
         attn_layers_count = enc_layer_count - 1
         attn_heads = [ 8 ]*attn_layers_count                          #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
@@ -248,9 +252,10 @@ class model_THST_hparameters(MParams):
         
         CLSTMs_params_enc = [
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
-                'return_sequences':True, 'dropout':0.0, 'recurrent_dropout':0.0,
-                'stateful':False }
-             for f, ks in zip( output_filters_enc, kernel_size_enc)
+                'return_sequences':True, 'dropout':0.0, 'recurrent_dropout':rd,
+                'stateful':True, 'recurrent_regularizer': rr, 'kernel_regularlizer':kr,
+                'bias_regularlizer':br, 'recurrent_dropout':rd }
+             for f, ks, rr, kr, br, rd in zip( output_filters_enc, kernel_size_enc, recurrent_regularizers, kernel_regularizers, bias_regularizers, recurrent_dropouts  )
         ]
         # endregion
         
@@ -275,8 +280,12 @@ class model_THST_hparameters(MParams):
             #Each decoder layer sends in values into the layer below. 
         CLSTMs_params_dec = [
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
-                'return_sequences':True, 'dropout':0.0, 'gates_version':2, 'recurrent_dropout':0.0,
-                'stateful':False }
+                'return_sequences':True, 'dropout':0.1, 'gates_version':2,
+                'recurrent_dropout':0.4, 
+                'kernel_regularlizer':tf.keras.regularizers.l2(0.01),
+                'recurrent_regularizer': tf.keras.regularizers.l2(0.2),
+                'bias_regularizer':tf.keras.regularizers.l2(0.01),
+                'stateful':True }
              for f, ks in zip( output_filters_dec, kernel_size_dec)
         ]
         DECODER_LAYERS_NUM_OF_SPLITS = ATTN_LAYERS_NUM_OF_SPLITS[:decoder_layer_count]
@@ -388,13 +397,13 @@ class model_SimpleConvLSTM_hparamaters(MParams):
         kernel_sizes = [[4,4]]*layer_count
         paddings = ['same']*layer_count
         return_sequences = [True]*layer_count
-        dropout = [0.0]*layer_count
+        dropout = [0.1]*layer_count
         recurrent_dropout = [0.2]*layer_count
         
         ConvLSTM_layer_params = [ { 'filters':fs, 'kernel_size':ks , 'padding': ps,
                                 'return_sequences':rs, "dropout": dp , "recurrent_dropout":rdp,
                                 'kernel_regularizer': tf.keras.regularizers.l2(0.01),
-                                'recurrent_regularizer': tf.keras.regularizers.l2(0.1),
+                                'recurrent_regularizer': tf.keras.regularizers.l2(0.2),
                                 'bias_regularizer':tf.keras.regularizers.l2(0.01)  }
                                 for fs,ks,ps,rs,dp,rdp in zip(filters, kernel_sizes, paddings, return_sequences, dropout, recurrent_dropout)  ]
         
@@ -415,7 +424,7 @@ class model_SimpleConvLSTM_hparamaters(MParams):
             "min_lr":1e-5, "beta_1":0.99, "beta_2":0.99, "decay":0.94
             }
 
-        LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":0.85 }
+        LOOKAHEAD_PARAMS = { "sync_period":2 , "slow_step_size":0.85 }
 
         model_type_settings = { }
 
