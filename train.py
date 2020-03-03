@@ -398,7 +398,7 @@ def train_loop(train_params, model_params):
 
                     elif (model_params['model_type_settings']['stochastic']==True) :
                         raise NotImplementedError
-                    with tf.device('/GPU:1'):
+                    with tf.device('/GPU:0'):
                         scaled_gradients = tape.gradient( scaled_loss_mse, model.trainable_variables )
                         gradients = optimizer.get_unscaled_gradients(scaled_gradients)
                         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
