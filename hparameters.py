@@ -253,9 +253,9 @@ class model_THST_hparameters(MParams):
         CLSTMs_params_enc = [
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
                 'return_sequences':True, 'dropout':0.0, 'recurrent_dropout':rd,
-                'stateful':True, 'recurrent_regularizer': rr, 'kernel_regularlizer':kr,
-                'bias_regularlizer':br, 'recurrent_dropout':rd }
-             for f, ks, rr, kr, br, rd in zip( output_filters_enc, kernel_size_enc, recurrent_regularizers, kernel_regularizers, bias_regularizers, recurrent_dropouts  )
+                'stateful':True, 'recurrent_regularizer': rr, 'kernel_regularizer':kr,
+                'bias_regularizer':br}
+             for f, ks, rr, kr, br, rd in zip( output_filters_enc, kernel_size_enc, recurrent_regularizers, kernel_regularizers, bias_regularizers, recurrent_dropouts )
         ]
         # endregion
         
@@ -282,7 +282,7 @@ class model_THST_hparameters(MParams):
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
                 'return_sequences':True, 'dropout':0.1, 'gates_version':2,
                 'recurrent_dropout':0.4, 
-                'kernel_regularlizer':tf.keras.regularizers.l2(0.01),
+                'kernel_regularizer':tf.keras.regularizers.l2(0.01),
                 'recurrent_regularizer': tf.keras.regularizers.l2(0.2),
                 'bias_regularizer':tf.keras.regularizers.l2(0.01),
                 'stateful':True }

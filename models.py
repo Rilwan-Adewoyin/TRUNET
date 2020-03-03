@@ -73,11 +73,11 @@ class THST(tf.keras.Model):
         self.decoder = layers.THST_Decoder( train_params, model_params['decoder_params'], h_w )
         self.output_layer = layers.THST_OutputLayer( train_params, model_params['output_layer_params'], model_params['model_type_settings']  )
 
+        self.outp_layer2 = layers.OutputReluFloat32(train_params)
+        # self.output_activation = layers.CustomRelu_maker(train_params)
+        # self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
 
-        self.output_activation = layers.CustomRelu_maker(train_params)
-        self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
-
-    @tf.function
+    #@tf.function
     def call(self, _input, tape=None, training=False):
         
         #old
@@ -87,12 +87,12 @@ class THST(tf.keras.Model):
         # output = self.float32_output(output)
         #with tf.device('/GPU:0'):
         hs_list_enc = self.encoder(_input, training=training)
-        with tf.device('/GPU:1'):
-            hs_dec = self.decoder(hs_list_enc, training=training)
-            
-            output = self.output_layer(hs_dec, training)
-            output =self.output_activation(output)
-            output = self.float32_output(output)
+        #with tf.device('/GPU:0'):#with tf.device('/GPU:1'):
+        hs_dec = self.decoder(hs_list_enc, training=training)
+        
+        output = self.output_layer(hs_dec, training)
+        output = self.outp_layer2(output)
+
         return output
 
     def predict( self, inputs, n_preds, training=True):

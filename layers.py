@@ -130,7 +130,7 @@ class SRCNN( tf.keras.layers.Layer ):
 
             self.conv3 = tf.keras.layers.Conv2D( **self.model_params['conv3_params'] )
 
-    @tf.function
+    #@tf.function
     def call( self, _input ,upsample_method=tf.constant("zero_padding"), pred=False ): #( batch, height, width)
         
         
@@ -644,7 +644,7 @@ class THST_Encoder(tf.keras.layers.Layer ):
                         h_w )
             self.CLSTM_Attn_layers.append(_layer)
 
-    #@tf.function
+    #@tf.function -> cant be used since output hs_list is a TensorArray which Tensorflow does not correctly handle yet
     def call(self, _input, training=True):
         """
             _input #shape( )
@@ -662,24 +662,21 @@ class THST_Encoder(tf.keras.layers.Layer ):
 
             # return hidden_states_2, hidden_states_3, hidden_states_4, hidden_states_5  
 
-        #new
         hs_list = tf.TensorArray(dtype=self._compute_dtype, size=self.encoder_params['attn_layers_count'], infer_shape=False, dynamic_size=False, clear_after_read=False )
         
         hidden_state =  self.CLSTM_Input_Layer( _input, training ) #(bs, seq_len_1, h, w, c1)
         
         #Note: Doing the foor loop this way so more operations can be given to gpu 1
-        with tf.device('/GPU:0'):
-            for idx in range(self.encoder_params['attn_layers_count'] -1):
-                hidden_state = self.CLSTM_Attn_layers[idx]( hidden_state, training=training)
-                hs_list = hs_list.write( idx, hidden_state )
+        #with tf.device('/GPU:0'):
+        for idx in range(self.encoder_params['attn_layers_count'] -1):
+            hidden_state = self.CLSTM_Attn_layers[idx]( hidden_state, training=training)
+            hs_list = hs_list.write( idx, hidden_state )
         
-        with tf.device('/GPU:1'):
-            hidden_state = self.CLSTM_Attn_layers[idx+1]( hidden_state, training=training)
-            hs_list = hs_list.write( idx+1, hidden_state )
+        #with tf.device('/GPU:0'):#with tf.device('/GPU:1'):
+        hidden_state = self.CLSTM_Attn_layers[idx+1]( hidden_state, training=training)
+        hs_list = hs_list.write( idx+1, hidden_state )
         
         return hs_list
-
-          
 
 class THST_Decoder(tf.keras.layers.Layer):
     def __init__(self, train_params ,decoder_params, h_w):
@@ -699,10 +696,10 @@ class THST_Decoder(tf.keras.layers.Layer):
                                                         decoder_params['seq_len'][idx], h_w )
             self.CLSTM_2cell_layers.append(_layer)
 
-    # #@tf.function
+    # @tf.function
     # def call(self, hidden_states_2_enc, hidden_states_3_enc, hidden_states_4_enc, hidden_states_5_enc, training=True  ):
 
-    #@tf.function
+    #@tf.function -> cant be used since inpuut hs_list is a TensorArray which Tensorflow does not correctly handle yet
     def call(self, hs_list, training=True):
 
         # hidden_states_l4 = self.CLSTM_L4( hidden_states_4_enc , hidden_states_5_enc, training)
@@ -732,7 +729,7 @@ class THST_CLSTM_Input_Layer(tf.keras.layers.Layer):
 
         self.convLSTM = Bidirectional( layers_ConvLSTM2D.ConvLSTM2D( **self.layer_params ), merge_mode=None ) 
     
-    #@tf.function
+    @tf.function
     def call( self, _input, training ):
         #NOTE: consider addding multiple LSTM Layers to extract more latent features
 
@@ -783,7 +780,7 @@ class THST_CLSTM_Decoder_Layer(tf.keras.layers.Layer):
         self.shape3 = ( train_params['batch_size'], self.seq_len, h_w[0], h_w[1], layer_params['filters'] )
         self.convLSTM =  tf.keras.layers.Bidirectional( layers_ConvLSTM2D.ConvLSTM2D_custom(**layer_params )  , merge_mode=None)
     
-    #@tf.function
+    @tf.function
     def call(self, input1, input2, training=True ):
         """
 
@@ -823,7 +820,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
             self.conv_hidden = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[0] ) )
             self.conv_output = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
     
-    #@tf.function
+    @tf.function
     def call(self, _inputs, training=True ):
         """
         :param tnsr inputs: (bs, seq_len, h,w,c)
@@ -981,6 +978,19 @@ class SpatialConcreteDropout(tf.keras.layers.Wrapper):
 # endregion
 
 # region general layers/functions
+
+class OutputReluFloat32(tf.keras.layers.Layer):
+    def __init__(self, t_params):
+        super(OutputReluFloat32, self).__init__()
+
+        self.custom_relu = CustomRelu_maker(t_params)
+        self.outputf32 = tf.keras.layers.Activation('linear', dtype='float32')
+    
+    @tf.function
+    def call(self, inputs):
+        outp = self.custom_relu(inputs)
+        outp = self.outputf32(outp)
+        return outp
 
 def CustomRelu_maker(t_params):
     CustomRelu = tf.keras.layers.ReLU( threshold= utility.standardize_ati( 0, t_params['normalization_shift']['rain'], 

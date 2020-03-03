@@ -475,7 +475,7 @@ class ConvRNN2D(RNN):
         # TODO(anjalisridhar): consider batch calls to `set_value`.
         K.set_value(state, value)
 
-##Input layer
+#Input layer
 class ConvLSTM2D(ConvRNN2D):
     """Convolutional LSTM.
 
@@ -651,7 +651,7 @@ class ConvLSTM2D(ConvRNN2D):
                                         **kwargs)
         self.activity_regularizer = regularizers.get(activity_regularizer)
 
-    #@tf.function
+    @tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
         #self._maybe_reset_cell_dropout_mask(self.cell)
         return super(ConvLSTM2D, self).call(inputs,
@@ -946,7 +946,6 @@ class ConvLSTM2DCell(DropoutRNNCellMixin, Layer):
             self.bias = None
         self.built = True
 
-    @tf.function
     def call(self, inputs, states, training=None):
         h_tm1 = tf.cast(states[0],dtype=inputs.dtype)  # previous memory state
         c_tm1 = tf.cast( states[1], dtype=inputs.dtype)  # previous carry state
@@ -1055,7 +1054,7 @@ class ConvLSTM2DCell(DropoutRNNCellMixin, Layer):
         base_config = super(ConvLSTM2DCell, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
-##Decoder Layer
+#Decoder Layer
 class ConvLSTM2D_custom(ConvRNN2D):
     """
         CUSTOM Convolutional LSTM.
@@ -1530,6 +1529,7 @@ class ConvLSTM2DCell_custom(DropoutRNNCellMixin, Layer):
 
         self.gates_version=gates_version
 
+    
     def build(self, input_shape):
 
         if self.data_format == 'channels_first':
@@ -1568,9 +1568,9 @@ class ConvLSTM2DCell_custom(DropoutRNNCellMixin, Layer):
 
                 def bias_initializer(_, *args, **kwargs):
                     return K.concatenate([
-                        self.bias_initializer((self.filters*2,), *args, **kwargs),
-                        initializers.Ones()((self.filters*2,), *args, **kwargs),
-                        self.bias_initializer((self.filters * 4,), *args, **kwargs),
+                        self.bias_initializer((self.filters*2,),    *args, **kwargs),
+                        initializers.Ones()((self.filters*2,),      *args, **kwargs),
+                        self.bias_initializer((self.filters * 4,),  *args, **kwargs),
                     ]) #changed here
             else:
                 bias_initializer = self.bias_initializer
@@ -1586,7 +1586,7 @@ class ConvLSTM2DCell_custom(DropoutRNNCellMixin, Layer):
             self.bias = None
         self.built = True
 
-    @tf.function
+    #@tf.function
     def call(self, inputs, states, training=None):
         #inputs #shape (bs, h, w, c)
 
@@ -1974,7 +1974,7 @@ class ConvLSTM2D_attn(ConvRNN2D):
         
         self.activity_regularizer = regularizers.get(activity_regularizer)
 
-    #@tf.function
+    @tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
         #self._maybe_reset_cell_dropout_mask(self.cell)
         if initial_state is not None:
@@ -3221,7 +3221,6 @@ def _relative_attention_inner(x, y, z, transpose):
     # x_tz_matmul_r_t is [batch_size, heads, length or 1, length or depth]
     x_tz_matmul_r_t = tf.transpose(x_tz_matmul_r, [1, 2, 0, 3])
     return xy_matmul + x_tz_matmul_r_t
-
 
 class DeformableConvLayer(Conv2D):
     """Only support "channel last" data format

@@ -371,7 +371,7 @@ def train_loop(train_params, model_params):
                     
                 elif( model_params['model_name'] == "THST"):
                     if model_params['model_type_settings']['location'] == 'region_grid':
-                        if( tf.reduce_any( mask[:, :, 6:10, 6:10] )==False ):
+                        if( tf.reduce_any( mask[:, :, 6:10, 6:10] ) == False ):
                             continue
                     else:
                         target, mask = target # (bs, h, w) 
@@ -381,7 +381,7 @@ def train_loop(train_params, model_params):
                         preds = model( tf.cast(feature,tf.float16), train_params['trainable'] )
                         preds = tf.squeeze(preds)
 
-                        if (model_params['model_type_settings']['location']=='region_grid' ): #focusing on centre of square only
+                        if ( model_params['model_type_settings']['location']=='region_grid' ): #focusing on centre of square only
                             preds = preds[:, :, 6:10, 6:10]
                             mask = mask[:, :, 6:10, 6:10]
                             target = target[:, :, 6:10, 6:10]
