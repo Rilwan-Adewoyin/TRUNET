@@ -347,7 +347,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
 
         return arr_rain, arr_mask
     
-    ds_tar = ds_tar.map( lambda _vals, _mask: rain_mask( _vals, _mask, t_params['mask_fill_value']['rain'] ) ) # (values, mask)
+    ds_tar = ds_tar.map( lambda _vals, _mask: rain_mask( _vals, _mask, t_params['mask_fill_value']['rain'] ), num_parallel_calls=_num_parallel_calls ) # (values, mask)
 
     ds_tar = ds_tar.window(size =t_params['lookback_target'], stride=1, shift=t_params['window_shift'] , drop_remainder=True )
     
@@ -408,7 +408,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
         
         if 'location_test' in model_settings.keys():
             idx_region_flat, periodicy, idx_city_in_region = rain_data.find_idx_of_city_in_folded_regions( model_settings['location_test'],m_params['region_grid_params'] )
-            ds = ds.map( lambda mf, rain, rmask: load_data_ati_select_region(mf, rain, rmask, idx_region_flat, periodicy )  )
+            ds = ds.map( lambda mf, rain, rmask: load_data_ati_select_region(mf, rain, rmask, idx_region_flat, periodicy ), num_parallel_calls = _num_parallel_calls  )
             ds = ds.unbatch().batch( t_params['batch_size'],drop_remainder=True )
             ds = ds.prefetch(_num_parallel_calls)
             return ds, idx_city_in_region
