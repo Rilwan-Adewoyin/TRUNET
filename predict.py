@@ -70,6 +70,7 @@ import utility
 import json
 import ast
 import itertools
+from data_generators import Generator_rain
 # endregion
 
 def main( test_params, model_params):
@@ -133,6 +134,11 @@ def predict( model, test_params, model_params ,checkpoint_no ):
 
     # region --- predictions
     
+    # region --- Setting up auxilliary vars for general events
+    if 'location_test' in model_params['model_type_settings'].keys() & model_params['model_type_settings']['location']=='region_grid' :
+        fn_rain = test_params['data_dir']+"/rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc"
+        idx_region_flat, periodicy, idx_city_in_region = Generator_rain(fn=fn_rain, all_at_once=False).find_idx_of_city_in_folded_regions( model_params['model_type_settings']['location_test'], test_params['region_grid_params'] )
+
     for batch in range(1, int(1+test_set_size_batches) ):
 
         if model_params['model_type_settings']['location'] == 'region_grid':
@@ -157,17 +163,17 @@ def predict( model, test_params, model_params ,checkpoint_no ):
 
                 preds = model( tf.cast(feature,tf.float16),training=False )
                 preds = tf.squeeze(preds,axis=-1) # (1, bs, seq_len, h, w)
-                preds = tf.expand_dims(preds, axis=0 )
+                preds = tf.expand_dims(preds, axis=-1 )
 
                 if model_params['model_type_settings']['location'] == 'region_grid':
-                    preds = preds[:, :, :, 6:10, 6:10]
-                    mask = mask[:, :, :, 6:10, 6:10]
-                    target = target[:, :, :, 6:10, 6:10]
+                    preds = preds[ :, :, 6:10, 6:10, :]
+                    mask = mask[ :, :, 6:10, 6:10, :]
+                    target = target[:, :, 6:10, 6:10, :]
 
                 if 'location_test' in model_params['model_type_settings'].keys():
-                    preds = preds[:, :, :, idx_city_in_region[0], idx_city_in_region[0] ]
-                    mask = mask[:, :, :, idx_city_in_region[0], idx_city_in_region[0] ]
-                    target = target[:, :, :, idx_city_in_region[0], idx_city_in_region[0] ]
+                    preds = preds[:, :, idx_city_in_region[0], idx_city_in_region[0],: ]
+                    mask = mask[ :, :, idx_city_in_region[0], idx_city_in_region[0],: ]
+                    target = target[ :, :, idx_city_in_region[0], idx_city_in_region[0],: ]
                 
                 #splitting in the time dimension
                 preds_std = utility.standardize_ati(preds, test_params['normalization_shift']['rain'] ,test_params['normalization_scales']['rain'], reverse=True)
@@ -182,26 +188,68 @@ def predict( model, test_params, model_params ,checkpoint_no ):
                     preds_reshaped = tf.reshape(preds_masked, [ preds_masked.shape[0], -1] + preds_masked.shape.as_list()[-2:] ) #(samples, timesteps, h, w)
                     targets_reshaped = tf.reshape(target_masked, [-1]+target_masked.shape.as_list()[-2:] ) #(samples, timesteps, h, w)
 
-                    
-                li_predictions.append( preds_reshaped )
-                li_true_values.append( targets_reshaped )
             
             if model_params['model_type_settings']['stochastic'] == True:
-                raise NotImplementedError
-        
+
+                if model_params['model_type_settings']['var_model_type'] == "dropout":
+                    li_preds = model.predict( tf.cast(feature,tf.float16), True )
+                else:
+                    li_preds = model.predict( tf.cast(feature,tf.float16), False )
+
+                preds = tf.concat(li_preds, axis=-1) #(bs,ts,h,w,samples)
+
+                if ( model_params['model_type_settings']['location']=='region_grid' ): #focusing on centre of square only
+                    preds = preds[:, :, 6:10, 6:10, :]
+                    mask = mask[:, :, 6:10, 6:10]
+                    target = target[:, :, 6:10, 6:10]
+
+                    if 'location_test' in model_params['model_type_settings'].keys() :
+                        preds = preds[:, :, idx_city_in_region[0], idx_city_in_region[1], :]   #(bs, seq_lrn, sampled)
+                        mask = mask[:, :, idx_city_in_region[0], idx_city_in_region[1]]
+                        target = target[:, :, idx_city_in_region[0], idx_city_in_region[1]]
+
+                preds_masked = utility.water_mask( preds, tf.expand_dims(mask,-1)  )
+                target_masked = utility.water_mask(target, mask ) 
+                
+                preds_std = utility.standardize_ati( preds, test_params['normalization_shift']['rain'], test_params['normalization_scales']['rain'], reverse=True)
+                _ = len(preds_std.shape) - 2
+                preds_reshaped = tf.reshape( preds_std, [-1] + preds_std.shape[ -_ ] )
+                targets_reshaped = tf.reshape( target_masked, [-1] + preds_std.shape[ -_ ] )
+
+            li_predictions.append( preds_reshaped )
+            li_true_values.append( targets_reshaped )
+
         elif model_params['model_name'] in ['SimpleLSTM','SimpleDense']:
             target, mask = target
-            preds = model( tf.cast(feature,tf.float16),training=False ) # (bs, seq_len, 1)
-            preds = tf.squeeze(preds,axis=-1) # (1, bs, seq_len, h, w)
-            preds = tf.expand_dims(preds, axis=0 ) #(1, bs, seq_len)
 
-            preds_masked = utility.water_mask( preds, mask  )
-            target_masked = utility.water_mask(target, mask )
+            if (model_params['model_type_settings']['stochastic'] == False or model_params['model_type_settings']['distr_type']=="None") and model_params['model_type_settings']['stochastic_f_pass']==1 :
+                preds = model( tf.cast(feature,tf.float16),training=False ) # (bs, seq_len, 1)
+                preds = tf.squeeze(preds) # (1, bs, seq_len,1 )
+                preds = tf.expand_dims(preds, axis=-1 ) #(bs, seq_len, 1)
 
-            preds_std = utility.standardize_ati(preds_masked, test_params['normalization_shift']['rain'] ,test_params['normalization_scales']['rain'], reverse=True)
+                preds_masked = utility.water_mask( preds, tf.expand_dims(mask,-1)  )
+                target_masked = utility.water_mask(target, mask )
 
-            preds_reshaped = tf.reshape( preds_std, [preds_std.shape[0] , -1])
-            targets_reshaped = tf.reshape( target_masked, [target_masked.shape[0], -1])
+                preds_std = utility.standardize_ati(preds_masked, test_params['normalization_shift']['rain'] ,test_params['normalization_scales']['rain'], reverse=True)
+
+                preds_reshaped = tf.reshape( preds_std, [-1, 1] )
+                targets_reshaped = tf.reshape( target_masked, [-1, 1] )
+
+            else:
+                if model_params['model_type_settings']['var_model_type'] == "mc_dropout":
+                    li_preds = model.predict( tf.cast(feature,tf.float16), model_params['model_type_settings']['stochastic_f_pass'],True )
+                else:
+                    li_preds = model.predict( tf.cast(feature,tf.float16), model_params['model_type_settings']['stochastic_f_pass'] ,False )
+
+                preds = tf.concat(li_preds, axis=-1) #(bs,ts,samples)
+
+                preds_masked = utility.water_mask( preds, tf.expand_dims(mask,-1)  )
+                target_masked = utility.water_mask(target, mask ) 
+                
+                preds_std = utility.standardize_ati( preds, test_params['normalization_shift']['rain'], test_params['normalization_scales']['rain'], reverse=True)
+                _ = len(preds_std.shape) - 2
+                preds_reshaped = tf.reshape( preds_std, [-1] + preds_std.shape[ -_: ].as_list() )
+                targets_reshaped = tf.reshape( target_masked, [-1] + preds_std.shape[ -_: ].as_list() )
 
             li_predictions.append( preds_reshaped )
             li_true_values.append( targets_reshaped )

@@ -7,6 +7,7 @@ import argparse
 import json
 import hparameters
 import ast
+import copy
 import datetime
 
 # region Vandal
@@ -209,6 +210,11 @@ def load_params_train_model(args_dict):
         
         train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
 
+    #Other Checks
+    ## 1) If training and if mc_dropout, change to Deterministic since mc_dropout is not really variational inference
+    if( model_params['model_type_settings']['var_model_type']=='mc_dropout' and model_params['model_type_settings']['stochastic']==False ):
+        model_params['model_type_settings']['var_model_type'] ='Deterministic'
+
     save_model_settings( model_params, train_params() )
 
     return train_params, model_params
@@ -340,7 +346,15 @@ def default(obj):
 
 #endregion
 
-def model_name_mkr(model_params):
+def model_name_mkr(model_params, mode='Generic'):
+    if mode == "Generic":
+        pass
+    elif mode == "mc_dropout_test":
+        model_params = copy.deepcopy(model_params)
+        model_params['model_type_settings']['var_model_type'] = 'Deterministic'
+        model_params['model_type_settings']['stochastic'] = False
+
+    
     if  model_params['model_name'] == "THST":
         model_name = "{}_{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
                                           model_params['model_type_settings']['distr_type'], 

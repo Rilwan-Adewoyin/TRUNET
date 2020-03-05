@@ -121,7 +121,7 @@ class SRCNN( tf.keras.layers.Layer ):
 
             #self.conv1.dtype =                  
 
-        if self.model_params['model_type_settings']['var_model_type'] == 'dropout':
+        if self.model_params['model_type_settings']['var_model_type'] == 'concrete_dropout':
             self.conv1 = SpatialConcreteDropout( tf.keras.layers.Conv2D( **self.model_params['conv1_params'] ) )
             
             self.upSample = UpSampler( self.model_params['input_dims'], self.model_params['output_dims'] )
@@ -672,7 +672,7 @@ class THST_Encoder(tf.keras.layers.Layer ):
             hidden_state = self.CLSTM_Attn_layers[idx]( hidden_state, training=training)
             hs_list = hs_list.write( idx, hidden_state )
         
-        #with tf.device('/GPU:0'):#with tf.device('/GPU:1'):
+        #with tf.device('/GPU:1'):
         hidden_state = self.CLSTM_Attn_layers[idx+1]( hidden_state, training=training)
         hs_list = hs_list.write( idx+1, hidden_state )
         

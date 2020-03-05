@@ -328,13 +328,17 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     ds_tar = tf.data.Dataset.from_generator( rain_data, output_types=( tf.float32, tf.bool) ) #(values, mask) 
     ds_tar = ds_tar.skip(start_idx_tar) #skipping to correct point
     
-    def normalize_rain_values(arr_rain, arr_mask, shift, scale):
+    # def normalize_rain_values(arr_rain, arr_mask, shift, scale):
 
-        arr_rain = utility.standardize_ati(arr_rain, shift, scale, reverse=False  )
+        #     arr_rain = utility.standardize_ati(arr_rain, shift, scale, reverse=False  )
 
-        return arr_rain, arr_mask
+        #     return arr_rain, arr_mask
+        
+        #ds_tar = ds_tar.map( lambda _vals, _mask: normalize_rain_values( _vals, _mask, t_params['normalization_shift']['rain'] ,t_params['normalization_scales']['rain'] ) ) # (values, mask)
     
-    #ds_tar = ds_tar.map( lambda _vals, _mask: normalize_rain_values( _vals, _mask, t_params['normalization_shift']['rain'] ,t_params['normalization_scales']['rain'] ) ) # (values, mask)
+    ds_tar = ds_tar.window(size =t_params['lookback_target'], stride=1, shift=t_params['window_shift'] , drop_remainder=True )
+    
+    ds_tar = ds_tar.flat_map( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(t_params['lookback_target']) for w in window ] ) ) ) #shape (lookback,h, w)
 
     def rain_mask(arr_rain, arr_mask, fill_value):
         """ 
@@ -348,10 +352,6 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
         return arr_rain, arr_mask
     
     ds_tar = ds_tar.map( lambda _vals, _mask: rain_mask( _vals, _mask, t_params['mask_fill_value']['rain'] ), num_parallel_calls=_num_parallel_calls ) # (values, mask)
-
-    ds_tar = ds_tar.window(size =t_params['lookback_target'], stride=1, shift=t_params['window_shift'] , drop_remainder=True )
-    
-    ds_tar = ds_tar.flat_map( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(t_params['lookback_target']) for w in window ] ) ) ) #shape (lookback,h, w)
     # endregion
 
     # region prepare feature model fields
@@ -361,6 +361,12 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     
     ds_feat = tf.data.Dataset.from_generator( mf_data , output_types=( tf.float32, tf.bool)) #(values, mask) 
     ds_feat = ds_feat.skip(start_idx_feat)
+
+    ds_feat = ds_feat.window(size = t_params['lookback_feature'], stride=1, shift=t_params['lookback_feature'], drop_remainder=True )
+
+    ds_feat = ds_feat.flat_map( lambda *window: tf.data.Dataset.zip( tuple([w.batch(t_params['lookback_feature']) for w in window ] ) ) )  #shape (lookback,h, w, 6)
+    
+
     def mf_normalization_mask(arr_data, scales, shift, arr_mask, fill_value):
         """
 
@@ -376,14 +382,11 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
         return arr_data # (h,w,c)
 
     ds_feat = ds_feat.map( lambda arr_data, arr_mask: mf_normalization_mask( arr_data, t_params['normalization_scales']['model_fields'],
-                t_params['normalization_shift']['model_fields'],
-                arr_mask ,t_params['mask_fill_value']['model_field'] ) ,num_parallel_calls= _num_parallel_calls) #_num_parallel_calls  )
+                t_params['normalization_shift']['model_fields'],arr_mask ,t_params['mask_fill_value']['model_field'] ) ,
+                num_parallel_calls= _num_parallel_calls) #_num_parallel_calls  )
 
-
-    ds_feat = ds_feat.window(size = t_params['lookback_feature'], stride=1, shift=t_params['lookback_feature'], drop_remainder=True )
-
-    ds_feat = ds_feat.flat_map( lambda window: tf.data.Dataset.zip( window.batch(t_params['lookback_feature']) ) )  #shape (lookback,h, w, 6)
     # endregion
+
     
     ds = tf.data.Dataset.zip( (ds_feat, ds_tar) ) #( model_fields, (rain, rain_mask) ) 
      

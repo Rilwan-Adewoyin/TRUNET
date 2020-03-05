@@ -69,6 +69,8 @@ import hparameters
 import gc
 import itertools
 import json
+
+import custom_losses
 #tf.random.set_seed(seed)
 # endregion
 
@@ -252,6 +254,7 @@ def train_loop(train_params, model_params):
         print("\n\nStarting EPOCH {} Batch {}/{}".format(epoch, batches_to_skip+1, train_set_size_batches))
         
         #region Train
+        model.reset_states()
         for batch in range(batches_to_skip,train_set_size_batches):
             if model_params['model_type_settings']['location'] == 'region_grid':
                 idx, (feature, target, mask) = next(iter_train)
@@ -376,7 +379,7 @@ def train_loop(train_params, model_params):
                     else:
                         target, mask = target # (bs, h, w) 
 
-                    if (model_params['model_type_settings']['stochastic']==False): #non stochastic version
+                    if (model_params['model_type_settings']['stochastic']==False or model_params['model_type_settings']['var_model_type'] == "mc_dropout" ): #non stochastic version
 
                         preds = model( tf.cast(feature,tf.float16), train_params['trainable'] )
                         preds = tf.squeeze(preds)
@@ -394,12 +397,13 @@ def train_loop(train_params, model_params):
 
                         loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd) 
                         metric_mse = loss_mse
-                        scaled_loss_mse = optimizer.get_scaled_loss(loss_mse + sum(model.losses))
+                        scaled_loss = optimizer.get_scaled_loss(loss_mse + sum(model.losses))
 
-                    elif (model_params['model_type_settings']['stochastic']==True) :
+                    elif (model_params['model_type_settings']['stochastic']==True):
                         raise NotImplementedError
+                        
                     with tf.device('/GPU:0'):
-                        scaled_gradients = tape.gradient( scaled_loss_mse, model.trainable_variables )
+                        scaled_gradients = tape.gradient( scaled_loss, model.trainable_variables )
                         gradients = optimizer.get_unscaled_gradients(scaled_gradients)
                         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
                 
@@ -417,16 +421,79 @@ def train_loop(train_params, model_params):
                         preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], 
                                                                 train_params['normalization_scales']['rain'], reverse=True)
 
-                        step = batch + (epoch)*train_set_size_batches
+                        if model_params['model_type_settings']['discrete_continuous'] == False:
+                            loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd)
+                            metric_mse = loss_mse
 
-                        loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd)
-                        metric_mse = loss_mse
-                        scaled_loss_mse = optimizer.get_scaled_loss(loss_mse + sum(model.losses) )
+                        else:
+                            #get classification labels & predictions, true/1 means it has rained   
+                            
+                            labels_true = tf.cast(  tf.greater( target_filtrd, model_params['model_type_settings']['precip_threshold'] ) , tf.float32 )
+                            labels_pred = tf.cast( tf.greater( preds_filtrd, model_params['model_type_settings']['precip_threshold'] ) ,tf.float32 )
+                            
+                            true_count = tf.math.count_nonzero( target_filtrd,dtype=tf.float32 )
+                            all_count = tf.size( target_filtrd,out_type=tf.float32 )
+
+                            #  gather predictions which are conditional on rain
+                            bool_cond_rain = tf.where(tf.equal(labels_true,1),True,False )
+
+                            preds_cond_rain_mean = tf.boolean_mask( preds_filtrd, bool_cond_rain)
+                            target_cond_rain = tf.boolean_mask( target_filtrd, bool_cond_rain )
+
+                            preds_cond_no_rain_mean = tf.boolean_mask( preds_filtrd, tf.math.logical_not(bool_cond_rain) )
+                            target_cond_no_rain = tf.boolean_mask( target_filtrd, tf.math.logical_not(bool_cond_rain) )
+                            
+
+                            if model_params['model_type_settings']['distr_type'] == 'Normal': #These two below handle dc cases of normal and log_normal
+                                loss_mse = tf.keras.losses.MSE(target_cond_rain, preds_cond_rain_mean)
+                                metric_mse = loss_mse
+                            
+                            elif model_params['model_type_settings']['distr_type'] == 'LogNormal':
+                                metric_mse = tf.keras.metrics.MSE(target_cond_rain, preds_cond_rain_mean)
+                                loss_mse = custom_losses.lnormal_mse(target_cond_rain, preds_cond_rain_mean)
+
+                                #temp: adding an mse loss to the values which are under 0.5
+                                if(model_params['model_type_settings']['model_version'] in ["3","4"] ):
+                                    #loss_mse += tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
+                                    loss_mse += ((all_count-true_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
+
+                                    metric_mse += loss_mse
+                            if(model_params['model_type_settings']['model_version'] in ["3,4"] ):
+                                log_cross_entropy_rainclassification = tf.reduce_mean( 
+                                                tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=True) ) 
+                            elif(model_params['model_type_settings']['model_version'] in ["5"] ):
+                                one_hot_tar = tf.zeros([ target_filtrd, 3],dtype=tf.float32)
+                                _1= tf.where(  4<target_filtrd )
+                                _2= tf.where( 0.5<target_filtrd<4 )
+                                _3= tf.where( target_filtrd<0.5)
+                                _indices = tf.concat([_1,_2,_3],axis=0)
+                                one_hot_tar[_indices] = 1
+
+                                one_hot_pred = tf.zeros([ target_filtrd, 3],dtype=tf.float32)
+                                _1= tf.where(  4<target_filtrd )
+                                _2= tf.where( 0.5<target_filtrd<4 )
+                                _3= tf.where( target_filtrd<0.5)
+                                _indices = tf.concat([_1,_2,_3],axis=0)
+                                one_hot_pred[_indices] = 1
+
+
+                                log_cross_entropy_rainclassification = tf.reduce_mean(
+                                    tf.keras.backend.categorical_crossentropy(
+                                        target= one_hot_tar,
+                                        output = one_hot_pred,
+                                        from_logits = True
+                                    )
+                                )
+                            
+                            loss_mse += log_cross_entropy_rainclassification
+                        
+                        scaled_loss = optimizer.get_scaled_loss(loss_mse + sum(model.losses) )
 
                     elif(model_params['model_type_settings']['stochastic']==True):
-                        raise NotImplementedError
+                        raise NotImplementedError("mc_dropout model uses the deterministically trained model")
+
                     
-                    scaled_gradients = tape.gradient( scaled_loss_mse, model.trainable_variables )
+                    scaled_gradients = tape.gradient( scaled_loss, model.trainable_variables )
                     gradients = optimizer.get_unscaled_gradients(scaled_gradients)
                     #gradients = tape.gradient( loss_mse, model.trainable_variables)
                     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -456,11 +523,11 @@ def train_loop(train_params, model_params):
 
                         loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd) 
                         metric_mse = loss_mse
-                        scaled_loss_mse = optimizer.get_scaled_loss(loss_mse + sum(model.losses))
+                        scaled_loss = optimizer.get_scaled_loss(loss_mse + sum(model.losses))
 
                     elif(model_params['model_type_settings']['stochastic']==True):
                         raise NotImplementedError
-                    scaled_gradients = tape.gradient( scaled_loss_mse, model.trainable_variables )
+                    scaled_gradients = tape.gradient( scaled_loss, model.trainable_variables )
                     gradients = optimizer.get_unscaled_gradients(scaled_gradients)
                     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
                     
@@ -543,7 +610,8 @@ def train_loop(train_params, model_params):
                     target_filtrd = tf.reshape( tf.boolean_mask(  target , train_params['bool_water_mask'], axis=1 ), [train_params['batch_size'], -1] )
                     preds_filtrd = tf.reshape( tf.boolean_mask( preds, train_params['bool_water_mask'],axis=1 ), [train_params['batch_size'], -1] )
                     val_metric_mse_mean( tf.reduce_mean( tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  ) #TODO: Ensure that both preds and target are reshaped prior 
-            
+                    #TODO: Add Discrete Continuous Metric here is wrong, should be same as other version
+
             elif model_params['model_name'] == "THST":
                 if model_params['model_type_settings']['location'] == 'region_grid':
                     if( tf.reduce_any( mask[:, :, 6:10, 6:10] )==False ):
@@ -581,7 +649,68 @@ def train_loop(train_params, model_params):
                     preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], 
                                                             train_params['normalization_scales']['rain'], reverse=True)
 
-                    val_metric_mse_mean( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
+                    if model_params['model_type_settings']['discrete_continuous'] == False:
+                        val_metric_mse_mean( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
+
+                    else:
+                        #get classification labels & predictions, true/1 means it has rained   
+                        labels_true = tf.cast( tf.greater( target_filtrd, model_params['model_type_settings']['precip_threshold'] ), tf.float32 )
+                        labels_pred = tf.cast( tf.greater( preds_filtrd, model_params['model_type_settings']['precip_threshold'] ) ,tf.float32 )
+                        
+                        true_count = tf.math.count_nonzero( target_filtrd, dtype=tf.float32 )
+                        all_count = tf.size( target_filtrd, out_type=tf.float32 )
+
+                        #  gather predictions which are conditional on rain
+                        bool_cond_rain = tf.where(tf.equal(labels_true,1),True,False )
+                        preds_cond_rain_mean = tf.boolean_mask( preds_filtrd, bool_cond_rain)
+                        target_cond_rain = tf.boolean_mask( target_filtrd, bool_cond_rain )
+                        
+                        preds_cond_no_rain_mean = tf.boolean_mask( preds_filtrd, tf.math.logical_not(bool_cond_rain) )
+                        target_cond_no_rain = tf.boolean_mask( target_filtrd, tf.math.logical_not(bool_cond_rain) )
+                        
+
+                        if model_params['model_type_settings']['distr_type'] == 'Normal': #These two below handle dc cases of normal and log_normal
+
+                            loss_mse = (true_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_cond_rain , preds_cond_rain_mean ) )  #NOTE: currently the val_metric_mse_mean represents a different target for different combinations of distr_type and stochastic
+                        
+                        elif model_params['model_type_settings']['distr_type'] == 'LogNormal':
+                            
+                            loss_mse = custom_losses.lnormal_mse(target_cond_rain, target_cond_rain)
+                            #temp: adding an mse loss to the values which are under 0.5
+                            if(model_params['model_type_settings']['model_version'] in ["3","4"] ):
+                                loss_mse += ((all_count-true_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
+                            
+                            if(model_params['model_type_settings']['model_version'] in ["3","4"] ):
+                                log_cross_entropy_rainclassification = tf.reduce_mean( 
+                                        tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=True) )
+
+                            elif(model_params['model_type_settings']['model_version'] in ["5"] ):
+                                one_hot_tar = tf.zeros([ target_filtrd, 3],dtype=tf.float32)
+                                _1= tf.where(  4<target_filtrd )
+                                _2= tf.where( 0.5<target_filtrd<4 )
+                                _3= tf.where( target_filtrd<0.5)
+                                _indices = tf.concat([_1,_2,_3],axis=0)
+                                one_hot_tar[_indices] = 1
+
+                                one_hot_pred = tf.zeros([ target_filtrd, 3],dtype=tf.float32)
+                                _1= tf.where(  4<target_filtrd )
+                                _2= tf.where( 0.5<target_filtrd<4 )
+                                _3= tf.where( target_filtrd<0.5)
+                                _indices = tf.concat([_1,_2,_3],axis=0)
+                                one_hot_pred[_indices] = 1
+
+
+                                log_cross_entropy_rainclassification = tf.reduce_mean(
+                                    tf.keras.backend.categorical_crossentropy(
+                                        target= one_hot_tar,
+                                        output = one_hot_pred,
+                                        from_logits = True
+                                    )
+                                )
+
+                        loss_mse +=     log_cross_entropy_rainclassification
+                        val_metric_mse_mean( loss_mse)
+
                 elif model_params['model_type_settings']['stochastic'] == True:
                     raise NotImplementedError
             
@@ -626,7 +755,7 @@ def train_loop(train_params, model_params):
 
         print("\tEpoch:{}\t Train MSE:{:.8f}\tValidation Loss: MSE:{:.5f}\tTime:{:.5f}".format(epoch, train_metric_mse_mean_epoch.result(), val_metric_mse_mean.result(), time.time()-start_epoch_val  ) )
         if( model_params['model_type_settings']['stochastic']==True ):
-            print('\t\tVar_Free_Nrg: {:.5f} '.format(epoch, train_loss_var_free_nrg_mean_epoch.result()  ) )
+            print('\t\tVar_Free_Nrg: {:.5f} '.format(train_loss_var_free_nrg_mean_epoch.result()  ) )
 
             # endregion
         

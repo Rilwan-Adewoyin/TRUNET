@@ -13,7 +13,11 @@ def load_model(test_params, model_params):
     model_name = model_params['model_name']
 
         # Option 2 - From checkpoint and model.py
-   
+    if model_params['model_type_settings']['var_model_type'] == "mc_dropout":
+        mode = "mc_dropout_test"
+    else:
+        mode = "Generic"
+
     if(test_params['model_recover_method'] == 'checkpoint_batch'):
         
         if(model_name=="DeepSD"):
@@ -56,7 +60,7 @@ def load_model(test_params, model_params):
                         [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] ,16 , 16,6 ], dtype=tf.float16 )
             model(init_inp, training=False )
 
-        checkpoint_path = test_params['script_dir']+"/checkpoints/{}/batch".format(utility.model_name_mkr(model_params))
+        checkpoint_path = test_params['script_dir']+"/checkpoints/{}/batch".format(utility.model_name_mkr(model_params,mode=mode))
 
         ckpt = tf.train.Checkpoint(att_con=model)
         checkpoint_code = "B"+ str(tf.train.latest_checkpoint(checkpoint_path)[-5:])
@@ -109,7 +113,7 @@ def load_model(test_params, model_params):
         ckpt = tf.train.Checkpoint(model=model)
 
         #We will use Optimal Checkpoint information from checkpoint_scores_model.csv
-        df_checkpoint_scores = pd.read_csv( test_params['script_dir']+'/checkpoints/{}/checkpoint_scores.csv'.format(utility.model_name_mkr(model_params), header=0 ) )
+        df_checkpoint_scores = pd.read_csv( test_params['script_dir']+'/checkpoints/{}/checkpoint_scores.csv'.format(utility.model_name_mkr(model_params,mode=mode), header=0 ) )
         best_checkpoint_path = df_checkpoint_scores['Checkpoint_Path'][0]
         checkpoint_code = "E"+str(df_checkpoint_scores['Epoch'][0])
         status = ckpt.restore( best_checkpoint_path ).expect_partial()
@@ -135,7 +139,7 @@ def save_preds( test_params, model_params, li_preds, li_timestamps, li_truevalue
     
     li_preds = [ tnsr.numpy() for tnsr in li_preds   ] #list of 1D - (tss, preds_dim ) 2D-(samples, tss, h, w )
 
-    if( model_params['model_name'] in ["SimpleLSTM","SimpleDense"]): 
+    if( model_params['model_name'] in ["SimpleLSTM","SimpleDense"]):
         li_truevalues = [ tens.numpy().reshape([-1]) for tens in li_truevalues]     #list of 1D - (tss, preds_dim ) 
 
     elif( model_params['model_name'] in ["SimpleConvLSTM", "THST"] ): 
