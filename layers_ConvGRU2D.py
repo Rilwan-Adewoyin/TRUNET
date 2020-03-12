@@ -628,7 +628,7 @@ class ConvGRU2D(ConvRNN2D):
                 reset_after=True,
                 **kwargs):
         if layer_norm != None: 
-            layer_norm.dtype =  "float16"
+            layer_norm._dtype =  "float16"
         cell = ConvGRU2DCell(filters=filters,
                             kernel_size=kernel_size,
                             strides=strides,
