@@ -627,6 +627,8 @@ class ConvGRU2D(ConvRNN2D):
                 implementation=2,
                 reset_after=True,
                 **kwargs):
+        if layer_norm != None: 
+            layer_norm.dtype =  "float16"
         cell = ConvGRU2DCell(filters=filters,
                             kernel_size=kernel_size,
                             strides=strides,
@@ -714,9 +716,6 @@ class ConvGRU2D(ConvRNN2D):
     def bias_initializer(self):
         return self.cell.bias_initializer
 
-    @property
-    def unit_forget_bias(self):
-        return self.cell.unit_forget_bias
 
     @property
     def kernel_regularizer(self):
@@ -766,7 +765,6 @@ class ConvGRU2D(ConvRNN2D):
                 'recurrent_initializer': initializers.serialize(
                     self.recurrent_initializer),
                 'bias_initializer': initializers.serialize(self.bias_initializer),
-                'unit_forget_bias': self.unit_forget_bias,
                 'kernel_regularizer': regularizers.serialize(
                     self.kernel_regularizer),
                 'recurrent_regularizer': regularizers.serialize(
@@ -780,7 +778,8 @@ class ConvGRU2D(ConvRNN2D):
                     self.recurrent_constraint),
                 'bias_constraint': constraints.serialize(self.bias_constraint),
                 'dropout': self.dropout,
-                'recurrent_dropout': self.recurrent_dropout}
+                'recurrent_dropout': self.recurrent_dropout
+                'layer_norm':self.layer_norm }
         base_config = super(ConvGRU2D, self).get_config()
         del base_config['cell']
         return dict(list(base_config.items()) + list(config.items()))
