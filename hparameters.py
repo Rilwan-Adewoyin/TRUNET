@@ -344,13 +344,23 @@ class model_SimpleLSTM_hparameters(MParams):
         #model
         layer_count = 3
         li_units =  [128]*layer_count
+        
         li_rs =     [True]*layer_count
+        # LAYER_PARAMS = [
+        #     {'units': un, 'dropout':0.1, 'recurrent_dropout':0.4,
+        #         'return_sequences':rs, 'stateful':True,
+        #         'kernel_regularizer': tf.keras.regularizers.l2(0.01),
+        #         'recurrent_regularizer': tf.keras.regularizers.l2(0.2),
+        #         'bias_regularizer':tf.keras.regularizers.l2(0.01) }
+        #         for un, rs in zip(li_units, li_rs)
+        # ]
+
         LAYER_PARAMS = [
-            {'units': un, 'dropout':0.1, 'recurrent_dropout':0.4,
+            {'units': un, 'dropout':0.0, 'recurrent_dropout':0.1,
                 'return_sequences':rs, 'stateful':True,
-                'kernel_regularizer': tf.keras.regularizers.l2(0.01),
+                'kernel_regularizer': None,
                 'recurrent_regularizer': tf.keras.regularizers.l2(0.2),
-                'bias_regularizer':tf.keras.regularizers.l2(0.01) }
+                'bias_regularizer':tf.keras.regularizers.l2(0.2) }
                 for un, rs in zip(li_units, li_rs)
         ]
 
@@ -365,8 +375,8 @@ class model_SimpleLSTM_hparameters(MParams):
 
         #training proc
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-4 , "warmup_proportion":0.6,
-            "min_lr":1e-5, "beta_1":0.99, "beta_2":0.99,"decay":0.95
+            "learning_rate":1e-2 , "warmup_proportion":0.6,
+            "min_lr":1e-3, "beta_1":0.99, "beta_2":0.99,"decay":0.95
             }
 
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }
@@ -432,6 +442,63 @@ class model_SimpleConvLSTM_hparamaters(MParams):
             'model_name':'SimpleConvLSTM',
             'layer_count':layer_count,
             'ConvLSTM_layer_params':ConvLSTM_layer_params,
+            'outpconv_layer_params': outpconv_layer_params,
+
+            'data_pipeline_params':DATA_PIPELINE_PARAMS,
+            'model_type_settings':model_type_settings,
+
+            'rec_adam_params':REC_ADAM_PARAMS,
+            'lookahead_params':LOOKAHEAD_PARAMS
+        })
+
+class model_SimpleConvGRU_hparamaters(MParams):
+
+    def __init__(self, **kwargs):
+        super(model_SimpleConvGRU_hparamaters, self).__init__(**kwargs)
+    
+    def _default_params(self):
+        #ConvLayers
+        layer_count = 3 #TODO: Shi uses 2 layers
+        filters = [64]*layer_count #[128]*layer_count #Shi Precip nowcasting used 
+        kernel_sizes = [[4,4]]*layer_count
+        paddings = ['same']*layer_count
+        return_sequences = [True]*layer_count
+        dropout = [0.0]*layer_count
+        recurrent_dropout = [0.1]*layer_count
+        
+        ConvGRU_layer_params = [ { 'filters':fs, 'kernel_size':ks , 'padding': ps,
+                                'return_sequences':rs, "dropout": dp , "recurrent_dropout":rdp,
+                                'kernel_regularizer': None,
+                                'recurrent_regularizer': None,
+                                'bias_regularizer':tf.keras.regularizers.l2(0.2),
+                                'layer_normalization':tf.keras.layers.LayerNormalization(axis=[-3,-2,-1]) }
+                                for fs,ks,ps,rs,dp,rdp in zip(filters, kernel_sizes, paddings, return_sequences, dropout, recurrent_dropout)  ]
+        
+        outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'linear','padding':'same' }
+
+        #data pipeline
+        target_to_feature_time_ratio = 4
+        lookback_feature = 30*target_to_feature_time_ratio  #TODO: Try with longer sequence if it fits into memory       
+        DATA_PIPELINE_PARAMS = {
+            'lookback_feature':lookback_feature,
+            'lookback_target': int(lookback_feature/target_to_feature_time_ratio),
+            'target_to_feature_time_ratio' :  target_to_feature_time_ratio
+        }
+
+        #training proc
+        REC_ADAM_PARAMS = {
+            "learning_rate":5e-2 , "warmup_proportion":0.6,
+            "min_lr":5e-3, "beta_1":0.99, "beta_2":0.99, "decay":0.94
+            }
+
+        LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }
+
+        model_type_settings = { }
+
+        self.params.update( {
+            'model_name':'SimpleConvGRU',
+            'layer_count':layer_count,
+            'ConvGRU_layer_params':ConvGRU_layer_params,
             'outpconv_layer_params': outpconv_layer_params,
 
             'data_pipeline_params':DATA_PIPELINE_PARAMS,
@@ -586,31 +653,6 @@ class train_hparameters_ati(HParams):
     def _default_params(self):
         # region -------data pipepline vars
         trainable = True
-        MASK_FILL_VALUE = {
-                                    "rain":-1.0,
-                                    "model_field":-1.0 
-        }
-        NORMALIZATION_SCALES = {
-                                    "rain":2.844,
-                                    "model_fields": np.array([15.442,
-                                                                0.003758,
-                                                                274.833,
-                                                                54309.66,
-                                                                3.08158+19.436,
-                                                                0.54810+24.104]) #TODO: Find the appropriate scaling terms for each of the model fields, by inspecting data
-                                                #- unknown_local_param_137_128
-                                                # - unknown_local_param_133_128,  # - air_temperature, # - geopotential
-                                                # - x_wind, # - y_wind
-        }
-        NORMALIZATION_SHIFT = {
-                                "rain":0,
-                                "model_fields": np.array([0.0,
-                                                0.0,
-                                                0.0,
-                                                0.0,
-                                                -19.436,
-                                                -24.104]) 
-        }
         MASK_FILL_VALUE_v1 = {
                                     "rain":0.0,
                                     "model_field":0.0 
@@ -681,7 +723,7 @@ class train_hparameters_ati(HParams):
         VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS_TARGET*0.2)
         
         DATA_DIR = "./Data/Rain_Data_Nov19" 
-        EARLY_STOPPING_PERIOD = 8
+        EARLY_STOPPING_PERIOD = 10
  
         self.params = {
             'batch_size':BATCH_SIZE,
@@ -728,33 +770,7 @@ class test_hparameters_ati(HParams):
     def _default_params(self):
         pass
         # region -------data pipepline vars
-        trainable = True
-        MASK_FILL_VALUE = {
-                                    "rain":-1.0,
-                                    "model_field":-1.0 
-        }
-
-        NORMALIZATION_SCALES = {
-                                    "rain":2.844,
-                                    "model_fields": np.array([15.442,
-                                                                0.003758,
-                                                                274.833,
-                                                                54309.66,
-                                                                3.08158+19.436,
-                                                                0.54810+24.104]) #TODO: Find the appropriate scaling terms for each of the model fields, by inspecting data
-                                                #- unknown_local_param_137_128
-                                                # - unknown_local_param_133_128,  # - air_temperature, # - geopotential
-                                                # - x_wind, # - y_wind
-        }
-
-        NORMALIZATION_SHIFT = {
-                                "model_fields": np.array([0.0,
-                                                0.0,
-                                                0.0,
-                                                0.0,
-                                                -19.436,
-                                                -24.104]) 
-        }
+        trainable = False
 
         MASK_FILL_VALUE_v1 = {
                                     "rain":0.0,
@@ -821,39 +837,6 @@ class test_hparameters_ati(HParams):
 
         TEST_SET_SIZE_DATUMS_TARGET = int( TOTAL_DATUMS_TARGET * 0.2)
         ## endregion
-
-
-        # # region ---- data information
-        # target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
-        # feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
-        
-        # tar_end_date    =  target_start_date + np.timedelta64( 14822, 'D')
-        # feature_end_date  = feature_start_date + np.timedelta64(16072, '6h') #TODO: change when new data available
-        
-        # if feature_start_date > target_start_date :
-        #     train_start_date = feature_start_date
-        # else:
-        #     train_start_date = target_start_date
-
-        # if tar_end_date < feature_end_date :
-        #     end_date = tar_end_date
-        # else:
-        #     end_date = feature_end_date
-
-        # #train_start_date = np.max(feature_start_date, target_start_date)
-        # #end_date = np.min( tar_end_date, feature_end_date)
-        # val_start_date = train_start_date + (end_date - train_start_date)*0.6
-        # val_end_date = train_start_date + (end_date - train_start_date)*0.8
-
-        # test_start_date = train_start_date + (end_date - train_start_date)*0.8
-        # test_end_date = end_date
-
-        # #TOTAL_DATUMS = int(end_date - start_date)//WINDOW_SHIFT - lookback  #By datums here we mean windows, for the target
-        # TOTAL_DATUMS_TARGET = ( np.timedelta64(end_date - test_start_date,'D') - (self.lookback_target - 1) ) 
-        # TOTAL_DATUMS_TARGET = TOTAL_DATUMS_TARGET.astype(int)
-        # # endregion
-
-        # TEST_SET_SIZE_DATUMS_TARGET = int( TOTAL_DATUMS_TARGET * 0.2)
 
         date_tss = pd.date_range( end=test_end_date, start=test_start_date, freq='D',normalize=True)
         EPOCHS = list ( (date_tss - pd.Timestamp("1970-01-01") ) // pd.Timedelta('1s') )

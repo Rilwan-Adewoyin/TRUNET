@@ -91,6 +91,17 @@
                 "-dd","Data/Rain_Data_Nov19","-bs","3", "-sdc","4" ]
         },
         {
+            "name": "SimpleConvGRU",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "internalConsole",
+            "justMyCode": false,
+            "args": [ "-mn","SimpleConvGRU",
+                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'region_grid', 'model_version':'1'}",
+                "-dd","Data/Rain_Data_Nov19","-bs","3", "-sdc","4" ]
+        },
+        {
             "name": "SimpleDense",
             "type": "python",
             "request": "launch",

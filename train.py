@@ -498,7 +498,7 @@ def train_loop(train_params, model_params):
                     #gradients = tape.gradient( loss_mse, model.trainable_variables)
                     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
-                elif (model_params['model_name'] == "SimpleConvLSTM"):
+                elif (model_params['model_name'] in ["SimpleConvLSTM","SimpleConvGRU"]):
                     if model_params['model_type_settings']['location'] == 'region_grid':
                         if( tf.reduce_any( mask[:, :, 6:10, 6:10] )==False ):
                             continue
@@ -714,7 +714,7 @@ def train_loop(train_params, model_params):
                 elif model_params['model_type_settings']['stochastic'] == True:
                     raise NotImplementedError
             
-            elif model_params['model_name'] == "SimpleConvLSTM":
+            elif model_params['model_name'] in ["SimpleConvLSTM", "SimpleConvGRU"]:
                 
                 if model_params['model_type_settings']['location'] == 'region_grid':
                     if( tf.reduce_any( mask[:, :, 6:10, 6:10] )==False ):

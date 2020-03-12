@@ -2,6 +2,9 @@ import tensorflow as tf
 from tensorflow.keras.layers import TimeDistributed
 import layers
 import layers_ConvLSTM2D
+import layers_ConvGRU2D
+import layers_gru
+import copy
 
 
 def model_loader(train_params,model_params ):
@@ -111,13 +114,37 @@ class SimpleLSTM(tf.keras.Model):
         super(SimpleLSTM, self).__init__()
 
         self.model_params = model_params
-        #self.LSTM_layers = [ tf.keras.layers.LSTM( implementation=2, **model_params['layer_params'][idx] ) for idx in range( model_params['layer_count'] ) ]
-        self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.LSTM( **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ]
 
-        self.dense1 =  tf.keras.layers.Dense(units= 64, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.01) )
+        if model_params['model_type_settings']['model_version'] == "24":
+            self.LSTM_layers=[]
+            for idx in range( model_params['layer_count'] ):
+                _params=  copy.deepcopy(model_params['layer_params'][idx] )
+                _params.pop('return_sequences')
+                _params.pop('stateful')
+                
+                peephole_lstm_cell = tf.keras.experimental.PeepholeLSTMCell(**_params)
+                layer = tf.keras.layers.Bidirectional( tf.keras.layers.RNN( peephole_lstm_cell, return_sequences=True, stateful=True ), merge_mode='concat' )
+                self.LSTM_layers.append(layer) 
 
+
+        elif model_params['model_type_settings']['model_version'] in ["25","27","28","30","33","35"]:
+            self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.GRU( **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ]
+        
+        elif model_params['model_type_settings']['model_version'] in ["34"]:
+            self.LSTM_layers = [ tf.keras.layers.Bidirectional( layers_gru.GRU_LN_v2( **model_params['layer_params'][idx]), merge_mode='concat' ) for idx in range(model_params['layer_count'] ) ]
+        else:
+            self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.LSTM( **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ]
+
+
+        self.dense1 =  tf.keras.layers.Dense(units= 64, activation='relu' )
         self.output_dense = TimeDistributed( tf.keras.layers.Dense(units=1, activation='linear') )
-        self.output_activation = layers.CustomRelu_maker(train_params)
+        
+        if model_params['model_type_settings']['model_version'] in ["23","27"]:
+            self.output_activation = layers.LeakyRelu_mkr(train_params)
+        else:
+            self.output_activation = layers.CustomRelu_maker(train_params)
+
+
         self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
         self.do=tf.keras.layers.Dropout(0.05 )#, noise_shape=None, seed=None, **kwargs
 
@@ -243,5 +270,42 @@ class SimpleConvLSTM(tf.keras.Model):
         x = self.float32_output(outp)
         return x
 
+class SimpleConvGRU(tf.keras.Model):
+    def __init__(self, train_params, model_params):
+        super(SimpleConvGRU, self).__init__()
 
+        self.model_params = model_params
+        self.ConvGRU_layers = [ tf.keras.layers.Bidirectional( layers_ConvGRU2D.ConvGRU2D( **self.model_params['ConvGRU_layer_params'][idx] ), merge_mode='concat' )  for idx in range( model_params['layer_count'] ) ]
+               
+        self.output_conv = self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **self.model_params['outpconv_layer_params'] ) )
+
+        self.do = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=0.10, data_format = 'channels_last' ) )
+
+        self.output_activation = layers.CustomRelu_maker(train_params)
+
+        self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
+
+        self.new_shape1 = tf.TensorShape( [train_params['batch_size'],model_params['region_grid_params']['outer_box_dims'][0], model_params['region_grid_params']['outer_box_dims'][1],  train_params['lookback_target'] ,int(6*4)] )
+    
+    #@tf.function
+    def call(self, _input, training):
+        
+        x = tf.transpose( _input, [0, 2,3,1,4])     # moving time axis next to channel axis
+        x = tf.reshape( x, self.new_shape1 )        # reshape time and channel axis
+        x = tf.transpose( x, [0,3,1,2,4 ] )   # converting back to bs, time, h,w, c
+
+        # for idx in range(self.model_params['layer_count']):
+        #     x = self.ConvLSTM_layers[idx](inputs=x, training=training)
+
+        for idx in range(self.model_params['layer_count']):
+            if idx==0:
+                x0 = self.ConvGRU_layers[idx](inputs=x,training=training )
+                x = x0
+            else:
+                x = x + self.ConvGRU_layers[idx](inputs=x,training=training )
+
+        x = self.output_conv( self.do( (x + x0)/2),training=training)
+        outp = self.output_activation(x)
+        x = self.float32_output(outp)
+        return x
         

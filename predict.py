@@ -146,14 +146,14 @@ def predict( model, test_params, model_params ,checkpoint_no ):
         else:
             idx, (feature, target) = next(iter_test)
 
-        if model_params['model_name'] == "DeepSD":
             pred = model.predict( feature, model_params['model_type_settings']['stochastic_f_pass'] ) # shape (bs ,156,352 )            
+        if model_params['model_name'] == "DeepSD":
             pred = utility.water_mask( tf.squeeze(pred), test_params['bool_water_mask'])
 
             li_predictions.append(utility.standardize(pred,reverse=True,distr_type=model_params['model_type_settings']['distr_type']))
             li_true_values.append(utility.standardize(target,reverse=True,distr_type=model_params['model_type_settings']['distr_type']) )
 
-        elif model_params['model_name'] in ["THST","SimpleConvLSTM"] :
+        elif model_params['model_name'] in ["THST","SimpleConvLSTM","SimpleConvGRU"] :
             if model_params['model_type_settings']['location'] == 'region_grid':
                 pass
             else:

@@ -60,6 +60,16 @@ def load_model(test_params, model_params):
                         [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] ,16 , 16,6 ], dtype=tf.float16 )
             model(init_inp, training=False )
 
+        elif(model_name=="SimpleConvGRU"):
+            model = models.SimpleConvGRU(test_params,model_params)
+            if model_params['model_type_settings']['location'] == "wholeregion":
+                init_inp = tf.zeros(
+                    [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ], dtype=tf.float16 )
+            elif model_params['model_type_settings']['location'] == "region_grid":
+                    init_inp = tf.zeros(
+                        [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] ,16 , 16,6 ], dtype=tf.float16 )
+            model(init_inp, training=False )
+
         checkpoint_path = test_params['script_dir']+"/checkpoints/{}/batch".format(utility.model_name_mkr(model_params,mode=mode))
 
         ckpt = tf.train.Checkpoint(att_con=model)
@@ -108,6 +118,16 @@ def load_model(test_params, model_params):
                     init_inp = tf.zeros(
                         [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] ,16 , 16,6 ], dtype=tf.float16 )
             model(init_inp, training=False )
+
+        elif(model_name=="SimpleConvGRU"):
+            model = models.SimpleConvGRU(test_params,model_params)
+            if model_params['model_type_settings']['location'] == "wholeregion":
+                init_inp = tf.zeros(
+                    [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ], dtype=tf.float16 )
+            elif model_params['model_type_settings']['location'] == "region_grid":
+                    init_inp = tf.zeros(
+                        [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] ,16 , 16,6 ], dtype=tf.float16 )
+            model(init_inp, training=False )
         
 
         ckpt = tf.train.Checkpoint(model=model)
@@ -136,13 +156,14 @@ def save_preds( test_params, model_params, li_preds, li_timestamps, li_truevalue
     if(not os.path.exists(_path_pred) ):
         os.makedirs(_path_pred)
     
-    
+    li_preds = [ tf.where(tnsr<0, 0.0, tnsr) for tnsr in li_preds ]
     li_preds = [ tnsr.numpy() for tnsr in li_preds   ] #list of 1D - (tss, preds_dim ) 2D-(samples, tss, h, w )
+
 
     if( model_params['model_name'] in ["SimpleLSTM","SimpleDense"]):
         li_truevalues = [ tens.numpy().reshape([-1]) for tens in li_truevalues]     #list of 1D - (tss, preds_dim ) 
 
-    elif( model_params['model_name'] in ["SimpleConvLSTM", "THST"] ): 
+    elif( model_params['model_name'] in ["SimpleConvLSTM", "THST", "SimpleConvGRU"] ): 
         li_truevalues = [ tens.numpy() for tens in li_truevalues] #2D - (tss, h, w) # 1D -(timesteps,)
 
     elif( model_params['model_name'] in ["DeepSD"] ): 

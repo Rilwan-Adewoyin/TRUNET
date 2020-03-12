@@ -210,6 +210,16 @@ def load_params_train_model(args_dict):
         
         train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
 
+    elif(args_dict['model_name']=="SimpleConvGRU"):
+        init_m_params = {}
+        init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
+        model_params = hparameters.model_SimpleConvGRU_hparamaters(**init_m_params)()
+        init_t_params = {}
+        init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
+        init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
+        
+        train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
+
     #Other Checks
     ## 1) If training and if mc_dropout, change to Deterministic since mc_dropout is not really variational inference
     if( model_params['model_type_settings']['var_model_type']=='mc_dropout' and model_params['model_type_settings']['stochastic']==False ):
@@ -268,6 +278,16 @@ def load_params_test_model(args_dict):
         init_m_params = {}
         init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
         model_params = hparameters.model_SimpleConvLSTM_hparamaters(**init_m_params)()
+        init_t_params = {}
+        init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
+        init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
+        
+        train_params = hparameters.test_hparameters_ati( **{ **args_dict, **init_t_params} )
+
+    elif(args_dict['model_name']=="SimpleConvGRU"):
+        init_m_params = {}
+        init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
+        model_params = hparameters.model_SimpleConvGRU_hparamaters(**init_m_params)()
         init_t_params = {}
         init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
         init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
@@ -370,7 +390,14 @@ def model_name_mkr(model_params, mode='Generic'):
                                 model_params['model_type_settings']['distr_type'], 
                                 str(model_params['model_type_settings']['discrete_continuous']),
                                 model_params['model_type_settings']['location'],model_params['model_type_settings']['model_version'] )
+   
     elif model_params['model_name'] == "SimpleConvLSTM":
+        model_name =    "{}_{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
+                        model_params['model_type_settings']['distr_type'], 
+                        str(model_params['model_type_settings']['discrete_continuous']),
+                        model_params['model_type_settings']['location'],model_params['model_type_settings']['model_version'] )  
+    
+    elif model_params['model_name'] == "SimpleConvGRU":
         model_name =    "{}_{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
                         model_params['model_type_settings']['distr_type'], 
                         str(model_params['model_type_settings']['discrete_continuous']),
@@ -381,7 +408,6 @@ def model_name_mkr(model_params, mode='Generic'):
 # region ATI modules
 def standardize_ati(_array, shift, scale, reverse):
     
-
     if(reverse==False):
         _array = (_array-shift)/scale
     elif(reverse==True):
