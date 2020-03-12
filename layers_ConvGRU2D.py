@@ -948,14 +948,14 @@ class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
             bias_initializer = self.bias_initializer
             if self.reset_after:
                 self.bias = self.add_weight(
-                    shape=(self.filters * 3,),
+                    shape=(self.filters * 3*2,),
                     name='bias',
                     initializer=bias_initializer,
                     regularizer=self.bias_regularizer,
                     constraint=self.bias_constraint)
             elif not self.reset_after:
                 self.bias = self.add_weight(
-                    shape=(self.filters * 3*2,),
+                    shape=(self.filters * 3,),
                     name='bias',
                     initializer=bias_initializer,
                     regularizer=self.bias_regularizer,
