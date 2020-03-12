@@ -487,8 +487,8 @@ class model_SimpleConvGRU_hparamaters(MParams):
 
         #training proc
         REC_ADAM_PARAMS = {
-            "learning_rate":5e-2 , "warmup_proportion":0.6,
-            "min_lr":5e-3, "beta_1":0.99, "beta_2":0.99, "decay":0.94
+            "learning_rate":1e-2 , "warmup_proportion":0.6,
+            "min_lr":1e-3, "beta_1":0.99, "beta_2":0.99, "decay":0.94
             }
 
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }

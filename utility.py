@@ -359,8 +359,12 @@ def default(obj):
             return obj.isoformat()
         else:
             return obj.__str__()
+
     elif isinstance( obj, tf.keras.regularizers.Regularizer ):
         return obj.get_config() 
+    
+    elif isinstance(obj, tf.keras.layers.Layer):
+        return obj.get_config()
 
     raise TypeError('Unknown type:', type(obj))
 
