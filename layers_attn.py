@@ -336,3 +336,31 @@ def _relative_attention_inner(x, y, z, transpose):
     # x_tz_matmul_r_t is [batch_size, heads, length or 1, length or depth]
     x_tz_matmul_r_t = tf.transpose(x_tz_matmul_r, [1, 2, 0, 3])
     return xy_matmul + x_tz_matmul_r_t
+
+def attn_shape_adjust(inputs, attn_factor_reduc ,reverse=False):
+
+    """ 
+        This is used to ensure that the number of dimensions in the time dimension is equal to the number of desired time dimensions.
+            This is ideal when we need chunks of time to be passed to each RNN Cell for the RNN cell to perform attn to get one input from the time chunk
+        if(reverse=False):
+            :param tnsr inputs: (bs, tss, h, w, c)
+            return outputs : (bs, tss/seq_len_factor_reduc, h, w, c*seq_len_factor_reduc )
+        if(reverse=True):
+            :param tnsr inputs: (bs, 1, h, w, c ) 
+            return outputs : (bs, seq_len_factor_reduc, h, w, c//seq_len_factor_reduc)
+    """
+
+    #TODO: change _inputs to inputs to save memory
+    if reverse==False:
+        shape = inputs.shape
+        # s1 = shape[1]//attn_factor_reduc
+        # s4 = shape[4]*attn_factor_reduc
+        _inputs = tf.reshape(inputs, shape[:1]+shape[1]//attn_factor_reduc+shape[2:4]+shape[4]*attn_factor_reduc )
+    else:
+        shape = tf.expand_dims(inputs, axis=1).shape
+        # shape[1] = shape[1]*attn_factor_reduc
+        # shape[4] = shape[4]//attn_factor_reduc
+        _inputs = tf.reshape(inputs, shape[:1]+shape[1]*attn_factor_reduc+shape[2:4]+shape[4]//attn_factor_reduc )
+
+
+    return _inputs

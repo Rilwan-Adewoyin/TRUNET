@@ -28,7 +28,7 @@ from tensorflow.python.util.tf_export import keras_export
 
 from tensorflow.keras.layers import Conv2D, RNN
 
-from layers_attn import MultiHead2DAttention_v2, _generate_relative_positions_embeddings, _relative_attention_inner
+from layers_attn import MultiHead2DAttention_v2, _generate_relative_positions_embeddings, _relative_attention_inner, attn_shape_adjust
 
 #The calss below is adated to work with mixed precision
 class ConvRNN2D(RNN):
