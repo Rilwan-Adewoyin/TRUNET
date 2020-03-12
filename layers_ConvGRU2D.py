@@ -778,7 +778,7 @@ class ConvGRU2D(ConvRNN2D):
                     self.recurrent_constraint),
                 'bias_constraint': constraints.serialize(self.bias_constraint),
                 'dropout': self.dropout,
-                'recurrent_dropout': self.recurrent_dropout
+                'recurrent_dropout': self.recurrent_dropout,
                 'layer_norm':self.layer_norm }
         base_config = super(ConvGRU2D, self).get_config()
         del base_config['cell']
