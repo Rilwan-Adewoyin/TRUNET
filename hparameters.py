@@ -343,7 +343,8 @@ class model_SimpleLSTM_hparameters(MParams):
     def _default_params(self):
         #model
         layer_count = 3
-        li_units =  [128]*layer_count
+        #li_units =  [128]*layer_count
+        li_units = [160]*layer_count
         
         li_rs =     [True]*layer_count
         # LAYER_PARAMS = [
@@ -356,10 +357,10 @@ class model_SimpleLSTM_hparameters(MParams):
         # ]
 
         LAYER_PARAMS = [
-            {'units': un, 'dropout':0.0, 'recurrent_dropout':0.1,
+            {'units': un, 'dropout':0.2, 'recurrent_dropout':0.25,
                 'return_sequences':rs, 'stateful':True,
                 'kernel_regularizer': None,
-                'recurrent_regularizer': tf.keras.regularizers.l2(0.2),
+                'recurrent_regularizer': None,
                 'bias_regularizer':tf.keras.regularizers.l2(0.2) }
                 for un, rs in zip(li_units, li_rs)
         ]
@@ -459,19 +460,19 @@ class model_SimpleConvGRU_hparamaters(MParams):
     def _default_params(self):
         #ConvLayers
         layer_count = 3 #TODO: Shi uses 2 layers
-        filters = [64]*layer_count #[128]*layer_count #Shi Precip nowcasting used 
+        filters = [96]*layer_count #[128]*layer_count #Shi Precip nowcasting used 
         kernel_sizes = [[4,4]]*layer_count
         paddings = ['same']*layer_count
         return_sequences = [True]*layer_count
-        dropout = [0.0]*layer_count
-        recurrent_dropout = [0.1]*layer_count
+        dropout = [0.2]*layer_count
+        recurrent_dropout = [0.25]*layer_count
         
         ConvGRU_layer_params = [ { 'filters':fs, 'kernel_size':ks , 'padding': ps,
                                 'return_sequences':rs, "dropout": dp , "recurrent_dropout":rdp,
                                 'kernel_regularizer': None,
                                 'recurrent_regularizer': None,
                                 'bias_regularizer':tf.keras.regularizers.l2(0.2),
-                                'layer_norm':tf.keras.layers.LayerNormalization(axis=[-3,-2,-1]) }
+                                'layer_norm':tf.keras.layers.LayerNormalization(axis=[-3,-2,-1] ) }
                                 for fs,ks,ps,rs,dp,rdp in zip(filters, kernel_sizes, paddings, return_sequences, dropout, recurrent_dropout)  ]
         
         outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'linear','padding':'same' }

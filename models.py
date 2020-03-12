@@ -133,13 +133,13 @@ class SimpleLSTM(tf.keras.Model):
         elif model_params['model_type_settings']['model_version'] in ["25","27","28","30","33","35"]:
             self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.GRU( **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ]
         
-        elif model_params['model_type_settings']['model_version'] in ["34"]:
+        elif model_params['model_type_settings']['model_version'] in ["34","36"]:
             self.LSTM_layers = [ tf.keras.layers.Bidirectional( layers_gru.GRU_LN_v2( **model_params['layer_params'][idx]), merge_mode='concat' ) for idx in range(model_params['layer_count'] ) ]
         else:
             self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.LSTM( **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ]
 
 
-        self.dense1 =  tf.keras.layers.Dense(units= 64, activation='relu' )
+        self.dense1 =  tf.keras.layers.Dense(units= 80, activation='relu' )
         self.output_dense = TimeDistributed( tf.keras.layers.Dense(units=1, activation='linear') )
         
         if model_params['model_type_settings']['model_version'] in ["23","27"]:
@@ -168,7 +168,8 @@ class SimpleLSTM(tf.keras.Model):
             else:
                 x = x + self.LSTM_layers[idx](inputs=x,training=training )
         
-        x = self.dense1(self.do( (x + x0)/2,training=training) )
+        #x = self.dense1(self.do( (x + x0)/2,training=training) )
+        x = self.dense1(self.do( tf.concat( [x,x0] ,axis=-1 ), training=training ) ) #new for model 36,37
         outp = self.output_dense( x )
         outp = self.output_activation(outp)
         outp = self.float32_output(outp)
