@@ -22,13 +22,16 @@ def model_loader(train_params,model_params ):
     
     elif(model_name=="SimpleLSTM"):
         model = SimpleLSTM(train_params, model_params)
-    
+
     elif(model_name=="SimpleDense"):
         model = SimpleDense(train_params, model_params)
         
     elif(model_name == "SimpleConvLSTM"):
         model = SimpleConvLSTM(train_params, model_params)
 
+    elif(model_name=="SimpleConvGRU"):
+        model = SimpleConvGRU(train_params, model_params)
+    
     return model
 
 class SuperResolutionModel( tf.keras.Model ):
