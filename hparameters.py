@@ -471,7 +471,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
                                 'kernel_regularizer': None,
                                 'recurrent_regularizer': None,
                                 'bias_regularizer':tf.keras.regularizers.l2(0.2),
-                                'layer_normalization':tf.keras.layers.LayerNormalization(axis=[-3,-2,-1]) }
+                                'layer_norm':tf.keras.layers.LayerNormalization(axis=[-3,-2,-1]) }
                                 for fs,ks,ps,rs,dp,rdp in zip(filters, kernel_sizes, paddings, return_sequences, dropout, recurrent_dropout)  ]
         
         outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'linear','padding':'same' }
