@@ -184,7 +184,7 @@ def train_loop(train_params, model_params):
             #temp fix to the problem where if we init ds_train at batches_to_skip, then every time we reuse ds_train then it will inevitably start from that skipped to region on the next iteration 
         ds_train = data_generators.load_data_vandal( batches_to_skip*train_params['batch_size'], train_params, model_params, data_dir=train_params['data_dir'] )
 
-    elif model_params['model_name'] in ["THST", "SimpleLSTM","SimpleConvLSTM","SimpleDense"]:
+    elif model_params['model_name'] in ["THST", "SimpleLSTM","SimpleConvLSTM", "SimpleConvGRU","SimpleDense"]:
         # #Version 1 old
         # ds_train = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['train_start_date'], data_dir=train_params['data_dir'])
         # ds_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['val_start_date'], data_dir=train_params['data_dir'] )
