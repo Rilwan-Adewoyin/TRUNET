@@ -117,7 +117,10 @@ def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoc
 
         print("\nTop {} Performance Scores".format(train_params['checkpoints_to_keep_epoch']))
         df_training_info = df_training_info.sort_values(by=['Val_loss_MSE'], ascending=True)[:train_params['checkpoints_to_keep_epoch']]
-        print(df_training_info[['Epoch','Val_loss_MSE']] )
+        if train_metric_mse==None:
+            print(df_training_info[['Epoch','Val_loss_MSE']] )
+        else:
+            print(df_training_info[['Epoch','Val_loss_MSE','Validation_metric_mse','Train_metric_mse']] )
         df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(model_name_mkr(model_params)),
                                     header=True, index=False ) #saving df of scores                      
     return df_training_info
