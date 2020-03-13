@@ -111,7 +111,7 @@ def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoc
         else:
             df_training_info = df_training_info.append( other={ 'Epoch':epoch,'Train_loss_MSE':train_metric_mse_mean_epoch.result().numpy(), 'Val_loss_MSE':val_metric_mse_mean.result().numpy(),
                                                             'Checkpoint_Path': ckpt_save_path, 'Last_Trained_Batch':-1,
-                                                            'Train_metric_mse':train_metric_mse,result.numpy(), 'Validation_metric_mse':val_metric_mse.result().numpy()
+                                                            'Train_metric_mse':train_metric_mse.result.numpy(), 'Validation_metric_mse':val_metric_mse.result().numpy()
                                                             }, ignore_index=True ) #A Train batch of -1 represents final batch of training step was completed
             
 
