@@ -98,11 +98,13 @@ def train_loop(train_params, model_params):
     optimizer = mixed_precision.LossScaleOptimizer(optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() )
     ##monkey patch so optimizer works with mixed precision
     
-    train_metric_mse_mean_groupbatch = tf.keras.metrics.Mean(name='train_loss_mse_obj')
-    train_metric_mse_mean_epoch = tf.keras.metrics.Mean(name="train_loss_mse_obj_epoch")
+    train_loss_mean_groupbatch = tf.keras.metrics.Mean(name='train_loss_mse_obj')
+    train_loss_mean_epoch = tf.keras.metrics.Mean(name="train_loss_obj_epoch")
+    train_mse_metric_epoch = tf.keras.metrics.Mean(name='train_mse_metric')
     train_loss_var_free_nrg_mean_groupbatch = tf.keras.metrics.Mean(name='train_loss_var_free_nrg_obj ')
     train_loss_var_free_nrg_mean_epoch = tf.keras.metrics.Mean(name="train_loss_var_free_nrg_obj_epoch")
-    val_metric_mse_mean = tf.keras.metrics.Mean(name='val_metric_mse_obj')
+    val_metric_loss = tf.keras.metrics.Mean(name='val_metric_obj')
+    val_metric_mse = tf.keras.metrics.Mean(name='val_metric_mse_obj')
 
     try:
         df_training_info = pd.read_csv( "checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(model_params)),
@@ -235,11 +237,13 @@ def train_loop(train_params, model_params):
 
     for epoch in range(starting_epoch, int(train_params['epochs']) ):
         #region metrics, loss, dataset, and standardization
-        train_metric_mse_mean_groupbatch.reset_states()
+        train_loss_mean_groupbatch.reset_states()
         train_loss_var_free_nrg_mean_groupbatch.reset_states()
-        train_metric_mse_mean_epoch.reset_states()
+        train_loss_mean_epoch.reset_states()
+        train_mse_metric_epoch.reset_states()
         train_loss_var_free_nrg_mean_epoch.reset_states()
-        val_metric_mse_mean.reset_states()
+        val_metric_loss.reset_states()
+        val_metric_mse.reset_states()
                         
         df_training_info = df_training_info.append( { 'Epoch':epoch, 'Last_Trained_Batch':0 }, ignore_index=True )
         
@@ -551,12 +555,14 @@ def train_loop(train_params, model_params):
             if( model_params['model_type_settings']['stochastic']==True ):
                 train_loss_var_free_nrg_mean_groupbatch( var_free_nrg_loss )
                 train_loss_var_free_nrg_mean_epoch( var_free_nrg_loss )
-                train_metric_mse_mean_groupbatch( metric_mse )
-                train_metric_mse_mean_epoch( metric_mse )
+                train_loss_mean_groupbatch( loss_mse )
+                train_loss_mean_epoch( loss_mse )
+                train_mse_metric_epoch( metric_mse)
 
             elif( model_params['model_type_settings']['stochastic']==False ):
-                train_metric_mse_mean_groupbatch( metric_mse )
-                train_metric_mse_mean_epoch( metric_mse )
+                train_loss_mean_groupbatch( loss_mse )
+                train_loss_mean_epoch( loss_mse )
+                train_mse_metric_epoch( metric_mse )
                                         
             ckpt_manager_batch.save()
             if( (batch+1)%train_batch_reporting_freq==0 or batch+1 == train_set_size_batches):
@@ -565,8 +571,8 @@ def train_loop(train_params, model_params):
                 est_completion_time_seconds = (batches_report_time/train_params['dataset_trainval_batch_reporting_freq']) * (train_set_size_batches - batch)/train_set_size_batches
                 est_completion_time_mins = est_completion_time_seconds/60
 
-                print("\tBatch:{}/{}\tTrain MSE Loss: {:.8f} \t Batch Time:{:.4f}\tEpoch mins left:{:.1f}".format(batch, train_set_size_batches, train_metric_mse_mean_groupbatch.result(), batches_report_time, est_completion_time_mins ) )
-                train_metric_mse_mean_groupbatch.reset_states()
+                print("\t\tBatch:{}/{}\tTrain Loss: {:.8f} \t Batch Time:{:.4f}\tEpoch mins left:{:.1f}".format(batch, train_set_size_batches, train_loss_mean_groupbatch.result(), batches_report_time, est_completion_time_mins ) )
+                train_loss_mean_groupbatch.reset_states()
                 start_batch_time = time.time()
 
                 # Updating record of the last batch to be operated on in training epoch
@@ -579,7 +585,7 @@ def train_loop(train_params, model_params):
         start_epoch_val = time.time()
         start_batch_time = time.time()
 
-        print("\n\tStarting Validation")
+        print("\tStarting Validation")
         
         #endregion
         # endregion
@@ -601,7 +607,7 @@ def train_loop(train_params, model_params):
                     
                     target_filtrd = tf.reshape( tf.boolean_mask(  target , train_params['bool_water_mask'], axis=1 ), [train_params['batch_size'], -1] )
                     preds_filtrd = tf.reshape( tf.boolean_mask( preds, train_params['bool_water_mask'],axis=1 ), [train_params['batch_size'], -1] )
-                    val_metric_mse_mean( tf.reduce_mean( tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  ) #TODO: Ensure that both preds and target are reshaped prior 
+                    val_metric_loss( tf.reduce_mean( tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  ) #TODO: Ensure that both preds and target are reshaped prior 
                     #TODO: Add Discrete Continuous Metric here is wrong, should be same as other version
 
             elif model_params['model_name'] == "THST":
@@ -624,7 +630,7 @@ def train_loop(train_params, model_params):
                     target_filtrd = tf.boolean_mask( target, mask )
                     preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], 
                                         train_params['normalization_scales']['rain'], reverse=True)
-                    val_metric_mse_mean( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
+                    val_metric_loss( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
                 
                 elif model_params['model_type_settings']['stochastic'] ==True:
                     raise NotImplementedError 
@@ -642,18 +648,19 @@ def train_loop(train_params, model_params):
                                                             train_params['normalization_scales']['rain'], reverse=True)
 
                     if model_params['model_type_settings']['discrete_continuous'] == False:
-                        val_metric_mse_mean( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
+                        val_metric_loss( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
 
                     else:
                         #get classification labels & predictions, true/1 means it has rained   
                         labels_true = tf.cast( tf.greater( target_filtrd, model_params['model_type_settings']['precip_threshold'] ), tf.float32 )
                         labels_pred = tf.cast( tf.greater( preds_filtrd, model_params['model_type_settings']['precip_threshold'] ) ,tf.float32 )
                         
-                        true_count = tf.math.count_nonzero( target_filtrd, dtype=tf.float32 )
+                        rain_count = tf.math.count_nonzero( target_filtrd, dtype=tf.float32 )
                         all_count = tf.size( target_filtrd, out_type=tf.float32 )
 
                         #  gather predictions which are conditional on rain
                         bool_cond_rain = tf.where(tf.equal(labels_true,1),True,False )
+
                         preds_cond_rain_mean = tf.boolean_mask( preds_filtrd, bool_cond_rain)
                         target_cond_rain = tf.boolean_mask( target_filtrd, bool_cond_rain )
                         
@@ -663,45 +670,28 @@ def train_loop(train_params, model_params):
 
                         if model_params['model_type_settings']['distr_type'] == 'Normal': #These two below handle dc cases of normal and log_normal
 
-                            loss_mse = (true_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_cond_rain , preds_cond_rain_mean ) )  #NOTE: currently the val_metric_mse_mean represents a different target for different combinations of distr_type and stochastic
-                        
+                            loss_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_cond_rain , preds_cond_rain_mean ) )  #NOTE: currently the val_metric_loss represents a different target for different combinations of distr_type and stochastic
+                            val_mse = loss_mse
+
                         elif model_params['model_type_settings']['distr_type'] == 'LogNormal':
-                            
-                            loss_mse = custom_losses.lnormal_mse(target_cond_rain, target_cond_rain)
-                            #temp: adding an mse loss to the values which are under 0.5
-                            if(model_params['model_type_settings']['model_version'] in ["3","4"] ):
-                                loss_mse += ((all_count-true_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
-                            
-                            if(model_params['model_type_settings']['model_version'] in ["3","4"] ):
+                            val_mse += (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_cond_rain , preds_cond_rain_mean ) ) 
+
+                            loss_mse = (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, target_cond_rain)
+
+                            if(model_params['model_type_settings']['model_version'] in ["3","4","44","46"] ):
+                                #loss_mse += tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
+                                train_loss_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
+                                loss_mse += train_loss_cond_no_rain
+                                val_mse += train_loss_cond_no_rain
+
+                            if(model_params['model_type_settings']['model_version'] in ["3","4","44","45"] ):
                                 log_cross_entropy_rainclassification = tf.reduce_mean( 
                                         tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=True) )
 
-                            elif(model_params['model_type_settings']['model_version'] in ["5"] ):
-                                one_hot_tar = tf.zeros([ target_filtrd, 3],dtype=tf.float32)
-                                _1= tf.where(  4<target_filtrd )
-                                _2= tf.where( 0.5<target_filtrd<4 )
-                                _3= tf.where( target_filtrd<0.5)
-                                _indices = tf.concat([_1,_2,_3],axis=0)
-                                one_hot_tar[_indices] = 1
-
-                                one_hot_pred = tf.zeros([ target_filtrd, 3],dtype=tf.float32)
-                                _1= tf.where(  4<target_filtrd )
-                                _2= tf.where( 0.5<target_filtrd<4 )
-                                _3= tf.where( target_filtrd<0.5)
-                                _indices = tf.concat([_1,_2,_3],axis=0)
-                                one_hot_pred[_indices] = 1
-
-
-                                log_cross_entropy_rainclassification = tf.reduce_mean(
-                                    tf.keras.backend.categorical_crossentropy(
-                                        target= one_hot_tar,
-                                        output = one_hot_pred,
-                                        from_logits = True
-                                    )
-                                )
 
                         loss_mse +=     log_cross_entropy_rainclassification
-                        val_metric_mse_mean( loss_mse)
+                        val_metric_loss( loss_mse)
+                        val_metric_mse(val_mse)
 
                 elif model_params['model_type_settings']['stochastic'] == True:
                     raise NotImplementedError
@@ -727,7 +717,7 @@ def train_loop(train_params, model_params):
                     target_filtrd = tf.boolean_mask( target, mask )
                     preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], 
                                                             train_params['normalization_scales']['rain'], reverse=True)
-                    val_metric_mse_mean( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
+                    val_metric_loss( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
 
                 elif(model_params['model_type_settings']['stochastic']==True):
                     raise NotImplementedError                
@@ -737,7 +727,7 @@ def train_loop(train_params, model_params):
                 est_completion_time_seconds = (batches_report_time/train_params['dataset_trainval_batch_reporting_freq']) *( 1 -  ((batch)/val_set_size_batches ) )
                 est_completion_time_mins = est_completion_time_seconds/60
 
-                print("\tCompleted Validation Batch:{}/{} \t Time:{:.4f} \tEst Time Left:{:.1f}".format( batch, val_set_size_batches ,batches_report_time,est_completion_time_mins ))
+                print("\t\tCompleted Validation Batch:{}/{} \t Time:{:.4f} \tEst Time Left:{:.1f}".format( batch, val_set_size_batches ,batches_report_time,est_completion_time_mins ))
                                             
                 start_batch_time = time.time()
                 #iter_train = None
@@ -745,15 +735,15 @@ def train_loop(train_params, model_params):
                     batches_to_skip = 0
         model.reset_states()
 
-        print("\tEpoch:{}\t Train MSE:{:.8f}\tValidation Loss: MSE:{:.5f}\tTime:{:.5f}".format(epoch, train_metric_mse_mean_epoch.result(), val_metric_mse_mean.result(), time.time()-start_epoch_val  ) )
+        print("\tEpoch:{}\t Train Loss:{:.8f}\tValidation Loss:{:.5f}\tTime:{:.5f}".format(epoch, train_loss_mean_epoch.result(), val_metric_loss.result(), time.time()-start_epoch_val  ) )
         if( model_params['model_type_settings']['stochastic']==True ):
             print('\t\tVar_Free_Nrg: {:.5f} '.format(train_loss_var_free_nrg_mean_epoch.result()  ) )
 
             # endregion
         
         with writer.as_default():
-            tf.summary.scalar('Validation Loss MSE', val_metric_mse_mean.result() , step =  epoch )
-        df_training_info = utility.update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoch, val_metric_mse_mean, ckpt_manager_epoch, train_params, model_params )
+            tf.summary.scalar('Validation Loss', val_metric_loss.result() , step =  epoch )
+        df_training_info = utility.update_checkpoints_epoch(df_training_info, epoch, train_loss_mean_epoch, val_metric_loss, ckpt_manager_epoch, train_params, model_params, train_mse_metric_epoch.result(), val_metric_mse.result() )
         
             
         #region Early iteration Stop Check

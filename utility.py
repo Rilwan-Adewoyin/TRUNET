@@ -84,8 +84,11 @@ def get_script_directory(_path):
         return os.path.dirname(_path)
 
 # Methods Related to Training
-def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoch, val_metric_mse_mean, ckpt_manager_epoch, train_params, model_params  ):
-
+def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoch, val_metric_mse_mean, ckpt_manager_epoch, train_params, model_params, train_metric_mse=None, val_metric_mse=None  ):
+    """
+        NOTE: Val_metric_mse_mean and train_metric_mse_mean_epoch; may not be mse as they are dependent on the loss function
+        so for models that do not use mse, train_metric_mse, and val_metric_mse shold be passed values
+    """
     df_training_info = df_training_info[ df_training_info['Epoch'] != epoch ] #rmv current batch records for compatability with code below
     
     if( ( val_metric_mse_mean.result().numpy() < min( df_training_info.loc[ : ,'Val_loss_MSE' ], default= val_metric_mse_mean.result().numpy()+1 ) ) ):
@@ -102,8 +105,15 @@ def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoc
             df_training_info.reset_index(drop=True)
 
         
-        df_training_info = df_training_info.append( other={ 'Epoch':epoch,'Train_loss_MSE':train_metric_mse_mean_epoch.result().numpy(), 'Val_loss_MSE':val_metric_mse_mean.result().numpy(),
-                                                            'Checkpoint_Path': ckpt_save_path, 'Last_Trained_Batch':-1 }, ignore_index=True ) #A Train batch of -1 represents final batch of training step was completed
+        if train_metric_mse==None:
+            df_training_info = df_training_info.append( other={ 'Epoch':epoch,'Train_loss_MSE':train_metric_mse_mean_epoch.result().numpy(), 'Val_loss_MSE':val_metric_mse_mean.result().numpy(),
+                                                            'Checkpoint_Path': ckpt_save_path, 'Last_Trained_Batch':-1}, ignore_index=True ) #A Train batch of -1 represents final batch of training step was completed
+        else:
+            df_training_info = df_training_info.append( other={ 'Epoch':epoch,'Train_loss_MSE':train_metric_mse_mean_epoch.result().numpy(), 'Val_loss_MSE':val_metric_mse_mean.result().numpy(),
+                                                            'Checkpoint_Path': ckpt_save_path, 'Last_Trained_Batch':-1,
+                                                            'Train_metric_mse':train_metric_mse, 'Validation_metric_mse':val_metric_mse
+                                                            }, ignore_index=True ) #A Train batch of -1 represents final batch of training step was completed
+            
 
         print("\nTop {} Performance Scores".format(train_params['checkpoints_to_keep_epoch']))
         df_training_info = df_training_info.sort_values(by=['Val_loss_MSE'], ascending=True)[:train_params['checkpoints_to_keep_epoch']]
