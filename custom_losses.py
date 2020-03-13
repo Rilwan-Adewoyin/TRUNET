@@ -7,7 +7,8 @@ def lnormal_mse(obs,preds):
     # loss = tf.keras.losses.MSE(tf.math.log(obs), tf.math.log(preds) )
     
     #loss =  tf.keras.losses.MSE( adjusted_log(obs) , adjusted_log(preds) )
-    loss =  tf.math.log( tf.keras.losses.MSE( tf.math.exp(obs) , tf.math.exp(preds) ) )
+    loss =  tf.math.log( tf.keras.losses.MSE( tf.math.exp(obs) , tf.cast( tf.math.exp(preds), tf.float64) ) )
+    loss = tf.cast(loss, tf.float32)
     return loss
 
 
