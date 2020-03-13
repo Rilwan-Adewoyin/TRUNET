@@ -347,23 +347,23 @@ class model_SimpleLSTM_hparameters(MParams):
         li_units = [160]*layer_count
         
         li_rs =     [True]*layer_count
-        # LAYER_PARAMS = [
-        #     {'units': un, 'dropout':0.1, 'recurrent_dropout':0.4,
-        #         'return_sequences':rs, 'stateful':True,
-        #         'kernel_regularizer': tf.keras.regularizers.l2(0.01),
-        #         'recurrent_regularizer': tf.keras.regularizers.l2(0.2),
-        #         'bias_regularizer':tf.keras.regularizers.l2(0.01) }
-        #         for un, rs in zip(li_units, li_rs)
-        # ]
-
         LAYER_PARAMS = [
-            {'units': un, 'dropout':0.2, 'recurrent_dropout':0.25,
+            {'units': un, 'dropout':0.0, 'recurrent_dropout':0.0,
                 'return_sequences':rs, 'stateful':True,
                 'kernel_regularizer': None,
                 'recurrent_regularizer': None,
                 'bias_regularizer':tf.keras.regularizers.l2(0.2) }
                 for un, rs in zip(li_units, li_rs)
         ]
+
+        # LAYER_PARAMS = [
+        #     {'units': un, 'dropout':0.2, 'recurrent_dropout':0.25,
+        #         'return_sequences':rs, 'stateful':True,
+        #         'kernel_regularizer': None,
+        #         'recurrent_regularizer': None,
+        #         'bias_regularizer':tf.keras.regularizers.l2(0.2) }
+        #         for un, rs in zip(li_units, li_rs)
+        # ]
 
         #data pipeline
         target_to_feature_time_ratio = 4

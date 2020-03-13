@@ -133,7 +133,7 @@ class SimpleLSTM(tf.keras.Model):
         elif model_params['model_type_settings']['model_version'] in ["25","27","28","30","33","35"]:
             self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.GRU( **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ]
         
-        elif model_params['model_type_settings']['model_version'] in ["34","36"]:
+        elif model_params['model_type_settings']['model_version'] in ["34","36","44","45","46"]:
             self.LSTM_layers = [ tf.keras.layers.Bidirectional( layers_gru.GRU_LN_v2( **model_params['layer_params'][idx]), merge_mode='concat' ) for idx in range(model_params['layer_count'] ) ]
         else:
             self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.LSTM( **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ]
