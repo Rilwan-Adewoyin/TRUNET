@@ -1,10 +1,11 @@
 import tensorflow as tf
 
 def lnormal_mse(obs,preds):
-    # preds_filtr = tf.where( preds>0, True, False)
-    # preds = tf.boolean_mask(preds,preds_filtr )
-    # obs = tf.boolean_mask(obs, preds_filtr)
-    loss =  tf.keras.losses.MSE( adjusted_log(obs) , adjusted_log(preds) )
+    preds_filtr = tf.where( preds>0, True, False)
+    preds = tf.boolean_mask(preds,preds_filtr )
+    obs = tf.boolean_mask(obs, preds_filtr)
+    loss = tf.keras.losses.MSE(tf.math.log(obs), tf.math.log(preds) )
+    #loss =  tf.keras.losses.MSE( adjusted_log(obs) , adjusted_log(preds) )
     return loss
 
 
