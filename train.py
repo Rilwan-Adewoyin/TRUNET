@@ -743,7 +743,7 @@ def train_loop(train_params, model_params):
         
         with writer.as_default():
             tf.summary.scalar('Validation Loss', val_metric_loss.result() , step =  epoch )
-        df_training_info = utility.update_checkpoints_epoch(df_training_info, epoch, train_loss_mean_epoch, val_metric_loss, ckpt_manager_epoch, train_params, model_params, train_mse_metric_epoch.result(), val_metric_mse.result() )
+        df_training_info = utility.update_checkpoints_epoch(df_training_info, epoch, train_loss_mean_epoch, val_metric_loss, ckpt_manager_epoch, train_params, model_params, train_mse_metric_epoch, val_metric_mse )
         
             
         #region Early iteration Stop Check
