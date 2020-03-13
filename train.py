@@ -674,7 +674,7 @@ def train_loop(train_params, model_params):
                             val_mse = loss_mse
 
                         elif model_params['model_type_settings']['distr_type'] == 'LogNormal':
-                            val_mse += (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_cond_rain , preds_cond_rain_mean ) ) 
+                            val_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_cond_rain , preds_cond_rain_mean ) ) 
 
                             loss_mse = (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, target_cond_rain)
 
