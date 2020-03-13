@@ -7,7 +7,7 @@ def lnormal_mse(obs,preds):
     loss =  tf.keras.losses.MSE( adjusted_log(obs) , adjusted_log(preds) )
     return loss
 
-@tf.function
+
 def adjusted_log( vals, boundary=0.5):
     "This log does log transformation for all values above 0.5 and linear transformation for values below"
     vals = tf.where( vals>boundary, tf.math.log(vals), boundary + (vals-boundary)/boundary )
