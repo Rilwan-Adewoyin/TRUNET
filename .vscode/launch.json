@@ -54,7 +54,7 @@
             "console": "internalConsole",
             "justMyCode": false,
             "args": [ "-mn","SimpleLSTM","-sdc","7",
-                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'LogNormal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'London', 'model_version':'44'}",
+                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'LogNormal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'London', 'model_version':'45'}",
                 "-dd","Data/Rain_Data_Nov19","-bs","18", "-od","./Output"]
         },
         {

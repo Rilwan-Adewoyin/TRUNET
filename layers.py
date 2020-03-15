@@ -995,9 +995,9 @@ class OutputReluFloat32(tf.keras.layers.Layer):
 		outp = self.outputf32(outp)
 		return outp
 
-def CustomRelu_maker(t_params):
-	CustomRelu = ReLU_correct_layer( threshold= utility.standardize_ati( 0, t_params['normalization_shift']['rain'], 
-															t_params['normalization_scales']['rain'], reverse=False) )
+def CustomRelu_maker(t_params,dtype):
+	CustomRelu = ReLU_correct_layer( threshold= utility.standardize_ati( 0.0, t_params['normalization_shift']['rain'], 
+									t_params['normalization_scales']['rain'], reverse=False),sdtype=dtype )
 	return CustomRelu
 
 class ReLU_correct_layer(tf.keras.layers.Layer):
@@ -1019,7 +1019,7 @@ class ReLU_correct_layer(tf.keras.layers.Layer):
             threshold: Float. Threshold value for thresholded activation.
     """
 
-    def __init__(self, max_value=None, negative_slope=0, threshold=0, **kwargs):
+    def __init__(self, max_value=None, negative_slope=0, threshold=0, sdtype='float32' ,**kwargs):
         super(ReLU_correct_layer, self).__init__(**kwargs)
         if max_value is not None and max_value < 0.:
             raise ValueError('max_value of Relu layer '
@@ -1033,16 +1033,18 @@ class ReLU_correct_layer(tf.keras.layers.Layer):
             max_value = K.cast_to_floatx(max_value)
         self.max_value = max_value
         self.negative_slope = K.cast_to_floatx(negative_slope)
-        self.threshold = K.cast_to_floatx(threshold)
+        self.threshold = tf.cast(threshold, sdtype)# K.cast_to_floatx(threshold)
+        self.sdtype = sdtype
     
-    @tf.function
+    #@tf.function
     def call(self, inputs):
         # alpha is used for leaky relu slope in activations instead of
         # negative_slope.
         return ReLU_corrected(inputs,
                     alpha=self.negative_slope,
                     max_value=self.max_value,
-                    threshold=self.threshold)
+                    threshold=self.threshold,
+					dtype=self.sdtype)
         
 
     def get_config(self):
@@ -1059,7 +1061,7 @@ class ReLU_correct_layer(tf.keras.layers.Layer):
         return input_shape
 
 
-def ReLU_corrected(x, alpha=0., max_value=None, threshold=0):
+def ReLU_corrected(x, alpha=0., max_value=None, threshold=0.0, dtype='float32'):
     """Rectified linear unit.
         With default values, it returns element-wise `max(x, 0)`.
         Otherwise, it follows:
@@ -1089,7 +1091,7 @@ def ReLU_corrected(x, alpha=0., max_value=None, threshold=0):
     if threshold != 0:
         # computes x for x > threshold else 0
         #x = x * math_ops.cast(math_ops.greater(x, threshold), K.floatx())
-        x = x * math_ops.cast(math_ops.greater(x, threshold), K.floatx()) + threshold * math_ops.cast(math_ops.greater_equal(threshold, x), K.floatx())
+        x = x * math_ops.cast(math_ops.greater(x, threshold), dtype) + threshold * math_ops.cast(math_ops.greater_equal(threshold, x), dtype)
     elif max_value == 6:
         # if no threshold, then can use nn.relu6 native TF op for performance
         x = nn.relu6(x)

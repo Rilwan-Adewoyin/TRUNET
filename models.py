@@ -145,7 +145,9 @@ class SimpleLSTM(tf.keras.Model):
         if model_params['model_type_settings']['model_version'] in ["23","27"]:
             self.output_activation = layers.LeakyRelu_mkr(train_params)
         else:
-            self.output_activation = layers.CustomRelu_maker(train_params)
+            #self.output_activation = layers.CustomRelu_maker(train_params, dtype='float16')
+            self.output_activation = layers.CustomRelu_maker(train_params, dtype='float32')
+            self.output_activation._dtype = 'float32'
 
 
         self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
@@ -153,7 +155,7 @@ class SimpleLSTM(tf.keras.Model):
 
         self.new_shape = tf.TensorShape( [train_params['batch_size'], model_params['data_pipeline_params']['lookback_target'], int(6*4)] )
 
-    @tf.function
+    #@tf.function
     def call(self, _input, training=True):
         #_input shape (bs, seq_len, c)
         #shape = _input.shape
@@ -171,8 +173,9 @@ class SimpleLSTM(tf.keras.Model):
         #x = self.dense1(self.do( (x + x0)/2,training=training) )
         x = self.dense1(self.do( tf.concat( [x,x0] ,axis=-1 ), training=training ) ) #new for model 36,37
         outp = self.output_dense( x )
-        outp = self.output_activation(outp)
+        #outp = self.output_activation(outp)
         outp = self.float32_output(outp)
+        outp = self.output_activation(outp)
         return outp
         
     def predict( self, inputs, n_preds, training=True):

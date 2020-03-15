@@ -439,7 +439,7 @@ def train_loop(train_params, model_params):
                             all_count = tf.size( target_filtrd,out_type=tf.float32 )
 
                             #  gather predictions which are conditional on rain
-                            bool_cond_rain = tf.where(tf.equal(labels_true,1),True,False )
+                            bool_cond_rain = tf.where(tf.equal(labels_true,1.0),True,False )
 
                             preds_cond_rain_mean = tf.boolean_mask( preds_filtrd, bool_cond_rain)
                             target_cond_rain = tf.boolean_mask( target_filtrd, bool_cond_rain )
@@ -449,19 +449,18 @@ def train_loop(train_params, model_params):
                             
                             if model_params['model_type_settings']['distr_type'] == 'Normal': #These two below handle dc cases of normal and log_normal
                                 
-                                
                                 loss_mse = (rain_count/all_count)*tf.keras.losses.MSE(target_cond_rain, preds_cond_rain_mean)
                                 metric_mse = loss_mse
                             
                             elif model_params['model_type_settings']['distr_type'] == 'LogNormal':
-                                target_cond_rain = utility.standardize_ati(target_cond_rain, train_params['normalization_shift']['rain'], 
-                                                                train_params['normalization_scales']['rain'],reverse=True)
-                                preds_cond_rain_mean = utility.standardize_ati(preds_cond_rain_mean, train_params['normalization_shift']['rain'], 
-                                                                train_params['normalization_scales']['rain'],reverse=True)
-                                target_cond_no_rain = utility.standardize_ati(target_cond_no_rain, train_params['normalization_shift']['rain'], 
-                                                                train_params['normalization_scales']['rain'],reverse=True)
-                                target_cond_no_rain =  utility.standardize_ati(target_cond_no_rain, train_params['normalization_shift']['rain'], 
-                                                                train_params['normalization_scales']['rain'],reverse=True)
+                                # target_cond_rain = utility.standardize_ati(target_cond_rain, train_params['normalization_shift']['rain'], 
+                                #                                 train_params['normalization_scales']['rain'],reverse=True)
+                                # preds_cond_rain_mean = utility.standardize_ati(preds_cond_rain_mean, train_params['normalization_shift']['rain'], 
+                                #                                 train_params['normalization_scales']['rain'],reverse=True)
+                                # target_cond_no_rain = utility.standardize_ati(target_cond_no_rain, train_params['normalization_shift']['rain'], 
+                                #                                 train_params['normalization_scales']['rain'],reverse=True)
+                                # target_cond_no_rain =  utility.standardize_ati(target_cond_no_rain, train_params['normalization_shift']['rain'], 
+                                #                                 train_params['normalization_scales']['rain'],reverse=True)
 
                                 train_mse_cond_rain = (rain_count/all_count) * tf.keras.metrics.MSE(target_cond_rain, preds_cond_rain_mean)                            
                                 metric_mse =  train_mse_cond_rain
@@ -702,7 +701,7 @@ def train_loop(train_params, model_params):
 
                             loss_mse +=     log_cross_entropy_rainclassification
                         
-                        val_metric_loss( loss_mse)
+                        val_metric_loss(loss_mse)
                         val_metric_mse(val_mse)
 
                 elif model_params['model_type_settings']['stochastic'] == True:
