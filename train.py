@@ -469,7 +469,7 @@ def train_loop(train_params, model_params):
                                 #temp: adding an mse loss to the values which are under 0.5
                                 if(model_params['model_type_settings']['model_version'] in ["3","4","44","46"] ):
                                     #loss_mse += tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
-                                    train_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, target_cond_no_rain)
+                                    train_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
                                     loss_mse += train_mse_cond_no_rain
                                     metric_mse += train_mse_cond_no_rain
                                 else:
