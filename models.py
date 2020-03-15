@@ -155,7 +155,7 @@ class SimpleLSTM(tf.keras.Model):
 
         self.new_shape = tf.TensorShape( [train_params['batch_size'], model_params['data_pipeline_params']['lookback_target'], int(6*4)] )
 
-    #@tf.function
+    @tf.function
     def call(self, _input, training=True):
         #_input shape (bs, seq_len, c)
         #shape = _input.shape
