@@ -1087,7 +1087,7 @@ def ReLU_corrected(x, alpha=0., max_value=None, threshold=0.0, dtype='float32'):
             negative_part = nn.relu(-x)
 
     #clip_max = max_value is not None #Note: This may not evaluate to false in graph mode
-	clip_max = False
+    clip_max = False
 
     if threshold != 0:
         # computes x for x > threshold else 0
