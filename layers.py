@@ -1036,7 +1036,7 @@ class ReLU_correct_layer(tf.keras.layers.Layer):
         self.threshold = tf.cast(threshold, sdtype)# K.cast_to_floatx(threshold)
         self.sdtype = sdtype
     
-    #@tf.function
+    @tf.function
     def call(self, inputs):
         # alpha is used for leaky relu slope in activations instead of
         # negative_slope.
