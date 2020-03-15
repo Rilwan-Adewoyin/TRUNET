@@ -447,25 +447,34 @@ def train_loop(train_params, model_params):
                             preds_cond_no_rain_mean = tf.boolean_mask( preds_filtrd, tf.math.logical_not(bool_cond_rain) )
                             target_cond_no_rain = tf.boolean_mask( target_filtrd, tf.math.logical_not(bool_cond_rain) )
                             
-
                             if model_params['model_type_settings']['distr_type'] == 'Normal': #These two below handle dc cases of normal and log_normal
+                                
+                                
                                 loss_mse = (rain_count/all_count)*tf.keras.losses.MSE(target_cond_rain, preds_cond_rain_mean)
                                 metric_mse = loss_mse
                             
                             elif model_params['model_type_settings']['distr_type'] == 'LogNormal':
+                                target_cond_rain = utility.standardize_ati(target_cond_rain, train_params['normalization_shift']['rain'], 
+                                                                train_params['normalization_scales']['rain'],reverse=True)
+                                preds_cond_rain_mean = utility.standardize_ati(preds_cond_rain_mean, train_params['normalization_shift']['rain'], 
+                                                                train_params['normalization_scales']['rain'],reverse=True)
+                                target_cond_no_rain = utility.standardize_ati(target_cond_no_rain, train_params['normalization_shift']['rain'], 
+                                                                train_params['normalization_scales']['rain'],reverse=True)
+                                target_cond_no_rain =  utility.standardize_ati(target_cond_no_rain, train_params['normalization_shift']['rain'], 
+                                                                train_params['normalization_scales']['rain'],reverse=True)
 
-                                train_loss_cond_rain = (rain_count/all_count) * tf.keras.metrics.MSE(target_cond_rain, preds_cond_rain_mean)                            
-                                metric_mse =  train_loss_cond_rain
+                                train_mse_cond_rain = (rain_count/all_count) * tf.keras.metrics.MSE(target_cond_rain, preds_cond_rain_mean)                            
+                                metric_mse =  train_mse_cond_rain
                                 loss_mse =  (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, preds_cond_rain_mean)
 
                                 #temp: adding an mse loss to the values which are under 0.5
                                 if(model_params['model_type_settings']['model_version'] in ["3","4","44","46"] ):
                                     #loss_mse += tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
-                                    train_loss_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
-                                    loss_mse += train_loss_cond_no_rain
-                                    metric_mse += train_loss_cond_no_rain
+                                    train_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, target_cond_no_rain)
+                                    loss_mse += train_mse_cond_no_rain
+                                    metric_mse += train_mse_cond_no_rain
                                 else:
-                                    train_loss_cond_no_rain = 0 
+                                    train_mse_cond_no_rain = 0 
                             
 
                             if(model_params['model_type_settings']['model_version'] in ["3","4","44","45"] ):
@@ -474,7 +483,7 @@ def train_loop(train_params, model_params):
                             else:
                                 log_cross_entropy_rainclassification = 0
                             
-                                loss_mse += log_cross_entropy_rainclassification
+                            loss_mse += log_cross_entropy_rainclassification
                         
                         scaled_loss = optimizer.get_scaled_loss(loss_mse + sum(model.losses) )
 
@@ -531,8 +540,8 @@ def train_loop(train_params, model_params):
                     tf.summary.scalar('train_metric_mse', metric_mse , step = step )
 
                     if model_params['model_type_settings']['discrete_continuous'] == True:
-                        tf.summary.scalar('train_loss_cond_rain', train_loss_cond_rain, step=step )
-                        tf.summary.scalar('train_loss_cond_no_rain',train_loss_cond_no_rain, step = step)
+                        tf.summary.scalar('train_mse_cond_rain', train_mse_cond_rain, step=step )
+                        tf.summary.scalar('train_mse_cond_no_rain',train_mse_cond_no_rain, step = step)
                         tf.summary.scalar('cross_entropy_rainclassification',log_cross_entropy_rainclassification, step=step)
                 
                 elif( model_params['model_type_settings']['stochastic']==False ):
@@ -540,8 +549,8 @@ def train_loop(train_params, model_params):
                     tf.summary.scalar('train_metric_mse', metric_mse , step = step )
 
                 if model_params['model_type_settings']['discrete_continuous'] == True:
-                        tf.summary.scalar('train_loss_cond_rain', train_loss_cond_rain, step=step )
-                        tf.summary.scalar('train_loss_cond_no_rain',train_loss_cond_no_rain, step = step)
+                        tf.summary.scalar('train_mse_cond_rain', train_mse_cond_rain, step=step )
+                        tf.summary.scalar('train_mse_cond_no_rain',train_mse_cond_no_rain, step = step)
                         tf.summary.scalar('cross_entropy_rainclassification',log_cross_entropy_rainclassification, step=step)
     
 
@@ -680,13 +689,16 @@ def train_loop(train_params, model_params):
 
                             if(model_params['model_type_settings']['model_version'] in ["3","4","44","46"] ):
                                 #loss_mse += tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
-                                train_loss_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
-                                loss_mse += train_loss_cond_no_rain
+                                train_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
+                                loss_mse += train_mse_cond_no_rain
                                 
 
                             if(model_params['model_type_settings']['model_version'] in ["3","4","44","45"] ):
                                 log_cross_entropy_rainclassification = tf.reduce_mean( 
                                         tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=True) )
+                            
+                            else:
+                                log_cross_entropy_rainclassification = 0
 
 
                         loss_mse +=     log_cross_entropy_rainclassification
