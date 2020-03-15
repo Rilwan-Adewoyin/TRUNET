@@ -700,8 +700,8 @@ def train_loop(train_params, model_params):
                             else:
                                 log_cross_entropy_rainclassification = 0
 
-
-                        loss_mse +=     log_cross_entropy_rainclassification
+                            loss_mse +=     log_cross_entropy_rainclassification
+                        
                         val_metric_loss( loss_mse)
                         val_metric_mse(val_mse)
 
