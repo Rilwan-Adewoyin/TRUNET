@@ -1060,7 +1060,7 @@ class ReLU_correct_layer(tf.keras.layers.Layer):
     def compute_output_shape(self, input_shape):
         return input_shape
 
-@tf.function
+#@tf.function
 def ReLU_corrected(x, alpha=0., max_value=None, threshold=0.0, dtype='float32'):
     """Rectified linear unit.
         With default values, it returns element-wise `max(x, 0)`.
