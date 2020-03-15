@@ -1060,7 +1060,7 @@ class ReLU_correct_layer(tf.keras.layers.Layer):
     def compute_output_shape(self, input_shape):
         return input_shape
 
-
+@tf.function
 def ReLU_corrected(x, alpha=0., max_value=None, threshold=0.0, dtype='float32'):
     """Rectified linear unit.
         With default values, it returns element-wise `max(x, 0)`.
@@ -1086,8 +1086,8 @@ def ReLU_corrected(x, alpha=0., max_value=None, threshold=0.0, dtype='float32'):
         else:
             negative_part = nn.relu(-x)
 
-    #clip_max = max_value is not None #Note: This may not evaluate to false in graph mode
-    clip_max = False
+    clip_max = max_value is not None #Note: This may not evaluate to false in graph mode
+    #clip_max = False
 
     if threshold != 0:
         # computes x for x > threshold else 0
@@ -1100,7 +1100,7 @@ def ReLU_corrected(x, alpha=0., max_value=None, threshold=0.0, dtype='float32'):
     else:
         x = nn.relu(x)
 
-    if clip_max:
+    if clip_max == True:
         max_value = K._to_tensor(max_value, x.dtype.base_dtype)
         #zero = K._to_tensor(0., x.dtype.base_dtype)
         x = clip_ops.clip_by_value(x, threshold, max_value)
