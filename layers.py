@@ -29,7 +29,7 @@ from tensorflow.python.ops import math_ops, nn, clip_ops
 import layers_ConvLSTM2D
 
 
-# region DeepSD layers    
+# region DeepSD layers
 class SRCNN( tf.keras.layers.Layer ):
 	""" 
 		Super Resolution Convolutional Module
@@ -985,7 +985,6 @@ class SpatialConcreteDropout(tf.keras.layers.Wrapper):
 class OutputReluFloat32(tf.keras.layers.Layer):
 	def __init__(self, t_params):
 		super(OutputReluFloat32, self).__init__()
-
 		self.custom_relu = CustomRelu_maker(t_params, dtype='float32')
 		self.outputf32 = tf.keras.layers.Activation('linear', dtype='float32')
 	
@@ -995,7 +994,7 @@ class OutputReluFloat32(tf.keras.layers.Layer):
 		outp = self.outputf32(outp)
 		return outp
 
-def CustomRelu_maker(t_params,dtype):
+def CustomRelu_maker(t_params, dtype):
 	CustomRelu = ReLU_correct_layer( threshold= utility.standardize_ati( 0.0, t_params['normalization_shift']['rain'], 
 									t_params['normalization_scales']['rain'], reverse=False), sdtype=dtype )
 	return CustomRelu
@@ -1018,50 +1017,6 @@ class ReLU_correct_layer(tf.keras.layers.Layer):
             negative_slope: Float >= 0. Negative slope coefficient.
             threshold: Float. Threshold value for thresholded activation.
     """
-
-    def __init__(self, max_value=None, negative_slope=0, threshold=0, sdtype='float32' ,**kwargs):
-        super(ReLU_correct_layer, self).__init__(**kwargs)
-        if max_value is not None and max_value < 0.:
-            raise ValueError('max_value of Relu layer '
-                            'cannot be negative value: ' + str(max_value))
-        if negative_slope < 0.:
-            raise ValueError('negative_slope of Relu layer '
-                            'cannot be negative value: ' + str(negative_slope))
-
-        self.support_masking = True
-        if max_value is not None:
-            max_value = K.cast_to_floatx(max_value)
-        self.max_value = max_value
-        self.negative_slope = K.cast_to_floatx(negative_slope)
-        self.threshold = tf.cast(threshold, sdtype)# K.cast_to_floatx(threshold)
-        self.sdtype = sdtype
-    
-    #@tf.function
-    def call(self, inputs):
-        # alpha is used for leaky relu slope in activations instead of
-        # negative_slope.
-        return ReLU_corrected(inputs,
-                    alpha=self.negative_slope,
-                    max_value=self.max_value,
-                    threshold=self.threshold,
-					dtype=self.sdtype)
-        
-
-    def get_config(self):
-        config = {
-            'max_value': self.max_value,
-            'negative_slope': self.negative_slope,
-            'threshold': self.threshold
-        }
-        base_config = super(ReLU_correct_layer, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
-
-    @tf_utils.shape_type_conversion
-    def compute_output_shape(self, input_shape):
-        return input_shape
-
-
-def ReLU_corrected(x, alpha=0., max_value=None, threshold=0.0, dtype='float32'):
     """Rectified linear unit.
         With default values, it returns element-wise `max(x, 0)`.
         Otherwise, it follows:
@@ -1076,39 +1031,90 @@ def ReLU_corrected(x, alpha=0., max_value=None, threshold=0.0, dtype='float32'):
         Returns:
             A tensor.
     """
+    def __init__(self, max_value=None, negative_slope=0.0, threshold=0.0, sdtype='float32' ,**kwargs):
+        super(ReLU_correct_layer, self).__init__()
+        if max_value is not None and max_value < 0.:
+            raise ValueError('max_value of Relu layer '
+                            'cannot be negative value: ' + str(max_value))
+        if negative_slope < 0.:
+            raise ValueError('negative_slope of Relu layer '
+                            'cannot be negative value: ' + str(negative_slope))
 
-    if alpha != 0.:
-        if max_value is None and threshold == 0:
-            return nn.leaky_relu(x, alpha=alpha)
+        self.support_masking = True
+        if max_value is not None:
+            #max_value = K.cast_to_floatx(max_value)
+            max_value = K.cast(max_value, sdtype)
+        self.max_value = max_value
+        #self.negative_slope = K.cast_to_floatx(negative_slope)
+        #self.negative_slope = K.cast(negative_slope,sdtype)
+        #self.negative_slope = tf.constant(negative_slope,sdtype )
+        self.negative_slope = np.array([negative_slope],dtype=sdtype)		
+        #self.threshold = K.cast_to_floatx(threshold)
+        #self.threshold = K.cast(threshold, sdtype)
+        self.threshold = np.array([threshold],dtype=sdtype)		
+        self.sdtype = sdtype
+        self._dtype = sdtype
+    
+   # @tf.function
+    def call(self, inputs):
+        # alpha is used for leaky relu slope in activations instead of
+        # negative_slope.
 
-        if threshold != 0:
-            negative_part = nn.relu(-x + threshold)
-        else:
-            negative_part = nn.relu(-x)
+        x = inputs
+        if self.negative_slope != 0.0:
+            #tf.print(self.negative_slope, output_stream=sys.stdout)
+        #if tf.math.not_equal( self.negative_slope, 0.0 ):
 
-    clip_max = max_value != None #Note: This may not evaluate to false in graph mode
-    #clip_max = False
+            if self.max_value is None and self.threshold == 0:
+                #return nn.leaky_relu(x, alpha=self.negative_slope)
+                return K.relu(x, alpha=self.negative_slope)
 
-    if threshold != 0:
-        # computes x for x > threshold else 0
-        #x = x * math_ops.cast(math_ops.greater(x, threshold), K.floatx())
-        x = x * math_ops.cast(math_ops.greater(x, threshold), dtype) + threshold * math_ops.cast(math_ops.greater_equal(threshold, x), dtype)
-    elif max_value == 6:
-        # if no threshold, then can use nn.relu6 native TF op for performance
-        x = nn.relu6(x)
+            if self.threshold != 0:
+                #negative_part = nn.relu(-x + self.threshold)
+                negative_part = K.relu( -x + self.threshold)
+            else:
+                #negative_part = nn.relu(-x)
+                negative_part = K.relu(-x)
+
+        #clip_max = max_value != None #Note: This may not evaluate to false in graph mode
         clip_max = False
-    else:
-        x = nn.relu(x)
 
-    if clip_max == True:
-        max_value = K._to_tensor(max_value, x.dtype.base_dtype)
-        #zero = K._to_tensor(0., x.dtype.base_dtype)
-        x = clip_ops.clip_by_value(x, threshold, max_value)
+        if self.threshold != 0:
+            # computes x for x > threshold else 0
+            #x = x * math_ops.cast(math_ops.greater(x, threshold), K.floatx())
+            #x = x * math_ops.cast(math_ops.greater(x, self.threshold), x.dtype.base_dtype) + self.threshold * math_ops.cast(math_ops.greater_equal(self.threshold, x), x.dtype.base_dtype)
+		    #x = x * math_ops.greater(x, threshold) + threshold * math_ops.greater_equal(threshold, x)
+            x = x * tf.cast(tf.math.greater(x, self.threshold), x.dtype.base_dtype) + self.threshold * tf.cast(tf.greater(self.threshold, x), x.dtype.base_dtype)
+        elif self.max_value == 6:
+            # if no threshold, then can use nn.relu6 native TF op for performance
+            x = nn.relu6(x)
+            clip_max = False
+        else:
+            x = nn.relu(x)
 
-    if alpha != 0.:
-        alpha = K._to_tensor(alpha, x.dtype.base_dtype)
-        x -= alpha * negative_part
-    return x
+        if clip_max == True:
+            self.max_value = K._to_tensor(self.max_value, x.dtype.base_dtype)
+            #zero = K._to_tensor(0., x.dtype.base_dtype)
+            x = clip_ops.clip_by_value(x, self.threshold, self.max_value)
+
+        if self.negative_slope != 0.:
+            self.negative_slope = K._to_tensor(self.negative_slope, x.dtype.base_dtype)
+            x -= self.negative_slope * negative_part
+		
+        return x
+        
+    def get_config(self):
+        config = {
+            'max_value': self.max_value,
+            'negative_slope': self.negative_slope,
+            'threshold': self.threshold
+        }
+        base_config = super(ReLU_correct_layer, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+    @tf_utils.shape_type_conversion
+    def compute_output_shape(self, input_shape):
+        return input_shape
 
 
 def LeakyRelu_mkr(t_params):

@@ -128,16 +128,12 @@ class SimpleLSTM(tf.keras.Model):
                 peephole_lstm_cell = tf.keras.experimental.PeepholeLSTMCell(**_params)
                 layer = tf.keras.layers.Bidirectional( tf.keras.layers.RNN( peephole_lstm_cell, return_sequences=True, stateful=True ), merge_mode='concat' )
                 self.LSTM_layers.append(layer) 
-
-
         elif model_params['model_type_settings']['model_version'] in ["25","27","28","30","33","35"]:
-            self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.GRU( **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ]
-        
+            self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.GRU( **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ] 
         elif model_params['model_type_settings']['model_version'] in ["34","36","44","45","46"]:
             self.LSTM_layers = [ tf.keras.layers.Bidirectional( layers_gru.GRU_LN_v2( **model_params['layer_params'][idx]), merge_mode='concat' ) for idx in range(model_params['layer_count'] ) ]
         else:
             self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.LSTM( **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ]
-
 
         self.dense1 =  tf.keras.layers.Dense(units= 80, activation='relu' )
         self.output_dense = TimeDistributed( tf.keras.layers.Dense(units=1, activation='linear') )
@@ -147,7 +143,7 @@ class SimpleLSTM(tf.keras.Model):
         else:
             #self.output_activation = layers.CustomRelu_maker(train_params, dtype='float16')
             self.output_activation = layers.CustomRelu_maker(train_params, dtype='float32')
-            self.output_activation._dtype = 'float32'
+            #self.output_activation._dtype = 'float32'
 
 
         self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')

@@ -416,7 +416,7 @@ def train_loop(train_params, model_params):
                         target, mask = target # (bs, seq_len)
 
                         preds = model( tf.cast(feature,tf.float16), train_params['trainable'] ) #( bs, tar_seq_len)
-                        preds = tf.squeeze(preds)
+                        preds = tf.squeeze( preds )
 
                         preds_filtrd = tf.boolean_mask( preds, mask )
                         target_filtrd = tf.boolean_mask( target, mask )
