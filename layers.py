@@ -986,7 +986,7 @@ class OutputReluFloat32(tf.keras.layers.Layer):
 	def __init__(self, t_params):
 		super(OutputReluFloat32, self).__init__()
 
-		self.custom_relu = CustomRelu_maker(t_params)
+		self.custom_relu = CustomRelu_maker(t_params, dtype='float32')
 		self.outputf32 = tf.keras.layers.Activation('linear', dtype='float32')
 	
 	@tf.function
@@ -1036,7 +1036,7 @@ class ReLU_correct_layer(tf.keras.layers.Layer):
         self.threshold = tf.cast(threshold, sdtype)# K.cast_to_floatx(threshold)
         self.sdtype = sdtype
     
-    @tf.function
+    #@tf.function
     def call(self, inputs):
         # alpha is used for leaky relu slope in activations instead of
         # negative_slope.
@@ -1060,7 +1060,7 @@ class ReLU_correct_layer(tf.keras.layers.Layer):
     def compute_output_shape(self, input_shape):
         return input_shape
 
-#@tf.function
+
 def ReLU_corrected(x, alpha=0., max_value=None, threshold=0.0, dtype='float32'):
     """Rectified linear unit.
         With default values, it returns element-wise `max(x, 0)`.
@@ -1086,7 +1086,7 @@ def ReLU_corrected(x, alpha=0., max_value=None, threshold=0.0, dtype='float32'):
         else:
             negative_part = nn.relu(-x)
 
-    clip_max = max_value is not None #Note: This may not evaluate to false in graph mode
+    clip_max = max_value != None #Note: This may not evaluate to false in graph mode
     #clip_max = False
 
     if threshold != 0:
