@@ -997,7 +997,7 @@ class OutputReluFloat32(tf.keras.layers.Layer):
 
 def CustomRelu_maker(t_params,dtype):
 	CustomRelu = ReLU_correct_layer( threshold= utility.standardize_ati( 0.0, t_params['normalization_shift']['rain'], 
-									t_params['normalization_scales']['rain'], reverse=False),sdtype=dtype )
+									t_params['normalization_scales']['rain'], reverse=False), sdtype=dtype )
 	return CustomRelu
 
 class ReLU_correct_layer(tf.keras.layers.Layer):
@@ -1086,7 +1086,8 @@ def ReLU_corrected(x, alpha=0., max_value=None, threshold=0.0, dtype='float32'):
         else:
             negative_part = nn.relu(-x)
 
-    clip_max = max_value is not None
+    #clip_max = max_value is not None #Note: This may not evaluate to false in graph mode
+	clip_max = False
 
     if threshold != 0:
         # computes x for x > threshold else 0
