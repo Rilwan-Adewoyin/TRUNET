@@ -468,11 +468,11 @@ def train_loop(train_params, model_params):
                                     train_mse_cond_no_rain = 0 
                             
 
-                            if(model_params['model_type_settings']['model_version'] in ["3","4","44","45","47","48","49","50","51"] ):
+                            if(model_params['model_type_settings']['model_version'] in ["3","4","44","45","47","48","49","50","51","52"] ):
 
                                 log_cross_entropy_rainclassification = tf.reduce_mean( 
                                                 tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=True) )
-                                if model_params['model_type_settings']['model_version'] in ["47","48","49","50","51"]:
+                                if model_params['model_type_settings']['model_version'] in ["47","48","49","50","51","52"]:
                                     log_cross_entropy_rainclassification = log_cross_entropy_rainclassification * train_params['loss_scales']['log_cross_entropy_rainclassification']
                                 
                             else:
@@ -688,10 +688,10 @@ def train_loop(train_params, model_params):
                                 loss_mse += train_mse_cond_no_rain
                                 
 
-                            if(model_params['model_type_settings']['model_version'] in ["3","4","44","45","47","48","49","50","51"] ):
+                            if(model_params['model_type_settings']['model_version'] in ["3","4","44","45","47","48","49","50","51","52"] ):
                                 log_cross_entropy_rainclassification = tf.reduce_mean( 
                                         tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=True) )
-                                if model_params['model_type_settings']['model_version'] in ["47","48","49","50","51"]:
+                                if model_params['model_type_settings']['model_version'] in ["47","48","49","50","51",'52']:
                                     log_cross_entropy_rainclassification = log_cross_entropy_rainclassification * train_params['loss_scales']['log_cross_entropy_rainclassification']
                             
                             else:
