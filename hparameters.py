@@ -348,7 +348,7 @@ class model_SimpleLSTM_hparameters(MParams):
         
         li_rs =     [True]*layer_count
         LAYER_PARAMS = [
-            {'units': un, 'dropout':0.00, 'recurrent_dropout':0.00,
+            {'units': un, 'dropout':0.2, 'recurrent_dropout':0.25,
                 'return_sequences':rs, 'stateful':True,
                 'kernel_regularizer': None,
                 'recurrent_regularizer': None,
