@@ -453,14 +453,6 @@ def train_loop(train_params, model_params):
                                 metric_mse = loss_mse
                             
                             elif model_params['model_type_settings']['distr_type'] == 'LogNormal':
-                                # target_cond_rain = utility.standardize_ati(target_cond_rain, train_params['normalization_shift']['rain'], 
-                                #                                 train_params['normalization_scales']['rain'],reverse=True)
-                                # preds_cond_rain_mean = utility.standardize_ati(preds_cond_rain_mean, train_params['normalization_shift']['rain'], 
-                                #                                 train_params['normalization_scales']['rain'],reverse=True)
-                                # target_cond_no_rain = utility.standardize_ati(target_cond_no_rain, train_params['normalization_shift']['rain'], 
-                                #                                 train_params['normalization_scales']['rain'],reverse=True)
-                                # target_cond_no_rain =  utility.standardize_ati(target_cond_no_rain, train_params['normalization_shift']['rain'], 
-                                #                                 train_params['normalization_scales']['rain'],reverse=True)
 
                                 train_mse_cond_rain = (rain_count/all_count) * tf.keras.metrics.MSE(target_cond_rain, preds_cond_rain_mean)                            
                                 metric_mse =  train_mse_cond_rain
@@ -469,16 +461,20 @@ def train_loop(train_params, model_params):
                                 #temp: adding an mse loss to the values which are under 0.5
                                 if(model_params['model_type_settings']['model_version'] in ["3","4","44","46"] ):
                                     #loss_mse += tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
-                                    train_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
+                                    train_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean )
                                     loss_mse += train_mse_cond_no_rain
                                     metric_mse += train_mse_cond_no_rain
                                 else:
                                     train_mse_cond_no_rain = 0 
                             
 
-                            if(model_params['model_type_settings']['model_version'] in ["3","4","44","45"] ):
+                            if(model_params['model_type_settings']['model_version'] in ["3","4","44","45","47","48","49","50"] ):
+
                                 log_cross_entropy_rainclassification = tf.reduce_mean( 
                                                 tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=True) )
+                                if model_params['model_type_settings']['model_version'] in ["47","48","49","50"]:
+                                    log_cross_entropy_rainclassification = log_cross_entropy_rainclassification * train_params['loss_scales']['log_cross_entropy_rainclassification']
+                                
                             else:
                                 log_cross_entropy_rainclassification = 0
                             
@@ -692,9 +688,11 @@ def train_loop(train_params, model_params):
                                 loss_mse += train_mse_cond_no_rain
                                 
 
-                            if(model_params['model_type_settings']['model_version'] in ["3","4","44","45"] ):
+                            if(model_params['model_type_settings']['model_version'] in ["3","4","44","45","47","48","49","50"] ):
                                 log_cross_entropy_rainclassification = tf.reduce_mean( 
                                         tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=True) )
+                                if model_params['model_type_settings']['model_version'] in ["47","48","49","50"]:
+                                    log_cross_entropy_rainclassification = log_cross_entropy_rainclassification * train_params['loss_scales']['log_cross_entropy_rainclassification']
                             
                             else:
                                 log_cross_entropy_rainclassification = 0

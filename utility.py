@@ -198,6 +198,7 @@ def load_params_train_model(args_dict):
         init_t_params = {}
         init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
         init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
+        init_t_params.update( {'loss_scales':ast.literal_eval( args_dict['loss_scales']) } )
         
         train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
     
@@ -337,7 +338,9 @@ def parse_arguments(s_dir=None):
     parser.add_argument('-od','--output_dir', type=str, required=False, default="./Output")
 
     parser.add_argument('-sdc','--strided_dataset_count',type=int, required=False, default=1, help="The number of datasets to create. Each dataset has stride equal to window size, so for large window sizes dataset becomes very small and overfitting is likely")
-
+    
+    parser.add_argument('-ls','--loss_scales',type=str, required=False, default="{}",help="The custom weighting to add to different parts of the loss function" )
+    
     args_dict = vars(parser.parse_args() )
 
     return args_dict
