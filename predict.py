@@ -191,7 +191,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
             
             if model_params['model_type_settings']['stochastic'] == True:
 
-                if model_params['model_type_settings']['var_model_type'] == "dropout":
+                if model_params['model_type_settings']['var_model_type'] == "mc_dropout":
                     li_preds = model.predict( tf.cast(feature,tf.float16), True )
                 else:
                     li_preds = model.predict( tf.cast(feature,tf.float16), False )

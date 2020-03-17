@@ -282,11 +282,11 @@ class SimpleConvGRU(tf.keras.Model):
                
         self.output_conv = self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **self.model_params['outpconv_layer_params'] ) )
 
-        self.do = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=0.10, data_format = 'channels_last' ) )
-
-        self.output_activation = layers.CustomRelu_maker(train_params)
+        self.do = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=model_params['dropout'], data_format = 'channels_last' ) )
 
         self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
+
+        self.output_activation = layers.CustomRelu_maker(train_params, dtype='float32')
 
         self.new_shape1 = tf.TensorShape( [train_params['batch_size'],model_params['region_grid_params']['outer_box_dims'][0], model_params['region_grid_params']['outer_box_dims'][1],  train_params['lookback_target'] ,int(6*4)] )
     
@@ -307,8 +307,9 @@ class SimpleConvGRU(tf.keras.Model):
             else:
                 x = x + self.ConvGRU_layers[idx](inputs=x,training=training )
 
-        x = self.output_conv( self.do( (x + x0)/2),training=training)
+        #outp = self.output_conv( self.do( (x + x0)/2),training=training)
+        outp = self.output_conv( self.do( [x,x0] ,axis=-1), training=training )
+        outp = self.float32_output(outp)
         outp = self.output_activation(x)
-        x = self.float32_output(outp)
         return x
         

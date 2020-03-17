@@ -661,7 +661,7 @@ class ConvGRU2D(ConvRNN2D):
                                         **kwargs)
         self.activity_regularizer = regularizers.get(activity_regularizer)
 
-    @tf.function
+    #@tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
         #self._maybe_reset_cell_dropout_mask(self.cell)
         return super(ConvGRU2D, self).call(inputs,
@@ -1285,7 +1285,7 @@ class ConvGRU2D_custom(ConvRNN2D):
         
         self.activity_regularizer = regularizers.get(activity_regularizer)
 
-    @tf.function
+    #@tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
         #self._maybe_reset_cell_dropout_mask(self.cell)
 
@@ -2023,7 +2023,7 @@ class ConvGRU2D_attn(ConvRNN2D):
         
         self.activity_regularizer = regularizers.get(activity_regularizer)
 
-    @tf.function
+    #@tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
         #self._maybe_reset_cell_dropout_mask(self.cell)
         if initial_state is not None:
