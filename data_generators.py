@@ -201,6 +201,51 @@ class Generator():
         coordinates = self.city_location[city]
         return self.find_nearest_latitude_longitude( coordinates)
 
+    def find_idx_of_city_region(self, city, region_grid_params):
+        """
+            returns the enclosing indexes for a city, this represents the region for the city
+            note: this region will be a size matching the full size used during training, and not just the size used when evaluating the loss
+        """
+
+        city_idxs = self.find_idx_of_city(city) #[h,w]
+
+        #region Handling cases of outer_box_dims being odd or even
+        if( region_grid_params['outer_box_dims'][0]%2 == 0 ):
+            h_up_span = region_grid_params['outer_box_dims'][0]//2 
+            h_down_span = region_grid_params['outer_box_dims'][0]//2 +1
+
+        else:
+            h_up_span = region_grid_params['outer_box_dims'][0]//2
+            h_down_span = region_grid_params['outer_box_dims'][0]//2
+
+        if( region_grid_params['outer_box_dims'][0]%2 == 0 ):
+            w_left_span = region_grid_params['outer_box_dims'][0]//2 
+            w_right_span = region_grid_params['outer_box_dims'][0]//2 +1
+
+        else:
+            w_left_span = region_grid_params['outer_box_dims'][0]//2
+            w_right_span = region_grid_params['outer_box_dims'][0]//2
+        #endregion
+
+        #region Handling cases of bonding regions being beyond box size
+        #TODO: Finish implementing handling of cases which are on the edge
+        # h_up_overstep = - min( city_idxs[0]-h_up_span , 0  ) 
+        # h_down_overstep = max( city_idxs[0]+h_down_span -input_image_shape[0], 0 )
+
+        # w_left_overstep = - min( city_idxs[1]-w_left_span, 0 )
+        # w_right_overstep = max( city_idxs[1]+h_down_span-input_image_shape[1], 0 )
+
+        #endregion
+
+        upper_h = city_idxs[0] - h_up_span
+        lower_h = city_idxs[0] + h_down_span
+
+        left_w = city_idxs[1] - w_left_span
+        right_w = city-idxs[1] + w_right_span
+        
+        return ( [upper_h, lower_h], [left_w, right_w] )
+
+
     def find_nearest_latitude_longitude(self, coordinates):
 
         latitude_index =    np.abs(self.latitude_array - coordinates[0] ).argmin()
@@ -209,6 +254,9 @@ class Generator():
         return (latitude_index, longitude_index)
     
     def find_idx_of_city_in_folded_regions( self, city, region_grid_params ):
+        """
+            Given the full map has been folded into the 16 by 16 regions. This code finds the index of the region which contains the city in the dimension of the folded regions
+        """
         slides = region_grid_params['slides_v_h']
         city_idx = self.find_idx_of_city(city) #[a,b]
 
@@ -387,19 +435,37 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
 
     # endregion
 
-    
     ds = tf.data.Dataset.zip( (ds_feat, ds_tar) ) #( model_fields, (rain, rain_mask) ) 
-     
-
+    
     # region mode of data
     model_settings = m_params['model_type_settings']
     if(model_settings['location']=="wholegrid"):
         ds = ds.batch(t_params['batch_size'], drop_remainder=True)
 
     elif( model_settings['location'] in rain_data.city_location.keys()  ):
-        ds = ds.batch(t_params['batch_size'], drop_remainder=True)
-        idxs = rain_data.find_idx_of_city( model_settings['location'] )
-        ds = ds.map( lambda mf, rain_rmask : load_data_ati_select_location(mf, rain_rmask[0], rain_rmask[1], idxs ), num_parallel_calls=_num_parallel_calls )
+        
+        if m_params['model_name'] in ["SimpleLSTM","SimpleDense","SimpleGRU"]:
+            ds = ds.batch(t_params['batch_size'], drop_remainder=True)
+            idxs = rain_data.find_idx_of_city( model_settings['location'] )
+            ds = ds.map( lambda mf, rain_rmask : load_data_ati_select_location(mf, rain_rmask[0], rain_rmask[1], idxs ), num_parallel_calls=_num_parallel_calls )
+        
+        elif m_params['model_name'] in ["SimpleConvGRU","SimpleConvLSTM",'THST']:
+            ds = ds.map( lambda mf, rain_mask: tuple( [mf, rain_mask[0], rain_mask[1]] )  )                         #mf=(80, 100,140,6)
+            
+            # region_folding_partial = partial(region_folding, **m_params['region_grid_params'], mode=4,tnsrs=None )  
+            # ds = ds.map( lambda mf,rain,rmask : tf.py_function( region_folding_partial, [mf, rain, rmask], [tf.float16, tf.float32, tf.bool] ) ) #mf = mode3(704, lookback, 16, 16, 6 )  mode1(80, 85//4, 125//4, 16, 16, 6)
+            h_idxs, w_idxs = rain_data.find_idx_of_city_region( m_params['location'], m_params['region_grid_params'] )
+
+            
+            ds = ds.map( lambda mf, rain, rmask : load_data_ati_select_region_from_nonstack( mf, rain, rmask, h_idxs, w_idxs)  )
+
+            if 'location_test' in model_settings.keys():
+                idx_region_flat, periodicy, idx_city_in_region = rain_data.find_idx_of_city_in_folded_regions( model_settings['location_test'], m_params['region_grid_params'] )
+                ds = ds.map( lambda mf, rain, rmask: load_data_ati_select_region_from_stack(mf, rain, rmask, idx_region_flat, periodicy ), num_parallel_calls = _num_parallel_calls  )
+                ds = ds.unbatch().batch( t_params['batch_size'],drop_remainder=True )
+                ds = ds.prefetch(_num_parallel_calls)
+                return ds, idx_city_in_region
+
 
     elif(model_settings['location']=="region_grid"):
         
@@ -411,7 +477,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
         
         if 'location_test' in model_settings.keys():
             idx_region_flat, periodicy, idx_city_in_region = rain_data.find_idx_of_city_in_folded_regions( model_settings['location_test'],m_params['region_grid_params'] )
-            ds = ds.map( lambda mf, rain, rmask: load_data_ati_select_region(mf, rain, rmask, idx_region_flat, periodicy ), num_parallel_calls = _num_parallel_calls  )
+            ds = ds.map( lambda mf, rain, rmask: load_data_ati_select_region_from_stack(mf, rain, rmask, idx_region_flat, periodicy ), num_parallel_calls = _num_parallel_calls  )
             ds = ds.unbatch().batch( t_params['batch_size'],drop_remainder=True )
             ds = ds.prefetch(_num_parallel_calls)
             return ds, idx_city_in_region
@@ -504,7 +570,6 @@ def region_folding( mf, rain, rain_mask, tnsrs=None ,mode=1,
         
         return np.ones_like(mf_unstitched,dtype=np.float16 ), np.ones_like(rain_unstitched,dtype=np.float32 ), np.ones_like(rain_mask_unstitched,dtype=bool)
         #return mf_unstitched, rain_unstitched, rain_mask_unstitched 
-    
     elif mode==2: 
         #NOTE: mode 2 does not accept arrs w/ channel dim
         
@@ -530,7 +595,7 @@ def region_folding( mf, rain, rain_mask, tnsrs=None ,mode=1,
         stitched_array = _array.reshape([bs,h,w])
 
         return stitched_array
-    elif mode==3:
+    elif mode==3:#Unstitch
         if tf.is_tensor(mf):
             mf = mf.numpy().astype(dtype=np.float16)
         if tf.is_tensor(rain):
@@ -552,7 +617,7 @@ def region_folding( mf, rain, rain_mask, tnsrs=None ,mode=1,
     else:
         raise ValueError
 
-def load_data_ati_select_region( mf, rain, rain_mask, idx_region_flat, periodicy):
+def load_data_ati_select_region_from_stack( mf, rain, rain_mask, idx_region_flat, periodicy):
     """
         Note: This only works following mode==3 of region folding
         
@@ -561,6 +626,16 @@ def load_data_ati_select_region( mf, rain, rain_mask, idx_region_flat, periodicy
     mf = mf[ idx_region_flat::periodicy ,: , :, :, :] #( h_strides1*w_strides1, seq_len ,h1, w1, c )
     rain = rain[idx_region_flat::periodicy, :, :, :] #( h_strides1*w_strides1, seq_len ,h1, w1 )
     rain_mask = rain_mask[idx_region_flat::periodicy, :, :, :]
+
+    return mf, rain, rain_mask
+
+def load_data_ati_select_region_from_nonstack(mf, rain, rain_mask, h_idxs, w_idxs ):
+    """
+        idx_h,idx_w: refer to the top left right index for the square region of interest this includes the region which is removed after cropping to calculate the loss during train step
+    """
+    mf = mf[ :, :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] , : ]
+    rain = rain[ :, :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1], : ]
+    rain_mask = rain_mask[ :, :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1], : ]
 
     return mf, rain, rain_mask
 
@@ -577,6 +652,3 @@ def load_data_ati_post_region_folding(mf, rain, mask):
 
     return mf, (rain, mask)
 
-
-
-    

@@ -549,7 +549,6 @@ def train_loop(train_params, model_params):
                         tf.summary.scalar('train_mse_cond_no_rain',train_mse_cond_no_rain, step = step)
                         tf.summary.scalar('cross_entropy_rainclassification',log_cross_entropy_rainclassification, step=step)
     
-
                 for grad, _tensor in zip( gradients, model.trainable_variables):
                     if grad is not None:
                         tf.summary.histogram( "Grad:{}".format( _tensor.name ) , grad, step = step  )
