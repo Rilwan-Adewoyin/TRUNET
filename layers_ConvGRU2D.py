@@ -600,70 +600,73 @@ class ConvGRU2D(ConvRNN2D):
 
     def __init__(self,
                 filters,
-                kernel_size,
-                strides=(1, 1),
-                padding='valid',
-                data_format=None,
-                dilation_rate=(1, 1),
-                layer_norm = tf.keras.layers.LayerNormalization(axis=[-3,-2,-1]),
-                activation='tanh',
-                recurrent_activation='hard_sigmoid',
-                use_bias=True,
-                kernel_initializer='glorot_uniform',
-                recurrent_initializer='orthogonal',
-                bias_initializer='zeros',
-                kernel_regularizer=None,
-                recurrent_regularizer=None,
-                bias_regularizer=None,
-                activity_regularizer=None,
-                kernel_constraint=None,
-                recurrent_constraint=None,
-                bias_constraint=None,
-                return_sequences=False,
-                go_backwards=False,
-                stateful=False,
-                dropout=0.,
-                recurrent_dropout=0.,
-                implementation=2,
-                reset_after=True,
-                **kwargs):
+                    kernel_size,
+                    implementation,
+                    layer_norm,                
+                    strides=(1, 1),
+                    padding='valid',
+                    data_format=None,
+                    dilation_rate=(1, 1),
+                    activation='tanh',
+                    recurrent_activation='hard_sigmoid',
+                    use_bias=True,
+                    kernel_initializer='glorot_uniform',
+                    recurrent_initializer='orthogonal',
+                    bias_initializer='zeros',
+                    kernel_regularizer=None,
+                    recurrent_regularizer=None,
+                    bias_regularizer=None,
+                    activity_regularizer=None,
+                    kernel_constraint=None,
+                    recurrent_constraint=None,
+                    bias_constraint=None,
+                    return_sequences=False,
+                    go_backwards=False,
+                    stateful=False,
+                    dropout=0.,
+                    recurrent_dropout=0.,
+                    reset_after=True,
+                    **kwargs):
         if layer_norm != None: 
             layer_norm._dtype =  "float16"
         self.layer_norm = layer_norm
+        #self.implementation = implementation
         cell = ConvGRU2DCell(filters=filters,
                             kernel_size=kernel_size,
-                            strides=strides,
-                            padding=padding,
-                            data_format=data_format,
-                            dilation_rate=dilation_rate,
-                            layer_norm=layer_norm,
-                            activation=activation,
-                            recurrent_activation=recurrent_activation,
-                            use_bias=use_bias,
-                            kernel_initializer=kernel_initializer,
-                            recurrent_initializer=recurrent_initializer,
-                            bias_initializer=bias_initializer,
-                            kernel_regularizer=kernel_regularizer,
-                            recurrent_regularizer=recurrent_regularizer,
-                            bias_regularizer=bias_regularizer,
-                            kernel_constraint=kernel_constraint,
-                            recurrent_constraint=recurrent_constraint,
-                            bias_constraint=bias_constraint,
-                            dropout=dropout,
-                            recurrent_dropout=recurrent_dropout,
-                            implementation=implementation,
-                            reset_after=reset_after,
-                            dtype=kwargs.get('dtype'))
+                                strides=strides,
+                                padding=padding,
+                                data_format=data_format,
+                                dilation_rate=dilation_rate,
+                                layer_norm=layer_norm,
+                                activation=activation,
+                                recurrent_activation=recurrent_activation,
+                                use_bias=use_bias,
+                                kernel_initializer=kernel_initializer,
+                                recurrent_initializer=recurrent_initializer,
+                                bias_initializer=bias_initializer,
+                                kernel_regularizer=kernel_regularizer,
+                                recurrent_regularizer=recurrent_regularizer,
+                                bias_regularizer=bias_regularizer,
+                                kernel_constraint=kernel_constraint,
+                                recurrent_constraint=recurrent_constraint,
+                                bias_constraint=bias_constraint,
+                                dropout=dropout,
+                                recurrent_dropout=recurrent_dropout,
+                                implementation=implementation,
+                                reset_after=reset_after,
+                                dtype=kwargs.get('dtype'))
+        
         super(ConvGRU2D, self).__init__(cell,
                                         return_sequences=return_sequences,
                                         go_backwards=go_backwards,
                                         stateful=stateful,
                                         **kwargs)
         self.activity_regularizer = regularizers.get(activity_regularizer)
+    
 
     #@tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
-        #self._maybe_reset_cell_dropout_mask(self.cell)
+        self._maybe_reset_cell_dropout_mask(self.cell)
         return super(ConvGRU2D, self).call(inputs,
                                             mask=mask,
                                             training=training,
@@ -749,6 +752,14 @@ class ConvGRU2D(ConvRNN2D):
     @property
     def recurrent_dropout(self):
         return self.cell.recurrent_dropout
+    
+    @property
+    def implementation(self):
+        return self.cell.implementation
+
+    # @property
+    # def layer_norm(self):
+    #     return self.layer_norm
 
     def get_config(self):
         config = {'filters': self.filters,
@@ -780,7 +791,9 @@ class ConvGRU2D(ConvRNN2D):
                 'bias_constraint': constraints.serialize(self.bias_constraint),
                 'dropout': self.dropout,
                 'recurrent_dropout': self.recurrent_dropout,
-                'layer_norm':self.layer_norm }
+                'layer_norm':self.layer_norm,
+                'implementation':self.implementation }
+
         base_config = super(ConvGRU2D, self).get_config()
         del base_config['cell']
         return dict(list(base_config.items()) + list(config.items()))
@@ -789,6 +802,32 @@ class ConvGRU2D(ConvRNN2D):
     def from_config(cls, config):
         return cls(**config)
     #endregion
+
+    def get_initial_state(self, inputs):
+        
+        #region Adapting from LSTM to GRU
+        initial_state = K.zeros_like(inputs)
+        # (samples, rows, cols, filters)
+        initial_state = K.sum(initial_state, axis=1)
+
+        shape_h_state = list(self.cell.kernel_shape)
+        shape_h_state[-1] = self.cell.filters
+
+        #shape_c_state = list(self.cell.kernel_shape)
+        #shape_c_state[-1] = self.cell.filters*2
+        
+        initial_hidden_state = self.cell.input_conv(initial_state,
+                                            array_ops.zeros(tuple(shape_h_state) , self._compute_dtype),
+                                            padding=self.cell.padding)
+        
+        # initial_carry_state = self.cell.input_conv( initial_state,
+        #                                     array_ops.zeros(tuple(shape_c_state),self._compute_dtype ),
+        #                                     padding=self.cell.padding)
+
+        if hasattr(self.cell.state_size, '__len__'):
+            return [initial_hidden_state ]
+        else:
+            return [initial_hidden_state]
 #Done
 class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
     """Cell class for the ConvGRU2D layer.
@@ -856,29 +895,29 @@ class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
 
     def __init__(self,
                 filters,
-                kernel_size,
-                layer_norm,
-                strides=(1, 1),
-                padding='valid',
-                data_format=None,
-                dilation_rate=(1, 1),
-                activation='tanh',
-                recurrent_activation='hard_sigmoid',
-                use_bias=True,
-                kernel_initializer='glorot_uniform',
-                recurrent_initializer='orthogonal',
-                bias_initializer='zeros',
-                kernel_regularizer=None,
-                recurrent_regularizer=None,
-                bias_regularizer=None,
-                kernel_constraint=None,
-                recurrent_constraint=None,
-                bias_constraint=None,
-                dropout=0.,
-                recurrent_dropout=0.,
-                implementation=1,
-                reset_after= False,
-                **kwargs):
+                    kernel_size,
+                    layer_norm,
+                    strides=(1, 1),
+                    padding='valid',
+                    data_format=None,
+                    dilation_rate=(1, 1),
+                    activation='tanh',
+                    recurrent_activation='hard_sigmoid',
+                    use_bias=True,
+                    kernel_initializer='glorot_uniform',
+                    recurrent_initializer='orthogonal',
+                    bias_initializer='zeros',
+                    kernel_regularizer=None,
+                    recurrent_regularizer=None,
+                    bias_regularizer=None,
+                    kernel_constraint=None,
+                    recurrent_constraint=None,
+                    bias_constraint=None,
+                    dropout=0.,
+                    recurrent_dropout=0.,
+                    implementation=1,
+                    reset_after= False,
+                    **kwargs):
         super(ConvGRU2DCell, self).__init__(**kwargs)
         self.filters = filters
         self.kernel_size = conv_utils.normalize_tuple(kernel_size, 2, 'kernel_size')
@@ -911,7 +950,7 @@ class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
 
         self.dropout = min(1., max(0., dropout))
         self.recurrent_dropout = min(1., max(0., recurrent_dropout))
-        self.state_size = (self.filters, self.filters)
+        self.state_size = (self.filters)
 
         self.implementation = implementation
         self.reset_after = reset_after
@@ -980,8 +1019,7 @@ class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
                 bias_z_rcrnt, bias_r_rcrnt, bias_h_rcrnt = None, None, None
 
             elif self.reset_after:
-                bias_z, bias_r, bias_h,
-                bias_z_rcrnt, bias_r_rcrnt, bias_h_rcrnt = array_ops.split(self.bias, 3*2)
+                bias_z, bias_r, bias_h, bias_z_rcrnt, bias_r_rcrnt, bias_h_rcrnt = array_ops.split(self.bias, 3*2)
 
         else:
             bias_z, bias_r, bias_h = None, None, None
@@ -1020,14 +1058,14 @@ class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
                 recurrent_kernel_h) = array_ops.split(self.recurrent_kernel, 3, axis=3)
             
             recurrent_z = self.recurrent_conv(h_tm1_z, recurrent_kernel_z)
-            reccurent_r = self.recurrent_conv(h_tm1_r, recurrent_kernel_r)
+            recurrent_r = self.recurrent_conv(h_tm1_r, recurrent_kernel_r)
 
             if self.reset_after and self.use_bias:
                 recurrent_z = K.bias_add( recurrent_z, bias_z_rcrnt )
                 recurrent_r = K.bias_add( recurrent_r, bias_r_rcrnt )
 
             z = self.recurrent_activation(x_z + recurrent_z)
-            r = self.recurrent_activation(x_r + reccurent_r)
+            r = self.recurrent_activation(x_r + recurrent_r)
 
             # reset gate applied after/before matrix multiplication
             if self.reset_after:
@@ -1097,6 +1135,7 @@ class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
                 'layer_norm':self.layer_norm,
                 'bool_ln':self.bool_ln,
                 'reset_after':self.reset_after }
+
         base_config = super(ConvGRU2DCell, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 

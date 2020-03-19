@@ -365,6 +365,9 @@ class model_SimpleLSTM_hparameters(MParams):
         #         for un, rs in zip(li_units, li_rs)
         # ]
 
+        dense1_layer_params = { 'units':80, 'activation':'relu', 'bias_regularizer':tf.keras.regularizers.l2(0.2) }
+        output_dense_layer_params = {'units':1, 'activation':'linear','bias_regularizer':tf.keras.regularizers.l2(0.2) }
+
         #data pipeline
         target_to_feature_time_ratio = 4
         lookback_feature = 30*target_to_feature_time_ratio   #30     
@@ -388,6 +391,8 @@ class model_SimpleLSTM_hparameters(MParams):
             'model_name':'SimpleLSTM',
             'layer_count': layer_count,
             'layer_params': LAYER_PARAMS,
+            'dense1_layer_params':dense1_layer_params,
+            'output_dense_layer_params':output_dense_layer_params,
             
             'data_pipeline_params': DATA_PIPELINE_PARAMS,
             'model_type_settings': model_type_settings,
@@ -459,7 +464,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
     
     def _default_params(self):
         #Other
-        dropout = 0.05
+        dropout = 0.1
 
         #ConvLayers
         layer_count = 3 #TODO: Shi uses 2 layers
@@ -467,7 +472,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
         kernel_sizes = [[4,4]]*layer_count
         paddings = ['same']*layer_count
         return_sequences = [True]*layer_count
-        dropout = [0.0]*layer_count
+        gru_dropout = [0.0]*layer_count
         recurrent_dropout = [0.0]*layer_count
         
         ConvGRU_layer_params = [ { 'filters':fs, 'kernel_size':ks , 'padding': ps,
@@ -477,9 +482,10 @@ class model_SimpleConvGRU_hparamaters(MParams):
                                 'bias_regularizer':tf.keras.regularizers.l2(0.2),
                                 'layer_norm':tf.keras.layers.LayerNormalization(axis=[-3,-2,-1]),
                                 'implementation':1  }
-                                for fs,ks,ps,rs,dp,rdp in zip(filters, kernel_sizes, paddings, return_sequences, dropout, recurrent_dropout)  ]
-        
-        outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'linear','padding':'same' }
+                                for fs,ks,ps,rs,dp,rdp in zip(filters, kernel_sizes, paddings, return_sequences, gru_dropout, recurrent_dropout)  ]
+
+        conv1_layer_params = {'filters': int(  8*(((filters[0]*2)/3)//8)) , 'kernel_size':[3,3], 'activation':'relu','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2) }        
+        outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'linear','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2) }
 
         #data pipeline
         target_to_feature_time_ratio = 4
@@ -504,6 +510,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
             'model_name':'SimpleConvGRU',
             'layer_count':layer_count,
             'ConvGRU_layer_params':ConvGRU_layer_params,
+            'conv1_layer_params':conv1_layer_params,
             'outpconv_layer_params': outpconv_layer_params,
             'dropout': dropout,
 

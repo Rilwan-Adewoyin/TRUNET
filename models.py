@@ -74,7 +74,7 @@ class THST(tf.keras.Model):
             h_w = model_params['region_grid_params']['outer_box_dims']
         else:
             h_w = [100,140]
-
+        #TODO: in bidirectional layers explicity add the go_backwards line and second LSTM / GRU layer
         self.encoder = layers.THST_Encoder( train_params, model_params['encoder_params'], h_w )
         self.decoder = layers.THST_Decoder( train_params, model_params['decoder_params'], h_w )
         self.output_layer = layers.THST_OutputLayer( train_params, model_params['output_layer_params'], model_params['model_type_settings']  )
@@ -130,13 +130,13 @@ class SimpleLSTM(tf.keras.Model):
                 self.LSTM_layers.append(layer) 
         elif model_params['model_type_settings']['model_version'] in ["25","27","28","30","33","35"]:
             self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.GRU( **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ] 
-        elif model_params['model_type_settings']['model_version'] in ["34","36","44","45","46"]:
+        elif int(model_params['model_type_settings']['model_version'])>= 44 or model_params['model_type_settings']['model_version']  in ["34","36"]:
             self.LSTM_layers = [ tf.keras.layers.Bidirectional( layers_gru.GRU_LN_v2( **model_params['layer_params'][idx]), merge_mode='concat' ) for idx in range(model_params['layer_count'] ) ]
         else:
             self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.LSTM( **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ]
 
-        self.dense1 =  tf.keras.layers.Dense(units= 80, activation='relu' )
-        self.output_dense = TimeDistributed( tf.keras.layers.Dense(units=1, activation='linear') )
+        self.dense1 =  TimeDistributed( tf.keras.layers.Dense(model_params['dense1_layer_params'] ) )
+        self.output_dense = TimeDistributed( tf.keras.layers.Dense( model_params['output_dense_layer_params']) )
         
         if model_params['model_type_settings']['model_version'] in ["23","27"]:
             self.output_activation = layers.LeakyRelu_mkr(train_params)
@@ -167,7 +167,7 @@ class SimpleLSTM(tf.keras.Model):
                 x = x + self.LSTM_layers[idx](inputs=x,training=training )
         
         #x = self.dense1(self.do( (x + x0)/2,training=training) )
-        x = self.dense1(self.do( tf.concat( [x,x0] ,axis=-1 ), training=training ) ) #new for model 36,37
+        x = self.dense1( self.do( tf.concat( [x,x0] , axis=-1 ), training=training ) ) #new for model 36,37
         outp = self.output_dense( x )
         #outp = self.output_activation(outp)
         outp = self.float32_output(outp)
@@ -278,11 +278,14 @@ class SimpleConvGRU(tf.keras.Model):
         super(SimpleConvGRU, self).__init__()
 
         self.model_params = model_params
-        self.ConvGRU_layers = [ tf.keras.layers.Bidirectional( layers_ConvGRU2D.ConvGRU2D( **self.model_params['ConvGRU_layer_params'][idx] ), merge_mode='concat' )  for idx in range( model_params['layer_count'] ) ]
+        self.ConvGRU_layers = [ tf.keras.layers.Bidirectional( layer= layers_ConvGRU2D.ConvGRU2D( **self.model_params['ConvGRU_layer_params'][idx] ), 
+                                                                backward_layer= layers_ConvGRU2D.ConvGRU2D( go_backwards=True,**self.model_params['ConvGRU_layer_params'][idx] ) ,
+                                                                merge_mode='concat' )  for idx in range( model_params['layer_count'] ) ]
                
-        self.output_conv = self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **self.model_params['outpconv_layer_params'] ) )
-
         self.do = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=model_params['dropout'], data_format = 'channels_last' ) )
+        
+        self.conv1 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **self.model_params['conv1_layer_params'] ) )
+        self.output_conv = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **self.model_params['outpconv_layer_params'] ) )
 
         self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
 
@@ -307,9 +310,10 @@ class SimpleConvGRU(tf.keras.Model):
             else:
                 x = x + self.ConvGRU_layers[idx](inputs=x,training=training )
 
-        #outp = self.output_conv( self.do( (x + x0)/2),training=training)
-        outp = self.output_conv( self.do( [x,x0] ,axis=-1), training=training )
+        
+        x = self.conv1( self.do( tf.concat([x,x0] ,axis=-1) ), training=training )
+        outp = self.output_conv( self.do( x ), training=training )
         outp = self.float32_output(outp)
-        outp = self.output_activation(x)
-        return x
+        outp = self.output_activation(outp)
+        return outp
         

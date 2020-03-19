@@ -1123,8 +1123,3 @@ def LeakyRelu_mkr(t_params):
 
 	return CustomRelu
 # endregion
-
-# region SimpleLSTM GRU layers
-
-
-# endregion
