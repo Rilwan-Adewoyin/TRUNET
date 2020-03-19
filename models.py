@@ -283,7 +283,8 @@ class SimpleConvGRU(tf.keras.Model):
                                                                 merge_mode='concat' )  for idx in range( model_params['layer_count'] ) ]
                
         self.do = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=model_params['dropout'], data_format = 'channels_last' ) )
-        
+        self.do1 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=model_params['dropout'], data_format = 'channels_last' ) )
+
         self.conv1 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **self.model_params['conv1_layer_params'] ) )
         self.output_conv = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **self.model_params['outpconv_layer_params'] ) )
 
@@ -293,7 +294,7 @@ class SimpleConvGRU(tf.keras.Model):
 
         self.new_shape1 = tf.TensorShape( [train_params['batch_size'],model_params['region_grid_params']['outer_box_dims'][0], model_params['region_grid_params']['outer_box_dims'][1],  train_params['lookback_target'] ,int(6*4)] )
     
-    #@tf.function
+    @tf.function
     def call(self, _input, training):
         
         x = tf.transpose( _input, [0, 2,3,1,4])     # moving time axis next to channel axis
@@ -312,7 +313,7 @@ class SimpleConvGRU(tf.keras.Model):
 
         
         x = self.conv1( self.do( tf.concat([x,x0] ,axis=-1) ), training=training )
-        outp = self.output_conv( self.do( x ), training=training )
+        outp = self.output_conv( self.do1( x ), training=training )
         outp = self.float32_output(outp)
         outp = self.output_activation(outp)
         return outp
