@@ -470,7 +470,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
         dropout = 0 #0.1
 
         #ConvLayers
-        layer_count = 1 #TODO: Shi uses 2 layers
+        layer_count = 3 #TODO: Shi uses 2 layers
         filters = [60]*layer_count #[128]*layer_count #Shi Precip nowcasting used 
         kernel_sizes = [[4,4]]*layer_count
         paddings = ['same']*layer_count

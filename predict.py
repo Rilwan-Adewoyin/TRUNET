@@ -106,7 +106,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
             li_timestamps_chunked = [li_timestamps[i:i+test_params['window_shift']] for i in range(0, len(li_timestamps), test_params['window_shift'])] 
             li_timestamps_chunked = list( itertools.chain.from_iterable( itertools.repeat(li_timestamps_chunked, x ) for x in range(int(np.prod(model_params['region_grid_params']['slides_v_h']))) ) )
         else:
-            li_timestamps_chunked = [li_timestamps[i:i+test_params['window_shift']] for i in range(0, len(li_timestamps), test_params['window_shift'])] 
+            li_timestamps_chunked = [li_timestamps[i:i+test_params['window_shift']*test_params['batch_size']] for i in range(0, len(li_timestamps), test_params['window_shift']*test_params['batch_size'])] 
     
     if model_params['model_name'] in ["SimpleLSTM","SimpleDense"]:
         li_timestamps_chunked = [li_timestamps[i:i+test_params['window_shift']*test_params['batch_size'] ] for i in range(0, len(li_timestamps), test_params['window_shift']*test_params['batch_size'])]
@@ -181,9 +181,9 @@ def predict( model, test_params, model_params ,checkpoint_no ):
                 target_masked = utility.water_mask(target, mask )
                 
                 if "location_test" in model_params['model_type_settings'].keys():
-                    #combining the batch and seq_len axis to represent timesteps
-                    preds_reshaped = tf.reshape(preds_masked, [ preds_masked.shape[0], -1]  ) #(samples, timesteps)
-                    targets_reshaped = tf.reshape(target_masked, [-1] ) #(timesteps)
+                        #combining the batch and seq_len axis to represent timesteps
+                    preds_reshaped = tf.reshape(preds_masked, [ -1, 1]  ) #(samples, timesteps)
+                    targets_reshaped = tf.reshape(target_masked, [-1, 1] ) 
                 else:
                     preds_reshaped = tf.reshape(preds_masked, [ preds_masked.shape[0], -1] + preds_masked.shape.as_list()[-2:] ) #(samples, timesteps, h, w)
                     targets_reshaped = tf.reshape(target_masked, [-1]+target_masked.shape.as_list()[-2:] ) #(samples, timesteps, h, w)
