@@ -471,7 +471,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
 
         #ConvLayers
         layer_count = 1 #TODO: Shi uses 2 layers
-        filters = [160]*layer_count #[128]*layer_count #Shi Precip nowcasting used 
+        filters = [60]*layer_count #[128]*layer_count #Shi Precip nowcasting used 
         kernel_sizes = [[4,4]]*layer_count
         paddings = ['same']*layer_count
         return_sequences = [True]*layer_count
@@ -487,8 +487,8 @@ class model_SimpleConvGRU_hparamaters(MParams):
                                 'return_sequences':rs, "dropout": dp , "recurrent_dropout":rdp,
                                 'kernel_regularizer': None,
                                 'recurrent_regularizer': None,
-                                'bias_regularizer':tf.keras.regularizers.l2(10.0),
-                                'layer_norm':None, #tf.keras.layers.LayerNormalization(axis=[-3,-2,-1]),
+                                'bias_regularizer':tf.keras.regularizers.l2(0.2),
+                                'layer_norm': None, #tf.keras.layers.LayerNormalization(axis=[-1]),
                                 'implementation':1, 'stateful':_st  }
                                 for fs,ks,ps,rs,dp,rdp in zip(filters, kernel_sizes, paddings, return_sequences, gru_dropout, recurrent_dropout)  ]
 
@@ -510,8 +510,8 @@ class model_SimpleConvGRU_hparamaters(MParams):
         #training proc
         REC_ADAM_PARAMS = {
             "learning_rate":1e-2 , "warmup_proportion":0.6,
-            "min_lr":1e-3, "beta_1":0.05, "beta_2":0.99, "decay":0.94, "amsgrad":True,
-            'epsilon':0.00005
+            "min_lr":1e-3, "beta_1":0.5, "beta_2":0.99, "decay":0.94, "amsgrad":True,
+            'epsilon':0.005
             }
 
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }

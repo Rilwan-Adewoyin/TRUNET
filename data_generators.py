@@ -460,7 +460,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
             ds = ds.map( lambda mf, rain, rmask : load_data_ati_select_region_from_nonstack( mf, rain, rmask, h_idxs, w_idxs) , num_parallel_calls=_num_parallel_calls )
 
             if 'location_test' in model_settings.keys():
-                idx_city_in_region = [8,8] #for this setting the city will always be the middle icon
+                idx_city_in_region = [7,7] #for this setting the city will always be the middle icon
                 #ds = ds.map( lambda mf, rain, rmask: load_data_ati_select_region_from_stack(mf, rain, rmask, idx_region_flat, periodicy ), num_parallel_calls = _num_parallel_calls  )
                 ds = ds.unbatch().batch( t_params['batch_size'],drop_remainder=True )
                 ds = ds.prefetch(_num_parallel_calls)

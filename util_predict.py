@@ -94,7 +94,7 @@ def load_model(test_params, model_params):
             if model_params['model_type_settings']['location'] == "wholeregion":
                 init_inp = tf.zeros(
                     [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ], dtype=tf.float16 )
-            elif model_params['model_type_settings']['location'] == "region_grid":
+            else: #elif model_params['model_type_settings']['location'] == "region_grid":
                     init_inp = tf.zeros(
                         [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] ,16 , 16,6 ], dtype=tf.float16 )
             model(init_inp, training=False )
@@ -124,9 +124,11 @@ def load_model(test_params, model_params):
             if model_params['model_type_settings']['location'] == "wholeregion":
                 init_inp = tf.zeros(
                     [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ], dtype=tf.float16 )
-            elif model_params['model_type_settings']['location'] == "region_grid":
+            else: #elif model_params['model_type_settings']['location'] == "region_grid":
                     init_inp = tf.zeros(
                         [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] ,16 , 16,6 ], dtype=tf.float16 )
+
+
             model(init_inp, training=False )
         
 
@@ -164,7 +166,10 @@ def save_preds( test_params, model_params, li_preds, li_timestamps, li_truevalue
         li_truevalues = [ tens.numpy().reshape([-1]) for tens in li_truevalues]     #list of 1D - (tss, preds_dim ) 
 
     elif( model_params['model_name'] in ["SimpleConvLSTM", "THST", "SimpleConvGRU"] ): 
-        li_truevalues = [ tens.numpy() for tens in li_truevalues] #2D - (tss, h, w) # 1D -(timesteps,)
+        if "location_test" in model_params['model_type_settings'].keys():
+            li_truevalues = [ tens.numpy().reshape([-1]) for tens in li_truevalues]     #list of 1D - (preds ) 
+        else:
+            li_truevalues = [ tens.numpy() for tens in li_truevalues] #2D - (tss, h, w)
 
     elif( model_params['model_name'] in ["DeepSD"] ): 
         li_truevalues = [ tens.numpy() for tens in li_truevalues]

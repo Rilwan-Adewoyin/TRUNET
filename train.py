@@ -71,6 +71,7 @@ import itertools
 import json
 
 import custom_losses
+import copy
 #tf.random.set_seed(seed)
 # endregion
 
@@ -93,6 +94,14 @@ def train_loop(train_params, model_params):
         optimizer = tfa.optimizers.Lookahead(radam, **model_params['lookahead_params'])
     
     optimizer = mixed_precision.LossScaleOptimizer(optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() )
+    if model_params['model_type_settings']['discrete_continuous'] == True:
+        #Trying 2 optimizers for discrete_continuious LSTM
+        if model_params['model_type_settings']['model_version'] in ["54"]:
+            optimizer1 = copy.deepcopy( optimizer)
+            optimizer2 = copy.deepcopy( optimizer)
+            optimizers = [optimizer, optimizer1, optimizer2 ]
+        else:
+            _optimizer = optimizer
     ##monkey patch so optimizer works with mixed precision
     
     train_loss_mean_groupbatch = tf.keras.metrics.Mean(name='train_loss_mse_obj')
@@ -454,41 +463,49 @@ def train_loop(train_params, model_params):
 
                                 train_mse_cond_rain = (rain_count/all_count) * tf.keras.metrics.MSE(target_cond_rain, preds_cond_rain_mean)                            
                                 metric_mse =  train_mse_cond_rain
-                                loss_mse =  (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, preds_cond_rain_mean)
+                                loss_mse =  (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, preds_cond_rain_mean) #loss1 conditional on rain
 
                                 #temp: adding an mse loss to the values which are under 0.5
-                                if(model_params['model_type_settings']['model_version'] in ["3","4","44","46"] ):
+                                if(model_params['model_type_settings']['model_version'] in ["3","4","44","46","54"] ):
                                     #loss_mse += tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
-                                    train_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean )
-                                    train_mse_cond_no_rain = tf.math.log( train_mse_cond_no_rain )
+                                    train_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean ) #loss2 conditional on no rain
+                                    
                                     loss_mse += train_mse_cond_no_rain
                                     metric_mse += train_mse_cond_no_rain
                                 else:
                                     train_mse_cond_no_rain = 0 
                             
 
-                            if(model_params['model_type_settings']['model_version'] in ["3","4","44","45","47","48","49","50","51","52","53"] ):
+                            if(model_params['model_type_settings']['model_version'] in ["3","4","44","45","47","48","49","50","51","52","53","54"] ):
 
                                 log_cross_entropy_rainclassification = tf.reduce_mean( 
-                                                tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=True) )
-                                if model_params['model_type_settings']['model_version'] in ["47","48","49","50","51","52"]:
-                                    log_cross_entropy_rainclassification = log_cross_entropy_rainclassification * train_params['loss_scales']['log_cross_entropy_rainclassification']
+                                                tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=True) )                         #loss3 conditional on no rain v2
+
                                 
                             else:
                                 log_cross_entropy_rainclassification = 0
                             
                             loss_mse += log_cross_entropy_rainclassification
-                        
-                        scaled_loss = optimizer.get_scaled_loss(loss_mse + sum(model.losses) )
+
+                        if(model_params['model_type_settings']['model_version'] in ["54"] ): #multiple optimizers 
+                            losses = [train_mse_cond_rain,train_mse_cond_no_rain,log_cross_entropy_rainclassification  ]
+                            optm_idx = batch % len(optimizers)
+                            _optimizer = optimizers[optm_idx]
+                            scaled_loss = _optimizer.get_scaled_loss( [optm_idx], sum(model.losses) )
+                        else:
+                            scaled_loss = optimizer.get_scaled_loss(loss_mse + sum(model.losses) )
 
                     elif(model_params['model_type_settings']['stochastic']==True):
                         raise NotImplementedError("mc_dropout model uses the deterministically trained model")
 
                     
                     scaled_gradients = tape.gradient( scaled_loss, model.trainable_variables )
-                    gradients = optimizer.get_unscaled_gradients(scaled_gradients)
-                    #gradients = tape.gradient( loss_mse, model.trainable_variables)
-                    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+                    gradients = _optimizer.get_unscaled_gradients(scaled_gradients)
+                    
+                    if(model_params['model_type_settings']['model_version'] in ["54"] ): #multiple optimizers 
+                        grads, _ = tf.clip_by_global_norm( gradients, 100 )
+                    
+                    _optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
                 elif (model_params['model_name'] in ["SimpleConvLSTM","SimpleConvGRU"]):
                     if model_params['model_type_settings']['location'] == 'region_grid'  or model_params['model_type_settings']['twoD']==True:

@@ -80,15 +80,15 @@
                 "-dd","Data/Rain_Data_Nov19","-bs","3", "-sdc","4" ]
         },
         {
-            "name": "SimpleConvGRUTest",
+            "name": "SimpleConvGRUTest_London",
             "type": "python",
             "request": "launch",
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
             "args": [ "-mn","SimpleConvGRU",
-                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'region_grid', 'model_version':'1', 'location_test':'London'}",
-                "-dd","Data/Rain_Data_Nov19","-bs","3", "-sdc","4" ]
+                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'London', 'model_version':'4', 'location_test':'London','twoD':True}",
+                "-dd","Data/Rain_Data_Nov19","-bs","2" ]
         },
         {
             "name": "SimpleConvGRU",
@@ -109,7 +109,7 @@
             "console": "internalConsole",
             "justMyCode": false,
             "args": [ "-mn","SimpleConvGRU",
-                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'London', 'model_version':'1','twoD':True}",
+                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'London', 'model_version':'4','twoD':True}",
                 "-dd","Data/Rain_Data_Nov19","-bs","5", "-sdc","4" ]
         },
         {

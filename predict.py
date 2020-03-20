@@ -141,7 +141,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
 
     for batch in range(1, int(1+test_set_size_batches) ):
 
-        if model_params['model_type_settings']['location'] == 'region_grid':
+        if model_params['model_type_settings']['location'] == 'region_grid' or model_params['model_type_settings']['twoD']==True :
             idx, (feature, target, mask) = next(iter_test)
         else:
             idx, (feature, target) = next(iter_test)
@@ -154,7 +154,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
             li_true_values.append(utility.standardize(target,reverse=True,distr_type=model_params['model_type_settings']['distr_type']) )
 
         elif model_params['model_name'] in ["THST","SimpleConvLSTM","SimpleConvGRU"] :
-            if model_params['model_type_settings']['location'] == 'region_grid' or model_params['model_type_settings']['twoD']==True: #HERE
+            if model_params['model_type_settings']['location'] == 'region_grid' or model_params['model_type_settings']['twoD']==True: 
                 pass
             else:
                 target, mask = target # (bs, h, w) 
@@ -165,19 +165,19 @@ def predict( model, test_params, model_params ,checkpoint_no ):
                 preds = tf.squeeze(preds,axis=-1) # (1, bs, seq_len, h, w)
                 preds = tf.expand_dims(preds, axis=-1 )
 
-                if model_params['model_type_settings']['location'] == 'region_grid':
+                if model_params['model_type_settings']['location'] == 'region_grid' or model_params['model_type_settings']['twoD']==True:
                     preds = preds[ :, :, 6:10, 6:10, :]
-                    mask = mask[ :, :, 6:10, 6:10, :]
-                    target = target[:, :, 6:10, 6:10, :]
+                    mask = mask[ :, :, 6:10, 6:10]
+                    target = target[:, :, 6:10, 6:10]
 
-                if 'location_test' in model_params['model_type_settings'].keys():
-                    preds = preds[:, :, idx_city_in_region[0], idx_city_in_region[0],: ]
-                    mask = mask[ :, :, idx_city_in_region[0], idx_city_in_region[0],: ]
-                    target = target[ :, :, idx_city_in_region[0], idx_city_in_region[0],: ]
+                if 'location_test' in model_params['model_type_settings'].keys(): #location_test will be a city to indicate which city to focus prediction on
+                    preds = preds[:, :, idx_city_in_region[0]-6, idx_city_in_region[1]-6,: ]
+                    mask = mask[ :, :, idx_city_in_region[0]-6, idx_city_in_region[1]-6]
+                    target = target[ :, :, idx_city_in_region[0]-6, idx_city_in_region[1]-6]
                 
                 #splitting in the time dimension
-                preds_std = utility.standardize_ati(preds, test_params['normalization_shift']['rain'] ,test_params['normalization_scales']['rain'], reverse=True)
-                preds_masked = utility.water_mask( preds_std, mask  )
+                preds_std = utility.standardize_ati(preds, test_params['normalization_shift']['rain'], test_params['normalization_scales']['rain'], reverse=True)
+                preds_masked = utility.water_mask( preds_std, tf.expand_dims(mask,-1)  )
                 target_masked = utility.water_mask(target, mask )
                 
                 if "location_test" in model_params['model_type_settings'].keys():
@@ -198,7 +198,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
 
                 preds = tf.concat(li_preds, axis=-1) #(bs,ts,h,w,samples)
 
-                if ( model_params['model_type_settings']['location']=='region_grid' ): #focusing on centre of square only
+                if ( model_params['model_type_settings']['location']=='region_grid' ) or model_params['model_type_settings']['twoD']==True: #focusing on centre of square only
                     preds = preds[:, :, 6:10, 6:10, :]
                     mask = mask[:, :, 6:10, 6:10]
                     target = target[:, :, 6:10, 6:10]
