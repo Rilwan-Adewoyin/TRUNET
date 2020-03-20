@@ -13,7 +13,7 @@ from tensorflow_probability import distributions as tfd
 import tensor2tensor as t2t #NOTE: using tensor2tensors implementation, may cause tensorflow2 incompatibility bugs
 import tensorflow_probability as tfp
 
-
+import copy
 import utility
 
 import pickle
@@ -730,7 +730,9 @@ class THST_CLSTM_Input_Layer(tf.keras.layers.Layer):
 		self.trainable = train_params['trainable']
 		self.layer_params = layer_params #list of dictionaries containing params for all layers
 
-		self.convLSTM = Bidirectional( layers_ConvLSTM2D.ConvLSTM2D( **self.layer_params ), merge_mode=None ) 
+		self.convLSTM = Bidirectional( layer=layers_ConvLSTM2D.ConvLSTM2D( **self.layer_params ), 
+										backward_layer=layers_ConvLSTM2D.ConvLSTM2D( **copy.deepcopy(self.layer_params), go_backwards=True ),
+										merge_mode=None ) 
 	
 	@tf.function
 	def call( self, _input, training ):
@@ -752,10 +754,13 @@ class THST_CLSTM_Attention_Layer(tf.keras.layers.Layer):
 		self.num_of_splits = num_of_splits
 		self.seq_len_factor_reduction = seq_len_factor_reduction
 		
-		self.convLSTM_attn = Bidirectional( layers_ConvLSTM2D.ConvLSTM2D_attn( **clstm_params,
+		self.convLSTM_attn = Bidirectional( layer=layers_ConvLSTM2D.ConvLSTM2D_attn( **clstm_params,
 												attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
 												attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable ),
-												merge_mode=None ) #stateful possibly set to True, return_state=True, return_sequences=True
+											backward_layer=layers_ConvLSTM2D.ConvLSTM2D_attn( go_backwards=True, **copy.deepcopy(clstm_params),
+												attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
+												attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable ),
+											merge_mode=None ) #stateful possibly set to True, return_state=True, return_sequences=True
 
 		self.shape = ( train_params['batch_size'], self.num_of_splits, h_w[0], h_w[1], clstm_params['filters'] )
 
@@ -781,7 +786,9 @@ class THST_CLSTM_Decoder_Layer(tf.keras.layers.Layer):
 		self.shape2 = ( train_params['batch_size'], self.seq_len//self.input_2_factor_increase, h_w[0], h_w[1], layer_params['filters']*2 ) #TODO: the final dimension only works rn since all layers have same filter count. It should be equal to 2* filters of previous layer
 		self.shape1 = ( train_params['batch_size'], self.seq_len, h_w[0], h_w[1], layer_params['filters']*2 ) #same comment as above
 		self.shape3 = ( train_params['batch_size'], self.seq_len, h_w[0], h_w[1], layer_params['filters'] )
-		self.convLSTM =  tf.keras.layers.Bidirectional( layers_ConvLSTM2D.ConvLSTM2D_custom(**layer_params )  , merge_mode=None)
+		self.convLSTM =  tf.keras.layers.Bidirectional( layer=layers_ConvLSTM2D.ConvLSTM2D_custom(**layer_params ),
+														backward_layer=layers_ConvLSTM2D.ConvLSTM2D_custom( **copy.deepcopy(layer_params),go_backwards=True ) ,
+														merge_mode=None)
 	
 	@tf.function
 	def call(self, input1, input2, training=True ):

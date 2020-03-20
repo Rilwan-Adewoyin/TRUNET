@@ -630,7 +630,7 @@ class ConvGRU2D(ConvRNN2D):
         if layer_norm != None: 
             layer_norm._dtype =  "float16"
         self.layer_norm = layer_norm
-        #self.implementation = implementation
+
         cell = ConvGRU2DCell(filters=filters,
                             kernel_size=kernel_size,
                                 strides=strides,
@@ -720,7 +720,6 @@ class ConvGRU2D(ConvRNN2D):
     def bias_initializer(self):
         return self.cell.bias_initializer
 
-
     @property
     def kernel_regularizer(self):
         return self.cell.kernel_regularizer
@@ -757,9 +756,6 @@ class ConvGRU2D(ConvRNN2D):
     def implementation(self):
         return self.cell.implementation
 
-    # @property
-    # def layer_norm(self):
-    #     return self.layer_norm
 
     def get_config(self):
         config = {'filters': self.filters,
@@ -1263,7 +1259,6 @@ class ConvGRU2D_custom(ConvRNN2D):
                  kernel_size,
                  implementation,
                  layer_norm,
-                 gates_version,
                  strides=(1, 1),
                  padding='valid',
                  data_format=None,
@@ -1291,13 +1286,12 @@ class ConvGRU2D_custom(ConvRNN2D):
                  **kwargs):
         
         if layer_norm != None: 
-            layer_norm._dtype =  "float16"
+            layer_norm[0]._dtype =  "float16"
+            layer_norm[1]._dtype =  "float16"
         self.layer_norm = layer_norm
-        self.gates_version = gates_version
-
+        
         cell = ConvGRU2DCell_custom(filters=filters,
                                      kernel_size=kernel_size,
-                                     gates_version=gates_version,
                                      strides=strides,
                                      padding=padding,
                                      data_format=data_format,
@@ -1432,6 +1426,10 @@ class ConvGRU2D_custom(ConvRNN2D):
     def recurrent_dropout(self):
         return self.cell.recurrent_dropout
     
+    @property
+    def implementation(self):
+        return self.cell.implementation
+
 
     def get_config(self):
         config = {'filters': self.filters,
@@ -1463,8 +1461,7 @@ class ConvGRU2D_custom(ConvRNN2D):
                       self.recurrent_constraint),
                   'bias_constraint': constraints.serialize(self.bias_constraint),
                   'dropout': self.dropout,
-                  'recurrent_dropout': self.recurrent_dropout,
-                  'gates_version':self.gates_version}
+                  'recurrent_dropout': self.recurrent_dropout}
         base_config = super(ConvGRU2D_custom, self).get_config()
         del base_config['cell']
         return dict(list(base_config.items()) + list(config.items()))
@@ -1501,7 +1498,7 @@ class ConvGRU2D_custom(ConvRNN2D):
         else:
             return [initial_hidden_state]
         #endregion
-#NotDone
+#Done
 class ConvGRU2DCell_custom(DropoutRNNCellMixin, Layer):
     """
         Cell class for the ConvGRU2D layer.
@@ -1568,7 +1565,6 @@ class ConvGRU2DCell_custom(DropoutRNNCellMixin, Layer):
     def __init__(self,
                filters,
                     kernel_size,
-                    gates_version,
                     layer_norm,
                     implementation,
                     reset_after=False,
@@ -1627,7 +1623,6 @@ class ConvGRU2DCell_custom(DropoutRNNCellMixin, Layer):
         self.recurrent_dropout = min(1., max(0., recurrent_dropout))
         self.state_size = (self.filters)
 
-        self.gates_version=gates_version
         self.implementation = implementation
         self.reset_after = reset_after
 
@@ -1667,7 +1662,7 @@ class ConvGRU2DCell_custom(DropoutRNNCellMixin, Layer):
             bias_initializer = self.bias_initializer
             if self.reset_after:
                 self.bias = self.add_weight(
-                    shape=(self.filters * 3*2,),
+                    shape=(self.filters * 3*3,),
                     name='bias',
                     initializer=bias_initializer,
                     regularizer=self.bias_regularizer,
@@ -1698,27 +1693,28 @@ class ConvGRU2DCell_custom(DropoutRNNCellMixin, Layer):
 
         if self.use_bias:
             if not self.reset_after:
-                bias_z, bias_r, bias_h = array_ops.split(self.bias, 3)
+                #bias_z, bias_r, bias_h = array_ops.split(self.bias, 3)
+                bias_z1, bias_z2, bias_r1, bias_r2, bias_h1, bias_h2 = array_ops.split(self.bias, 3*2)
                 bias_z_rcrnt, bias_r_rcrnt, bias_h_rcrnt = None, None, None
 
             elif self.reset_after:
-                bias_z, bias_r, bias_h, bias_z_rcrnt, bias_r_rcrnt, bias_h_rcrnt = array_ops.split(self.bias, 3*2)
+                bias_z1, bias_z2, bias_r1, bias_r2, bias_h1, bias_h2, bias_z_rcrnt, bias_r_rcrnt, bias_h_rcrnt = array_ops.split(self.bias, 3*2)
 
         else:
-            bias_z, bias_r, bias_h = None, None, None
+            bias_z1, bias_z2, bias_r1, bias_r2, bias_h1, bias_h2 = None, None, None, None, None, None
             bias_z_rcrnt, bias_r_rcrnt, bias_h_rcrnt = None, None, None
 
 
         if self.implementation == 1:
             if 0 < self.dropout < 1. and training:
                 #Note: Maybe change this to use feature map dropout and not random dropout
-                inputs1_z = inputs1 * dp_mask1[0]
-                inputs1_r = inputs1 * dp_mask1[1]
-                inputs1_h = inputs1 * dp_mask1[2]
+                inputs_z1 = inputs1 * dp_mask1[0]
+                inputs_r1 = inputs1 * dp_mask1[1]
+                inputs_h1 = inputs1 * dp_mask1[2]
 
-                inputs2_z = inputs2 * dp_mask2[0]
-                inputs2_r = inputs2 * dp_mask2[1]
-                inputs2_h = inputs2 * dp_mask2[2]
+                inputs_z2 = inputs2 * dp_mask2[0]
+                inputs_r2 = inputs2 * dp_mask2[1]
+                inputs_h2 = inputs2 * dp_mask2[2]
 
                 # inputs1_z = tf.nn.dropout(inputs1,self.dropout)
                 # inputs1_r = tf.nn.dropout(inputs1,self.dropout) 
@@ -1728,15 +1724,25 @@ class ConvGRU2DCell_custom(DropoutRNNCellMixin, Layer):
                 # inputs2_r = tf.nn.dropout(inputs2, self.dropout) 
                 # inputs2_h = tf.nn.dropout(inputs2, self.dropout) 
             else:
-                inputs1_z = inputs1 
-                inputs1_r = inputs1 
-                inputs1_h = inputs1 
+                inputs_z1 = inputs1 
+                inputs_r1 = inputs1 
+                inputs_h1 = inputs1 
 
-                inputs2_z = inputs2 
-                inputs2_r = inputs2 
-                inputs2_h = inputs2 
+                inputs_z2 = inputs2 
+                inputs_r2 = inputs2 
+                inputs_h2 = inputs2 
 
-                (kernel_z, kernel_r, kernel_h) = array_ops.split(self.kernel, 3, axis=3)
+                #(kernel_z, kernel_r, kernel_h) = array_ops.split(self.kernel, 3, axis=3)
+                (kernel_z1, kernel_z2, 
+                kernel_r1, kernel_r2,
+                kernel_h1, kernel_h2) = array_ops.split(self.kernel, 3, axis=3)
+
+            x_z1 = self.input_conv(inputs_z1, kernel_z1, bias_z1, padding=self.padding)
+            x_z2 = self.input_conv(inputs_z2, kernel_z2, bias_z2, padding=self.padding)
+            x_r1 = self.input_conv(inputs_r1, kernel_r1, bias_r1, padding=self.padding)
+            x_r2 = self.input_conv(inputs_r2, kernel_r2, bias_r2, padding=self.padding)
+            x_h1 = self.input_conv(inputs_h1, kernel_h1, bias_h1, padding=self.padding)
+            x_h2 = self.input_conv(inputs_h2, kernel_h2, bias_h2, padding=self.padding)
 
 
             if 0 < self.recurrent_dropout < 1. and training:
@@ -1752,75 +1758,47 @@ class ConvGRU2DCell_custom(DropoutRNNCellMixin, Layer):
                 h_tm1_r = h_tm1
                 h_tm1_h = h_tm1
             
-            #_shape = self.kernel.shape#.as_list()
-    
-            # if tf.equal(_shape[3], self.filters * 4):
-            #    self.kernel = tf.reshape(self.kernel,  _shape[:2]+_shape[2]//2+_shape[3]*2, name="Here" )
+            (recurrent_kernel_z,
+                recurrent_kernel_r,
+                recurrent_kernel_h) = array_ops.split(self.recurrent_kernel, 3, axis=3)
 
-            
-            # self.kernel = tf.reshape(self.kernel, self.corrected_kernel_shape, name="This" )
+            recurrent_z = self.recurrent_conv(h_tm1_z, recurrent_kernel_z)
+            recurrent_r = self.recurrent_conv(h_tm1_r, recurrent_kernel_r)
 
-            # (kernel1_i, kernel2_i,
-            # kernel1_f, kernel2_f,
-            # kernel1_c, kernel2_c,
-            # kernel1_o, kernel2_o) = array_ops.split(self.kernel, 8, axis=3)
+            if self.reset_after and self.use_bias:
+                recurrent_z = K.bias_add( recurrent_z, bias_z_rcrnt )
+                recurrent_r = K.bias_add( recurrent_r, bias_r_rcrnt )
 
-            # (recurrent_kernel_i,
-            # recurrent_kernel_f,
-            # recurrent_kernel_c,
-            # recurrent_kernel_o) = array_ops.split(self.recurrent_kernel, 4, axis=3)
 
-            (kernel_z, kernel_r, kernel_h) = array_ops.split(self.kernel, 3, axis=3)
+            z1 = self.recurrent_activation(x_z1 + recurrent_z)
+            z2 = self.recurrent_activation(x_z2 + recurrent_z)
+            r1 = self.recurrent_activation(x_r1 + recurrent_r)
+            r2 = self.recurrent_activation(x_r2 + recurrent_r)
 
-            if self.use_bias:
-                (bias1_i, bias2_i,
-                bias1_f, bias2_f, 
-                bias1_c, bias2_c,
-                bias1_o, bias2_o) = array_ops.split(self.bias, 8)
+            # reset gate applied after/before matrix multiplication
+            if self.reset_after:
+                recurrent_h = self.recurrent_conv(h_tm1_h, recurrent_kernel_h)
+                if self.use_bias:
+                    recurrent_h = K.bias_add( recurrent_h, bias_h_rcrnt)
+                recurrent_h1 = r1 * recurrent_h
+                recurrent_h2 = r2 * recurrent_h
             else:
-                (bias1_i, bias2_i,
-                bias1_f, bias2_f, 
-                bias1_c, bias2_c,
-                bias1_o, bias2_o) = None, None, None, None, None, None, None, None
+                recurrent_h1 = self.recurrent_conv( r1*h_tm1_h, recurrent_kernel_h )
+                recurrent_h2 = self.recurrent_conv( r2*h_tm1_h, recurrent_kernel_h )
 
-            x1_i = self.input_conv(inputs1_i, kernel1_i, bias1_i, padding=self.padding)
-            x1_f = self.input_conv(inputs1_f, kernel1_f, bias1_f, padding=self.padding)
-            x1_c = self.input_conv(inputs1_c, kernel1_c, bias1_c, padding=self.padding)
-            x1_o = self.input_conv(inputs1_o, kernel1_o, bias1_o, padding=self.padding)
+            hh1 = self.activation( x_h1 + recurrent_h1 ) #two state structure will have to be added here for cell_custom
+            hh2 = self.activation( x_h2 + recurrent_h2 )
 
-            x2_i = self.input_conv(inputs2_i, kernel2_i, bias2_i, padding=self.padding)
-            x2_f = self.input_conv(inputs2_f, kernel2_f, bias2_f, padding=self.padding)
-            x2_c = self.input_conv(inputs2_c, kernel2_c, bias2_c, padding=self.padding)
-            x2_o = self.input_conv(inputs2_o, kernel2_o, bias2_o, padding=self.padding)
-
-            h_i = self.recurrent_conv(h_tm1_i, recurrent_kernel_i)
-            h_f = self.recurrent_conv(h_tm1_f, recurrent_kernel_f)
-            h_c = self.recurrent_conv(h_tm1_c, recurrent_kernel_c)
-            h_o = self.recurrent_conv(h_tm1_o, recurrent_kernel_o)
-
-            # if(self.gates_version==1):
-            #     i = self.recurrent_activation(x1_i + x2_i + h_i)
-            #     f = self.recurrent_activation(x1_f + x2_f + h_f)
-            #     c = f * c_tm1 + i * self.activation(x1_c + x2_c + h_c)
-            #     o = self.recurrent_activation(x1_o + x2_o + h_o)
-            #     h = o * self.activation(c)
+        elif self.implementation ==2 :
+            raise NotImplementedError
             
-            #elif(self.gates_version==2
-            i_1 = self.recurrent_activation(x1_i + h_i)
-            i_2 = self.recurrent_activation(x2_i + h_i)
+        if self.bool_ln:
+            hh1 = self.layer_norm[0](hh1)
+            hh2 = self.layer_norm[1](hh2)
 
-            f_1 = self.recurrent_activation(x1_f + h_f)
-            f_2 = self.recurrent_activation(x2_f + h_f)
-            
-            c_t1 = f_1 * c_tm1_1 + i_1 * self.activation(x1_c + h_c) 
-            c_t2 = f_2 * c_tm1_2 + i_2 * self.activation(x2_c + h_c)
-            
-            o_1 = self.recurrent_activation(x1_o + h_o)
-            o_2 = self.recurrent_activation(x2_o + h_o)
-
-            h = ( o_1*self.activation(c_t1) + o_2 * self.activation(c_t2) )/2
-
-        return h, [h, tf.concat( [c_t1, c_t2], axis=-1) ]
+        h = ((z1+z2)/2)*h_tm1 + (1-z1)*hh1 + (1-z2)*hh2
+        
+        return h, [h]
 
     def input_conv(self, x, w, b=None, padding='valid'):
         conv_out = K.conv2d(x, w, strides=self.strides,
@@ -1867,9 +1845,10 @@ class ConvGRU2DCell_custom(DropoutRNNCellMixin, Layer):
                 'bias_constraint': constraints.serialize(self.bias_constraint),
                 'dropout': self.dropout,
                 'recurrent_dropout': self.recurrent_dropout,
-                'gates_version':self.gates_version
-                # 'num_of_splits':self.num_of_splits,
-                # 'attn_params':self.attn_params
+                'implementation':self.implementation,
+                'layer_norm':self.layer_norm,
+                'bool_ln':self.bool_ln,
+                'reset_after':self.reset_after 
                  }
         base_config = super(ConvGRU2DCell_custom, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
@@ -1999,6 +1978,8 @@ class ConvGRU2D_attn(ConvRNN2D):
                 self,
                  filters,
                  kernel_size,
+                 implementation,
+                 layer_norm,                
                  attn_params,
                  attn_downscaling_params,
                  attn_factor_reduc,
@@ -2026,7 +2007,12 @@ class ConvGRU2D_attn(ConvRNN2D):
                  dropout=0.,
                  recurrent_dropout=0.,
                  trainable=True,
+                 reset_after=True,
                  **kwargs):
+
+        if layer_norm != None: 
+            layer_norm._dtype =  "float16"
+        self.layer_norm = layer_norm
 
         #Amending Initialisation -> since the init is called after the sub layer MultiHead2DAtt is made
         self._trainable = trainable
@@ -2045,6 +2031,7 @@ class ConvGRU2D_attn(ConvRNN2D):
                                      padding=padding,
                                      data_format=data_format,
                                      dilation_rate=dilation_rate,
+                                     layer_norm = layer_norm,
                                      activation=activation,
                                      recurrent_activation=recurrent_activation,
                                      use_bias=use_bias,
@@ -2060,6 +2047,8 @@ class ConvGRU2D_attn(ConvRNN2D):
                                      bias_constraint=bias_constraint,
                                      dropout=dropout,
                                      recurrent_dropout=recurrent_dropout,
+                                     implementation=implementation,
+                                     reset_after=reset_after,
                                      dtype=kwargs.get('dtype'))
 
         super(ConvGRU2D_attn, self).__init__(cell,
@@ -2083,7 +2072,6 @@ class ConvGRU2D_attn(ConvRNN2D):
         # temporary shape adjustment to ensure each time chunk is passed to a cell (cells do not take in a time dimension, so move time dimension to channel dimension)
         inputs = attn_shape_adjust(inputs, self.attn_factor_reduc ,reverse=False)
 
-        #self.states = [ tf.cast(_state, inputs.dtype ) for _state in self.states ]
         return super(ConvGRU2D_attn, self).call(inputs,
                                             mask=mask,
                                             training=training,
@@ -2173,7 +2161,10 @@ class ConvGRU2D_attn(ConvRNN2D):
     @property
     def recurrent_dropout(self):
         return self.cell.recurrent_dropout
-    
+
+    @property
+    def implementation(self):
+        return self.cell.implementation
 
     def get_config(self):
         config = {'filters': self.filters,
@@ -2322,8 +2313,11 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
             self,
                 filters,
                 kernel_size,
+                layer_norm,
+                implementation,
                 attn_2D,
                 attn_factor_reduc,
+                reset_after=False,
                 strides=(1, 1),
                 padding='valid',
                 data_format=None,
@@ -2356,6 +2350,13 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
         self.recurrent_activation = activations.get(recurrent_activation)
         self.use_bias = use_bias
 
+
+        self.layer_norm = layer_norm
+        if self.layer_norm == None:
+            self.bool_ln = False
+        else:
+            self.bool_ln = True
+
         self.kernel_initializer = initializers.get(kernel_initializer)
         self.recurrent_initializer = initializers.get(recurrent_initializer)
         self.bias_initializer = initializers.get(bias_initializer)
@@ -2371,13 +2372,15 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
 
         self.dropout = min(1., max(0., dropout))
         self.recurrent_dropout = min(1., max(0., recurrent_dropout))
-        self.state_size = (self.filters,self.filters)# int(2*self.filters) )
+        self.state_size = (self.filters)
 
-        #self.gates_version=gates_version
+        self.implementation = implementation
+        self.reset_after = reset_after
+
         self.attn_2D = attn_2D
         self.attn_factor_reduc = attn_factor_reduc 
 
-    def build(self, input_shape):
+    def build(self, input_shape): #HERE
 
         if self.data_format == 'channels_first':
             channel_axis = 1

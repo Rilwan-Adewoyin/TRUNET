@@ -32,7 +32,7 @@
             "console": "internalConsole",
             "justMyCode": false,
             "args": [ "-mn","THST","-dd","Data/Rain_Data_Nov19", "-bs","2","-sdc","4" ,
-                "-mts" ,"{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'region_grid','deformable_conv':False, 'model_version':'1'}"
+                "-mts" ,"{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'London','deformable_conv':False, 'model_version':'1','twoD':True}"
                 ]  
         },
         {
@@ -43,7 +43,7 @@
             "console": "internalConsole",
             "justMyCode": false,
             "args": [ "-mn","THST","-dd","Data/Rain_Data_Nov19", "-bs","2","-sdc","4" ,
-                "-mts" ,"{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'region_grid','deformable_conv':False, 'model_version':'1','location_test':'London'}"
+                "-mts" ,"{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'region_grid','deformable_conv':False, 'model_version':'1','location_test':'London','twoD':True}"
                 ]  
         },
         {
@@ -109,7 +109,7 @@
             "console": "internalConsole",
             "justMyCode": false,
             "args": [ "-mn","SimpleConvGRU",
-                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'London', 'model_version':'5','twoD':True}",
+                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'London', 'model_version':'7','twoD':True}",
                 "-dd","Data/Rain_Data_Nov19","-bs","5", "-sdc","4" ]
         },
         {

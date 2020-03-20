@@ -284,8 +284,8 @@ class model_THST_hparameters(MParams):
         CLSTMs_params_dec = [
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
                 'return_sequences':True, 'dropout':0.1, 'gates_version':2,
-                'recurrent_dropout':0.4, 
-                'kernel_regularizer':tf.keras.regularizers.l2(0.01),
+                'recurrent_dropout':None, 
+                'kernel_regularizer':None,
                 'recurrent_regularizer': tf.keras.regularizers.l2(0.2),
                 'bias_regularizer':tf.keras.regularizers.l2(0.01),
                 'stateful':True }
