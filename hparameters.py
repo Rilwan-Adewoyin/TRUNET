@@ -467,28 +467,36 @@ class model_SimpleConvGRU_hparamaters(MParams):
     
     def _default_params(self):
         #Other
-        dropout = 0.1
+        dropout = 0 #0.1
 
         #ConvLayers
-        layer_count = 3 #TODO: Shi uses 2 layers
-        filters = [128]*layer_count #[128]*layer_count #Shi Precip nowcasting used 
+        layer_count = 1 #TODO: Shi uses 2 layers
+        filters = [160]*layer_count #[128]*layer_count #Shi Precip nowcasting used 
         kernel_sizes = [[4,4]]*layer_count
         paddings = ['same']*layer_count
         return_sequences = [True]*layer_count
         gru_dropout = [0.0]*layer_count
         recurrent_dropout = [0.0]*layer_count
-        
+        # if self.params['model_type_settings']['location'] == "region_grid":
+        #     _st = False
+        # else:
+        #     _st = True
+        _st = True #Note; this will only work when doing 2d on a specific region
+
         ConvGRU_layer_params = [ { 'filters':fs, 'kernel_size':ks , 'padding': ps,
                                 'return_sequences':rs, "dropout": dp , "recurrent_dropout":rdp,
                                 'kernel_regularizer': None,
                                 'recurrent_regularizer': None,
-                                'bias_regularizer':tf.keras.regularizers.l2(0.2),
-                                'layer_norm':tf.keras.layers.LayerNormalization(axis=[-3,-2,-1]),
-                                'implementation':1  }
+                                'bias_regularizer':tf.keras.regularizers.l2(10.0),
+                                'layer_norm':None, #tf.keras.layers.LayerNormalization(axis=[-3,-2,-1]),
+                                'implementation':1, 'stateful':_st  }
                                 for fs,ks,ps,rs,dp,rdp in zip(filters, kernel_sizes, paddings, return_sequences, gru_dropout, recurrent_dropout)  ]
 
         conv1_layer_params = {'filters': int(  8*(((filters[0]*2)/3)//8)) , 'kernel_size':[3,3], 'activation':'relu','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2) }        
         outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'linear','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2) }
+
+        # conv1_layer_params = {'filters': int(  8*(((filters[0]*2)/3)//8)) , 'kernel_size':[3,3], 'activation':'relu','padding':'same'}        
+        # outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'linear','padding':'same'}
 
         #data pipeline
         target_to_feature_time_ratio = 4
@@ -502,7 +510,8 @@ class model_SimpleConvGRU_hparamaters(MParams):
         #training proc
         REC_ADAM_PARAMS = {
             "learning_rate":1e-2 , "warmup_proportion":0.6,
-            "min_lr":1e-3, "beta_1":0.99, "beta_2":0.99, "decay":0.94
+            "min_lr":1e-3, "beta_1":0.05, "beta_2":0.99, "decay":0.94, "amsgrad":True,
+            'epsilon':0.00005
             }
 
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }

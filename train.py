@@ -705,8 +705,8 @@ def train_loop(train_params, model_params):
             
             elif model_params['model_name'] in ["SimpleConvLSTM", "SimpleConvGRU"]:
                 
-                if model_params['model_type_settings']['location'] == 'region_grid':
-                    if( tf.reduce_any( mask[:, :, 6:10, 6:10] )==False ):
+                if model_params['model_type_settings']['location'] == 'region_grid' or model_params['model_type_settings']['twoD']==True:
+                    if tf.reduce_any( mask[:, :, 6:10, 6:10] )==False  :
                         continue
                 else:
                     target, mask = target # (bs, h, w) 
@@ -719,12 +719,14 @@ def train_loop(train_params, model_params):
                         preds = preds[:, :, 6:10, 6:10]
                         mask = mask[:, :, 6:10, 6:10]
                         target = target[:, :, 6:10, 6:10]
-
+ 
                     preds_filtrd = tf.boolean_mask( preds, mask )
                     target_filtrd = tf.boolean_mask( target, mask )
                     preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], 
                                                             train_params['normalization_scales']['rain'], reverse=True)
-                    val_metric_loss( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
+                    _mse = tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )
+                    val_metric_loss(  _mse )
+                    val_metric_mse( _mse )
 
                 elif(model_params['model_type_settings']['stochastic']==True):
                     raise NotImplementedError                

@@ -282,10 +282,10 @@ class SimpleConvGRU(tf.keras.Model):
                                                                 backward_layer= layers_ConvGRU2D.ConvGRU2D( go_backwards=True,**self.model_params['ConvGRU_layer_params'][idx] ) ,
                                                                 merge_mode='concat' )  for idx in range( model_params['layer_count'] ) ]
                
-        self.do = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=model_params['dropout'], data_format = 'channels_last' ) )
-        self.do1 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=model_params['dropout'], data_format = 'channels_last' ) )
+        #self.do = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=model_params['dropout'], data_format = 'channels_last' ) )
+        #self.do1 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=model_params['dropout'], data_format = 'channels_last' ) )
 
-        self.conv1 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **self.model_params['conv1_layer_params'] ) )
+        #self.conv1 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **self.model_params['conv1_layer_params'] ) )
         self.output_conv = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **self.model_params['outpconv_layer_params'] ) )
 
         self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
@@ -304,16 +304,21 @@ class SimpleConvGRU(tf.keras.Model):
         # for idx in range(self.model_params['layer_count']):
         #     x = self.ConvLSTM_layers[idx](inputs=x, training=training)
 
-        for idx in range(self.model_params['layer_count']):
-            if idx==0:
-                x0 = self.ConvGRU_layers[idx](inputs=x,training=training )
-                x = x0
-            else:
-                x = x + self.ConvGRU_layers[idx](inputs=x,training=training )
-
+        # for idx in range(self.model_params['layer_count']):
+        #     if idx==0:
+        #         x0 = self.ConvGRU_layers[idx](inputs=x,training=training )
+        #         x = x0
+        #     else:
+        #         x = x + self.ConvGRU_layers[idx](inputs=x,training=training )
         
-        x = self.conv1( self.do( tf.concat([x,x0] ,axis=-1) ), training=training )
-        outp = self.output_conv( self.do1( x ), training=training )
+        
+        # x = self.conv1( self.do( tf.concat([x,x0] ,axis=-1) ), training=training )
+        # outp = self.output_conv( self.do1( x ), training=training )
+        # outp = self.float32_output(outp)
+        # outp = self.output_activation(outp)
+
+        x = self.ConvGRU_layers[0](inputs=x,training=training )
+        outp = self.output_conv( x , training=training )
         outp = self.float32_output(outp)
         outp = self.output_activation(outp)
         return outp

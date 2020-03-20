@@ -90,7 +90,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
     
     test_set_size_batches = test_set_size_elements //( test_params['batch_size'] * model_params['data_pipeline_params']['lookback_target'] )
 
-    if(model_params['model_name'] in ["SimpleLSTM","THST","SimpleConvLSTM","SimpleDense"]):
+    if(model_params['model_name'] in ["SimpleLSTM","THST","SimpleConvLSTM", "SimpleConvGRU","SimpleDense"]):
         upload_size = test_set_size_batches
     elif(model_params['model_name'] in ["DeepSD"]):
         upload_size = max( int( test_set_size_batches* test_params['dataset_pred_batch_reporting_freq']), 1 )
@@ -101,7 +101,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
     if model_params['model_name']=="DeepSD" :
         li_timestamps_chunked = [li_timestamps[i:i+test_params['batch_size']] for i in range(0, len(li_timestamps), test_params['batch_size'])]
 
-    elif model_params['model_name'] in ["THST","SimpleConvLSTM"]:
+    elif model_params['model_name'] in ["THST","SimpleConvLSTM","SimpleConvGRU"]:
         if model_params['model_type_settings']['location'] == 'region_grid':
             li_timestamps_chunked = [li_timestamps[i:i+test_params['window_shift']] for i in range(0, len(li_timestamps), test_params['window_shift'])] 
             li_timestamps_chunked = list( itertools.chain.from_iterable( itertools.repeat(li_timestamps_chunked, x ) for x in range(int(np.prod(model_params['region_grid_params']['slides_v_h']))) ) )
@@ -120,7 +120,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
                 test_params, model_params,_num_parallel_calls=test_params['num_parallel_calls'], data_dir = test_params['data_dir'], drop_remainder=True  )
         ds = ds.take( test_set_size_batches )
 
-    elif(model_params['model_name'] in [ "THST", "SimpleConvLSTM"] ):
+    elif(model_params['model_name'] in [ "THST", "SimpleConvLSTM", "SimpleConvGRU"] ):
         if 'location_test' in model_params['model_type_settings'].keys():
             ds, idx_city_in_region = data_generators.load_data_ati(test_params, model_params, None, day_to_start_at=test_params['test_start_date'], data_dir=test_params['data_dir'] )
             ds = ds.take( test_set_size_batches )
@@ -135,9 +135,9 @@ def predict( model, test_params, model_params ,checkpoint_no ):
     # region --- predictions
     
     # region --- Setting up auxilliary vars for general events
-    if 'location_test' in model_params['model_type_settings'].keys() & model_params['model_type_settings']['location']=='region_grid' :
-        fn_rain = test_params['data_dir']+"/rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc"
-        idx_region_flat, periodicy, idx_city_in_region = Generator_rain(fn=fn_rain, all_at_once=False).find_idx_of_city_in_folded_regions( model_params['model_type_settings']['location_test'], test_params['region_grid_params'] )
+    # if 'location_test' in model_params['model_type_settings'].keys() & model_params['model_type_settings']['location']=='region_grid' :
+    #     fn_rain = test_params['data_dir']+"/rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc"
+    #     idx_region_flat, periodicy, idx_city_in_region = Generator_rain(fn=fn_rain, all_at_once=False).find_idx_of_city_in_folded_regions( model_params['model_type_settings']['location_test'], test_params['region_grid_params'] )
 
     for batch in range(1, int(1+test_set_size_batches) ):
 
@@ -154,7 +154,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
             li_true_values.append(utility.standardize(target,reverse=True,distr_type=model_params['model_type_settings']['distr_type']) )
 
         elif model_params['model_name'] in ["THST","SimpleConvLSTM","SimpleConvGRU"] :
-            if model_params['model_type_settings']['location'] == 'region_grid':
+            if model_params['model_type_settings']['location'] == 'region_grid' or model_params['model_type_settings']['twoD']==True: #HERE
                 pass
             else:
                 target, mask = target # (bs, h, w) 

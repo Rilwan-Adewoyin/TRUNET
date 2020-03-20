@@ -211,19 +211,19 @@ class Generator():
 
         #region Handling cases of outer_box_dims being odd or even
         if( region_grid_params['outer_box_dims'][0]%2 == 0 ):
-            h_up_span = region_grid_params['outer_box_dims'][0]//2 - 1
+            h_up_span = region_grid_params['outer_box_dims'][0]//2 
             h_down_span = region_grid_params['outer_box_dims'][0]//2 
 
         else:
-            h_up_span = region_grid_params['outer_box_dims'][0]//2
+            h_up_span = region_grid_params['outer_box_dims'][0]//2 -1
             h_down_span = region_grid_params['outer_box_dims'][0]//2
 
         if( region_grid_params['outer_box_dims'][0]%2 == 0 ):
-            w_left_span = region_grid_params['outer_box_dims'][0]//2 - 1
+            w_left_span = region_grid_params['outer_box_dims'][0]//2 
             w_right_span = region_grid_params['outer_box_dims'][0]//2 
 
         else:
-            w_left_span = region_grid_params['outer_box_dims'][0]//2
+            w_left_span = region_grid_params['outer_box_dims'][0]//2 -1
             w_right_span = region_grid_params['outer_box_dims'][0]//2
         #endregion
 
@@ -477,6 +477,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
 
         ds = ds.map( lambda mf,rain,rmask : tf.py_function( region_folding_partial, [mf, rain, rmask], [tf.float16, tf.float32, tf.bool] ) ) #mf = mode3(704, lookback, 16, 16, 6 )  mode1(80, 85//4, 125//4, 16, 16, 6)
         
+        #NOTE: the below method of finding the right image in the stacked list can be replaced by the method for location_test above
         if 'location_test' in model_settings.keys():
             idx_region_flat, periodicy, idx_city_in_region = rain_data.find_idx_of_city_in_folded_regions( model_settings['location_test'],m_params['region_grid_params'] )
             ds = ds.map( lambda mf, rain, rmask: load_data_ati_select_region_from_stack(mf, rain, rmask, idx_region_flat, periodicy ), num_parallel_calls = _num_parallel_calls  )
@@ -639,7 +640,7 @@ def load_data_ati_select_region_from_nonstack(mf, rain, rain_mask, h_idxs, w_idx
     rain = rain[ :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
     rain_mask = rain_mask[ :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
 
-    return mf, rain, rain_mask
+    return tf.expand_dims(mf,axis=0), tf.expand_dims(rain,axis=0), tf.expand_dims(rain_mask,axis=0) #Note: expand_dim for unbatch/batch compatibility
 
 def load_data_ati_post_region_folding(mf, rain, mask):
     """
