@@ -84,9 +84,6 @@ def train_loop(train_params, model_params):
     if tfa==None:
         optimizer = tf.keras.optimizers.Adam( learning_rate=1e-4, beta_1=0.1, beta_2=0.99, epsilon=1e-5 )
     else:
-        if model_params['model_type_settings']['var_model_type']=="flipout":
-            model_params['rec_adam_params']['learning_rate'] = 1e-8
-            model_params['rec_adam_params']['min_lr'] = 1e-9
         if model_params['model_type_settings']['location'] == 'region_grid':
             total_steps = int(train_params['train_set_size_batches']* np.prod(model_params['region_grid_params']['slides_v_h']) *0.55)
         else:
@@ -260,7 +257,8 @@ def train_loop(train_params, model_params):
         #region Train
         model.reset_states()
         for batch in range(batches_to_skip,train_set_size_batches):
-            if model_params['model_type_settings']['location'] == 'region_grid':
+            #if model_params['model_type_settings']['location'] == 'region_grid':
+            if model_params['model_name'] in ["SimpleConvLSTM","SimpleConvGRU","THST"]:
                 idx, (feature, target, mask) = next(iter_train)
             else:
                 idx, (feature, target) = next(iter_train)
@@ -377,7 +375,7 @@ def train_loop(train_params, model_params):
                     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
                     
                 elif( model_params['model_name'] == "THST"):
-                    if model_params['model_type_settings']['location'] == 'region_grid':
+                    if model_params['model_type_settings']['location'] == 'region_grid' or model_params['model_type_settings']['twoD']==True :
                         if( tf.reduce_any( mask[:, :, 6:10, 6:10] ) == False ):
                             continue
                     else:
@@ -388,7 +386,7 @@ def train_loop(train_params, model_params):
                         preds = model( tf.cast(feature,tf.float16), train_params['trainable'] )
                         preds = tf.squeeze(preds)
 
-                        if ( model_params['model_type_settings']['location']=='region_grid' ): #focusing on centre of square only
+                        if ( model_params['model_type_settings']['location']=='region_grid' )  or model_params['model_type_settings']['twoD']==True : #focusing on centre of square only
                             preds = preds[:, :, 6:10, 6:10]
                             mask = mask[:, :, 6:10, 6:10]
                             target = target[:, :, 6:10, 6:10]
@@ -493,7 +491,7 @@ def train_loop(train_params, model_params):
                     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
                 elif (model_params['model_name'] in ["SimpleConvLSTM","SimpleConvGRU"]):
-                    if model_params['model_type_settings']['location'] == 'region_grid':
+                    if model_params['model_type_settings']['location'] == 'region_grid'  or model_params['model_type_settings']['twoD']==True:
                         if( tf.reduce_any( mask[:, :, 6:10, 6:10] )==False ):
                             continue
                     else:
@@ -504,7 +502,7 @@ def train_loop(train_params, model_params):
                         preds = model( tf.cast(feature,tf.float16), train_params['trainable'] ) #( bs, tar_seq_len, h, w)
                         preds = tf.squeeze(preds)
 
-                        if (model_params['model_type_settings']['location']=='region_grid' ): #focusing on centre of square only
+                        if (model_params['model_type_settings']['location']=='region_grid' )  or model_params['model_type_settings']['twoD']==True :  #focusing on centre of square only
                             preds = preds[:, :, 6:10, 6:10]
                             mask = mask[:, :, 6:10, 6:10]
                             target = target[:, :, 6:10, 6:10]
@@ -598,7 +596,7 @@ def train_loop(train_params, model_params):
         model.reset_states()
         for batch in range(val_set_size_batches):
 
-            if model_params['model_type_settings']['location'] == 'region_grid':
+            if model_params['model_name'] in ["SimpleConvLSTM","SimpleConvGRU","THST"]:
                 idx, (feature, target, mask) = next(iter_val)
             else:
                 idx, (feature, target) = next(iter_val)
@@ -615,7 +613,7 @@ def train_loop(train_params, model_params):
                     #TODO: Add Discrete Continuous Metric here is wrong, should be same as other version
 
             elif model_params['model_name'] == "THST":
-                if model_params['model_type_settings']['location'] == 'region_grid':
+                if model_params['model_type_settings']['location'] == 'region_grid'  or model_params['model_type_settings']['twoD']==True :
                     if( tf.reduce_any( mask[:, :, 6:10, 6:10] )==False ):
                         continue
                 else:
@@ -625,7 +623,7 @@ def train_loop(train_params, model_params):
                     preds = model(tf.cast(feature,tf.float16), training=False )
                     preds = tf.squeeze(preds)
 
-                    if (model_params['model_type_settings']['location']=='region_grid' ): #focusing on centre of square only
+                    if (model_params['model_type_settings']['location']=='region_grid' )  or model_params['model_type_settings']['twoD']==True : #focusing on centre of square only
                         preds = preds[:, :, 6:10, 6:10]
                         mask = mask[:, :, 6:10, 6:10]
                         target = target[:, :, 6:10, 6:10]
@@ -717,7 +715,7 @@ def train_loop(train_params, model_params):
                     preds = model(tf.cast(feature,tf.float16), training=False )
                     preds = tf.squeeze(preds)
 
-                    if (model_params['model_type_settings']['location']=='region_grid' ): #focusing on centre of square only
+                    if model_params['model_type_settings']['location']=='region_grid'  or model_params['model_type_settings']['twoD']==True : #focusing on centre of square only
                         preds = preds[:, :, 6:10, 6:10]
                         mask = mask[:, :, 6:10, 6:10]
                         target = target[:, :, 6:10, 6:10]
