@@ -27,6 +27,7 @@ from tensorflow.python.keras.utils import tf_utils
 from tensorflow.python.ops import math_ops, nn, clip_ops
 
 import layers_ConvLSTM2D
+import layers_ConvGRU2D
 
 
 # region DeepSD layers
@@ -637,15 +638,15 @@ class THST_Encoder(tf.keras.layers.Layer ):
 		self.layer_count = encoder_params['enc_layer_count']
 		
 
-		self.CLSTM_Input_Layer = THST_CLSTM_Input_Layer( train_params, encoder_params['CLSTMs_params'][0] )
+		self.CGRU_Input_Layer = THST_CGRU_Input_Layer( train_params, encoder_params['CGRUs_params'][0] )
 
-		self.CLSTM_Attn_layers = []
+		self.CGRU_Attn_layers = []
 		for idx in range( encoder_params['attn_layers_count'] ):
-			_layer = THST_CLSTM_Attention_Layer( train_params, encoder_params['CLSTMs_params'][idx+1],
+			_layer = THST_CGRU_Attention_Layer( train_params, encoder_params['CGRUs_params'][idx+1],
 						encoder_params['ATTN_params'][idx], encoder_params['ATTN_DOWNSCALING_params_enc'] ,
 						encoder_params['seq_len_factor_reduction'][idx], self.encoder_params['attn_layers_num_of_splits'][idx],
 						h_w )
-			self.CLSTM_Attn_layers.append(_layer)
+			self.CGRU_Attn_layers.append(_layer)
 
 	#@tf.function -> cant be used since output hs_list is a TensorArray which Tensorflow does not correctly handle yet
 	def call(self, _input, training=True):
@@ -653,30 +654,30 @@ class THST_Encoder(tf.keras.layers.Layer ):
 			_input #shape( )
 		"""
 		#old
-			# hidden_states_1 =  self.CLSTM_1( _input, training ) #(bs, seq_len_1, h, w, c1)
+			# hidden_states_1 =  self.CGRU_1( _input, training ) #(bs, seq_len_1, h, w, c1)
 
-			# hidden_states_2 = self.CLSTM_2( hidden_states_1, training=training) #(bs, seq_len_2, h, w, c2)
+			# hidden_states_2 = self.CGRU_2( hidden_states_1, training=training) #(bs, seq_len_2, h, w, c2)
 
-			# hidden_states_3 =  self.CLSTM_3( hidden_states_2,training=training ) #(bs, seq_len_3, h, w, c3)
+			# hidden_states_3 =  self.CGRU_3( hidden_states_2,training=training ) #(bs, seq_len_3, h, w, c3)
 
-			# hidden_states_4 =  self.CLSTM_4( hidden_states_3,training=training ) #(bs, seq_len_4, h, w, c3)
+			# hidden_states_4 =  self.CGRU_4( hidden_states_3,training=training ) #(bs, seq_len_4, h, w, c3)
 
-			# hidden_states_5 =  self.CLSTM_5( hidden_states_4,training=training ) #(bs, seq_len_5, h, w, c3)
+			# hidden_states_5 =  self.CGRU_5( hidden_states_4,training=training ) #(bs, seq_len_5, h, w, c3)
 
 			# return hidden_states_2, hidden_states_3, hidden_states_4, hidden_states_5  
 
 		hs_list = tf.TensorArray(dtype=self._compute_dtype, size=self.encoder_params['attn_layers_count'], infer_shape=False, dynamic_size=False, clear_after_read=False )
 		
-		hidden_state =  self.CLSTM_Input_Layer( _input, training ) #(bs, seq_len_1, h, w, c1)
+		hidden_state =  self.CGRU_Input_Layer( _input, training ) #(bs, seq_len_1, h, w, c1)
 		
 		#Note: Doing the foor loop this way so more operations can be given to gpu 1
 		#with tf.device('/GPU:0'):
 		for idx in range(self.encoder_params['attn_layers_count'] -1):
-			hidden_state = self.CLSTM_Attn_layers[idx]( hidden_state, training=training)
+			hidden_state = self.CGRU_Attn_layers[idx]( hidden_state, training=training)
 			hs_list = hs_list.write( idx, hidden_state )
 		
 		#with tf.device('/GPU:1'):
-		hidden_state = self.CLSTM_Attn_layers[idx+1]( hidden_state, training=training)
+		hidden_state = self.CGRU_Attn_layers[idx+1]( hidden_state, training=training)
 		hs_list = hs_list.write( idx+1, hidden_state )
 		
 		return hs_list
@@ -693,11 +694,11 @@ class THST_Decoder(tf.keras.layers.Layer):
 		#self.encoder_hidden_state_count = self.layer_count + 1
 		
 		
-		self.CLSTM_2cell_layers = []
+		self.CGRU_2cell_layers = []
 		for idx in range( self.layer_count ):
-			_layer = THST_CLSTM_Decoder_Layer( train_params, self.decoder_params['CLSTMs_params'][idx], decoder_params['seq_len_factor_expansion'][idx],
+			_layer = THST_CGRU_Decoder_Layer( train_params, self.decoder_params['CGRUs_params'][idx], decoder_params['seq_len_factor_expansion'][idx],
 														decoder_params['seq_len'][idx], h_w )
-			self.CLSTM_2cell_layers.append(_layer)
+			self.CGRU_2cell_layers.append(_layer)
 
 	# @tf.function
 	# def call(self, hidden_states_2_enc, hidden_states_3_enc, hidden_states_4_enc, hidden_states_5_enc, training=True  ):
@@ -705,78 +706,89 @@ class THST_Decoder(tf.keras.layers.Layer):
 	#@tf.function -> cant be used since inpuut hs_list is a TensorArray which Tensorflow does not correctly handle yet
 	def call(self, hs_list, training=True):
 
-		# hidden_states_l4 = self.CLSTM_L4( hidden_states_4_enc , hidden_states_5_enc, training)
+		# hidden_states_l4 = self.CGRU_L4( hidden_states_4_enc , hidden_states_5_enc, training)
 		#     #2, 4, 100, 140, 2
-		# hidden_states_l3 = self.CLSTM_L3( hidden_states_3_enc, hidden_states_l4, training ) #(bs, output_len2, 100, 140, layer_below_filters*2)
+		# hidden_states_l3 = self.CGRU_L3( hidden_states_3_enc, hidden_states_l4, training ) #(bs, output_len2, 100, 140, layer_below_filters*2)
 		#     #2, 8, 100, 140, 2
-		# hidden_states_l2 = self.CLSTM_L2( hidden_states_2_enc, hidden_states_l3, training )     #(bs, output_len1, height, width)     
+		# hidden_states_l2 = self.CGRU_L2( hidden_states_2_enc, hidden_states_l3, training )     #(bs, output_len1, height, width)     
 		#     #2, 16, 100, 140, 4
 
 		dec_hs_outp = hs_list.read(self.layer_count)
 
 		for idx in range(1, self.layer_count+1):
-			dec_hs_outp =  self.CLSTM_2cell_layers[-idx]( hs_list.read( self.layer_count -idx ), dec_hs_outp, training )
+			dec_hs_outp =  self.CGRU_2cell_layers[-idx]( hs_list.read( self.layer_count -idx ), dec_hs_outp, training )
 		hs_list = hs_list.close()
 		return dec_hs_outp
 			
-class THST_CLSTM_Input_Layer(tf.keras.layers.Layer):
+class THST_CGRU_Input_Layer(tf.keras.layers.Layer):
 	"""
 		This corresponds to the lower input layer
 		rmrbr to add spatial LSTM
 	"""
 	def __init__(self, train_params, layer_params ):
-		super( THST_CLSTM_Input_Layer, self ).__init__()
+		super( THST_CGRU_Input_Layer, self ).__init__()
 		
 		self.trainable = train_params['trainable']
 		self.layer_params = layer_params #list of dictionaries containing params for all layers
 
-		self.convLSTM = Bidirectional( layer=layers_ConvLSTM2D.ConvLSTM2D( **self.layer_params ), 
-										backward_layer=layers_ConvLSTM2D.ConvLSTM2D( **copy.deepcopy(self.layer_params), go_backwards=True ),
+		# self.convLSTM = Bidirectional( layer=layers_ConvLSTM2D.ConvLSTM2D( **self.layer_params ), 
+		# 								backward_layer=layers_ConvLSTM2D.ConvLSTM2D( **copy.deepcopy(self.layer_params), go_backwards=True ),
+		# 								merge_mode=None ) 
+		
+		self.convGRU = Bidirectional( layer=layers_ConvGRU2D.ConvGRU2D( **self.layer_params ), 
+										backward_layer=layers_ConvGRU2D.ConvGRU2D( **copy.deepcopy(self.layer_params), go_backwards=True ),
 										merge_mode=None ) 
-	
+		
 	@tf.function
 	def call( self, _input, training ):
 		#NOTE: consider addding multiple LSTM Layers to extract more latent features
 
-		hidden_states_f, hidden_states_b = self.convLSTM( _input, training=training ) #(bs, seq_len_1, h, w, c)
+		hidden_states_f, hidden_states_b = self.convGRU(_input, training=training ) #(bs, seq_len_1, h, w, c)
 		hidden_states = tf.concat([hidden_states_f, hidden_states_b],axis=-1)
 			   
 		return hidden_states #(bs, seq_len_1, h, w, c*2)
 
-class THST_CLSTM_Attention_Layer(tf.keras.layers.Layer):
+class THST_CGRU_Attention_Layer(tf.keras.layers.Layer):
 	"""
 		This corresponds to all layers which use attention to weight the inputs from the layer below
 	"""
-	def __init__(self, train_params, clstm_params, attn_params, attn_downscaling_params ,seq_len_factor_reduction, num_of_splits, h_w ):
-		super( THST_CLSTM_Attention_Layer, self ).__init__()
+	def __init__(self, train_params, CGRU_params, attn_params, attn_downscaling_params ,seq_len_factor_reduction, num_of_splits, h_w ):
+		super( THST_CGRU_Attention_Layer, self ).__init__()
 
 		self.trainable = train_params['trainable']
 		self.num_of_splits = num_of_splits
 		self.seq_len_factor_reduction = seq_len_factor_reduction
 		
-		self.convLSTM_attn = Bidirectional( layer=layers_ConvLSTM2D.ConvLSTM2D_attn( **clstm_params,
+		# self.convLSTM_attn = Bidirectional( layer=layers_ConvLSTM2D.ConvLSTM2D_attn( **CGRU_params,
+		# 										attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
+		# 										attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable ),
+		# 									backward_layer=layers_ConvLSTM2D.ConvLSTM2D_attn( go_backwards=True, **copy.deepcopy(CGRU_params),
+		# 										attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
+		# 										attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable ),
+		# 									merge_mode=None ) #stateful possibly set to True, return_state=True, return_sequences=True
+		self.convGRU_attn = Bidirectional( layer=layers_ConvGRU2D.ConvGRU2D_attn( **CGRU_params,
 												attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
 												attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable ),
-											backward_layer=layers_ConvLSTM2D.ConvLSTM2D_attn( go_backwards=True, **copy.deepcopy(clstm_params),
+											backward_layer=layers_ConvGRU2D.ConvGRU2D_attn( go_backwards=True, **copy.deepcopy(CGRU_params),
 												attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
 												attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable ),
 											merge_mode=None ) #stateful possibly set to True, return_state=True, return_sequences=True
 
-		self.shape = ( train_params['batch_size'], self.num_of_splits, h_w[0], h_w[1], clstm_params['filters'] )
+		self.shape = ( train_params['batch_size'], self.num_of_splits, h_w[0], h_w[1], CGRU_params['filters'] )
 
 	@tf.function
 	def call(self, input_hidden_states, training=True):
 		
-		hidden_states_f, hidden_states_b = self.convLSTM_attn(input_hidden_states, training=training)
+		hidden_states_f, hidden_states_b = self.convGRU_attn(input_hidden_states, training=training)
 		hidden_states_f.set_shape( self.shape )
 		hidden_states_b.set_shape( self.shape )
 		hidden_states = tf.concat( [hidden_states_f,hidden_states_b], axis=-1 )
 
 		return hidden_states #shape(bs, seq_len, h, w, 2*c2)
 
-class THST_CLSTM_Decoder_Layer(tf.keras.layers.Layer):
+class THST_CGRU_Decoder_Layer(tf.keras.layers.Layer):
 	def __init__(self, train_params ,layer_params, input_2_factor_increase, seq_len, h_w ):
-		super( THST_CLSTM_Decoder_Layer, self ).__init__()
+		super( THST_CGRU_Decoder_Layer, self ).__init__()
 		
 		self.layer_params = layer_params
 		self.input_2_factor_increase = input_2_factor_increase
@@ -786,8 +798,8 @@ class THST_CLSTM_Decoder_Layer(tf.keras.layers.Layer):
 		self.shape2 = ( train_params['batch_size'], self.seq_len//self.input_2_factor_increase, h_w[0], h_w[1], layer_params['filters']*2 ) #TODO: the final dimension only works rn since all layers have same filter count. It should be equal to 2* filters of previous layer
 		self.shape1 = ( train_params['batch_size'], self.seq_len, h_w[0], h_w[1], layer_params['filters']*2 ) #same comment as above
 		self.shape3 = ( train_params['batch_size'], self.seq_len, h_w[0], h_w[1], layer_params['filters'] )
-		self.convLSTM =  tf.keras.layers.Bidirectional( layer=layers_ConvLSTM2D.ConvLSTM2D_custom(**layer_params ),
-														backward_layer=layers_ConvLSTM2D.ConvLSTM2D_custom( **copy.deepcopy(layer_params),go_backwards=True ) ,
+		self.convGRU =  tf.keras.layers.Bidirectional( layer=layers_ConvGRU2D.ConvGRU2D_custom(**layer_params ),
+														backward_layer=layers_ConvGRU2D.ConvGRU2D_custom( **copy.deepcopy(layer_params),go_backwards=True ) ,
 														merge_mode=None)
 	
 	@tf.function
@@ -806,7 +818,7 @@ class THST_CLSTM_Decoder_Layer(tf.keras.layers.Layer):
 		
 		inputs = tf.concat( [input1, input2], axis=-1 ) #NOTE: At this point both input1 and input2, must be the same shape
 
-		hidden_states_f, hidden_states_b = self.convLSTM( inputs, training=training )
+		hidden_states_f, hidden_states_b = self.convGRU( inputs, training=training )
 		
 		hidden_states_f.set_shape( self.shape3 )
 		hidden_states_b.set_shape( self.shape3 )

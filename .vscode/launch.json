@@ -25,7 +25,7 @@
                 "-mn","DeepSD"]  
         },
         {
-            "name": "THST",
+            "name": "THST_London",
             "type": "python",
             "request": "launch",
             "program": "${file}",

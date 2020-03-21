@@ -172,7 +172,7 @@ class model_THST_hparameters(MParams):
 
     def __init__(self, **kwargs):
         """ 
-            Hierachical 2D Convolution Model
+            
         """
 
         super( model_THST_hparameters, self ).__init__(**kwargs)
@@ -180,11 +180,11 @@ class model_THST_hparameters(MParams):
     def _default_params(self ):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-4, "warmup_proportion":0.6,
-            "min_lr": 1e-5, "beta_1":0.99 , "beta_2":0.99, "decay":0.95
+            "learning_rate":1e-2, "warmup_proportion":0.6,
+            "min_lr": 1e-3, "beta_1":0.5 , "beta_2":0.95, "decay":0.95
             }
-        DROPOUT = 0.10
-        LOOKAHEAD_PARAMS = { "sync_period":2 , "slow_step_size":0.99}
+        DROPOUT = 0.00
+        LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99}
         # endregion
         
         #region Key Model Size Settings
@@ -211,10 +211,12 @@ class model_THST_hparameters(MParams):
         output_filters_enc = [64]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc = output_filters_enc + output_filters_enc[-1:] # the last two layers in the encoder must output the same number of channels
         kernel_size_enc = [ (4,4) ] * (enc_layer_count)                   # [(2,2)]
-        recurrent_regularizers = [ tf.keras.regularizers.l2(0.2) ] * (enc_layer_count) 
-        kernel_regularizers = [ tf.keras.regularizers.l2(0.01) ] * (enc_layer_count)
-        bias_regularizers= [ tf.keras.regularizers.l2(0.01) ] * (enc_layer_count)
-        recurrent_dropouts = [0.4]*(enc_layer_count)
+        recurrent_regularizers = [ None ] * (enc_layer_count) 
+        kernel_regularizers = [ None ] * (enc_layer_count)
+        bias_regularizers= [ tf.keras.regularizers.l2(0.2) ] * (enc_layer_count)
+        recurrent_dropouts =  [0.0 ]*(enc_layer_count)
+        input_dropouts = [0.0 ]*(enc_layer_count)
+        stateful = True #True if testing on single location , false otherwise
 
         attn_layers_count = enc_layer_count - 1
         attn_heads = [ 8 ]*attn_layers_count                          #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
@@ -253,19 +255,19 @@ class model_THST_hparameters(MParams):
             'kq_downscale_kernelshape':kq_downscale_kernelshape
         }
         
-        CLSTMs_params_enc = [
+        CGRUs_params_enc = [
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
-                'return_sequences':True, 'dropout':0.0, 'recurrent_dropout':rd,
-                'stateful':True, 'recurrent_regularizer': rr, 'kernel_regularizer':kr,
+                'return_sequences':True, 'dropout':ido, 'recurrent_dropout':rd,
+                'stateful':stateful, 'recurrent_regularizer': rr, 'kernel_regularizer':kr,
                 'bias_regularizer':br}
-             for f, ks, rr, kr, br, rd in zip( output_filters_enc, kernel_size_enc, recurrent_regularizers, kernel_regularizers, bias_regularizers, recurrent_dropouts )
+             for f, ks, rr, kr, br, rd, ido in zip( output_filters_enc, kernel_size_enc, recurrent_regularizers, kernel_regularizers, bias_regularizers, recurrent_dropouts, input_dropouts )
         ]
         # endregion
         
         ENCODER_PARAMS = {
             'enc_layer_count': enc_layer_count,
             'attn_layers_count': attn_layers_count,
-            'CLSTMs_params' : CLSTMs_params_enc,
+            'CGRUs_params' : CGRUs_params_enc,
             'ATTN_params': ATTN_params_enc,
             'ATTN_DOWNSCALING_params_enc':ATTN_DOWNSCALING_params_enc,
             'seq_len_factor_reduction': SEQ_LEN_FACTOR_REDUCTION,
@@ -281,22 +283,22 @@ class model_THST_hparameters(MParams):
         kernel_size_dec = kernel_size_enc[ 1:1+decoder_layer_count  ]                             # This is written in the correct order
         
             #Each decoder layer sends in values into the layer below. 
-        CLSTMs_params_dec = [
+        CGRUs_params_dec = [
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
                 'return_sequences':True, 'dropout':0.1, 'gates_version':2,
                 'recurrent_dropout':None, 
                 'kernel_regularizer':None,
-                'recurrent_regularizer': tf.keras.regularizers.l2(0.2),
-                'bias_regularizer':tf.keras.regularizers.l2(0.01),
-                'stateful':True }
-             for f, ks in zip( output_filters_dec, kernel_size_dec)
+                'recurrent_regularizer': None,
+                'bias_regularizer':tf.keras.regularizers.l2(0.2),
+                'stateful':stateful }
+             for f, ks, ido, rdo  in zip( output_filters_dec, kernel_size_dec, input_dropouts, recurrent_dropouts)
         ]
         DECODER_LAYERS_NUM_OF_SPLITS = ATTN_LAYERS_NUM_OF_SPLITS[:decoder_layer_count]
             #Each output from a decoder layer is split into n chunks the fed to n different nodes in the layer below. param above tracks teh value n for each dec layer
         SEQ_LEN_FACTOR_EXPANSION = SEQ_LEN_FACTOR_REDUCTION[-decoder_layer_count:]
         DECODER_PARAMS = {
             'decoder_layer_count': decoder_layer_count,
-            'CLSTMs_params' : CLSTMs_params_dec,
+            'CGRUs_params' : CGRUs_params_dec,
             'seq_len_factor_expansion': SEQ_LEN_FACTOR_EXPANSION, #This is written in the correct order
             'seq_len': DECODER_LAYERS_NUM_OF_SPLITS[:decoder_layer_count],
             'dropout':DROPOUT
@@ -305,13 +307,13 @@ class model_THST_hparameters(MParams):
 
         # region --------------- OUTPUT_LAYER_PARAMS -----------------
         
-        output_filters = [ 8, 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
-        output_kernel_size = [ (4,4), (4,4) ] #[ (2,2), (2,2) ] #NOTE:  [ (4,4), (4,4) ] 
-
+        output_filters = [ 64, 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
+        output_kernel_size = [ (4,4), (3,3) ] 
+        activations = ['relu','linear']
 
         OUTPUT_LAYER_PARAMS = [ 
             { "filters":fs, "kernel_size":ks ,  "padding":"same", "activation":act } 
-                for fs, ks, act in zip( output_filters, output_kernel_size, ['relu','linear'] )
+                for fs, ks, act in zip( output_filters, output_kernel_size, activations )
          ]
         # endregion
 

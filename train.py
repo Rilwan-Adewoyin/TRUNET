@@ -393,7 +393,7 @@ def train_loop(train_params, model_params):
                     gc.collect()
                     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
                     
-                elif( model_params['model_name'] == "THST"):
+                elif( model_params['model_name'] == "THST_old"):
                     if model_params['model_type_settings']['location'] == 'region_grid' or model_params['model_type_settings']['twoD']==True :
                         if( tf.reduce_any( mask[:, :, 6:10, 6:10] ) == False ):
                             continue
@@ -536,7 +536,7 @@ def train_loop(train_params, model_params):
                     else:
                         _optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
-                elif (model_params['model_name'] in ["SimpleConvLSTM","SimpleConvGRU"]):
+                elif (model_params['model_name'] in ["SimpleConvLSTM","SimpleConvGRU","THST"]):
                     if model_params['model_type_settings']['location'] == 'region_grid'  or model_params['model_type_settings']['twoD']==True:
                         if( tf.reduce_any( mask[:, :, 6:10, 6:10] )==False ):
                             continue
@@ -658,7 +658,7 @@ def train_loop(train_params, model_params):
                     val_metric_loss( tf.reduce_mean( tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  ) #TODO: Ensure that both preds and target are reshaped prior 
                     #TODO: Add Discrete Continuous Metric here is wrong, should be same as other version
 
-            elif model_params['model_name'] == "THST":
+            elif model_params['model_name'] == "THST_old":
                 if model_params['model_type_settings']['location'] == 'region_grid'  or model_params['model_type_settings']['twoD']==True :
                     if( tf.reduce_any( mask[:, :, 6:10, 6:10] )==False ):
                         continue
@@ -749,7 +749,7 @@ def train_loop(train_params, model_params):
                 elif model_params['model_type_settings']['stochastic'] == True:
                     raise NotImplementedError
             
-            elif model_params['model_name'] in ["SimpleConvLSTM", "SimpleConvGRU"]:
+            elif model_params['model_name'] in ["SimpleConvLSTM", "SimpleConvGRU","THST"]:
                 
                 if model_params['model_type_settings']['location'] == 'region_grid' or model_params['model_type_settings']['twoD']==True:
                     if tf.reduce_any( mask[:, :, 6:10, 6:10] )==False  :
@@ -790,7 +790,7 @@ def train_loop(train_params, model_params):
                     batches_to_skip = 0
         model.reset_states()
 
-        print("\tEpoch:{}\t Train Loss:{:.8f}\tValidation Loss:{:.5f}\tTime:{:.5f}".format(epoch, train_loss_mean_epoch.result(), val_metric_loss.result(), time.time()-start_epoch_val  ) )
+        print("\tEpoch:{}\t Train Loss:{:.8f}\tValidation Loss:{:.5f}\t Train MSE:{:.5f}\t Val MSE:{:.5f}\t Time:{:.5f}".format(epoch, train_loss_mean_epoch.result(), val_metric_loss.result(), train_mse_metric_epoch.result(), val_metric_mse.result() ,time.time()-start_epoch_val  ) )
         if( model_params['model_type_settings']['stochastic']==True ):
             print('\t\tVar_Free_Nrg: {:.5f} '.format(train_loss_var_free_nrg_mean_epoch.result()  ) )
 
