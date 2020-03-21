@@ -106,6 +106,7 @@ def train_loop(train_params, model_params):
             optimizer_dc = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-2 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.35, "beta_2":0.85, "decay":0.90,
                                                             "amsgrad":True}, total_steps=total_steps )  #copy.deepcopy( optimizer )
             optimizers = [optimizer_rain, optimizer_nonrain, optimizer_dc ]
+            optimizers = [ mixed_precision.LossScaleOptimizer(_opt, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) for _opt in optimizers ]
             optimizer_ready = [False]*len(optimizers)
         else:
             _optimizer = optimizer
