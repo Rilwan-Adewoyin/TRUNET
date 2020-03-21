@@ -467,7 +467,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
     
     def _default_params(self):
         #Other
-        dropout = 0 #0.1
+        dropout = 0.1
 
         #ConvLayers
         layer_count = 3 #TODO: Shi uses 2 layers
@@ -475,8 +475,8 @@ class model_SimpleConvGRU_hparamaters(MParams):
         kernel_sizes = [[4,4]]*layer_count
         paddings = ['same']*layer_count
         return_sequences = [True]*layer_count
-        gru_dropout = [0.0]*layer_count
-        recurrent_dropout = [0.0]*layer_count
+        gru_dropout = [0.2]*layer_count #[0.0]*layer_count
+        recurrent_dropout = [0.25]*layer_count #[0.0]*layer_count
         # if self.params['model_type_settings']['location'] == "region_grid":
         #     _st = False
         # else:
