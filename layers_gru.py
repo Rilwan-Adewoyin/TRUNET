@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 tf.keras.backend.set_floatx('float16')
+#tf.keras.backend.set_floatx('float32')
 
 
 from tensorflow.python.ops import inplace_ops
@@ -149,9 +150,9 @@ class GRU_LN(RNN):
 
   def __init__(self,
                units,
+               layer_norm,
                activation='tanh',
                recurrent_activation='hard_sigmoid',
-               layer_norm = tf.keras.layers.LayerNormalization(),
                use_bias=True,
                kernel_initializer='glorot_uniform',
                recurrent_initializer='orthogonal',
@@ -177,7 +178,8 @@ class GRU_LN(RNN):
       logging.warning('`implementation=0` has been deprecated, '
                       'and now defaults to `implementation=1`.'
                       'Please update your layer call.')
-    layer_norm._dtype = "float16"
+    layer_norm._dtype = "float32"
+    #layer_norm._compute_dtype = "float16"
     cell = GRU_LN_Cell(
         units,
         activation=activation,
@@ -324,7 +326,9 @@ class GRU_LN(RNN):
         'implementation':
             self.implementation,
         'reset_after':
-            self.reset_after
+            self.reset_after,
+        'layer_norm':
+            self.layer_norm
     }
     base_config = super(GRU_LN, self).get_config()
     del base_config['cell']
@@ -880,7 +884,7 @@ class GRU_LN_Cell(DropoutRNNCellMixin, Layer):
       hh = self.activation(x_h + recurrent_h)
     # previous and candidate state mixed by update gate
     if self.bool_ln :
-      h = z * h_tm1 + (1 - z) * self.layer_norm(hh) #layer norm
+      h = z * h_tm1 + (1 - z) * tf.cast( self.layer_norm(hh), self._compute_dtype) #layer norm
     else:
       h = z * h_tm1 + (1 - z) * hh
     

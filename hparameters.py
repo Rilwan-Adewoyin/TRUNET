@@ -345,8 +345,9 @@ class model_SimpleLSTM_hparameters(MParams):
     
     def _default_params(self):
         #model
+        dropout = 0.0
         layer_count = 3
-        #li_units =  [128]*layer_count
+        
         li_units = [160]*layer_count
         
         li_rs =     [True]*layer_count
@@ -355,7 +356,8 @@ class model_SimpleLSTM_hparameters(MParams):
                 'return_sequences':rs, 'stateful':True,
                 'kernel_regularizer': None,
                 'recurrent_regularizer': None,
-                'bias_regularizer':tf.keras.regularizers.l2(0.2) }
+                'bias_regularizer':tf.keras.regularizers.l2(0.2),
+                'layer_norm':tf.keras.layers.LayerNormalization(axis=-1) }
                 for un, rs in zip(li_units, li_rs)
         ]
 
@@ -381,10 +383,16 @@ class model_SimpleLSTM_hparameters(MParams):
         }
 
         #training proc
+        # REC_ADAM_PARAMS = {
+        #     "learning_rate":1e-2 , "warmup_proportion":0.6,
+        #     "min_lr":1e-3, "beta_1":0.99, "beta_2":0.99,"decay":0.95
+        #     }
+
         REC_ADAM_PARAMS = {
             "learning_rate":1e-2 , "warmup_proportion":0.6,
-            "min_lr":1e-3, "beta_1":0.99, "beta_2":0.99,"decay":0.95
-            }
+            "min_lr":1e-3, "beta_1":0.1, "beta_2":0.99, "decay":0.95,
+            "amsgrad":True
+            } #for multile optimizers asymettric 
 
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }
 
@@ -396,6 +404,7 @@ class model_SimpleLSTM_hparameters(MParams):
             'layer_params': LAYER_PARAMS,
             'dense1_layer_params':dense1_layer_params,
             'output_dense_layer_params':output_dense_layer_params,
+            'dropout':dropout,
             
             'data_pipeline_params': DATA_PIPELINE_PARAMS,
             'model_type_settings': model_type_settings,

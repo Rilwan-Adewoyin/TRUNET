@@ -129,15 +129,20 @@ class SimpleLSTM(tf.keras.Model):
                 peephole_lstm_cell = tf.keras.experimental.PeepholeLSTMCell(**_params)
                 layer = tf.keras.layers.Bidirectional( tf.keras.layers.RNN( peephole_lstm_cell, return_sequences=True, stateful=True ), merge_mode='concat' )
                 self.LSTM_layers.append(layer) 
+        
         elif model_params['model_type_settings']['model_version'] in ["25","27","28","30","33","35"]:
             self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.GRU( **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ] 
+        
         elif int(model_params['model_type_settings']['model_version'])>= 44 or model_params['model_type_settings']['model_version']  in ["34","36"]:
-            self.LSTM_layers = [ tf.keras.layers.Bidirectional( layers_gru.GRU_LN_v2( **model_params['layer_params'][idx]), merge_mode='concat' ) for idx in range(model_params['layer_count'] ) ]
+            self.LSTM_layers = [ tf.keras.layers.Bidirectional( layer=layers_gru.GRU_LN_v2( **model_params['layer_params'][idx]) ,
+                                   backward_layer= layers_gru.GRU_LN_v2( **copy.deepcopy(model_params['layer_params'][idx]), go_backwards=True ) ,
+                                   merge_mode='concat' ) for idx in range(model_params['layer_count'] ) ]
+
         else:
             self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.LSTM( **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ]
 
-        self.dense1 =  TimeDistributed( tf.keras.layers.Dense(model_params['dense1_layer_params'] ) )
-        self.output_dense = TimeDistributed( tf.keras.layers.Dense( model_params['output_dense_layer_params']) )
+        self.dense1 =  TimeDistributed( tf.keras.layers.Dense(**model_params['dense1_layer_params'] ) )
+        self.output_dense = TimeDistributed( tf.keras.layers.Dense( **model_params['output_dense_layer_params']) )
         
         if model_params['model_type_settings']['model_version'] in ["23","27"]:
             self.output_activation = layers.LeakyRelu_mkr(train_params)
@@ -148,7 +153,7 @@ class SimpleLSTM(tf.keras.Model):
 
 
         self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
-        self.do=tf.keras.layers.Dropout(0.05 )#, noise_shape=None, seed=None, **kwargs
+        self.do=tf.keras.layers.Dropout(model_params['dropout'] )#, noise_shape=None, seed=None, **kwargs
 
         self.new_shape = tf.TensorShape( [train_params['batch_size'], model_params['data_pipeline_params']['lookback_target'], int(6*4)] )
 
@@ -176,15 +181,15 @@ class SimpleLSTM(tf.keras.Model):
         return outp
         
     def predict( self, inputs, n_preds, training=True):
-            """
-                Produces N predictions for each given input
-            """
-            preds = []
-            for count in tf.range(n_preds):
-                pred = self.call( inputs, training=True ) #shape ( batch_size, output_h, output_w, 1 ) or # (pred_count, bs, seq_len, h, w)
-                preds.append( pred )
-            
-            return preds
+        """
+            Produces N predictions for each given input
+        """
+        preds = []
+        for count in tf.range(n_preds):
+            pred = self.call( inputs, training=True ) #shape ( batch_size, output_h, output_w, 1 ) or # (pred_count, bs, seq_len, h, w)
+            preds.append( pred )
+        
+        return preds
 
 class SimpleDense(tf.keras.Model):
     
@@ -283,7 +288,9 @@ class SimpleConvGRU(tf.keras.Model):
         
         #region old version mv = 5
         self.ConvGRU_layers = [ tf.keras.layers.Bidirectional( layer= layers_ConvGRU2D.ConvGRU2D( **self.model_params['ConvGRU_layer_params'][idx] ), 
-                                                                backward_layer= layers_ConvGRU2D.ConvGRU2D( go_backwards=True,**self.model_params['ConvGRU_layer_params'][idx] ) ,
+
+                                                                backward_layer= layers_ConvGRU2D.ConvGRU2D( go_backwards=True,**copy.deepcopy(self.model_params['ConvGRU_layer_params'][idx]) ) ,
+
                                                                 merge_mode='concat' )  for idx in range( model_params['layer_count'] ) ]
          
         self.do = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=model_params['dropout'], data_format = 'channels_last' ) )
@@ -367,4 +374,14 @@ class SimpleConvGRU(tf.keras.Model):
         # outp = self.output_activation(outp)
 
         return outp
+
+    def predict( self, inputs, n_preds, training=True):
+        """
+            Produces N predictions for each given input
+        """
+        preds = []
+        for count in tf.range(n_preds):
+            pred = self.call( inputs, training=True ) #shape ( batch_size, output_h, output_w, 1 ) or # (pred_count, bs, seq_len, h, w)
+            preds.append( pred )
         
+        return preds    
