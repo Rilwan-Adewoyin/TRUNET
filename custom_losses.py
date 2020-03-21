@@ -1,19 +1,9 @@
 import tensorflow as tf
 
 def lnormal_mse(obs,preds):
-    # preds_filtr = tf.where( preds>0, True, False)
-    # preds = tf.boolean_mask(preds,preds_filtr )
-    # obs = tf.boolean_mask(obs, preds_filtr)
-    loss = tf.keras.losses.MSE(tf.math.log(obs), tf.math.log(preds) )
+
+    loss = tf.keras.losses.MSE(tf.math.log(obs+1), tf.math.log(preds+1) )
     
-    #loss =  tf.keras.losses.MSE( adjusted_log(obs) , adjusted_log(preds) )
-    # loss =  tf.math.log( tf.keras.losses.MSE( tf.math.exp(obs) , tf.cast( tf.math.exp(preds), tf.float64) ) )
-    # loss = tf.cast(loss, tf.float32
-
-    #reverse nomalize them, then log it , then calculate mse
-    #then for the other under 0.5 values just calculate mse normally
-
-
     return loss
 
 
