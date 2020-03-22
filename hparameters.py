@@ -355,14 +355,17 @@ class model_SimpleLSTM_hparameters(MParams):
         li_units = [160]*layer_count
         
         li_rs =     [True]*layer_count
+        ln = [ tf.keras.layers.LayerNormalization(axis=-1) for _idx in range(layer_count) ]
+        for _ln in ln: _ln._dtype = 'float32'
+
         LAYER_PARAMS = [
             {'units': un, 'dropout':0.0, 'recurrent_dropout':0.0,
                 'return_sequences':rs, 'stateful':True,
                 'kernel_regularizer': None,
                 'recurrent_regularizer': None,
                 'bias_regularizer':tf.keras.regularizers.l2(0.2),
-                'layer_norm':tf.keras.layers.LayerNormalization(axis=-1) }
-                for un, rs in zip(li_units, li_rs)
+                'layer_norm':ln }
+                for un, rs,_ln in zip(li_units, li_rs, ln)
         ]
 
         # LAYER_PARAMS = [
