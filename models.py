@@ -70,7 +70,7 @@ class THST(tf.keras.Model):
     def __init__(self, train_params, model_params):
         super(THST, self).__init__()
 
-        if model_params['model_type_settings']['location'] == "region_grid":
+        if model_params['model_type_settings']['location'] not in ["whole_region"]:
             h_w = model_params['region_grid_params']['outer_box_dims']
         else:
             h_w = [100,140]
@@ -98,7 +98,7 @@ class THST(tf.keras.Model):
         
         output = self.output_layer(hs_dec, training)
 
-        
+
         output = self.float32_output(output)
         output = self.output_activation(output)     
 

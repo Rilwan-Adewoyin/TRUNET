@@ -1737,7 +1737,7 @@ class ConvGRU2DCell_custom(DropoutRNNCellMixin, Layer):
                 #(kernel_z, kernel_r, kernel_h) = array_ops.split(self.kernel, 3, axis=3)
                 (kernel_z1, kernel_z2, 
                 kernel_r1, kernel_r2,
-                kernel_h1, kernel_h2) = array_ops.split(self.kernel, 3, axis=3)
+                kernel_h1, kernel_h2) = array_ops.split(self.kernel, 6, axis=3)
 
             x_z1 = self.input_conv(inputs_z1, kernel_z1, bias_z1, padding=self.padding)
             x_z2 = self.input_conv(inputs_z2, kernel_z2, bias_z2, padding=self.padding)
