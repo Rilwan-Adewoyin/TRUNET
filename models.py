@@ -79,29 +79,25 @@ class THST(tf.keras.Model):
         self.decoder = layers.THST_Decoder( train_params, model_params['decoder_params'], h_w )
         self.output_layer = layers.THST_OutputLayer( train_params, model_params['output_layer_params'], model_params['model_type_settings']  )
 
-        self.float32_output = layers.OutputReluFloat32(train_params)
-        self.output_activation = layers.CustomRelu_maker(train_params, dtype='float32')
+        self.float32_custom_relu = layers.OutputReluFloat32(train_params) 
+        
 
     #@tf.function
     def call(self, _input, tape=None, training=False):
         
         #old
-        # hidden_states_2_enc, hidden_states_3_enc, hidden_4_enc, hidden_5_enc = self.encoder( _input, training )
-        # hidden_states_dec = self.decoder( hidden_states_2_enc, hidden_states_3_enc, hidden_4_enc, hidden_5_enc, training )
-        # output = self.output_layer(hidden_states_dec, training)
-        # output = self.float32_output(output)
+        # hidden_states_2_enc, hidden_states_3_enc, hidden_4_enc, hidden_5_enc  = self.encoder( _input, training )
+        # hidden_states_dec                                                     = self.decoder( hidden_states_2_enc, hidden_states_3_enc, hidden_4_enc, hidden_5_enc, training )
+        # output                                                                = self.output_layer(hidden_states_dec, training)
+        # output                                                                = self.float32_output(output)
         
         #with tf.device('/GPU:0'):
         hs_list_enc = self.encoder(_input, training=training)
         #: with tf.device('/GPU:1'):
         hs_dec = self.decoder(hs_list_enc, training=training)
-        
         output = self.output_layer(hs_dec, training)
-
-
-        output = self.float32_output(output)
-        output = self.output_activation(output)     
-
+        output = self.float32_custom_relu(output)
+             
         return output
 
     def predict( self, inputs, n_preds, training=True):
@@ -149,11 +145,8 @@ class SimpleLSTM(tf.keras.Model):
         if model_params['model_type_settings']['model_version'] in ["23","27"]:
             self.output_activation = layers.LeakyRelu_mkr(train_params)
         else:
-            #self.output_activation = layers.CustomRelu_maker(train_params, dtype='float16')
             self.output_activation = layers.CustomRelu_maker(train_params, dtype='float32')
-            #self.output_activation._dtype = 'float32'
-
-
+            
         self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
         self.do=tf.keras.layers.Dropout(model_params['dropout'] )#, noise_shape=None, seed=None, **kwargs
 
@@ -277,7 +270,7 @@ class SimpleConvLSTM(tf.keras.Model):
                 x = x + self.ConvLSTM_layers[idx](inputs=x,training=training )
 
         x = self.output_conv( self.do( (x + x0)/2),training=training)
-        outp = self.output_activation(x)
+        outp = self.output_activation(x) #Do not switch round the order of these two lines
         x = self.float32_output(outp)
         return x
 

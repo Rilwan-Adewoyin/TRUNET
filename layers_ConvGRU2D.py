@@ -641,7 +641,8 @@ class ConvGRU2D(ConvRNN2D):
                                 padding=padding,
                                 data_format=data_format,
                                 dilation_rate=dilation_rate,
-                                layer_norm=layer_norm,
+                                layer_norm=self.layer_norm,
+                                bool_ln=self.bool_ln,
                                 activation=activation,
                                 recurrent_activation=recurrent_activation,
                                 use_bias=use_bias,
@@ -1077,7 +1078,7 @@ class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
             raise NotImplementedError
         
         if self.bool_ln:
-            hh = self.layer_norm(hh)
+            hh = tf.cast( self.layer_norm(hh), self._compute_dtype)
 
         h = z*h_tm1 + (1-z)*hh
         
@@ -1303,7 +1304,7 @@ class ConvGRU2D_custom(ConvRNN2D):
                                      data_format=data_format,
                                      dilation_rate=dilation_rate,
                                      implementation=implementation,
-                                     layer_norm=layer_norm,
+                                     layer_norm=self.layer_norm,
                                      bool_ln = bool_ln,
                                      activation=activation,
                                      recurrent_activation=recurrent_activation,
@@ -1800,8 +1801,8 @@ class ConvGRU2DCell_custom(DropoutRNNCellMixin, Layer):
             raise NotImplementedError
             
         if self.bool_ln:
-            hh1 = self.layer_norm[0](hh1)
-            hh2 = self.layer_norm[1](hh2)
+            hh1 = tf.cast(self.layer_norm[0](hh1), self._compute_dtype)
+            hh2 = tf.cast(self.layer_norm[1](hh2), self._compute_dtype)
 
         h = ((z1+z2)/2)*h_tm1 + (1-z1)*hh1 + (1-z2)*hh2
         
@@ -2041,7 +2042,7 @@ class ConvGRU2D_attn(ConvRNN2D):
                                      padding=padding,
                                      data_format=data_format,
                                      dilation_rate=dilation_rate,
-                                     layer_norm = layer_norm,
+                                     layer_norm = self.layer_norm,
                                      bool_ln = bool_ln,
                                      activation=activation,
                                      recurrent_activation=recurrent_activation,
@@ -2536,7 +2537,7 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
             raise NotImplementedError
         
         if self.bool_ln:
-            hh = self.layer_norm(hh)
+            hh = tf.cast(self.layer_norm(hh),self._compute_dtype)
         h = z*h_tm1 + (1-z)*hh
         
         return h, [h]

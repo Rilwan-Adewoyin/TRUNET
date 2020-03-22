@@ -181,7 +181,8 @@ class model_THST_hparameters(MParams):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
             "learning_rate":1e-2, "warmup_proportion":0.6,
-            "min_lr": 1e-3, "beta_1":0.5 , "beta_2":0.95, "decay":0.95
+            "min_lr": 1e-3, "beta_1":0.45 , "beta_2":0.95, "decay":0.95,
+            'epsilon':0.005, 'amsgrad':True
             }
         DROPOUT = 0.00
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99}
@@ -208,7 +209,7 @@ class model_THST_hparameters(MParams):
         enc_layer_count = len( SEQ_LEN_FACTOR_REDUCTION ) +1
 
         # region CLSTM params
-        output_filters_enc = [64]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
+        output_filters_enc = [48]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc = output_filters_enc + output_filters_enc[-1:] # the last two layers in the encoder must output the same number of channels
         kernel_size_enc = [ (4,4) ] * (enc_layer_count)                   # [(2,2)]
         recurrent_regularizers = [ None ] * (enc_layer_count) 
@@ -217,24 +218,31 @@ class model_THST_hparameters(MParams):
         recurrent_dropouts =  [0.0 ]*(enc_layer_count)
         input_dropouts = [0.0 ]*(enc_layer_count)
         stateful = True #True if testing on single location , false otherwise
+        layer_norms = lambda: tf.keras.layers.LayerNormalization(axis=[-3,-2,-1]) #lambda: None
 
         attn_layers_count = enc_layer_count - 1
         attn_heads = [ 8 ]*attn_layers_count                          #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
         
         
         if 'region_grid_params' in self.params.keys():
-            kq_downscale_stride = [1, 8, 8]
-            kq_downscale_kernelshape = [1, 8, 8]
+            kq_downscale_stride = [1, 8, 8] #[1, 8, 8]
+            kq_downscale_kernelshape = kq_downscale_stride
 
-            key_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] / int(np.prod([kq_downscale_kernelshape[1:]])) ) for idx in range(attn_layers_count)  ]
+            #This keeps the hidden representations equal in size to the incoming tensors
+            key_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 / int(np.prod([kq_downscale_kernelshape[1:]])) ) for idx in range(attn_layers_count)  ]
             val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 ) for idx in range(attn_layers_count)  ]
+
+            effective_base_dscaling = np.prod([1,8,8])*2 #THIS is the default amount of downscaling relative to base model
+            further_downscaling =  int(effective_base_dscaling / np.prod(kq_downscale_stride) )
+
+            key_depth = [ _val//further_downscaling for _val in key_depth ]
 
         else:
             kq_downscale_stride = [1, 13, 13]
             kq_downscale_kernelshape = [1, 13, 13]
 
-            key_depth = [ int( (100*140*output_filters_enc[idx]) / int(np.prod([kq_downscale_kernelshape[1:]])) ) for idx in range(attn_layers_count) ] 
-                #This keeps the hidden representations equal in size to the incoming tensors
+            #This keeps the hidden representations equal in size to the incoming tensors
+            key_depth = [ int( (100*140*output_filters_enc[idx]*2) / int(np.prod([kq_downscale_kernelshape[1:]])) ) for idx in range(attn_layers_count) ]     
             val_depth = [ int(100*140*output_filters_enc[idx]*2) for idx in range(attn_layers_count)  ]
                 
             #The keydepth for any given layer will be equal to (h*w*c/avg_pool_strideh*avg_pool_stridew)
@@ -247,7 +255,7 @@ class model_THST_hparameters(MParams):
             {'bias':None, 'total_key_depth': kd  ,'total_value_depth':vd, 'output_depth': vd   ,
             'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
             "transform_value_antecedent":False ,  "transform_output":False,
-            'implementation':1 ,'layer_norm':None  } 
+            'implementation':1  } 
             for kd, vd ,nh in zip( key_depth, val_depth, attn_heads )
         ] 
 
@@ -260,7 +268,7 @@ class model_THST_hparameters(MParams):
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
                 'return_sequences':True, 'dropout':ido, 'recurrent_dropout':rd,
                 'stateful':stateful, 'recurrent_regularizer': rr, 'kernel_regularizer':kr,
-                'bias_regularizer':br, 'implementation':1 ,'layer_norm':None }
+                'bias_regularizer':br, 'implementation':1 ,'layer_norm':layer_norms() }
              for f, ks, rr, kr, br, rd, ido in zip( output_filters_enc, kernel_size_enc, recurrent_regularizers, kernel_regularizers, bias_regularizers, recurrent_dropouts, input_dropouts )
         ]
         # endregion
@@ -286,13 +294,13 @@ class model_THST_hparameters(MParams):
             #Each decoder layer sends in values into the layer below. 
         CGRUs_params_dec = [
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
-                'return_sequences':True, 'dropout':0.1,
+                'return_sequences':True, 'dropout':ido,
                 'recurrent_dropout':rdo, 
                 'kernel_regularizer':kr,
                 'recurrent_regularizer': rr,
                 'bias_regularizer':br,
                 'stateful':stateful,
-                'implementation':1 ,'layer_norm':None }
+                'implementation':1 ,'layer_norm':[ layer_norms(),layer_norms() ]  }
              for f, ks, ido, rdo, rr, kr, br  in zip( output_filters_dec, kernel_size_dec, input_dropouts, recurrent_dropouts, recurrent_regularizers, kernel_regularizers, bias_regularizers)
         ]
         DECODER_LAYERS_NUM_OF_SPLITS = ATTN_LAYERS_NUM_OF_SPLITS[:decoder_layer_count]
@@ -309,7 +317,7 @@ class model_THST_hparameters(MParams):
 
         # region --------------- OUTPUT_LAYER_PARAMS -----------------
         
-        output_filters = [ 64, 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
+        output_filters = [  int(  8*(((output_filters_dec[-1]*2)/3)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
         output_kernel_size = [ (4,4), (3,3) ] 
         activations = ['relu','linear']
 
@@ -725,7 +733,7 @@ class train_hparameters_ati(HParams):
         # endregion
 
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
-        EPOCHS = 400
+        EPOCHS = 500
         CHECKPOINTS_TO_KEEP = 3
         CHECKPOINTS_TO_KEEP_EPOCH = 5
         CHECKPOINTS_TO_KEEP_BATCH = 5
@@ -764,7 +772,7 @@ class train_hparameters_ati(HParams):
         VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS_TARGET*0.2)
         
         DATA_DIR = "./Data/Rain_Data_Nov19" 
-        EARLY_STOPPING_PERIOD = 17
+        EARLY_STOPPING_PERIOD = 25
  
         self.params = {
             'batch_size':BATCH_SIZE,

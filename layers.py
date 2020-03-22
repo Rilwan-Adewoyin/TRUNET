@@ -1009,8 +1009,8 @@ class OutputReluFloat32(tf.keras.layers.Layer):
 	
 	@tf.function
 	def call(self, inputs):
-		outp = self.custom_relu(inputs)
-		outp = self.outputf32(outp)
+		outp = self.outputf32(inputs)
+		outp = self.custom_relu(outp)
 		return outp
 
 def CustomRelu_maker(t_params, dtype):
@@ -1074,7 +1074,7 @@ class ReLU_correct_layer(tf.keras.layers.Layer):
         self.sdtype = sdtype
         self._dtype = sdtype
     
-   # @tf.function
+    @tf.function
     def call(self, inputs):
         # alpha is used for leaky relu slope in activations instead of
         # negative_slope.
