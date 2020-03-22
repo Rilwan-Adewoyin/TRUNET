@@ -102,11 +102,11 @@ def train_loop(train_params, model_params):
     if model_params['model_type_settings']['discrete_continuous'] == True:
         #Trying 2 optimizers for discrete_continuious LSTM
         if model_params['model_type_settings']['model_version'] in ["54","55","56"]:
-            optimizer_rain = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-2 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.35, "beta_2":0.85, "decay":0.95,
+            optimizer_rain = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-2 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.45, "beta_2":0.85, "decay":0.95,
                                                 "amsgrad":True} , total_steps=total_steps ) 
-            optimizer_nonrain = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-4 , "warmup_proportion":0.6,"min_lr":1e-5, "beta_1":0.9, "beta_2":0.99, "decay":0.90,
+            optimizer_nonrain = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3 , "warmup_proportion":0.6,"min_lr":1e-4, "beta_1":0.9, "beta_2":0.99, "decay":0.95,
                                                             "amsgrad":True} , total_steps=total_steps ) #copy.deepcopy( optimizer )
-            optimizer_dc = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-2 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.35, "beta_2":0.85, "decay":0.90,
+            optimizer_dc = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-2 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.9, "beta_2":0.99, "decay":0.95,
                                                             "amsgrad":True}, total_steps=total_steps )  #copy.deepcopy( optimizer )
             optimizers = [optimizer_rain, optimizer_nonrain, optimizer_dc ]
             optimizers = [ mixed_precision.LossScaleOptimizer(_opt, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) for _opt in optimizers ]
