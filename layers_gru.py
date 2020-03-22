@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-#tf.keras.backend.set_floatx('float16')
+tf.keras.backend.set_floatx('float16')
 #tf.keras.backend.set_floatx('float32')
 
 
@@ -282,10 +282,6 @@ class GRU_LN(RNN):
   def implementation(self):
     return self.cell.implementation
   
-  @property
-  def layer_norm(self):
-    return self.cell.layer_norm
-
   @property
   def reset_after(self):
     return self.cell.reset_after
