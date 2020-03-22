@@ -246,7 +246,8 @@ class model_THST_hparameters(MParams):
         ATTN_params_enc = [
             {'bias':None, 'total_key_depth': kd  ,'total_value_depth':vd, 'output_depth': vd   ,
             'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
-            "transform_value_antecedent":False ,  "transform_output":False } 
+            "transform_value_antecedent":False ,  "transform_output":False,
+            'implementation':1 ,'layer_norm':None  } 
             for kd, vd ,nh in zip( key_depth, val_depth, attn_heads )
         ] 
 
@@ -259,7 +260,7 @@ class model_THST_hparameters(MParams):
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
                 'return_sequences':True, 'dropout':ido, 'recurrent_dropout':rd,
                 'stateful':stateful, 'recurrent_regularizer': rr, 'kernel_regularizer':kr,
-                'bias_regularizer':br}
+                'bias_regularizer':br, 'implementation':1 ,'layer_norm':None }
              for f, ks, rr, kr, br, rd, ido in zip( output_filters_enc, kernel_size_enc, recurrent_regularizers, kernel_regularizers, bias_regularizers, recurrent_dropouts, input_dropouts )
         ]
         # endregion
@@ -285,13 +286,14 @@ class model_THST_hparameters(MParams):
             #Each decoder layer sends in values into the layer below. 
         CGRUs_params_dec = [
             {'filters':f , 'kernel_size':ks, 'padding':'same', 
-                'return_sequences':True, 'dropout':0.1, 'gates_version':2,
-                'recurrent_dropout':None, 
-                'kernel_regularizer':None,
-                'recurrent_regularizer': None,
-                'bias_regularizer':tf.keras.regularizers.l2(0.2),
-                'stateful':stateful }
-             for f, ks, ido, rdo  in zip( output_filters_dec, kernel_size_dec, input_dropouts, recurrent_dropouts)
+                'return_sequences':True, 'dropout':0.1,
+                'recurrent_dropout':rdo, 
+                'kernel_regularizer':kr,
+                'recurrent_regularizer': rr,
+                'bias_regularizer':br,
+                'stateful':stateful,
+                'implementation':1 ,'layer_norm':None }
+             for f, ks, ido, rdo, rr, kr, br  in zip( output_filters_dec, kernel_size_dec, input_dropouts, recurrent_dropouts, recurrent_regularizers, kernel_regularizers, bias_regularizers)
         ]
         DECODER_LAYERS_NUM_OF_SPLITS = ATTN_LAYERS_NUM_OF_SPLITS[:decoder_layer_count]
             #Each output from a decoder layer is split into n chunks the fed to n different nodes in the layer below. param above tracks teh value n for each dec layer

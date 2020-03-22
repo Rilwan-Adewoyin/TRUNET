@@ -80,7 +80,7 @@ class THST(tf.keras.Model):
         self.output_layer = layers.THST_OutputLayer( train_params, model_params['output_layer_params'], model_params['model_type_settings']  )
 
         self.float32_output = layers.OutputReluFloat32(train_params)
-        self.output_activation = layers.CustomRelu_maker(train_params)
+        self.output_activation = layers.CustomRelu_maker(train_params, dtype='float32')
 
     #@tf.function
     def call(self, _input, tape=None, training=False):

@@ -1461,7 +1461,9 @@ class ConvGRU2D_custom(ConvRNN2D):
                       self.recurrent_constraint),
                   'bias_constraint': constraints.serialize(self.bias_constraint),
                   'dropout': self.dropout,
-                  'recurrent_dropout': self.recurrent_dropout}
+                  'recurrent_dropout': self.recurrent_dropout,
+                  'implementation':self.implementation,
+                  'layer_norm':self.layer_norm}
         base_config = super(ConvGRU2D_custom, self).get_config()
         del base_config['cell']
         return dict(list(base_config.items()) + list(config.items()))
@@ -2199,7 +2201,9 @@ class ConvGRU2D_attn(ConvRNN2D):
                       self.recurrent_constraint),
                   'bias_constraint': constraints.serialize(self.bias_constraint),
                   'dropout': self.dropout,
-                  'recurrent_dropout': self.recurrent_dropout}
+                  'recurrent_dropout': self.recurrent_dropout,
+                  'implementation':self.implementation,
+                  'layer_norm':self.layer_norm}
         base_config = super(ConvGRU2D_attn, self).get_config()
         del base_config['cell']
         return dict(list(base_config.items()) + list(config.items()))

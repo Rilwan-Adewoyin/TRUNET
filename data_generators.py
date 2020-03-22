@@ -403,7 +403,6 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     # endregion
 
     # region prepare feature model fields
-
     fn_mf = data_dir + "/ana_input_1.nc"
     mf_data = Generator_mf(fn=fn_mf, all_at_once=False)
     
@@ -414,7 +413,6 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
 
     ds_feat = ds_feat.flat_map( lambda *window: tf.data.Dataset.zip( tuple([w.batch(t_params['lookback_feature']) for w in window ] ) ) )  #shape (lookback,h, w, 6)
     
-
     def mf_normalization_mask(arr_data, scales, shift, arr_mask, fill_value):
         """
 
@@ -432,7 +430,6 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     ds_feat = ds_feat.map( lambda arr_data, arr_mask: mf_normalization_mask( arr_data, t_params['normalization_scales']['model_fields'],
                 t_params['normalization_shift']['model_fields'],arr_mask ,t_params['mask_fill_value']['model_field'] ) ,
                 num_parallel_calls= _num_parallel_calls) #_num_parallel_calls  )
-
     # endregion
 
     ds = tf.data.Dataset.zip( (ds_feat, ds_tar) ) #( model_fields, (rain, rain_mask) ) 

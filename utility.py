@@ -182,7 +182,6 @@ def load_params_train_model(args_dict):
     elif(args_dict['model_name'] == "THST"):
         
         init_m_params = {}
-        
         init_m_params.update({'model_type_settings': ast.literal_eval( args_dict['model_type_settings'] ) } )
         model_params = hparameters.model_THST_hparameters(**init_m_params)()
         init_t_params = {}
@@ -213,7 +212,6 @@ def load_params_train_model(args_dict):
         
         train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
     
-
     elif(args_dict['model_name']=="SimpleConvLSTM"):
         init_m_params = {}
         init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
@@ -311,7 +309,6 @@ def load_params_test_model(args_dict):
     save_model_settings( model_params, train_params() )
 
     return train_params, model_params
-
 
 def parse_arguments(s_dir=None):
     parser = argparse.ArgumentParser(description="Receive input params")
