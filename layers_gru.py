@@ -178,7 +178,7 @@ class GRU_LN(RNN):
       logging.warning('`implementation=0` has been deprecated, '
                       'and now defaults to `implementation=1`.'
                       'Please update your layer call.')
-    layer_norm._dtype = "float16"
+    layer_norm._dtype = "float32"
     cell = GRU_LN_Cell(
         units,
         activation=activation,
