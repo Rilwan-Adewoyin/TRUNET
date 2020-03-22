@@ -10,9 +10,12 @@ import utility
 #os.environ["OMP_NUM_THREADS"] = "1"
 import numpy as np
 import pandas as pd
+import logging
+logging.getLogger("tensorflow").setLevel(logging.ERROR)
 import tensorflow as tf
 tf.keras.backend.set_floatx('float16')
 tf.keras.backend.set_epsilon(1e-3)
+
 
 #DType.is_compatible_with = is_compatible_with
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
@@ -504,10 +507,12 @@ def train_loop(train_params, model_params):
                                 _l3 = 0
                                 loss_mse += log_cross_entropy_rainclassification
 
-                        if(model_params['model_type_settings']['model_version'] in ["54","55"] ): #multiple optimizers 
+                        if(model_params['model_type_settings']['model_version'] in ["54","55","56"] ): #multiple optimizers 
                             optm_idx = step % len(optimizers)
+
                             losses = [_l1, _l2, _l3  ]
                             _optimizer = optimizers[optm_idx]
+
                             scaled_loss = _optimizer.get_scaled_loss( losses[optm_idx] + sum(model.losses) )
                         else:
                             scaled_loss = optimizer.get_scaled_loss(_l1 + _l2 + _l3 + sum(model.losses) )
@@ -519,7 +524,7 @@ def train_loop(train_params, model_params):
                     scaled_gradients = tape.gradient( scaled_loss, model.trainable_variables )
                     gradients = _optimizer.get_unscaled_gradients(scaled_gradients)
                     
-                    if(model_params['model_type_settings']['model_version'] in ["54","55"] ): #multiple optimizers 
+                    if(model_params['model_type_settings']['model_version'] in ["54","55","56"] ): #multiple optimizers 
                         gradients, _ = tf.clip_by_global_norm( gradients, 5.0 )
 
                         #insert code here to handle ensuring all loss functions start at the same time, e.g. when all optimizers have stopped producing nans
