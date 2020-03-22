@@ -364,7 +364,7 @@ class model_SimpleLSTM_hparameters(MParams):
                 'kernel_regularizer': None,
                 'recurrent_regularizer': None,
                 'bias_regularizer':tf.keras.regularizers.l2(0.2),
-                'layer_norm':ln }
+                'layer_norm':_ln }
                 for un, rs,_ln in zip(li_units, li_rs, ln)
         ]
 
