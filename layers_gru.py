@@ -281,6 +281,10 @@ class GRU_LN(RNN):
   @property
   def implementation(self):
     return self.cell.implementation
+  
+  @property
+  def layer_norm(self):
+    return self.cell.layer_norm
 
   @property
   def reset_after(self):
@@ -326,9 +330,7 @@ class GRU_LN(RNN):
         'implementation':
             self.implementation,
         'reset_after':
-            self.reset_after,
-        'layer_norm':
-            self.layer_norm
+            self.reset_after
     }
     base_config = super(GRU_LN, self).get_config()
     del base_config['cell']
@@ -723,6 +725,7 @@ class GRU_LN_Cell(DropoutRNNCellMixin, Layer):
       self.bool_ln = False
     else:
       self.bool_ln = True
+      self.layer_norm._dtype =  "float32"
 
     self.kernel_initializer = initializers.get(kernel_initializer)
     self.recurrent_initializer = initializers.get(recurrent_initializer)

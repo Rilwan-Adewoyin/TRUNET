@@ -627,9 +627,13 @@ class ConvGRU2D(ConvRNN2D):
                     recurrent_dropout=0.,
                     reset_after=True,
                     **kwargs):
-        if layer_norm != None: 
-            layer_norm._dtype =  "float16"
+        
         self.layer_norm = layer_norm
+        if self.layer_norm == None:
+            self.bool_ln = False
+        else:
+            self.bool_ln = True
+            self.layer_norm._dtype =  "float32"
 
         cell = ConvGRU2DCell(filters=filters,
                             kernel_size=kernel_size,
@@ -893,6 +897,7 @@ class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
                 filters,
                     kernel_size,
                     layer_norm,
+                    bool_ln,
                     strides=(1, 1),
                     padding='valid',
                     data_format=None,
@@ -927,11 +932,8 @@ class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
         self.use_bias = use_bias
 
         self.layer_norm = layer_norm
-        if self.layer_norm == None:
-            self.bool_ln = False
-        else:
-            self.bool_ln = True
-
+        self.bool_ln = bool_ln
+               
         self.kernel_initializer = initializers.get(kernel_initializer)
         self.recurrent_initializer = initializers.get(recurrent_initializer)
         self.bias_initializer = initializers.get(bias_initializer)
@@ -1076,6 +1078,7 @@ class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
         
         if self.bool_ln:
             hh = self.layer_norm(hh)
+
         h = z*h_tm1 + (1-z)*hh
         
         return h, [h]
@@ -1286,8 +1289,11 @@ class ConvGRU2D_custom(ConvRNN2D):
                  **kwargs):
         
         if layer_norm != None: 
-            layer_norm[0]._dtype =  "float16"
-            layer_norm[1]._dtype =  "float16"
+            layer_norm[0]._dtype =  "float32"
+            layer_norm[1]._dtype =  "float32"
+            bool_ln = True
+        else:
+            bool_ln = False
         self.layer_norm = layer_norm
         
         cell = ConvGRU2DCell_custom(filters=filters,
@@ -1298,6 +1304,7 @@ class ConvGRU2D_custom(ConvRNN2D):
                                      dilation_rate=dilation_rate,
                                      implementation=implementation,
                                      layer_norm=layer_norm,
+                                     bool_ln = bool_ln,
                                      activation=activation,
                                      recurrent_activation=recurrent_activation,
                                      use_bias=use_bias,
@@ -1429,7 +1436,7 @@ class ConvGRU2D_custom(ConvRNN2D):
     @property
     def implementation(self):
         return self.cell.implementation
-
+    
 
     def get_config(self):
         config = {'filters': self.filters,
@@ -1568,6 +1575,7 @@ class ConvGRU2DCell_custom(DropoutRNNCellMixin, Layer):
                filters,
                     kernel_size,
                     layer_norm,
+                    bool_ln,
                     implementation,
                     reset_after=False,
                     strides=(1, 1),
@@ -1603,10 +1611,7 @@ class ConvGRU2DCell_custom(DropoutRNNCellMixin, Layer):
         self.use_bias = use_bias
 
         self.layer_norm = layer_norm
-        if self.layer_norm == None:
-            self.bool_ln = False
-        else:
-            self.bool_ln = True
+        self.bool_ln = bool_ln
 
         self.kernel_initializer = initializers.get(kernel_initializer)
         self.recurrent_initializer = initializers.get(recurrent_initializer)
@@ -2013,7 +2018,10 @@ class ConvGRU2D_attn(ConvRNN2D):
                  **kwargs):
 
         if layer_norm != None: 
-            layer_norm._dtype =  "float16"
+            layer_norm._dtype =  "float32"
+            bool_ln = True
+        else:
+            bool_ln = False
         self.layer_norm = layer_norm
 
         #Amending Initialisation -> since the init is called after the sub layer MultiHead2DAtt is made
@@ -2034,6 +2042,7 @@ class ConvGRU2D_attn(ConvRNN2D):
                                      data_format=data_format,
                                      dilation_rate=dilation_rate,
                                      layer_norm = layer_norm,
+                                     bool_ln = bool_ln,
                                      activation=activation,
                                      recurrent_activation=recurrent_activation,
                                      use_bias=use_bias,
@@ -2318,6 +2327,7 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
                 filters,
                 kernel_size,
                 layer_norm,
+                bool_ln,
                 implementation,
                 attn_2D,
                 attn_factor_reduc,
@@ -2356,11 +2366,8 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
 
 
         self.layer_norm = layer_norm
-        if self.layer_norm == None:
-            self.bool_ln = False
-        else:
-            self.bool_ln = True
-
+        self.bool_ln = bool_ln
+        
         self.kernel_initializer = initializers.get(kernel_initializer)
         self.recurrent_initializer = initializers.get(recurrent_initializer)
         self.bias_initializer = initializers.get(bias_initializer)
