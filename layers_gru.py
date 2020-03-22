@@ -179,7 +179,6 @@ class GRU_LN(RNN):
                       'and now defaults to `implementation=1`.'
                       'Please update your layer call.')
     layer_norm._dtype = "float32"
-    #layer_norm._compute_dtype = "float16"
     cell = GRU_LN_Cell(
         units,
         activation=activation,
@@ -211,7 +210,7 @@ class GRU_LN(RNN):
         **kwargs)
     self.activity_regularizer = regularizers.get(activity_regularizer)
     self.input_spec = [InputSpec(ndim=3)]
-    self.layer_norm = layer_norm
+    
 
   def call(self, inputs, mask=None, training=None, initial_state=None):
     self._maybe_reset_cell_dropout_mask(self.cell)
@@ -285,6 +284,11 @@ class GRU_LN(RNN):
   @property
   def reset_after(self):
     return self.cell.reset_after
+  
+  @property
+  def layer_norm(self):
+    return self.cell.layer_norm
+  
   #endregion
 
   def get_config(self):
