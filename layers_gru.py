@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-tf.keras.backend.set_floatx('float16')
+#tf.keras.backend.set_floatx('float16')
 #tf.keras.backend.set_floatx('float32')
 
 
@@ -884,8 +884,8 @@ class GRU_LN_Cell(DropoutRNNCellMixin, Layer):
       hh = self.activation(x_h + recurrent_h)
     # previous and candidate state mixed by update gate
     if self.bool_ln :
-      #h = z * h_tm1 + (1 - z) * tf.cast( self.layer_norm(hh), self._compute_dtype) #layer norm
-      h = z * h_tm1 + (1 - z) * tf.cast( self.layer_norm(hh), self._dtype) #layer norm
+      h = z * h_tm1 + (1 - z) * tf.cast( self.layer_norm(hh), self._compute_dtype) #layer norm
+      #h = z * h_tm1 + (1 - z) * tf.cast( self.layer_norm(hh), self._dtype) #layer norm
     else:
       h = z * h_tm1 + (1 - z) * hh
     
