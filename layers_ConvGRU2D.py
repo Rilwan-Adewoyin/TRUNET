@@ -1289,7 +1289,7 @@ class ConvGRU2D_custom(ConvRNN2D):
                  reset_after=False,
                  **kwargs):
         
-        if layer_norm != None: 
+        if layer_norm[0] != None: 
             layer_norm[0]._dtype =  "float32"
             layer_norm[1]._dtype =  "float32"
             bool_ln = True

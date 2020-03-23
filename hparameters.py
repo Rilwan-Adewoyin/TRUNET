@@ -215,10 +215,10 @@ class model_THST_hparameters(MParams):
         recurrent_regularizers = [ None ] * (enc_layer_count) 
         kernel_regularizers = [ None ] * (enc_layer_count)
         bias_regularizers= [ tf.keras.regularizers.l2(0.2) ] * (enc_layer_count)
-        recurrent_dropouts =  [0.0 ]*(enc_layer_count)
-        input_dropouts = [0.0 ]*(enc_layer_count)
+        recurrent_dropouts =  [ 0.0 ]*(enc_layer_count)
+        input_dropouts = [ 0.0 ]*(enc_layer_count)
         stateful = True #True if testing on single location , false otherwise
-        layer_norms = lambda: tf.keras.layers.LayerNormalization(axis=[-3,-2,-1]) #lambda: None
+        layer_norms = lambda: None #lambda: tf.keras.layers.LayerNormalization(axis=[-1], center=False, scale=False ) #lambda: None
 
         attn_layers_count = enc_layer_count - 1
         attn_heads = [ 8 ]*attn_layers_count                          #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
