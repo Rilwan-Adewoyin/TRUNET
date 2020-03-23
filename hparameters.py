@@ -209,7 +209,7 @@ class model_THST_hparameters(MParams):
         enc_layer_count = len( SEQ_LEN_FACTOR_REDUCTION ) +1
 
         # region CLSTM params
-        output_filters_enc = [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
+        output_filters_enc = [48]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc = output_filters_enc + output_filters_enc[-1:] # the last two layers in the encoder must output the same number of channels
         kernel_size_enc = [ (4,4) ] * (enc_layer_count)                   # [(2,2)]
         recurrent_regularizers = [ None ] * (enc_layer_count) 
@@ -225,7 +225,7 @@ class model_THST_hparameters(MParams):
         
         
         if 'region_grid_params' in self.params.keys():
-            kq_downscale_stride = [1, 8, 8] #[1, 8, 8]
+            kq_downscale_stride = [1, 4, 4] #[1, 8, 8]
             kq_downscale_kernelshape = kq_downscale_stride
 
             #This keeps the hidden representations equal in size to the incoming tensors
