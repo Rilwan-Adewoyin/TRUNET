@@ -81,7 +81,19 @@ import copy
 # endregion
 
 def train_loop(train_params, model_params): 
+
+    # region --- Setting up training parameters - to be moved to hparams file
+    if model_params['model_type_settings']['location'] == "region_grid":
+        train_set_size_batches= int(train_params['train_set_size_batches'] * np.prod(model_params['region_grid_params']['slides_v_h']) )
+        val_set_size_batches = int(train_params['val_set_size_batches'] * np.prod(model_params['region_grid_params']['slides_v_h']))
+    else:
+        train_set_size_batches= train_params['train_set_size_batches'] 
+        val_set_size_batches = train_params['val_set_size_batches'] 
     
+    train_batch_reporting_freq = max( int(train_set_size_batches*train_params['dataset_trainval_batch_reporting_freq'] ), 1 )
+    val_batch_reporting_freq = max( int(val_set_size_batches*2*train_params['dataset_trainval_batch_reporting_freq'] ), 1)
+    #endregion
+
     # region ----- Defining Model / Optimizer / Losses / Metrics / Records
     model = models.model_loader(train_params, model_params)
     if type(model_params) == list:
@@ -109,21 +121,21 @@ def train_loop(train_params, model_params):
             # optimizer_dc = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-2 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.05, "beta_2":0.99, "decay":0.95,
             #                                                 "amsgrad":True}, total_steps=total_steps )  #copy.deepcopy( optimizer )
 
-            optimizer_rain = tf.keras.optimizers.Nadam( **{"learning_rate":tf.keras.optimizers.schedules.ExponentialDecay(1e-3, int(train_params['train_set_size_batches']*50/3), 0.95, False), #Every 50 epochs
-                                                            "beta_1":0.35, "beta_2":0.85} ) 
+            optimizer_rain = tf.keras.optimizers.Nadam( **{"learning_rate":tf.keras.optimizers.schedules.ExponentialDecay(1e-3, int(train_set_size_batches*30/3), 0.94, False), #Every 50 epochs
+                                                            "beta_1":0.35, "beta_2":0.85, "epsilon":1e-3 } ) 
 
-            optimizer_nonrain = tf.keras.optimizers.Nadam( **{"learning_rate":tf.keras.optimizers.schedules.ExponentialDecay(1e-6, int(train_params['train_set_size_batches']*50/3), 0.95, False),
-                                                                "beta_1":0.35, "beta_2":0.99 }  ) 
+            optimizer_nonrain = tf.keras.optimizers.Nadam( **{"learning_rate":tf.keras.optimizers.schedules.ExponentialDecay(1e-6, int(train_set_size_batches*30/3), 0.94, False),
+                                                                "beta_1":0.35, "beta_2":0.99, "epsilon":1e-3 }  ) 
 
-            optimizer_dc = tf.keras.optimizers.Nadam( **{"learning_rate":tf.keras.optimizers.schedules.ExponentialDecay(1e-4, int(train_params['train_set_size_batches']*50/3), 0.95, False),
-                                                        "beta_1":0.35, "beta_2":0.99} ) 
+            optimizer_dc = tf.keras.optimizers.Nadam( **{"learning_rate":tf.keras.optimizers.schedules.ExponentialDecay(1e-4, int(train_set_size_batches*30/3), 0.94, False),
+                                                        "beta_1":0.35, "beta_2":0.99, "epsilon":1e-3 } ) 
             
             optimizers = [optimizer_rain, optimizer_nonrain, optimizer_dc]
             optimizers = [ mixed_precision.LossScaleOptimizer(_opt, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) for _opt in optimizers ]
             optimizer_ready = [False]*len(optimizers)
         else:
             _optimizer = optimizer
-    ##monkey patch so optimizer works with mixed precision
+            ##monkey patch so optimizer works with mixed precision
     
     train_loss_mean_groupbatch = tf.keras.metrics.Mean(name='train_loss_mse_obj')
     train_loss_mean_epoch = tf.keras.metrics.Mean(name="train_loss_obj_epoch")
@@ -169,17 +181,7 @@ def train_loop(train_params, model_params):
 
     # endregion     
 
-    # region --- Setting up training parameters - to be moved to hparams file
-    if model_params['model_type_settings']['location'] == "region_grid":
-        train_set_size_batches= int(train_params['train_set_size_batches'] * np.prod(model_params['region_grid_params']['slides_v_h']) )
-        val_set_size_batches = int(train_params['val_set_size_batches'] * np.prod(model_params['region_grid_params']['slides_v_h']))
-    else:
-        train_set_size_batches= train_params['train_set_size_batches'] 
-        val_set_size_batches = train_params['val_set_size_batches'] 
-    
-    train_batch_reporting_freq = max( int(train_set_size_batches*train_params['dataset_trainval_batch_reporting_freq'] ), 1 )
-    val_batch_reporting_freq = max( int(val_set_size_batches*2*train_params['dataset_trainval_batch_reporting_freq'] ), 1)
-    #endregion
+
 
     # region Logic for setting up resume location
     starting_epoch =  int(max( df_training_info['Epoch'], default=0 )) 
