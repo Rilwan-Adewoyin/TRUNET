@@ -131,7 +131,12 @@ class SimpleLSTM(tf.keras.Model):
         elif model_params['model_type_settings']['model_version'] in ["25","27","28","30","33","35"]:
             self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.GRU( **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ] 
         
-        elif int(model_params['model_type_settings']['model_version'])>= 44 or model_params['model_type_settings']['model_version']  in ["34","36"]:
+        elif (56>int(model_params['model_type_settings']['model_version'])>= 44) or model_params['model_type_settings']['model_version']  in ["34","36"]:
+            self.LSTM_layers = [ tf.keras.layers.Bidirectional( layer=layers_gru.GRU_LN_v2( **model_params['layer_params'][idx]) ,
+                                   backward_layer= layers_gru.GRU_LN_v2( **copy.deepcopy(model_params['layer_params'][idx]), go_backwards=True ) ,
+                                   merge_mode='concat' ) for idx in range(model_params['layer_count'] ) ]
+        elif int(model_params['model_type_settings']['model_version']) >= 56:
+
             self.LSTM_layers = [ tf.keras.layers.Bidirectional( layer=layers_gru.GRU_LN( **model_params['layer_params'][idx]) ,
                                    backward_layer= layers_gru.GRU_LN( **copy.deepcopy(model_params['layer_params'][idx]), go_backwards=True ) ,
                                    merge_mode='concat' ) for idx in range(model_params['layer_count'] ) ]

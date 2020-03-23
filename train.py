@@ -102,12 +102,22 @@ def train_loop(train_params, model_params):
     if model_params['model_type_settings']['discrete_continuous'] == True:
         #Trying 2 optimizers for discrete_continuious LSTM
         if model_params['model_type_settings']['model_version'] in ["54","55","56"]:
-            optimizer_rain = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-2 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.05, "beta_2":0.85, "decay":0.95,
-                                                "amsgrad":True} , total_steps=total_steps ) 
-            optimizer_nonrain = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3 , "warmup_proportion":0.6,"min_lr":1e-4, "beta_1":0.05, "beta_2":0.99, "decay":0.95,
-                                                            "amsgrad":True} , total_steps=total_steps ) #copy.deepcopy( optimizer )
-            optimizer_dc = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-2 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.05, "beta_2":0.99, "decay":0.95,
-                                                            "amsgrad":True}, total_steps=total_steps )  #copy.deepcopy( optimizer )
+            # optimizer_rain = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-2 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.05, "beta_2":0.85, "decay":0.95,
+            #                                     "amsgrad":True} , total_steps=total_steps ) 
+            # optimizer_nonrain = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3 , "warmup_proportion":0.6,"min_lr":1e-4, "beta_1":0.05, "beta_2":0.99, "decay":0.95,
+            #                                                 "amsgrad":True} , total_steps=total_steps ) #copy.deepcopy( optimizer )
+            # optimizer_dc = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-2 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.05, "beta_2":0.99, "decay":0.95,
+            #                                                 "amsgrad":True}, total_steps=total_steps )  #copy.deepcopy( optimizer )
+
+            optimizer_rain = tf.keras.optimizers.Nadam( **{"learning_rate":tf.keras.optimizers.schedules.ExponentialDecay(1e-3, int(train_params['train_set_size_batches']*50/3), 0.95, False), #Every 50 epochs
+                                                            "beta_1":0.35, "beta_2":0.85} ) 
+
+            optimizer_nonrain = tf.keras.optimizers.Nadam( **{"learning_rate":tf.keras.optimizers.schedules.ExponentialDecay(1e-6, int(train_params['train_set_size_batches']*50/3), 0.95, False),
+                                                                "beta_1":0.35, "beta_2":0.99 }  ) 
+
+            optimizer_dc = tf.keras.optimizers.Nadam( **{"learning_rate":tf.keras.optimizers.schedules.ExponentialDecay(1e-4, int(train_params['train_set_size_batches']*50/3), 0.95, False),
+                                                        "beta_1":0.35, "beta_2":0.99} ) 
+            
             optimizers = [optimizer_rain, optimizer_nonrain, optimizer_dc]
             optimizers = [ mixed_precision.LossScaleOptimizer(_opt, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) for _opt in optimizers ]
             optimizer_ready = [False]*len(optimizers)
@@ -455,9 +465,9 @@ def train_loop(train_params, model_params):
                             
                             labels_true = tf.where( target_filtrd>model_params['model_type_settings']['precip_threshold'], 1.0, 0.0)
                             labels_pred = tf.where( preds_filtrd>model_params['model_type_settings']['precip_threshold'], 1.0, 0.0)
-
-                            #labels_true_cont_approx = tf.math.sigmoid( 8*target_filtrd - 4 ) #Label calculation allowing back-prop
-                            labels_pred_cont_approx = tf.math.sigmoid( 9*preds_filtrd - 4.5 )  #Label calculation allowing back-prop 
+                            alpha = 2000
+                            labels_pred_cont_approx = tf.math.sigmoid( alpha*preds_filtrd - alpha/2 )  #Label calculation allowing back-prop 
+                                #Note in tf.float32 tf.math.sigmoid(16.7)==1 and  
 
                             rain_count = tf.math.count_nonzero( labels_true,dtype=tf.float32 )
                             all_count = tf.size( target_filtrd,out_type=tf.float32 )
@@ -488,11 +498,13 @@ def train_loop(train_params, model_params):
                                     #loss_mse += tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
                                     train_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean ) #loss2 conditional on no rain
                                     _l2 = train_mse_cond_no_rain
-                                    loss_mse += _l2
-                                    metric_mse += _l2
+                                    loss_mse += train_mse_cond_no_rain
+                                    metric_mse += train_mse_cond_no_rain
                                 else:
                                     train_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean ) #loss2 conditional on no rain
                                     _l2 = 0
+                                    loss_mse += 0
+                                    metric_mse += train_mse_cond_no_rain
                             
                             if(model_params['model_type_settings']['model_version'] in ["3","4","44","45","47","48","49","50","51","52","53","54","56"] ):
 
@@ -519,7 +531,6 @@ def train_loop(train_params, model_params):
                     elif(model_params['model_type_settings']['stochastic']==True):
                         raise NotImplementedError("mc_dropout model uses the deterministically trained model")
 
-                    
                     scaled_gradients = tape.gradient( scaled_loss, model.trainable_variables )
                     gradients = _optimizer.get_unscaled_gradients(scaled_gradients)
                     

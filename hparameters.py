@@ -221,7 +221,7 @@ class model_THST_hparameters(MParams):
         layer_norms = lambda: None #lambda: tf.keras.layers.LayerNormalization(axis=[-1], center=False, scale=False ) #lambda: None
 
         attn_layers_count = enc_layer_count - 1
-        attn_heads = [ 4 ]*attn_layers_count                          #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
+        attn_heads = [ 8 ]*attn_layers_count                          #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
         
         
         if 'region_grid_params' in self.params.keys():
@@ -232,7 +232,7 @@ class model_THST_hparameters(MParams):
             key_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 / int(np.prod([kq_downscale_kernelshape[1:]])) ) for idx in range(attn_layers_count)  ]
             val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 ) for idx in range(attn_layers_count)  ]
 
-            effective_base_dscaling = np.prod([1,8,8])*3 #THIS is the default amount of downscaling relative to base model, for v3 and v4 this changes to *3
+            effective_base_dscaling = np.prod([1,8,8])*2 #THIS is the default amount of downscaling relative to base model, for v3 and v4 this changes to *3, 2 otherwise
             further_downscaling =  int(effective_base_dscaling / np.prod(kq_downscale_stride) )
 
             key_depth = [ _val//further_downscaling for _val in key_depth ]
