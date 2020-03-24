@@ -180,8 +180,8 @@ class model_THST_hparameters(MParams):
     def _default_params(self ):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-2, "warmup_proportion":0.6,
-            "min_lr": 1e-3, "beta_1":0.45 , "beta_2":0.95, "decay":0.95,
+            "learning_rate":1e-3, "warmup_proportion":0.1,
+            "min_lr": 1e-6, "beta_1":0.45 , "beta_2":0.95,
             'epsilon':0.005, 'amsgrad':True
             }
         DROPOUT = 0.00
@@ -209,7 +209,7 @@ class model_THST_hparameters(MParams):
         enc_layer_count = len( SEQ_LEN_FACTOR_REDUCTION ) +1
 
         # region CLSTM params
-        output_filters_enc = [48]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
+        output_filters_enc = [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc = output_filters_enc + output_filters_enc[-1:] # the last two layers in the encoder must output the same number of channels
         kernel_size_enc = [ (4,4) ] * (enc_layer_count)                   # [(2,2)]
         recurrent_regularizers = [ None ] * (enc_layer_count) 
@@ -225,14 +225,14 @@ class model_THST_hparameters(MParams):
         
         
         if 'region_grid_params' in self.params.keys():
-            kq_downscale_stride = [1, 8, 8] #[1, 8, 8]
+            kq_downscale_stride = [1, 4, 4] #[1, 8, 8]
             kq_downscale_kernelshape = kq_downscale_stride
 
             #This keeps the hidden representations equal in size to the incoming tensors
             key_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 / int(np.prod([kq_downscale_kernelshape[1:]])) ) for idx in range(attn_layers_count)  ]
             val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 ) for idx in range(attn_layers_count)  ]
 
-            effective_base_dscaling = np.prod([1,8,8])*2 #THIS is the default amount of downscaling relative to base model, for v3 and v4 this changes to *3, 2 otherwise
+            effective_base_dscaling = np.prod([1,8,8])*4 #THIS is the default amount of downscaling relative to base model, for v3 and v4 v5 v6,  this changes to *3, 2 base,
             further_downscaling =  int(effective_base_dscaling / np.prod(kq_downscale_stride) )
 
             key_depth = [ _val//further_downscaling for _val in key_depth ]
