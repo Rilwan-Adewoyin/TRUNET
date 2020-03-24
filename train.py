@@ -528,7 +528,7 @@ def train_loop(train_params, model_params):
                             
                             #optm_idx = step % len(optimizers)
 
-                            optm_idx = (step // 3 ) % len(optimizers)
+                            optm_idx = (step // train_set_size_batches/2 ) % len(optimizers)
 
                             losses = [_l1, _l2, _l3  ]
                             _optimizer = optimizers[optm_idx]
