@@ -127,11 +127,11 @@ def train_loop(train_params, model_params):
             #                                                     "amsgrad":True}, total_steps=total_steps )                  #copy.deepcopy( optimizer )
 
 
-            optimizer_rain = tf.keras.optimizers.Nadam(     **{"learning_rate":1e-2, "beta_1":0.9, "beta_2":0.85, "epsilon":1e-3, "schedule_decay": (30*train_set_size_batches/3)**-1  } ) #Every 30 epochs
+            optimizer_rain = tf.keras.optimizers.Nadam(     **{"learning_rate":1e-3, "beta_1":0.01, "beta_2":0.01, "epsilon":1, "schedule_decay": (30*train_set_size_batches/3)**-1  } ) #Every 30 epochs
 
-            optimizer_nonrain = tf.keras.optimizers.Nadam(  **{"learning_rate":1e-3,"beta_1":0.9, "beta_2":0.99, "epsilon":1e-3, "schedule_decay": (30*train_set_size_batches/3)**-1 }  ) 
+            optimizer_nonrain = tf.keras.optimizers.Nadam(  **{"learning_rate":1e-3,"beta_1":0.01, "beta_2":0.01, "epsilon":1, "schedule_decay": (30*train_set_size_batches/3)**-1 }  ) 
 
-            optimizer_dc = tf.keras.optimizers.Nadam(       **{"learning_rate":1e-3,"beta_1":0.9, "beta_2":0.99, "epsilon":1e-3, "schedule_decay": (30*train_set_size_batches/3)**-1 } ) 
+            optimizer_dc = tf.keras.optimizers.Nadam(       **{"learning_rate":1e-3,"beta_1":0.01, "beta_2":0.01, "epsilon":1, "schedule_decay": (30*train_set_size_batches/3)**-1 } ) 
             
             
             optimizers = [optimizer_rain, optimizer_nonrain, optimizer_dc]
@@ -528,7 +528,7 @@ def train_loop(train_params, model_params):
                             
                             #optm_idx = step % len(optimizers)
 
-                            optm_idx = (step // 5 ) % len(optimizers)
+                            optm_idx = (step // 3 ) % len(optimizers)
 
                             losses = [_l1, _l2, _l3  ]
                             _optimizer = optimizers[optm_idx]
