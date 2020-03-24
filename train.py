@@ -117,21 +117,21 @@ def train_loop(train_params, model_params):
         if model_params['model_type_settings']['model_version'] in ["54","55","56"]:
 
 
-            optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-2 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.85, "beta_2":0.85, "decay":0.95,
-                                                                "amsgrad":True} , total_steps=total_steps ) 
+            # optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-2 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.85, "beta_2":0.85, "decay":0.95,
+            #                                                     "amsgrad":True} , total_steps=total_steps ) 
             
-            optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3 , "warmup_proportion":0.6,"min_lr":1e-4, "beta_1":0.85, "beta_2":0.99, "decay":0.95,
-                                                                "amsgrad":True} , total_steps=total_steps ) 
+            # optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3 , "warmup_proportion":0.6,"min_lr":1e-4, "beta_1":0.85, "beta_2":0.99, "decay":0.95,
+            #                                                     "amsgrad":True} , total_steps=total_steps ) 
             
-            optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.85, "beta_2":0.99, "decay":0.95,
-                                                                "amsgrad":True}, total_steps=total_steps )                  #copy.deepcopy( optimizer )
+            # optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.85, "beta_2":0.99, "decay":0.95,
+            #                                                     "amsgrad":True}, total_steps=total_steps )                  #copy.deepcopy( optimizer )
 
 
-            # optimizer_rain = tf.keras.optimizers.Nadam(     **{"learning_rate":1e-2, "beta_1":0.01, "beta_2":0.85, "epsilon":1e-3, "schedule_decay": (30*train_set_size_batches/3)**-1  } ) #Every 30 epochs
+            optimizer_rain = tf.keras.optimizers.Nadam(     **{"learning_rate":1e-2, "beta_1":0.01, "beta_2":0.85, "epsilon":1e-3, "schedule_decay": (30*train_set_size_batches/3)**-1  } ) #Every 30 epochs
 
-            # optimizer_nonrain = tf.keras.optimizers.Nadam(  **{"learning_rate":1e-4,"beta_1":0.01, "beta_2":0.99, "epsilon":1e-3, "schedule_decay": (30*train_set_size_batches/3)**-1 }  ) 
+            optimizer_nonrain = tf.keras.optimizers.Nadam(  **{"learning_rate":1e-3,"beta_1":0.01, "beta_2":0.99, "epsilon":1e-3, "schedule_decay": (30*train_set_size_batches/3)**-1 }  ) 
 
-            # optimizer_dc = tf.keras.optimizers.Nadam(       **{"learning_rate":1e-3,"beta_1":0.01, "beta_2":0.99, "epsilon":1e-3, "schedule_decay": (30*train_set_size_batches/3)**-1 } ) 
+            optimizer_dc = tf.keras.optimizers.Nadam(       **{"learning_rate":1e-3,"beta_1":0.01, "beta_2":0.99, "epsilon":1e-3, "schedule_decay": (30*train_set_size_batches/3)**-1 } ) 
             
             
             optimizers = [optimizer_rain, optimizer_nonrain, optimizer_dc]
@@ -525,7 +525,10 @@ def train_loop(train_params, model_params):
 
 
                         if(model_params['model_type_settings']['model_version'] in ["54","55","56"] ): #multiple optimizers 
-                            optm_idx = step % len(optimizers)
+                            
+                            #optm_idx = step % len(optimizers)
+
+                            optm_idx = (step // 5 ) % len(optimizers)
 
                             losses = [_l1, _l2, _l3  ]
                             _optimizer = optimizers[optm_idx]
