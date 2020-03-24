@@ -2,7 +2,10 @@ import tensorflow as tf
 
 def lnormal_mse(obs,preds):
 
-    loss = tf.keras.losses.MSE(tf.math.log(obs+1), tf.math.log(preds+1) )
+    #loss = tf.keras.losses.MSE(tf.math.log(obs+1), tf.math.log(preds+1) )
+    
+    factor = 1.5
+    loss = tf.keras.losses.MSE(obs**factor, preds**factor)
     
     return loss
 
