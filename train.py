@@ -527,10 +527,18 @@ def train_loop(train_params, model_params):
                         if(model_params['model_type_settings']['model_version'] in ["54","55","56"] ): #multiple optimizers 
                             
                             #optm_idx = step % len(optimizers)
+                            if(model_params['model_type_settings']['model_version'] in ["54"]):
+                                optm_idx = (step // int(train_set_size_batches/4) ) % len(optimizers)
+                                losses = [_l1, _l2, _l3  ]
 
-                            optm_idx = (step // int(train_set_size_batches/2) ) % len(optimizers)
+                            elif(model_params['model_type_settings']['model_version'] in ["55"]):
+                                optm_idx = (step // int(train_set_size_batches/c) ) % 2
+                                losses = [_l1, _l2 ]
+                            
+                            elif(model_params['model_type_settings']['model_version'] in ["56"]):
+                                optm_idx = (step // int(train_set_size_batches/3) ) % 2
+                                losses = [_l1, _l3 ]
 
-                            losses = [_l1, _l2, _l3  ]
                             _optimizer = optimizers[optm_idx]
 
                             scaled_loss = _optimizer.get_scaled_loss( losses[optm_idx] + sum(model.losses) )
