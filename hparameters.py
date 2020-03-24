@@ -181,7 +181,7 @@ class model_THST_hparameters(MParams):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
             "learning_rate":1e-2, "warmup_proportion":0.5,
-            "min_lr": 1e-5, "beta_1":0.45 , "beta_2":0.95,
+            "min_lr": 1e-4, "beta_1":0.65 , "beta_2":0.95,
             'epsilon':0.005, 'amsgrad':True, "decay":0.95
             }
         DROPOUT = 0.00
@@ -232,7 +232,7 @@ class model_THST_hparameters(MParams):
             key_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 / int(np.prod([kq_downscale_kernelshape[1:]])) ) for idx in range(attn_layers_count)  ]
             val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 ) for idx in range(attn_layers_count)  ]
 
-            effective_base_dscaling = np.prod([1,8,8])*4 #THIS is the default amount of downscaling relative to base model, for v3 and v4 v5 v6,  this changes to *3, 2 base,
+            effective_base_dscaling = np.prod([1,8,8])*3 #THIS is the default amount of downscaling relative to base model, for v3 and v4 v5 v6,  this changes to *3, 2 base, 4 for v7
             further_downscaling =  int(effective_base_dscaling / np.prod(kq_downscale_stride) )
 
             key_depth = [ _val//further_downscaling for _val in key_depth ]
