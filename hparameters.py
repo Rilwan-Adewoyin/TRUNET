@@ -221,7 +221,7 @@ class model_THST_hparameters(MParams):
         layer_norms = lambda: None #lambda: tf.keras.layers.LayerNormalization(axis=[-1], center=False, scale=False ) #lambda: None
 
         attn_layers_count = enc_layer_count - 1
-        attn_heads = [ 8 ]*attn_layers_count                          #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
+        attn_heads = [ 4 ]*attn_layers_count #[ 8 ]*attn_layers_count                          #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
         
         
         if 'region_grid_params' in self.params.keys():
