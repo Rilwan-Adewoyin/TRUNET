@@ -103,23 +103,29 @@ def train_loop(train_params, model_params):
         optimizer = tf.keras.optimizers.Adam( learning_rate=1e-4, beta_1=0.1, beta_2=0.99, epsilon=1e-5 )
     else:
         if model_params['model_type_settings']['location'] == 'region_grid':
-            total_steps = int(train_params['train_set_size_batches']* np.prod(model_params['region_grid_params']['slides_v_h']) *0.55)
+            total_steps = int( train_params['train_set_size_batches'] * np.prod(model_params['region_grid_params']['slides_v_h']) * 0.55 )
         else:
-            total_steps =int(train_params['train_set_size_batches'] *0.55)
+            total_steps =int( train_params['train_set_size_batches'] * 0.55 )
         
         radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=total_steps ) 
         optimizer = tfa.optimizers.Lookahead(radam, **model_params['lookahead_params'])
     
     optimizer = mixed_precision.LossScaleOptimizer(optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() )
+
     if model_params['model_type_settings']['discrete_continuous'] == True:
         #Trying 2 optimizers for discrete_continuious LSTM
         if model_params['model_type_settings']['model_version'] in ["54","55","56"]:
-            optimizer_rain = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-2 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.05, "beta_2":0.85, "decay":0.95,
-                                                "amsgrad":True} , total_steps=total_steps ) 
-            optimizer_nonrain = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-4 , "warmup_proportion":0.6,"min_lr":1e-4, "beta_1":0.05, "beta_2":0.99, "decay":0.95,
-                                                            "amsgrad":True} , total_steps=total_steps ) #copy.deepcopy( optimizer )
-            optimizer_dc = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.05, "beta_2":0.99, "decay":0.95,
-                                                            "amsgrad":True}, total_steps=total_steps )  #copy.deepcopy( optimizer )
+
+
+            optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-2 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.05, "beta_2":0.85, "decay":0.95,
+                                                                "amsgrad":True} , total_steps=total_steps ) 
+            
+            optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-4 , "warmup_proportion":0.6,"min_lr":1e-4, "beta_1":0.05, "beta_2":0.99, "decay":0.95,
+                                                                "amsgrad":True} , total_steps=total_steps ) 
+            
+            optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.05, "beta_2":0.99, "decay":0.95,
+                                                                "amsgrad":True}, total_steps=total_steps )                  #copy.deepcopy( optimizer )
+
 
             # optimizer_rain = tf.keras.optimizers.Nadam(     **{"learning_rate":1e-2, "beta_1":0.01, "beta_2":0.85, "epsilon":1e-3, "schedule_decay": (30*train_set_size_batches/3)**-1  } ) #Every 30 epochs
 
@@ -178,8 +184,6 @@ def train_loop(train_params, model_params):
         print (' Initializing from scratch')
 
     # endregion     
-
-
 
     # region Logic for setting up resume location
     starting_epoch =  int(max( df_training_info['Epoch'], default=0 )) 
@@ -465,7 +469,7 @@ def train_loop(train_params, model_params):
                             
                             labels_true = tf.where( target_filtrd>model_params['model_type_settings']['precip_threshold'], 1.0, 0.0)
                             labels_pred = tf.where( preds_filtrd>model_params['model_type_settings']['precip_threshold'], 1.0, 0.0)
-                            alpha = 2000
+                            alpha = 20
                             labels_pred_cont_approx = tf.math.sigmoid( alpha*preds_filtrd - alpha/2 )  #Label calculation allowing back-prop 
                                 #Note in tf.float32 tf.math.sigmoid(16.7)==1 and  
 
