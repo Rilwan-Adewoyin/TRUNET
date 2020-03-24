@@ -121,14 +121,12 @@ def train_loop(train_params, model_params):
             # optimizer_dc = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-2 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.05, "beta_2":0.99, "decay":0.95,
             #                                                 "amsgrad":True}, total_steps=total_steps )  #copy.deepcopy( optimizer )
 
-            optimizer_rain = tf.keras.optimizers.Nadam( **{"learning_rate":tf.keras.optimizers.schedules.ExponentialDecay(1e-3, int(train_set_size_batches*30/3), 0.94, False), #Every 50 epochs
-                                                            "beta_1":0.35, "beta_2":0.85, "epsilon":1e-3 } ) 
+            optimizer_rain = tf.keras.optimizers.Nadam( **{"learning_rate":1e-3, "beta_1":0.35, "beta_2":0.85, "epsilon":1e-3, "schedule_decay": (30*train_set_size_batches/3)**-1  } ) #Every 30 epochs
 
-            optimizer_nonrain = tf.keras.optimizers.Nadam( **{"learning_rate":tf.keras.optimizers.schedules.ExponentialDecay(1e-6, int(train_set_size_batches*30/3), 0.94, False),
-                                                                "beta_1":0.35, "beta_2":0.99, "epsilon":1e-3 }  ) 
+            optimizer_nonrain = tf.keras.optimizers.Nadam( **{"learning_rate":1e-6,"beta_1":0.35, "beta_2":0.99, "epsilon":1e-3, "schedule_decay": (30*train_set_size_batches/3)**-1 }  ) 
 
-            optimizer_dc = tf.keras.optimizers.Nadam( **{"learning_rate":tf.keras.optimizers.schedules.ExponentialDecay(1e-4, int(train_set_size_batches*30/3), 0.94, False),
-                                                        "beta_1":0.35, "beta_2":0.99, "epsilon":1e-3 } ) 
+            optimizer_dc = tf.keras.optimizers.Nadam( **{"learning_rate":1e-4,"beta_1":0.35, "beta_2":0.99, "epsilon":1e-3, "schedule_decay": (30*train_set_size_batches/3)**-1 } ) 
+            
             
             optimizers = [optimizer_rain, optimizer_nonrain, optimizer_dc]
             optimizers = [ mixed_precision.LossScaleOptimizer(_opt, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) for _opt in optimizers ]
