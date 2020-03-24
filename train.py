@@ -117,13 +117,13 @@ def train_loop(train_params, model_params):
         if model_params['model_type_settings']['model_version'] in ["54","55","56"]:
 
 
-            optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-2 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.05, "beta_2":0.85, "decay":0.95,
+            optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-2 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.85, "beta_2":0.85, "decay":0.95,
                                                                 "amsgrad":True} , total_steps=total_steps ) 
             
-            optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-4 , "warmup_proportion":0.6,"min_lr":1e-4, "beta_1":0.05, "beta_2":0.99, "decay":0.95,
+            optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3 , "warmup_proportion":0.6,"min_lr":1e-4, "beta_1":0.85, "beta_2":0.99, "decay":0.95,
                                                                 "amsgrad":True} , total_steps=total_steps ) 
             
-            optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.05, "beta_2":0.99, "decay":0.95,
+            optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.85, "beta_2":0.99, "decay":0.95,
                                                                 "amsgrad":True}, total_steps=total_steps )                  #copy.deepcopy( optimizer )
 
 
@@ -400,8 +400,8 @@ def train_loop(train_params, model_params):
                         loss_mse_condrain = tf.reduce_mean( tf.keras.losses.MSE( _target_cond_rain , _preds_cond_rain_mean) )
                     #endregion
 
-                    target_filtrd = tf.reshape( tf.boolean_mask(  target , train_params['bool_water_mask'], axis=1 ), [train_params['batch_size'], -1] )
-                    preds_mean_filtrd = tf.reshape( tf.boolean_mask( preds_mean, train_params['bool_water_mask'],axis=1 ), [train_params['batch_size'], -1] )
+                    target_filtrd = tf.reshape( tf.boolean_mask(       target , train_params['bool_water_mask'], axis=1 ),       [train_params['batch_size'], -1] )
+                    preds_mean_filtrd = tf.reshape( tf.boolean_mask( preds_mean, train_params['bool_water_mask'],axis=1 ),  [train_params['batch_size'], -1] )
 
                     metric_mse = tf.reduce_mean( tf.keras.losses.MSE( target_filtrd , preds_mean_filtrd)  )
 
@@ -469,7 +469,7 @@ def train_loop(train_params, model_params):
                             
                             labels_true = tf.where( target_filtrd>model_params['model_type_settings']['precip_threshold'], 1.0, 0.0)
                             labels_pred = tf.where( preds_filtrd>model_params['model_type_settings']['precip_threshold'], 1.0, 0.0)
-                            alpha = 20
+                            alpha = 1000
                             labels_pred_cont_approx = tf.math.sigmoid( alpha*preds_filtrd - alpha/2 )  #Label calculation allowing back-prop 
                                 #Note in tf.float32 tf.math.sigmoid(16.7)==1 and  
 
@@ -517,10 +517,12 @@ def train_loop(train_params, model_params):
                                 _l3 = tf.reduce_mean( 
                                                 tf.keras.backend.binary_crossentropy( labels_true, labels_pred_cont_approx, from_logits=False) )  #differentiable version     #loss3 conditional on no rain v2
                                 loss_mse += log_cross_entropy_rainclassification
+                            
                             else:
                                 log_cross_entropy_rainclassification = 0
                                 _l3 = 0
                                 loss_mse += log_cross_entropy_rainclassification
+
 
                         if(model_params['model_type_settings']['model_version'] in ["54","55","56"] ): #multiple optimizers 
                             optm_idx = step % len(optimizers)
