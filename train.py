@@ -371,10 +371,10 @@ def train_loop(train_params, model_params):
 
                         elif(model_params['model_type_settings']['distr_type'] == "LogNormal" ):
                             epsilon = tf.random.uniform( preds_stacked.shape.as_list(), minval=1e-10, maxval=1e-7 )
-                            preds_stacked_adj = tf.where( preds_stacked==0,epsilon,preds_stacked )
-                            log_vals = tf.math.log( preds_stacked_adj)
-                            log_distr_mean = tf.math.reduce_mean( log_vals, axis=-1)
-                            log_distr_std = tf.math.reduce_std(log_vals, axis=-1)
+                            preds_stacked_adj = tf.where( preds_stacked==0, epsilon, preds_stacked )
+                            log_vals = tf.math.log( preds_stacked_adj )
+                            log_distr_mean = tf.math.reduce_mean( log_vals, axis=-1 )
+                            log_distr_std = tf.math.reduce_std(log_vals, axis=-1 )
                             #Filtering out value 
 
                             preds_distribution_condrain = tfd.LogNormal( loc=tf.boolean_mask(log_distr_mean, bool_cond_rain) , 
