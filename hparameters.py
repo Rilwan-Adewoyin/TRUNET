@@ -232,7 +232,7 @@ class model_THST_hparameters(MParams):
             key_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 / int(np.prod([kq_downscale_kernelshape[1:]])) ) for idx in range(attn_layers_count)  ]
             val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 ) for idx in range(attn_layers_count)  ]
 
-            effective_base_dscaling = np.prod([1,8,8])*4 #THIS is the default amount of downscaling relative to base model, for v3 and v4 v5 v6,  this changes to *3, 2 base, 4 for v7
+            effective_base_dscaling = np.prod([1,8,8])*4 #THIS is the default amount of downscaling relative to base model, for v3 and v4 v5 v6,  this changes to *3, 2 base, 4 for v7, v5
             further_downscaling =  int(effective_base_dscaling / np.prod(kq_downscale_stride) )
 
             key_depth = [ _val//further_downscaling for _val in key_depth ]
