@@ -121,11 +121,11 @@ def train_loop(train_params, model_params):
             # optimizer_dc = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-2 , "warmup_proportion":0.6,"min_lr":1e-3, "beta_1":0.05, "beta_2":0.99, "decay":0.95,
             #                                                 "amsgrad":True}, total_steps=total_steps )  #copy.deepcopy( optimizer )
 
-            optimizer_rain = tf.keras.optimizers.Nadam( **{"learning_rate":1e-2, "beta_1":0.9, "beta_2":0.88, "epsilon":1e-3, "schedule_decay": (30*train_set_size_batches/3)**-1  } ) #Every 30 epochs
+            optimizer_rain = tf.keras.optimizers.Nadam( **{"learning_rate":1e-2, "beta_1":0.01, "beta_2":0.85, "epsilon":1e-3, "schedule_decay": (30*train_set_size_batches/3)**-1  } ) #Every 30 epochs
 
-            optimizer_nonrain = tf.keras.optimizers.Nadam( **{"learning_rate":1e-5,"beta_1":0.9, "beta_2":0.99, "epsilon":1e-3, "schedule_decay": (30*train_set_size_batches/3)**-1 }  ) 
+            optimizer_nonrain = tf.keras.optimizers.Nadam( **{"learning_rate":1e-5,"beta_1":0.01, "beta_2":0.99, "epsilon":1e-3, "schedule_decay": (30*train_set_size_batches/3)**-1 }  ) 
 
-            optimizer_dc = tf.keras.optimizers.Nadam( **{"learning_rate":1e-3,"beta_1":0.9, "beta_2":0.99, "epsilon":1e-3, "schedule_decay": (30*train_set_size_batches/3)**-1 } ) 
+            optimizer_dc = tf.keras.optimizers.Nadam( **{"learning_rate":1e-3,"beta_1":0.01, "beta_2":0.99, "epsilon":1e-3, "schedule_decay": (30*train_set_size_batches/3)**-1 } ) 
             
             
             optimizers = [optimizer_rain, optimizer_nonrain, optimizer_dc]
@@ -366,7 +366,7 @@ def train_loop(train_params, model_params):
                             preds_distribution_condrain = tfd.Normal( loc=_preds_cond_rain_mean, scale= tf.where( _preds_cond_rain_scale==0, 1, _preds_cond_rain_scale  ) )
 
                         elif(model_params['model_type_settings']['distr_type'] == "LogNormal" ):
-                            epsilon = tf.random.uniform( preds_stacked.shape.as_list(),minval=1e-10,maxval=1e-7 )
+                            epsilon = tf.random.uniform( preds_stacked.shape.as_list(), minval=1e-10, maxval=1e-7 )
                             preds_stacked_adj = tf.where( preds_stacked==0,epsilon,preds_stacked )
                             log_vals = tf.math.log( preds_stacked_adj)
                             log_distr_mean = tf.math.reduce_mean( log_vals, axis=-1)
