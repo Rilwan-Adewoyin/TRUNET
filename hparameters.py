@@ -179,7 +179,7 @@ class model_THST_hparameters(MParams):
     def _default_params( self ):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-2, "warmup_proportion":0.1,
+            "learning_rate":1e-2, "warmup_proportion":0.6,
             "min_lr":1e-3, "beta_1":0.45 , "beta_2":0.95,
             'amsgrad':True, "decay":0.01, "epsilon":5e-3}
         DROPOUT = 0.00
@@ -222,14 +222,14 @@ class model_THST_hparameters(MParams):
         attn_heads = [ 4 ]*attn_layers_count #[ 8 ]*attn_layers_count                          #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
         
         if 'region_grid_params' in self.params.keys():
-            kq_downscale_stride = [1, 4, 4] #[1, 8, 8]
+            kq_downscale_stride = [1, 8, 8] #[1, 4, 4] 
             kq_downscale_kernelshape = kq_downscale_stride
 
             #This keeps the hidden representations equal in size to the incoming tensors
             key_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 / int(np.prod([kq_downscale_kernelshape[1:]])) ) for idx in range(attn_layers_count)  ]
             val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 ) for idx in range(attn_layers_count)  ]
 
-            effective_base_dscaling = np.prod([1,8,8])*4 #THIS is the default amount of downscaling relative to base model, for v3 and v4 v5 v6,  this changes to *3, 2 base, 4 for v7, v5
+            effective_base_dscaling = np.prod([1,8,8])*2 #THIS is the default amount of downscaling relative to base model, for v3 and v4 v5 v6,  this changes to *3, 2 base, 4 for v7, v5
             further_downscaling =  int(effective_base_dscaling / np.prod(kq_downscale_stride) )
 
             key_depth = [ _val//further_downscaling for _val in key_depth ]
