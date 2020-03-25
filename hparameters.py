@@ -179,9 +179,9 @@ class model_THST_hparameters(MParams):
     def _default_params( self ):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-3, "warmup_proportion":0.5,
-            "min_lr":1e-6, "beta_1":0.75 , "beta_2":0.95,
-            'amsgrad':True, "decay":0.95}
+            "learning_rate":1e-2, "warmup_proportion":0.1,
+            "min_lr":1e-4, "beta_1":0.45 , "beta_2":0.95,
+            'amsgrad':True, "decay":0.87, "epsilon":5e-3}
         DROPOUT = 0.00
         LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.99 }
         # endregion
@@ -220,7 +220,6 @@ class model_THST_hparameters(MParams):
 
         attn_layers_count = enc_layer_count - 1
         attn_heads = [ 4 ]*attn_layers_count #[ 8 ]*attn_layers_count                          #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
-        
         
         if 'region_grid_params' in self.params.keys():
             kq_downscale_stride = [1, 4, 4] #[1, 8, 8]
