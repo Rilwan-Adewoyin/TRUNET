@@ -174,15 +174,14 @@ class model_THST_hparameters(MParams):
         """ 
             
         """
-
         super( model_THST_hparameters, self ).__init__(**kwargs)
 
-    def _default_params(self ):
+    def _default_params( self ):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
             "learning_rate":1e-2, "warmup_proportion":0.5,
             "min_lr": 1e-4, "beta_1":0.65 , "beta_2":0.95,
-            'epsilon':0.005, 'amsgrad':True, "decay":0.95
+            'amsgrad':True, "decay":0.95
             }
         DROPOUT = 0.00
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99}
@@ -190,7 +189,7 @@ class model_THST_hparameters(MParams):
         
         #region Key Model Size Settings
         seq_len_for_highest_hierachy_level = 4   # 2  
-        SEQ_LEN_FACTOR_REDUCTION = [4, 7] # [4, 2 ] 
+        SEQ_LEN_FACTOR_REDUCTION = [4, 7]        # [4, 2 ] 
             #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
             # 6hrs,1Day,1Week,1Month
         # endregion
@@ -206,19 +205,19 @@ class model_THST_hparameters(MParams):
         # endregion
 
         # region --------------- ENCODER params -----------------
-        enc_layer_count = len( SEQ_LEN_FACTOR_REDUCTION ) +1
+        enc_layer_count        = len( SEQ_LEN_FACTOR_REDUCTION ) + 1
 
         # region CLSTM params
-        output_filters_enc = [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
-        output_filters_enc = output_filters_enc + output_filters_enc[-1:] # the last two layers in the encoder must output the same number of channels
-        kernel_size_enc = [ (4,4) ] * (enc_layer_count)                   # [(2,2)]
+        output_filters_enc     = [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
+        output_filters_enc     = output_filters_enc + output_filters_enc[-1:] # the last two layers in the encoder must output the same number of channels
+        kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )                   # [(2,2)]
         recurrent_regularizers = [ None ] * (enc_layer_count) 
-        kernel_regularizers = [ None ] * (enc_layer_count)
-        bias_regularizers= [ tf.keras.regularizers.l2(0.2) ] * (enc_layer_count)
-        recurrent_dropouts =  [ 0.0 ]*(enc_layer_count)
-        input_dropouts = [ 0.0 ]*(enc_layer_count)
-        stateful = True #True if testing on single location , false otherwise
-        layer_norms = lambda: None #lambda: tf.keras.layers.LayerNormalization(axis=[-1], center=False, scale=False ) #lambda: None
+        kernel_regularizers    = [ None ] * (enc_layer_count)
+        bias_regularizers      = [ tf.keras.regularizers.l2(0.2) ] * (enc_layer_count)
+        recurrent_dropouts     = [ 0.0 ]*(enc_layer_count)
+        input_dropouts         = [ 0.0 ]*(enc_layer_count)
+        stateful               = True #True if testing on single location , false otherwise
+        layer_norms            = lambda: None #lambda: tf.keras.layers.LayerNormalization(axis=[-1], center=False, scale=False ) #lambda: None
 
         attn_layers_count = enc_layer_count - 1
         attn_heads = [ 4 ]*attn_layers_count #[ 8 ]*attn_layers_count                          #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
