@@ -16,12 +16,10 @@ def scaler(y,y_pred):
 
     scales = tf.where( y_pred > y, 1.0, (-1/3)*(y_pred-y) + 1 )
 
-    y2 = tf.math.square(y)
-    y_pred2 = tf.math.square(y_pred)
+    diff = y - y_pred
+    diff_2 = tf.math.square(diff)
 
-    diff = y2 - y_pred2
-
-    diff_scaled = scales * diff
+    diff_scaled = scales * diff_2
 
     loss = tf.reduce_mean(diff_scaled )
     
