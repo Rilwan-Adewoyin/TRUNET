@@ -117,13 +117,13 @@ def train_loop(train_params, model_params):
         if model_params['model_type_settings']['model_version'] in ["54","55","56"]:
 
 
-            optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":3e-3 , "warmup_proportion":0.25,"min_lr":1e-4, "beta_1":0.85, "beta_2":0.85, "decay":0.005,
+            optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":3e-3 , "warmup_proportion":0.25,"min_lr":3e-4, "beta_1":0.85, "beta_2":0.85, "decay":0.005,
                                                                 "amsgrad":True} , total_steps=total_steps*30 ) 
             
-            optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":3e-3 , "warmup_proportion":0.25,"min_lr":1e-4, "beta_1":0.85, "beta_2":0.99, "decay":0.005,
+            optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3 , "warmup_proportion":0.25,"min_lr":1e-4, "beta_1":0.85, "beta_2":0.99, "decay":0.005,
                                                                 "amsgrad":True} , total_steps=total_steps*30 ) 
             
-            optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":3e-3 , "warmup_proportion":0.25,"min_lr":1e-4, "beta_1":0.85, "beta_2":0.99, "decay":0.005,
+            optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3 , "warmup_proportion":0.25,"min_lr":1e-4, "beta_1":0.85, "beta_2":0.99, "decay":0.005,
                                                                 "amsgrad":True}, total_steps=total_steps*30 )                  #copy.deepcopy( optimizer )
 
 
