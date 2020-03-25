@@ -402,7 +402,7 @@ class model_SimpleLSTM_hparameters(MParams):
 
         REC_ADAM_PARAMS = {
             "learning_rate":1e-3, "warmup_proportion":0.25,
-            "min_lr":1e-4, "beta_1":0.85, "beta_2":0.95, "decay":0.005,
+            "min_lr":1e-4, "beta_1":0.45, "beta_2":0.95, "decay":0.005,
             "amsgrad":True, "epsilon":5e-3
             } #for multile optimizers asymettric 
 

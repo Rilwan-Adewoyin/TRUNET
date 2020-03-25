@@ -264,6 +264,16 @@ def train_loop(train_params, model_params):
 
     #endregion
 
+    #region Setting up points at which we must reset states for training on a particular location
+    if train_params['strided_dataset_count'] > 1:
+        reset_idxs_training =     [ math.ceil(train_set_size_batches/train_params['strided_dataset_count'])] + [ train_set_size_batches//train_params['strided_dataset_count'] ]*(train_params['strided_dataset_count']-1)
+        reset_idxs_validation =     [ math.ceil(val_set_size_batches/train_params['strided_dataset_count'])] + [ val_set_size_batches//train_params['strided_dataset_count'] ]*(train_params['strided_dataset_count']-1)
+    else:
+        reset_idxs_training = None
+        reset_idxs_validation = None
+
+    # endregion
+
     # region --- Train and Val
     if model_params['model_type_settings']['var_model_type'] in ['horseshoefactorized','horseshoestructured'] :
         tf.config.experimental_run_functions_eagerly(True)
@@ -293,6 +303,10 @@ def train_loop(train_params, model_params):
         #region Train
         model.reset_states()
         for batch in range(batches_to_skip,train_set_size_batches):
+            
+            if reset_idxs_training != None and batch in reset_idxs_training :
+                model.reset_states()
+
             step = batch + (epoch)*train_set_size_batches
             #if model_params['model_type_settings']['location'] == 'region_grid':
             if model_params['model_name'] in ["SimpleConvLSTM","SimpleConvGRU","THST"]:
@@ -673,6 +687,8 @@ def train_loop(train_params, model_params):
         #region Valid
         model.reset_states()
         for batch in range(val_set_size_batches):
+            if reset_idxs_validation != None and batch in reset_idxs_validation :
+                model.reset_states()
 
             if model_params['model_name'] in ["SimpleConvLSTM","SimpleConvGRU","THST"]:
                 idx, (feature, target, mask) = next(iter_val)
