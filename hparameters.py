@@ -179,7 +179,7 @@ class model_THST_hparameters(MParams):
     def _default_params( self ):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
-            "learning_rate":2e-3, "warmup_proportion":0.25,
+            "learning_rate":3e-3, "warmup_proportion":0.25,
             "min_lr":1e-4, "beta_1":0.85 , "beta_2":0.95,
             'amsgrad':True, "decay":0.005, "epsilon":5e-3}
         DROPOUT = 0.00
@@ -399,14 +399,10 @@ class model_SimpleLSTM_hparameters(MParams):
         }
 
         #training proc
-        # REC_ADAM_PARAMS = {
-        #     "learning_rate":1e-2 , "warmup_proportion":0.6,
-        #     "min_lr":1e-3, "beta_1":0.99, "beta_2":0.99,"decay":0.95
-        #     }
 
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-2 , "warmup_proportion":0.6,
-            "min_lr":1e-3, "beta_1":0.7, "beta_2":0.9, "decay":0.95,
+            "learning_rate":5e-3, "warmup_proportion":0.25,
+            "min_lr":1e-4, "beta_1":0.85, "beta_2":0.95, "decay":0.005,
             "amsgrad":True
             } #for multile optimizers asymettric 
 
