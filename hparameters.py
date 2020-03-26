@@ -181,14 +181,15 @@ class model_THST_hparameters(MParams):
         REC_ADAM_PARAMS = {
             "learning_rate":5e-3, "warmup_proportion":0.25,
             "min_lr":5e-4, "beta_1":0.85 , "beta_2":0.95,
-            'amsgrad':True, "decay":0.005, "epsilon":5e-3 }
+            "amsgrad":True, "decay":0.005, "epsilon":5e-3 }
+
         DROPOUT = 0.00
         LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.99 }
         # endregion
         
         #region Key Model Size Settings
         seq_len_for_highest_hierachy_level = 4   # 2  
-        SEQ_LEN_FACTOR_REDUCTION = [4, 7]        # [4, 2 ] 
+        SEQ_LEN_FACTOR_REDUCTION = [4, 7]        # [ 4, 2 ]
             #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
             # 6hrs,1Day,1Week,1Month
         # endregion
@@ -207,22 +208,22 @@ class model_THST_hparameters(MParams):
         enc_layer_count        = len( SEQ_LEN_FACTOR_REDUCTION ) + 1
 
         # region CLSTM params
-        output_filters_enc     = [ 64 ]*(enc_layer_count-1) # [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
-        output_filters_enc     = output_filters_enc + output_filters_enc[-1:] # the last two layers in the encoder must output the same number of channels
-        kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )                   # [(2,2)]
+        output_filters_enc     = [ 64 ]*(enc_layer_count-1)                     # [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
+        output_filters_enc     = output_filters_enc + output_filters_enc[-1:]   # the last two layers in the encoder must output the same number of channels
+        kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )                # [(2,2)]
         recurrent_regularizers = [ None ] * (enc_layer_count) 
         kernel_regularizers    = [ None ] * (enc_layer_count)
         bias_regularizers      = [ tf.keras.regularizers.l2(0.2) ] * (enc_layer_count)
         recurrent_dropouts     = [ 0.0 ]*(enc_layer_count)
         input_dropouts         = [ 0.0 ]*(enc_layer_count)
-        stateful               = True #True if testing on single location , false otherwise
-        layer_norms            = lambda: None #lambda: tf.keras.layers.LayerNormalization(axis=[-1], center=False, scale=False ) #lambda: None
+        stateful               = True                       #True if testing on single location , false otherwise
+        layer_norms            = lambda: None               #lambda: tf.keras.layers.LayerNormalization(axis=[-1], center=False, scale=False ) #lambda: None
 
         attn_layers_count = enc_layer_count - 1
-        attn_heads = [ 4 ]*attn_layers_count #[ 8 ]*attn_layers_count                          #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
+        attn_heads = [ 8 ]*attn_layers_count                #[ 8 ]*attn_layers_count        #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
         
         if 'region_grid_params' in self.params.keys():
-            kq_downscale_stride = [1, 8, 8] #[1, 8, 8] 
+            kq_downscale_stride = [1, 8, 8]                 #[1, 8, 8] 
             kq_downscale_kernelshape = kq_downscale_stride
 
             #This keeps the hidden representations equal in size to the incoming tensors
@@ -231,6 +232,7 @@ class model_THST_hparameters(MParams):
             
             if kq_downscale_stride == [1,8,8]:
                 effective_base_dscaling = np.prod([1,8,8])*2 
+            
             elif kq_downscale_stride == [1,4,4]:
                 effective_base_dscaling = np.prod([1,8,8])*4 
 

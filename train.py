@@ -257,8 +257,8 @@ def train_loop(train_params, model_params):
 
     #region Setting up points at which we must reset states for training on a particular location
     if train_params['strided_dataset_count'] > 1:
-        reset_idxs_training =     [ math.ceil(train_set_size_batches/train_params['strided_dataset_count'])] + [ train_set_size_batches//train_params['strided_dataset_count'] ]*(train_params['strided_dataset_count']-1)
-        reset_idxs_validation =     [ math.ceil(val_set_size_batches/train_params['strided_dataset_count'])] + [ val_set_size_batches//train_params['strided_dataset_count'] ]*(train_params['strided_dataset_count']-1)
+        reset_idxs_training =     [ math.ceil(train_set_size_batches/train_params['strided_dataset_count']) ] + [ train_set_size_batches//train_params['strided_dataset_count'] ]*(train_params['strided_dataset_count']-1 )
+        reset_idxs_validation =     [ math.ceil(val_set_size_batches/train_params['strided_dataset_count']) ] + [ val_set_size_batches//train_params['strided_dataset_count'] ]*(train_params['strided_dataset_count']  -1 )
     else:
         reset_idxs_training = None
         reset_idxs_validation = None
