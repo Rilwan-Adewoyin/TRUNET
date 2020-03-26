@@ -79,10 +79,11 @@ def load_model(test_params, model_params):
         print("Are weights empty after restoring from checkpoint?", model.weights == [])
     
     elif(test_params['model_recover_method'] == 'checkpoint_epoch'):
-        model = models.SuperResolutionModel( test_params, model_params)
+        
 
         if(model_name=="DeepSD"):
             #Just initliazing model so checkpoint method can work
+            model = models.SuperResolutionModel( test_params, model_params)
             if type(model_params) == list:
                 model_params = model_params[0]
 
@@ -91,6 +92,7 @@ def load_model(test_params, model_params):
             model(init_inp, training=False )
 
         elif(model_name=="THST"):
+            model = models.THST(test_params, model_params)
             if model_params['model_type_settings']['location'] == "wholeregion":
                 init_inp = tf.zeros(
                     [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ], dtype=tf.float16 )

@@ -208,7 +208,7 @@ class model_THST_hparameters(MParams):
         enc_layer_count        = len( SEQ_LEN_FACTOR_REDUCTION ) + 1
 
         # region CLSTM params
-        output_filters_enc     = [ 64 ]*(enc_layer_count-1)                     # [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
+        output_filters_enc     = [ 48 ]*(enc_layer_count-1)                     # [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc     = output_filters_enc + output_filters_enc[-1:]   # the last two layers in the encoder must output the same number of channels
         kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )                # [(2,2)]
         recurrent_regularizers = [ None ] * (enc_layer_count) 
@@ -234,7 +234,7 @@ class model_THST_hparameters(MParams):
                 effective_base_dscaling = np.prod([1,8,8])*2 
             
             elif kq_downscale_stride == [1,4,4]:
-                effective_base_dscaling = np.prod([1,8,8])*4 
+                effective_base_dscaling = np.prod([1,8,8])*4
 
             further_downscaling =  int(effective_base_dscaling / np.prod(kq_downscale_stride) )
 
@@ -404,7 +404,7 @@ class model_SimpleLSTM_hparameters(MParams):
 
         REC_ADAM_PARAMS = {
             "learning_rate":1e-3, "warmup_proportion":0.25,
-            "min_lr":1e-4, "beta_1":0.45, "beta_2":0.95, "decay":0.005,
+            "min_lr":1e-4, "beta_1":0.85, "beta_2":0.95, "decay":0.005,
             "amsgrad":True, "epsilon":5e-3
             } #for multile optimizers asymettric 
 
