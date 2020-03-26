@@ -179,9 +179,9 @@ class model_THST_hparameters(MParams):
     def _default_params( self ):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-2, "warmup_proportion":0.25,
-            "min_lr":5e-4, "beta_1":0.90 , "beta_2":0.95,
-            'amsgrad':True, "decay":0.005, "epsilon":5e-3}
+            "learning_rate":5e-3, "warmup_proportion":0.25,
+            "min_lr":5e-4, "beta_1":0.85 , "beta_2":0.95,
+            'amsgrad':True, "decay":0.005, "epsilon":5e-3 }
         DROPOUT = 0.00
         LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.99 }
         # endregion
@@ -207,7 +207,7 @@ class model_THST_hparameters(MParams):
         enc_layer_count        = len( SEQ_LEN_FACTOR_REDUCTION ) + 1
 
         # region CLSTM params
-        output_filters_enc     = [64]*(enc_layer_count-1) # [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
+        output_filters_enc     = [ 64 ]*(enc_layer_count-1) # [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc     = output_filters_enc + output_filters_enc[-1:] # the last two layers in the encoder must output the same number of channels
         kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )                   # [(2,2)]
         recurrent_regularizers = [ None ] * (enc_layer_count) 
@@ -222,7 +222,7 @@ class model_THST_hparameters(MParams):
         attn_heads = [ 4 ]*attn_layers_count #[ 8 ]*attn_layers_count                          #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
         
         if 'region_grid_params' in self.params.keys():
-            kq_downscale_stride = [1, 4, 4] #[1, 8, 8] 
+            kq_downscale_stride = [1, 8, 8] #[1, 8, 8] 
             kq_downscale_kernelshape = kq_downscale_stride
 
             #This keeps the hidden representations equal in size to the incoming tensors
