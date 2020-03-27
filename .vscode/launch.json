@@ -53,9 +53,9 @@
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
-            "args": [ "-mn","SimpleLSTM","-sdc","7",
-                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'LogNormal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'London', 'model_version':'46', 'twoD':False}",
-                "-dd","Data/Rain_Data_Nov19","-bs","8", "-od","./Output"]
+            "args": [ "-mn","SimpleLSTM","-sdc","4",
+                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'LogNormal','discrete_continuous':True,'precip_threshold':5.0,'var_model_type':'Deterministic','location':'London', 'model_version':'54', 'twoD':False}",
+                "-dd","Data/Rain_Data_Nov19","-bs","10", "-od","./Output"]
         },
         {
             "name": "SimpleLSTMTest",
@@ -65,7 +65,7 @@
             "console": "internalConsole",
             "justMyCode": false,
             "args": [ "-mn","SimpleLSTM",
-                "-mts", "{'stochastic':True,'stochastic_f_pass':15,'distr_type':'LogNormal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout','location':'London', 'model_version':'44','location_test':'London'}",
+                "-mts", "{'stochastic':True,'stochastic_f_pass':15,'distr_type':'LogNormal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'London', 'model_version':'','location_test':'London'}",
                 "-dd","Data/Rain_Data_Nov19","-bs","2","-od","./Output"]
         },
         {

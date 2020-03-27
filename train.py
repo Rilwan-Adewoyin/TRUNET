@@ -116,13 +116,13 @@ def train_loop(train_params, model_params):
         #Trying 2 optimizers for discrete_continuious LSTM
         if model_params['model_type_settings']['model_version'] in ["54","55","56"]:
 
-            optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":4e-3, "warmup_proportion":0.25, "min_lr":4e-4, "beta_1":0.85, "beta_2":0.85, "decay":0.005, "amsgrad":True} , total_steps=total_steps*30 ) 
-            optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3, "warmup_proportion":0.25, "min_lr":1e-4, "beta_1":0.85, "beta_2":0.99, "decay":0.005, "amsgrad":True} , total_steps=total_steps*30 ) 
-            optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3, "warmup_proportion":0.25, "min_lr":1e-4, "beta_1":0.85, "beta_2":0.99, "decay":0.005, "amsgrad":True} , total_steps=total_steps*30 )  
+            optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":2e-3, "warmup_proportion":0.25, "min_lr":1e-5, "beta_1":0.15, "beta_2":0.7, "decay":0.05, "amsgrad":True, "epsilon":1e-3} , total_steps=total_steps*30 ) 
+            optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":2e-3, "warmup_proportion":0.25, "min_lr":1e-5, "beta_1":0.15, "beta_2":0.7, "decay":0.05, "amsgrad":True,"epsilon":1e-3} , total_steps=total_steps*30 ) 
+            optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":2e-3, "warmup_proportion":0.25, "min_lr":1e-5, "beta_1":0.15, "beta_2":0.7, "decay":0.05, "amsgrad":True,"epsilon":1e-3} , total_steps=total_steps*30 )  
                 #copy.deepcopy( optimizer )
 
-            # optimizer_rain = tf.keras.optimizers.Nadam( **{"learning_rate":1e-3, "beta_1":0.25, "beta_2":0.30, "epsilon":1e-2, "schedule_decay": (30*train_set_size_batches/3)**-1  } ) #Every 30 epochs
             # optimizer_nonrain = tf.keras.optimizers.Nadam( **{"learning_rate":1e-4,"beta_1":0.25, "beta_2":0.30, "epsilon":1e-2, "schedule_decay": (30*train_set_size_batches/3)**-1 }  ) 
+            # optimizer_rain = tf.keras.optimizers.Nadam( **{"learning_rate":1e-3, "beta_1":0.25, "beta_2":0.30, "epsilon":1e-2, "schedule_decay": (30*train_set_size_batches/3)**-1  } ) #Every 30 epochs
             # optimizer_dc = tf.keras.optimizers.Nadam(  **{"learning_rate":1e-4,"beta_1":0.25, "beta_2":0.30, "epsilon":1e-2, "schedule_decay": (30*train_set_size_batches/3)**-1 } ) 
             
             optimizers          = [ optimizer_rain, optimizer_nonrain, optimizer_dc ]
@@ -247,21 +247,33 @@ def train_loop(train_params, model_params):
         for idx in range(1,len(li_ds_vals[1:]) ):
             ds_val = ds_val.concatenate( li_ds_vals[idx] )
 
-        ds_train_val = ds_train.concatenate(ds_val).repeat(train_params['epochs']-starting_epoch)
-        ds_train_val = ds_train_val.skip(batches_to_skip)
-        iter_val_train = enumerate(ds_train_val)
-        iter_train = iter_val_train
-        iter_val = iter_val_train
+        #Version that doesnt work on warwick desktop
+        # ds_train_val = ds_train.concatenate(ds_val).repeat(train_params['epochs']-starting_epoch)
+        # ds_train_val = ds_train_val.skip(batches_to_skip)
+        # iter_val_train = enumerate(ds_train_val)
+        # iter_train = iter_val_train
+        # iter_val = iter_val_train
+
+        #Version that ensures validation and train set are well defined
+        ds_train = ds_train.repeat(train_params['epochs']-starting_epoch)
+        ds_val = ds_val.repeat(train_params['epochs']-starting_epoch)
+
+        ds_train = ds_train.skip(batches_to_skip)
+
+        iter_train = enumerate(ds_train)
+        iter_val = enumerate(ds_val)
+
+
 
     #endregion
 
     #region Setting up points at which we must reset states for training on a particular location
     if train_params['strided_dataset_count'] > 1:
-        reset_idxs_training =     [ math.ceil(train_set_size_batches/train_params['strided_dataset_count']) ] + [ train_set_size_batches//train_params['strided_dataset_count'] ]*(train_params['strided_dataset_count']-1 )
-        reset_idxs_validation =     [ math.ceil(val_set_size_batches/train_params['strided_dataset_count']) ] + [ val_set_size_batches//train_params['strided_dataset_count'] ]*(train_params['strided_dataset_count']  -1 )
+        reset_idxs_training = np.arange(math.ceil( train_set_size_batches/train_params['strided_dataset_count'] ), train_set_size_batches,  train_set_size_batches//train_params['strided_dataset_count'] ).tolist()
+        reset_idxs_validation = np.arange(math.ceil( val_set_size_batches/train_params['strided_dataset_count'] ), val_set_size_batches,  train_set_size_batches//train_params['strided_dataset_count'] ).tolist()
     else:
-        reset_idxs_training = None
-        reset_idxs_validation = None
+        reset_idxs_training = [ ]
+        reset_idxs_validation = [ ]
 
     # endregion
 
@@ -295,7 +307,7 @@ def train_loop(train_params, model_params):
         model.reset_states()
         for batch in range(batches_to_skip,train_set_size_batches):
             
-            if reset_idxs_training != None and batch in reset_idxs_training :
+            if batch in reset_idxs_training :
                 model.reset_states()
 
             step = batch + (epoch)*train_set_size_batches
@@ -416,41 +428,6 @@ def train_loop(train_params, model_params):
                     gc.collect()
                     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
                     
-                elif( model_params['model_name'] == "THST_old"):
-                    if model_params['model_type_settings']['location'] == 'region_grid' or model_params['model_type_settings']['twoD']==True :
-                        if( tf.reduce_any( mask[:, :, 6:10, 6:10] ) == False ):
-                            continue
-                    else:
-                        target, mask = target # (bs, h, w) 
-
-                    if (model_params['model_type_settings']['stochastic']==False or model_params['model_type_settings']['var_model_type'] == "mc_dropout" ): #non stochastic version
-
-                        preds = model( tf.cast(feature,tf.float16), train_params['trainable'] )
-                        preds = tf.squeeze(preds)
-
-                        if ( model_params['model_type_settings']['location']=='region_grid' )  or model_params['model_type_settings']['twoD']==True : #focusing on centre of square only
-                            preds = preds[:, :, 6:10, 6:10]
-                            mask = mask[:, :, 6:10, 6:10]
-                            target = target[:, :, 6:10, 6:10]
-
-                        preds_filtrd = tf.boolean_mask( preds, mask )
-                        target_filtrd = tf.boolean_mask( target, mask )
-
-                        preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], 
-                                        train_params['normalization_scales']['rain'], reverse=True)
-
-                        loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd) 
-                        metric_mse = loss_mse
-                        scaled_loss = optimizer.get_scaled_loss(loss_mse + sum(model.losses))
-
-                    elif (model_params['model_type_settings']['stochastic']==True):
-                        raise NotImplementedError
-                        
-                    with tf.device('/GPU:0'):
-                        scaled_gradients = tape.gradient( scaled_loss, model.trainable_variables )
-                        gradients = optimizer.get_unscaled_gradients(scaled_gradients)
-                        optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-                
                 elif( model_params['model_name'] in ["SimpleLSTM","SimpleDense"]):
                     if( model_params['model_type_settings']['stochastic']==False):
                         target, mask = target # (bs, seq_len)
@@ -499,10 +476,9 @@ def train_loop(train_params, model_params):
 
                                 train_mse_cond_rain = (rain_count/all_count) * tf.keras.metrics.MSE(target_cond_rain, preds_cond_rain_mean)                            
                                 metric_mse =  train_mse_cond_rain
-                                if(model_params['model_type_settings']['model_version'] in ["54"]):
-                                    _l1 = train_mse_cond_rain #NOTE: change this back
-                                else:
-                                _l1 = (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, preds_cond_rain_mean) #loss1 conditional on rain
+                                #_l1 = (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, preds_cond_rain_mean) #loss1 conditional on rain
+                                
+                                _l1 = train_mse_cond_rain
                                 loss_mse = _l1  
 
                                 #temp: adding an mse loss to the values which are under 0.5
@@ -559,7 +535,7 @@ def train_loop(train_params, model_params):
                     gradients = _optimizer.get_unscaled_gradients(scaled_gradients)
                     
                     if(model_params['model_type_settings']['model_version'] in ["54","55","56"] ): #multiple optimizers 
-                        gradients, _ = tf.clip_by_global_norm( gradients, 5.0 )
+                        gradients, _ = tf.clip_by_global_norm( gradients, 30.0 )
 
                         #insert code here to handle ensuring all loss functions start at the same time, e.g. when all optimizers have stopped producing nans
 
@@ -667,9 +643,6 @@ def train_loop(train_params, model_params):
             df_training_info.loc[ ( df_training_info['Epoch']==epoch) , ['Last_Trained_Batch'] ] = batch
             df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(model_params)), header=True, index=False )
 
-            if batch in np.arange(math.ceil( train_set_size_batches/train_params['strided_dataset_count'] ), train_set_size_batches,  train_set_size_batches//train_params['strided_dataset_count'] ).tolist() :
-                model.reset_states()
-        
         start_epoch_val = time.time()
         start_batch_time = time.time()
 
@@ -681,7 +654,8 @@ def train_loop(train_params, model_params):
         #region Valid
         model.reset_states()
         for batch in range(val_set_size_batches):
-            if reset_idxs_validation != None and batch in reset_idxs_validation :
+
+            if batch in reset_idxs_validation :
                 model.reset_states()
 
             if model_params['model_name'] in ["SimpleConvLSTM","SimpleConvGRU","THST"]:
@@ -700,31 +674,6 @@ def train_loop(train_params, model_params):
                     val_metric_loss( tf.reduce_mean( tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  ) #TODO: Ensure that both preds and target are reshaped prior 
                     #TODO: Add Discrete Continuous Metric here is wrong, should be same as other version
 
-            elif model_params['model_name'] == "THST_old":
-                if model_params['model_type_settings']['location'] == 'region_grid'  or model_params['model_type_settings']['twoD']==True :
-                    if( tf.reduce_any( mask[:, :, 6:10, 6:10] )==False ):
-                        continue
-                else:
-                    target, mask = target # (bs, h, w) 
-
-                if model_params['model_type_settings']['stochastic'] == False: #non stochastic version
-                    preds = model(tf.cast(feature,tf.float16), training=False )
-                    preds = tf.squeeze(preds)
-
-                    if (model_params['model_type_settings']['location']=='region_grid' )  or model_params['model_type_settings']['twoD']==True : #focusing on centre of square only
-                        preds = preds[:, :, 6:10, 6:10]
-                        mask = mask[:, :, 6:10, 6:10]
-                        target = target[:, :, 6:10, 6:10]
-
-                    preds_filtrd = tf.boolean_mask( preds, mask )
-                    target_filtrd = tf.boolean_mask( target, mask )
-                    preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], 
-                                        train_params['normalization_scales']['rain'], reverse=True)
-                    val_metric_loss( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
-                
-                elif model_params['model_type_settings']['stochastic'] ==True:
-                    raise NotImplementedError 
-            
             elif model_params['model_name'] in ["SimpleLSTM","SimpleDense"]:
                 if model_params['model_type_settings']['stochastic'] == False:
                     target, mask = target
@@ -766,14 +715,15 @@ def train_loop(train_params, model_params):
                         elif model_params['model_type_settings']['distr_type'] == 'LogNormal':
                             val_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) ) 
 
-                            loss_mse = (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, preds_cond_rain_mean)
+                            loss_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) ) # (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, preds_cond_rain_mean)
 
                             if(model_params['model_type_settings']['model_version'] in ["3","4","44","46","54","55"] ):
-                                #loss_mse += tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
                                 val_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
                                 loss_mse += val_mse_cond_no_rain
+                                val_mse += val_mse_cond_no_rain
                             else:
                                 val_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
+                                val_mse +=val_mse_cond_no_rain
                             
 
                             if(model_params['model_type_settings']['model_version'] in ["3","4","44","45","47","48","49","50","51","52",'53','54',"56"] ):
