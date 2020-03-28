@@ -179,8 +179,8 @@ class model_THST_hparameters(MParams):
     def _default_params( self ):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
-            "learning_rate":6e-3, "warmup_proportion":0.35,
-            "min_lr":6e-4, "beta_1":0.15 , "beta_2":0.95,
+            "learning_rate":1e-3, "warmup_proportion":0.35,
+            "min_lr":1e-4, "beta_1":0.15 , "beta_2":0.95,
             "amsgrad":True, "decay":0.015, "epsilon":5e-3 }
 
         DROPOUT = 0.00
