@@ -184,7 +184,7 @@ class model_THST_hparameters(MParams):
             "amsgrad":True, "decay":0.005, "epsilon":5e-3 }
 
         DROPOUT = 0.00
-        LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.99 }
+        LOOKAHEAD_PARAMS = { "sync_period":3, "slow_step_size":0.65 }
         # endregion
         
         #region Key Model Size Settings
