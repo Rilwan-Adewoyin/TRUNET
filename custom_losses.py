@@ -14,7 +14,7 @@ def lnormal_mse(obs,preds):
 
 def scaler(y,y_pred):
 
-    scales = tf.where( y_pred > y, 1.0, (-1/10)*(y_pred-y) + 1 )
+    scales = tf.where( y_pred > y, 1.5, 0.75 )
 
     diff = y - y_pred
     diff_2 = tf.math.square(diff)

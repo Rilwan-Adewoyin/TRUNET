@@ -179,12 +179,12 @@ class model_THST_hparameters(MParams):
     def _default_params( self ):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
-            "learning_rate":5e-3, "warmup_proportion":0.35,
-            "min_lr":5e-4, "beta_1":0.30 , "beta_2":0.95,
-            "amsgrad":True, "decay":0.005, "epsilon":5e-3 }
+            "learning_rate":6e-3, "warmup_proportion":0.35,
+            "min_lr":6e-4, "beta_1":0.15 , "beta_2":0.95,
+            "amsgrad":True, "decay":0.015, "epsilon":5e-3 }
 
         DROPOUT = 0.00
-        LOOKAHEAD_PARAMS = { "sync_period":3, "slow_step_size":0.65 }
+        LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.99 }
         # endregion
         
         #region Key Model Size Settings
@@ -360,7 +360,7 @@ class model_SimpleLSTM_hparameters(MParams):
     
     def _default_params(self):
         #model
-        dropout = 0.1
+        dropout = 0.0 #0.25
         layer_count = 3
         
         li_units = [160]*layer_count
@@ -370,7 +370,7 @@ class model_SimpleLSTM_hparameters(MParams):
         for _ln in ln: _ln._dtype = 'float32'
 
         LAYER_PARAMS = [
-            {'units': un, 'dropout':0.1, 'recurrent_dropout':0.1,
+            {'units': un, 'dropout':0.0, 'recurrent_dropout':0.0,
                 'return_sequences':rs, 'stateful':True,
                 'kernel_regularizer': None,
                 'recurrent_regularizer': None,
@@ -389,7 +389,7 @@ class model_SimpleLSTM_hparameters(MParams):
         # ]
 
         dense1_layer_params = { 'units':80, 'activation':'relu', 'bias_regularizer':tf.keras.regularizers.l2(0.2) }
-        output_dense_layer_params = {'units':1, 'activation':'linear','bias_regularizer':tf.keras.regularizers.l2(0.2) }
+        output_dense_layer_params = {'units':1, 'activation':'linear','bias_regularizer':None } #'bias_regularizer':tf.keras.regularizers.l2(0.2) }
 
         #data pipeline
         target_to_feature_time_ratio = 4
@@ -771,7 +771,7 @@ class train_hparameters_ati(HParams):
         VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS_TARGET*0.2)
         
         DATA_DIR = "./Data/Rain_Data_Nov19" 
-        EARLY_STOPPING_PERIOD = 26
+        EARLY_STOPPING_PERIOD = 12
  
         self.params = {
             'batch_size':BATCH_SIZE,

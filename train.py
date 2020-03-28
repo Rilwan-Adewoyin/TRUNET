@@ -107,7 +107,7 @@ def train_loop(train_params, model_params):
         else:
             total_steps =int( train_params['train_set_size_batches'] )
         
-        radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=total_steps*70 ) 
+        radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=total_steps*25 ) 
         optimizer = tfa.optimizers.Lookahead(radam, **model_params['lookahead_params'])
     
     optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() )
@@ -116,9 +116,9 @@ def train_loop(train_params, model_params):
         #Trying 2 optimizers for discrete_continuious LSTM
         if model_params['model_type_settings']['model_version'] in ["54","55","56"]:
 
-            optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":2e-3, "warmup_proportion":0.25, "min_lr":1e-5, "beta_1":0.15, "beta_2":0.7, "decay":0.05, "amsgrad":True, "epsilon":1e-3} , total_steps=total_steps*30 ) 
-            optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":2e-3, "warmup_proportion":0.25, "min_lr":1e-5, "beta_1":0.15, "beta_2":0.7, "decay":0.05, "amsgrad":True,"epsilon":1e-3} , total_steps=total_steps*30 ) 
-            optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":2e-3, "warmup_proportion":0.25, "min_lr":1e-5, "beta_1":0.15, "beta_2":0.7, "decay":0.05, "amsgrad":True,"epsilon":1e-3} , total_steps=total_steps*30 )  
+            optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":5e-3, "warmup_proportion":0.25, "min_lr":1e-3, "beta_1":0.25, "beta_2":0.85, "decay":0.05, "amsgrad":True, "epsilon":1e-3} , total_steps=total_steps*70 ) 
+            optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":5e-3, "warmup_proportion":0.25, "min_lr":1e-3, "beta_1":0.25, "beta_2":0.85, "decay":0.05, "amsgrad":True,"epsilon":1e-3} , total_steps=total_steps*70 ) 
+            optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":5e-3, "warmup_proportion":0.25, "min_lr":1e-3, "beta_1":0.25, "beta_2":0.85, "decay":0.05, "amsgrad":True,"epsilon":1e-3} , total_steps=total_steps*70 )  
                 #copy.deepcopy( optimizer )
 
             # optimizer_nonrain = tf.keras.optimizers.Nadam( **{"learning_rate":1e-4,"beta_1":0.25, "beta_2":0.30, "epsilon":1e-2, "schedule_decay": (30*train_set_size_batches/3)**-1 }  ) 
@@ -476,14 +476,14 @@ def train_loop(train_params, model_params):
 
                                 train_mse_cond_rain = (rain_count/all_count) * tf.keras.metrics.MSE(target_cond_rain, preds_cond_rain_mean)                            
                                 metric_mse =  train_mse_cond_rain
-                                #_l1 = (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, preds_cond_rain_mean) #loss1 conditional on rain
+                                _l1 = (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, preds_cond_rain_mean) #loss1 conditional on rain
                                 
-                                _l1 = train_mse_cond_rain
+                                #_l1 = train_mse_cond_rain
                                 loss_mse = _l1  
 
                                 #temp: adding an mse loss to the values which are under 0.5
                                 if(model_params['model_type_settings']['model_version'] in ["3","4","44","46","54","55"] ):
-                                    #loss_mse += tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
+                                    
                                     train_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean ) #loss2 conditional on no rain
                                     _l2 = train_mse_cond_no_rain
                                     loss_mse += train_mse_cond_no_rain
