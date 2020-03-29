@@ -449,7 +449,7 @@ def train_loop(train_params, model_params):
                             _l2 = _l1
                             _l3 = _l2
 
-                        else:
+                        elif model_params['model_type_settings']['discrete_continuous'] == True:
                             #get classification labels & predictions, true/1 means it has rained   
                             
                             labels_true = tf.where( target_filtrd>model_params['model_type_settings']['precip_threshold'], 1.0, 0.0)
@@ -691,7 +691,9 @@ def train_loop(train_params, model_params):
                                                             train_params['normalization_scales']['rain'], reverse=True)
 
                     if model_params['model_type_settings']['discrete_continuous'] == False:
-                        val_metric_loss( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
+                        _ = tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) ) 
+                        val_metric_loss( _ )
+                        val_metric_mse( _ )
 
                     elif model_params['model_type_settings']['discrete_continuous'] == True:
                         #get classification labels & predictions, true/1 means it has rained   
@@ -799,6 +801,7 @@ def train_loop(train_params, model_params):
                 tf.summary.scalar('Validation MSE cond_no_rain', val_mse_cond_no_rain, step=epoch)
             except Exception as e:
                 pass
+            
         df_training_info = utility.update_checkpoints_epoch(df_training_info, epoch, train_loss_mean_epoch, val_metric_loss, ckpt_manager_epoch, train_params, model_params, train_mse_metric_epoch, val_metric_mse )
         
             
