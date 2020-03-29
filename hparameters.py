@@ -360,7 +360,7 @@ class model_SimpleLSTM_hparameters(MParams):
     
     def _default_params(self):
         #model
-        dropout = 0.0 #0.25
+        dropout = 0.4 #0.25
         layer_count = 3
         
         li_units = [160]*layer_count
@@ -370,7 +370,7 @@ class model_SimpleLSTM_hparameters(MParams):
         for _ln in ln: _ln._dtype = 'float32'
 
         LAYER_PARAMS = [
-            {'units': un, 'dropout':0.0, 'recurrent_dropout':0.0,
+            {'units': un, 'dropout':0.4, 'recurrent_dropout':0.4,
                 'return_sequences':rs, 'stateful':True,
                 'kernel_regularizer': None,
                 'recurrent_regularizer': None,
