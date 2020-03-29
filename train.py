@@ -445,6 +445,9 @@ def train_loop(train_params, model_params):
                         if model_params['model_type_settings']['discrete_continuous'] == False:
                             loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd)
                             metric_mse = loss_mse
+                            _l1 = loss_mse/3
+                            _l2 = _l1
+                            _l3 = _l2
 
                         else:
                             #get classification labels & predictions, true/1 means it has rained   
