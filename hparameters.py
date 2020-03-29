@@ -180,7 +180,7 @@ class model_THST_hparameters(MParams):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
             "learning_rate":1e-3, "warmup_proportion":0.35,
-            "min_lr":1e-4, "beta_1":0.15 , "beta_2":0.95,
+            "min_lr":1e-4, "beta_1":0.85 , "beta_2":0.95,
             "amsgrad":True, "decay":0.015, "epsilon":5e-3 }
 
         DROPOUT = 0.00
@@ -389,7 +389,7 @@ class model_SimpleLSTM_hparameters(MParams):
         # ]
 
         dense1_layer_params = { 'units':80, 'activation':'relu', 'bias_regularizer':tf.keras.regularizers.l2(0.2) }
-        output_dense_layer_params = {'units':1, 'activation':'linear','bias_regularizer':None } #'bias_regularizer':tf.keras.regularizers.l2(0.2) }
+        output_dense_layer_params = {'units':1, 'activation':'linear','bias_regularizer':tf.keras.regularizers.l2(0.2) }
 
         #data pipeline
         target_to_feature_time_ratio = 4
