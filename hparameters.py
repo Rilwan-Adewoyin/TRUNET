@@ -10,8 +10,10 @@ from functools import reduce
 class HParams():
     
     def __init__( self ,**kwargs ):  
+        
         self._default_params()
         
+        #TODO: remove this from code functionality
         if( kwargs != None):
             self.params.update( kwargs)
     
@@ -29,11 +31,10 @@ class MParams(HParams):
             self.regiongrid_param_adjustment()
         else:
             self.params = {}
-
-        super(MParams, self).__init__(**kwargs)
-                
-        #if self.params['model_type_settings']['location'] == "region_grid":
-        #if kwargs['model_name'] in ["THST","SimpleConvGRU"]:   
+        
+        self._default_params(**kwargs)
+        #super(MParams, self).__init__(**kwargs)
+                 
         if kwargs['model_type_settings']['twoD'] == True:     
             self.params['lookahead_params']['sync_period'] == int( np.prod( self.params['region_grid_params']['slides_v_h']  * min( [ self.params['lookahead_params']['sync_period'] // 2, 1] ) ) )
 
@@ -52,10 +53,7 @@ class MParams(HParams):
         )
         vertical_slides = (self.params['region_grid_params']['input_image_shape'][0] - self.params['region_grid_params']['outer_box_dims'][0] +1 )// self.params['region_grid_params']['vertical_shift']
         horizontal_slides = (self.params['region_grid_params']['input_image_shape'][1] - self.params['region_grid_params']['outer_box_dims'][1] +1 ) // self.params['region_grid_params']['horizontal_shift']
-
-        
         self.params['region_grid_params'].update({'slides_v_h':[vertical_slides,horizontal_slides]})
-        #self.params['lookahead_params']['sync_period'] == int( np.prod( self.params['region_grid_params']['slides_v_h']  * min( [ self.params['lookahead_params']['sync_period'] // 2, 1] ) ) )
 
 class model_deepsd_hparameters(MParams):
     """
@@ -176,14 +174,14 @@ class model_THST_hparameters(MParams):
         """
         super( model_THST_hparameters, self ).__init__(**kwargs)
 
-    def _default_params( self ):
+    def _default_params( self, **kwargs ):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
             "learning_rate":1e-3, "warmup_proportion":0.35,
             "min_lr":1e-4, "beta_1":0.85 , "beta_2":0.95,
             "amsgrad":True, "decay":0.015, "epsilon":5e-3 }
 
-        DROPOUT = 0.00
+        DROPOUT = kwargs.get('dropout',0.0)
         LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.99 }
         # endregion
         
@@ -214,8 +212,8 @@ class model_THST_hparameters(MParams):
         recurrent_regularizers = [ None ] * (enc_layer_count) 
         kernel_regularizers    = [ None ] * (enc_layer_count)
         bias_regularizers      = [ tf.keras.regularizers.l2(0.2) ] * (enc_layer_count)
-        recurrent_dropouts     = [ 0.0 ]*(enc_layer_count)
-        input_dropouts         = [ 0.0 ]*(enc_layer_count)
+        recurrent_dropouts     = [ kwargs.get('rec_dropout',0.0) ]*(enc_layer_count)
+        input_dropouts         = [ kwargs.get('inp_dropout',0.0) ]*(enc_layer_count)
         stateful               = True                       #True if testing on single location , false otherwise
         layer_norms            = lambda: None               #lambda: tf.keras.layers.LayerNormalization(axis=[-1], center=False, scale=False ) #lambda: None
 
@@ -330,7 +328,7 @@ class model_THST_hparameters(MParams):
          ]
         # endregion
 
-        model_type_settings = {
+        _mts = {
             'stochastic': False ,
             'deformable_conv': True ,
             'var_model_type':"Deterministic" ,
@@ -339,6 +337,7 @@ class model_THST_hparameters(MParams):
             "location":"wholegrid",
             "model_version":"1"
         }
+        model_type_settings = kwargs.get('model_type_settings',_mts)
 
         self.params.update( {
             'model_name':"THST",
@@ -353,14 +352,16 @@ class model_THST_hparameters(MParams):
             'lookahead_params':LOOKAHEAD_PARAMS
             } )
 
-class model_SimpleLSTM_hparameters(MParams):
+class model_SimpleGRU_hparameters(MParams):
 
     def __init__(self, **kwargs):
-        super(model_SimpleLSTM_hparameters, self).__init__(**kwargs)
+        super(model_SimpleGRU_hparameters, self).__init__(**kwargs)
     
-    def _default_params(self):
+    def _default_params(self, **kwargs):
         #model
-        dropout = 0.4 #0.25
+        dropout = kwargs.get('dropout',0.0)
+        input_dropout = kwargs.get('inp_dropout',0.0)
+        recurrent_dropout = kwargs.get('rec_dropout',0.0)
         layer_count = 3
         
         li_units = [160]*layer_count
@@ -370,7 +371,7 @@ class model_SimpleLSTM_hparameters(MParams):
         for _ln in ln: _ln._dtype = 'float32'
 
         LAYER_PARAMS = [
-            {'units': un, 'dropout':0.4, 'recurrent_dropout':0.4,
+            {'units': un, 'dropout':input_dropout, 'recurrent_dropout':recurrent_dropout,
                 'return_sequences':rs, 'stateful':True,
                 'kernel_regularizer': None,
                 'recurrent_regularizer': None,
@@ -404,16 +405,17 @@ class model_SimpleLSTM_hparameters(MParams):
 
         REC_ADAM_PARAMS = {
             "learning_rate":1e-3, "warmup_proportion":0.25,
-            "min_lr":1e-4, "beta_1":0.85, "beta_2":0.95, "decay":0.005,
+            "min_lr":1e-4, "beta_1":0.75, "beta_2":0.95, "decay":0.009,
             "amsgrad":True, "epsilon":5e-3
             } #for multile optimizers asymettric 
 
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }
 
-        model_type_settings = { }
+        _mts = { }
+        model_type_settings = kwargs.get('model_type_settings',_mts)
 
         self.params.update({
-            'model_name':'SimpleLSTM',
+            'model_name':'SimpleGRU',
             'layer_count': layer_count,
             'layer_params': LAYER_PARAMS,
             'dense1_layer_params':dense1_layer_params,
@@ -488,9 +490,10 @@ class model_SimpleConvGRU_hparamaters(MParams):
     def __init__(self, **kwargs):
         super(model_SimpleConvGRU_hparamaters, self).__init__(**kwargs)
     
-    def _default_params(self):
+    def _default_params(self,**kwargs):
         #Other
-        dropout = 0.1
+        dropout = kwargs.get('dropout',0.0)
+
 
         #ConvLayers
         layer_count = 3 #TODO: Shi uses 2 layers
@@ -498,8 +501,9 @@ class model_SimpleConvGRU_hparamaters(MParams):
         kernel_sizes = [[4,4]]*layer_count
         paddings = ['same']*layer_count
         return_sequences = [True]*layer_count
-        gru_dropout = [0.2]*layer_count #[0.0]*layer_count
-        recurrent_dropout = [0.25]*layer_count #[0.0]*layer_count
+        input_dropout = [kwargs.get('inp_dropout',0.0) ]*layer_count #[0.0]*layer_count
+        recurrent_dropout = [ kwargs.get('rec_dropout',0.0)]*layer_count #[0.0]*layer_count
+
         # if self.params['model_type_settings']['location'] == "region_grid":
         #     _st = False
         # else:
@@ -513,7 +517,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
                                 'bias_regularizer':tf.keras.regularizers.l2(0.2),
                                 'layer_norm': None, #tf.keras.layers.LayerNormalization(axis=[-1]),
                                 'implementation':1, 'stateful':_st  }
-                                for fs,ks,ps,rs,dp,rdp in zip(filters, kernel_sizes, paddings, return_sequences, gru_dropout, recurrent_dropout)  ]
+                                for fs,ks,ps,rs,dp,rdp in zip(filters, kernel_sizes, paddings, return_sequences, input_dropout, recurrent_dropout)  ]
 
         conv1_layer_params = {'filters': int(  8*(((filters[0]*2)/3)//8)) , 'kernel_size':[3,3], 'activation':'relu','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2) }        
         outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'linear','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2) }
@@ -539,7 +543,9 @@ class model_SimpleConvGRU_hparamaters(MParams):
 
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }
 
-        model_type_settings = { }
+        _mts = {}
+        model_type_settings = kwargs.get('model_type_settings',_mts)
+
 
         self.params.update( {
             'model_name':'SimpleConvGRU',
@@ -781,8 +787,10 @@ class train_hparameters_ati(HParams):
             'lookback_target':self.lookback_target,
 
             'strided_dataset_count': self.strided_dataset_count,
-            'train_set_size_batches':(TRAIN_SET_SIZE_ELEMENTS//BATCH_SIZE) *self.strided_dataset_count - ( self.strided_dataset_count - 1) ,
-            'val_set_size_batches':(VAL_SET_SIZE_ELEMENTS//BATCH_SIZE) *self.strided_dataset_count - (self.strided_dataset_count - 1),
+            'train_set_size_elements_b4_sdc_multlocation': TRAIN_SET_SIZE_ELEMENTS,
+            'val_set_size_elements_b4_sdc_multlocation':VAL_SET_SIZE_ELEMENTS,
+            # 'train_set_size_batches': (TRAIN_SET_SIZE_ELEMENTS//BATCH_SIZE) #*self.strided_dataset_count - ( self.strided_dataset_count - 1) ,
+            # 'val_set_size_batches':(VAL_SET_SIZE_ELEMENTS//BATCH_SIZE) #*self.strided_dataset_count - (self.strided_dataset_count - 1),
 
             'checkpoints_to_keep':CHECKPOINTS_TO_KEEP,
             'checkpoints_to_keep_epoch':CHECKPOINTS_TO_KEEP_EPOCH,

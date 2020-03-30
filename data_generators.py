@@ -166,7 +166,6 @@ def load_data_vandal( elements_to_skip, hparams, m_params,_num_parallel_calls =-
     long, lat = arr_long(15,125), arr_lat(15,125)
 
 """
-
 class Generator():
     
     def __init__(self, fn = "", all_at_once=False, channel=None):
@@ -177,10 +176,20 @@ class Generator():
         self.city_location = {
             "London": [51.5074, -0.1278],
             #+0.15,-0.1 to avoid masking a coastal city
-            "Cardiff": [51.4816 + 0.15, -3.1791 -0.05], 
+            "Cardiff": [51.4816 + 0.15, -3.1791 -0.05], #1st Rainiest
+            "Glasgow": [55.8642,  -4.2518], #3rd rainiest
+            "Lancaster":[54.466, -2.8007], #2nd hieghest
+            "Bradford": [53.7960, -1.7594], #3rd highest
+            "Manchester":[53.4808, -2.2426], #15th rainiest
+            "Birmingham":[52.4862, -1.8904], #25th
+            "Liverpool":[53.4084 , -2.9916 +0.1 ], #18th rainiest
+            "Leeds":[ 53.8008, -1.5491 ], #8th
             "Edinburgh": [55.9533, -3.1883],
-            "Belfast": [54.5973, -5.9301],
-            "Dublin": [53.3498, -6.2603]}
+            "Belfast": [54.5973, -5.9301], #25
+            "Dublin": [53.3498, -6.2603],
+            "LakeDistrict":[54.4500,-3.100],
+            
+            }
         self.latitude_array = np.linspace(58.95,49.05, 100)
         self.longitude_array = np.linspace(-10.95, 2.95, 140)
         
@@ -375,15 +384,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     
     ds_tar = tf.data.Dataset.from_generator( rain_data, output_types=( tf.float32, tf.bool) ) #(values, mask) 
     ds_tar = ds_tar.skip(start_idx_tar) #skipping to correct point
-    
-    # def normalize_rain_values(arr_rain, arr_mask, shift, scale):
-
-        #     arr_rain = utility.standardize_ati(arr_rain, shift, scale, reverse=False  )
-
-        #     return arr_rain, arr_mask
         
-        #ds_tar = ds_tar.map( lambda _vals, _mask: normalize_rain_values( _vals, _mask, t_params['normalization_shift']['rain'] ,t_params['normalization_scales']['rain'] ) ) # (values, mask)
-    
     ds_tar = ds_tar.window(size =t_params['lookback_target'], stride=1, shift=t_params['window_shift'] , drop_remainder=True )
     
     ds_tar = ds_tar.flat_map( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(t_params['lookback_target']) for w in window ] ) ) ) #shape (lookback,h, w)
@@ -438,6 +439,57 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     model_settings = m_params['model_type_settings']
     if(model_settings['location']=="wholegrid"):
         ds = ds.batch(t_params['batch_size'], drop_remainder=True)
+    
+
+    elif( type(model_settings['location'][:]) == list ):
+
+        if m_params['model_name'] in ["SimpleLSTM","SimpleDense","SimpleGRU"]:
+            
+            if 'location_test' in model_settings.keys():
+                ds = ds.batch(t_params['batch_size'], drop_remainder=True)
+                idxs = rain_data.find_idx_of_city( model_settings['location_test'] )
+                ds = ds.map( lambda mf, rain_rmask : load_data_ati_select_location(mf, rain_rmask[0], rain_rmask[1], idxs ), num_parallel_calls=_num_parallel_calls )
+                ds = ds.unbatch().batch( t_params['batch_size'],drop_remainder=True )
+
+            elif 'location_test' not in model_settings.keys():
+                ds = ds.batch(t_params['batch_size'], drop_remainder=True)
+                li_idxs = [ rain_data.find_idx_of_city( _city ) for _city in model_settings['location'] ]
+
+                li_ds = [ ds.map( lambda mf, rain_rmask : load_data_ati_select_location(mf, rain_rmask[0], rain_rmask[1], idx ), num_parallel_calls=_num_parallel_calls ) for idx in li_idxs ]
+                                
+                for idx in range(len(li_ds ) ):
+                    li_ds[idx] = li_ds[idx].unbatch().batch( t_params['batch_size'],drop_remainder=True )
+                    if idx==0:
+                        ds = li_ds[0]
+                    else:
+                        ds = ds.concatenate( li_ds[idx] )
+            
+            
+                
+        elif m_params['model_name'] in ["SimpleConvGRU","SimpleConvLSTM",'THST']:
+
+            if 'location_test' in model_settings.keys():
+                ds = ds.map( lambda mf, rain_mask: tuple( [mf, rain_mask[0], rain_mask[1]] )  )                         #mf=(80, 100,140,6)                        
+                h_idxs, w_idxs = rain_data.find_idx_of_city_region( model_settings['location_test'], m_params['region_grid_params'] )
+                idx_city_in_region = [8,8] #for this setting the city will always be the middle icon
+                ds = ds.unbatch().batch( t_params['batch_size'],drop_remainder=True )
+                ds = ds.prefetch(_num_parallel_calls)
+                return ds, idx_city_in_region
+            
+            elif 'location_test' not in model_settings.keys():
+
+                ds = ds.map( lambda mf, rain_mask: tuple( [mf, rain_mask[0], rain_mask[1]] )  )   
+                li_hw_idxs = [ rain_data.find_idx_of_city_region( _location, m_params['region_grid_params'] ) for _location in model_settings['location'] ] #[ (h_idx,w_idx) ]
+                li_ds = [ ds.map( lambda mf, rain, rmask : load_data_ati_select_region_from_nonstack( mf, rain, rmask, _idx[0], _idx[1]) , num_parallel_calls=_num_parallel_calls ) for _idx in li_hw_idxs ]
+                
+                for idx in range(len(li_ds ) ):
+                    li_ds[idx] = li_ds[idx].unbatch().batch( t_params['batch_size'],drop_remainder=True )
+                    if idx==0:
+                        ds = li_ds[0]
+                    else:
+                        ds = ds.concatenate( li_ds[idx] )
+                
+
 
     elif( model_settings['location'] in rain_data.city_location.keys()  ):
         
@@ -463,7 +515,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
                 ds = ds.prefetch(_num_parallel_calls)
                 return ds, idx_city_in_region
             
-            ds = ds.unbatch().batch( t_params['batch_size'],drop_remainder=True )
+        ds = ds.unbatch().batch( t_params['batch_size'],drop_remainder=True )
 
 
     elif(model_settings['location']=="region_grid"):
@@ -652,3 +704,4 @@ def load_data_ati_post_region_folding(mf, rain, mask):
 
     return mf, (rain, mask)
 
+#endregion

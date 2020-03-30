@@ -20,8 +20,8 @@ def model_loader(train_params,model_params ):
     elif(model_name=="DeepSD"):
         model = SuperResolutionModel( train_params, model_params)
     
-    elif(model_name=="SimpleLSTM"):
-        model = SimpleLSTM(train_params, model_params)
+    elif(model_name=="SimpleGRU"):
+        model = SimpleGRU(train_params, model_params)
 
     elif(model_name=="SimpleDense"):
         model = SimpleDense(train_params, model_params)
@@ -110,10 +110,10 @@ class THST(tf.keras.Model):
             preds.append( pred )
         return preds
 
-class SimpleLSTM(tf.keras.Model):
+class SimpleGRU(tf.keras.Model):
     
     def __init__(self, train_params, model_params):
-        super(SimpleLSTM, self).__init__()
+        super(SimpleGRU, self).__init__()
 
         self.model_params = model_params
 
@@ -131,7 +131,7 @@ class SimpleLSTM(tf.keras.Model):
         elif model_params['model_type_settings']['model_version'] in ["25","27","28","30","33","35"]:
             self.LSTM_layers = [ tf.keras.layers.Bidirectional( tf.keras.layers.GRU( **model_params['layer_params'][idx] ), merge_mode='concat' ) for idx in range( model_params['layer_count'] ) ] 
         
-        elif (56>int(model_params['model_type_settings']['model_version'])>= 44) or model_params['model_type_settings']['model_version']  in ["34","36","37" ]:
+        elif (56>int(model_params['model_type_settings']['model_version'])>= 44) or model_params['model_type_settings']['model_version']  in ["100","34","36","37" ]:
             self.LSTM_layers = [ tf.keras.layers.Bidirectional( layer=layers_gru.GRU_LN_v2( **model_params['layer_params'][idx]) ,
                                    backward_layer= layers_gru.GRU_LN_v2( **copy.deepcopy(model_params['layer_params'][idx]), go_backwards=True ) ,
                                    merge_mode='concat' ) for idx in range(model_params['layer_count'] ) ]
@@ -306,34 +306,7 @@ class SimpleConvGRU(tf.keras.Model):
         self.new_shape1 = tf.TensorShape( [train_params['batch_size'],model_params['region_grid_params']['outer_box_dims'][0], model_params['region_grid_params']['outer_box_dims'][1],  train_params['lookback_target'] ,int(6*4)] )
         #endregion
 
-        #region 1 layer version ,mv = 4
-        # model_params['layer_count'] = 1
-        # self.ConvGRU_layers = [ tf.keras.layers.Bidirectional( layer= layers_ConvGRU2D.ConvGRU2D( **self.model_params['ConvGRU_layer_params'][idx] ), 
-        #                                                         backward_layer= layers_ConvGRU2D.ConvGRU2D( go_backwards=True,**self.model_params['ConvGRU_layer_params'][idx] ) ,
-        #                                                         merge_mode='concat' )  for idx in range( model_params['layer_count'] ) ]
 
-        # self.output_conv = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **self.model_params['outpconv_layer_params'] ) )
-
-        # self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
-
-        # self.output_activation = layers.CustomRelu_maker(train_params, dtype='float32')
-
-        # self.new_shape1 = tf.TensorShape( [train_params['batch_size'],model_params['region_grid_params']['outer_box_dims'][0], model_params['region_grid_params']['outer_box_dims'][1],  train_params['lookback_target'] ,int(6*4)] )
-        #endregion
-
-        #region new version mv = 6
-        # self.linear_dim_expansion = tf.keras.layers.Dense( units = int(self.model_params['ConvGRU_layer_params'][0]['filters']*2 ), activation='linear', use_bias=False )
-        # self.ConvGRU_layers = [ tf.keras.layers.Bidirectional( layer= layers_ConvGRU2D.ConvGRU2D( **self.model_params['ConvGRU_layer_params'][idx] ), 
-        #                                                         backward_layer= layers_ConvGRU2D.ConvGRU2D( go_backwards=True,**self.model_params['ConvGRU_layer_params'][idx] ) ,
-        #                                                         merge_mode='concat' )  for idx in range( model_params['layer_count'] ) ]
-        # self.output_conv = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **self.model_params['outpconv_layer_params'] ) )
-
-        # self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
-
-        # self.output_activation = layers.CustomRelu_maker(train_params, dtype='float32')
-
-        # self.new_shape1 = tf.TensorShape( [train_params['batch_size'],model_params['region_grid_params']['outer_box_dims'][0], model_params['region_grid_params']['outer_box_dims'][1],  train_params['lookback_target'] ,int(6*4)] )
-        # endregion
 
     @tf.function
     def call(self, _input, training):
@@ -342,7 +315,7 @@ class SimpleConvGRU(tf.keras.Model):
         x = tf.reshape( x, self.new_shape1 )        # reshape time and channel axis
         x = tf.transpose( x, [0,3,1,2,4 ] )   # converting back to bs, time, h,w, c
 
-        #mv 5
+        
         for idx in range(self.model_params['layer_count']):
             if idx==0:
                 x0 = self.ConvGRU_layers[idx](inputs=x,training=training )
@@ -355,23 +328,6 @@ class SimpleConvGRU(tf.keras.Model):
         outp = self.float32_output(outp)
         outp = self.output_activation(outp)
 
-        #mv 4
-        # x = self.ConvGRU_layers[0](inputs=x,training=training )
-        # outp = self.output_conv( x , training=training )
-        # outp = self.float32_output(outp)
-        # outp = self.output_activation(outp)
-
-        #mv 6 and 7
-        # x0 = self.linear_dim_expansion( x )
-        # for idx in range( self.model_params['layer_count'] ):
-        #     if idx==0:
-        #         x1 = self.ConvGRU_layers[0](inputs=x0,training=training )
-        #         x = x1    #added for verion 7
-        #     x = self.ConvGRU_layers[idx](inputs=x+x0,training=training )
-        # outp = self.output_conv( x , training=training )
-        # #outp = self.output_conv( tf.concat([x,x1] ,axis=-1) , training=training ) 
-        # outp = self.float32_output(outp)
-        # outp = self.output_activation(outp)
 
         return outp
 

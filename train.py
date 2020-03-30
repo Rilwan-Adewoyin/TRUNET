@@ -84,11 +84,24 @@ def train_loop(train_params, model_params):
 
     # region --- Setting up training parameters - to be moved to hparams file
     if model_params['model_type_settings']['location'] == "region_grid":
-        train_set_size_batches= int(train_params['train_set_size_batches'] * np.prod(model_params['region_grid_params']['slides_v_h']) )
-        val_set_size_batches = int(train_params['val_set_size_batches'] * np.prod(model_params['region_grid_params']['slides_v_h']))
-    else:
-        train_set_size_batches= train_params['train_set_size_batches'] 
-        val_set_size_batches = train_params['val_set_size_batches'] 
+        train_set_size_batches= int((train_params['train_set_size_elements_b4_sdc_multlocation']//train_params['batch_size']) * np.prod(model_params['region_grid_params']['slides_v_h']) )
+        val_set_size_batches = int((train_params['train_set_size_elements_b4_sdc_multlocation']//train_params['batch_size']) * np.prod(model_params['region_grid_params']['slides_v_h']))
+    
+    elif type( model_params['model_type_settings']['location'][:] ) == list :
+        train_set_size_batches = (train_params['train_set_size_elements_b4_sdc_multlocation']//train_params['batch_size']) *train_params['strided_dataset_count'] - (train_params['strided_dataset_count'] - 1)
+        val_set_size_batches = (train_params['val_set_size_elements_b4_sdc_multlocation']//train_params['batch_size']) *train_params['strided_dataset_count'] - (train_params['strided_dataset_count'] - 1)
+
+        _city_count = len(model_params['model_type_settings']['location'])
+        train_set_size_batches= int(train_set_size_batches * _city_count )
+        val_set_size_batches = int(val_set_size_batches * _city_count )
+    
+    elif model_params['model_type_settings']['location'] == "whole_region" :
+        train_set_size_batches= (train_params['train_set_size_elements_b4_sdc_multlocation']//train_params['batch_size'])
+        val_set_size_batches = (train_params['train_set_size_elements_b4_sdc_multlocation']//train_params['batch_size'])
+    
+    else: # in case its a city
+        train_set_size_batches = (train_params['train_set_size_elements_b4_sdc_multlocation']//train_params['batch_size']) *train_params['strided_dataset_count'] - (train_params['strided_dataset_count'] - 1)
+        val_set_size_batches = (train_params['val_set_size_elements_b4_sdc_multlocation']//train_params['batch_size']) *train_params['strided_dataset_count'] - (train_params['strided_dataset_count'] - 1)
     
     train_batch_reporting_freq = max( int(train_set_size_batches*train_params['dataset_trainval_batch_reporting_freq'] ), 1 )
     val_batch_reporting_freq = max( int(val_set_size_batches*2*train_params['dataset_trainval_batch_reporting_freq'] ), 1)
@@ -102,12 +115,8 @@ def train_loop(train_params, model_params):
     if tfa==None:
         optimizer = tf.keras.optimizers.Adam( learning_rate=1e-4, beta_1=0.1, beta_2=0.99, epsilon=1e-5 )
     else:
-        if model_params['model_type_settings']['location'] == 'region_grid':
-            total_steps = int( train_params['train_set_size_batches'] * np.prod(model_params['region_grid_params']['slides_v_h']) * 0.55 )
-        else:
-            total_steps =int( train_params['train_set_size_batches'] )
-        
-        radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=total_steps*25 ) 
+        total_steps = train_set_size_batches        
+        radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=total_steps*30 ) 
         optimizer = tfa.optimizers.Lookahead(radam, **model_params['lookahead_params'])
     
     optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() )
@@ -208,16 +217,7 @@ def train_loop(train_params, model_params):
             #temp fix to the problem where if we init ds_train at batches_to_skip, then every time we reuse ds_train then it will inevitably start from that skipped to region on the next iteration 
         ds_train = data_generators.load_data_vandal( batches_to_skip*train_params['batch_size'], train_params, model_params, data_dir=train_params['data_dir'] )
 
-    elif model_params['model_name'] in ["THST", "SimpleLSTM","SimpleConvLSTM", "SimpleConvGRU","SimpleDense"]:
-        # #Version 1 old
-        # ds_train = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['train_start_date'], data_dir=train_params['data_dir'])
-        # ds_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['val_start_date'], data_dir=train_params['data_dir'] )
-        # ds_train_val = data_generators.load_data_ati( train_params, model_params, day_to_start_at=train_params['train_start_date'], data_dir=train_params['data_dir'])
-        # ds_train_val = ds_train_val.take(train_set_size_batches+val_set_size_batches).repeat(train_params['epochs']-starting_epoch)
-        # ds_train_val = ds_train_val.skip(batches_to_skip)
-        # iter_val_train = enumerate(ds_train_val)
-        # iter_train = iter_val_train
-        # iter_val = iter_val_train
+    elif model_params['model_name'] in ["THST", "SimpleLSTM", "SimpleGRU" ,"SimpleConvLSTM", "SimpleConvGRU","SimpleDense"]:
     
         # version 2  for iters, will be used when you want to increase the size of training set, while doing stateful training
         li_start_days_train = np.arange( train_params['train_start_date'], 
@@ -240,11 +240,11 @@ def train_loop(train_params, model_params):
                     for idx,_ds in  enumerate(li_ds_vals) ] #Only the first ds takes the full amount
 
         ds_train = li_ds_trains[0]
-        for idx in range(1,len(li_ds_trains[1:]) ):
+        for idx in range(1,len(li_ds_trains ) ):
             ds_train = ds_train.concatenate( li_ds_trains[idx] )
 
         ds_val = li_ds_vals[0]
-        for idx in range(1,len(li_ds_vals[1:]) ):
+        for idx in range(1,len(li_ds_vals ) ):
             ds_val = ds_val.concatenate( li_ds_vals[idx] )
 
         #Version that doesnt work on warwick desktop
@@ -269,8 +269,30 @@ def train_loop(train_params, model_params):
 
     #region Setting up points at which we must reset states for training on a particular location
     if train_params['strided_dataset_count'] > 1:
-        reset_idxs_training = np.arange(math.ceil( train_set_size_batches/train_params['strided_dataset_count'] ), train_set_size_batches,  train_set_size_batches//train_params['strided_dataset_count'] ).tolist()
-        reset_idxs_validation = np.arange(math.ceil( val_set_size_batches/train_params['strided_dataset_count'] ), val_set_size_batches,  train_set_size_batches//train_params['strided_dataset_count'] ).tolist()
+        if type( model_params['model_type_settings']['location'][:] ) == list:
+            #Note: In this scenario The train dataset is
+                # 1) a series: dst1, dst2, dstN where N is the number of sdc
+                # 2) each ds in series contains a series relating to a single location eg. dst1 = dst1_1, dst1_2, dst_l3...
+            _city_count =  len(model_params['model_type_settings']['location'] )
+            
+            bc_ds_in_dst1_train = math.ceil( train_set_size_batches/( train_params['strided_dataset_count'] *_city_count ) ) #batch_count
+            bc_ds_in_others_train = (train_set_size_batches/_city_count) //( train_params['strided_dataset_count'])
+
+            bc_ds_in_dst1_val = math.ceil( val_set_size_batches/( train_params['strided_dataset_count'] *_city_count ) ) #batch_count
+            bc_ds_in_others_val = (val_set_size_batches/_city_count) //( train_params['strided_dataset_count'] )
+
+            reset_idxs_training_dst1 = np.cumsum( [bc_ds_in_dst1_train]*_city_count )
+            reset_idxs_validation_dst1 = np.cumsum( [bc_ds_in_dst1_val]*_city_count )
+
+            reset_idxs_training_others = np.arange( reset_idxs_training_dst1[-1], train_set_size_batches ,bc_ds_in_others_train, dtype=int  )
+            reset_idxs_validation_others = np.arange( reset_idxs_validation_dst1[-1], val_set_size_batches ,bc_ds_in_others_val, dtype=int  )
+
+            reset_idxs_training = reset_idxs_training_dst1.tolist() + reset_idxs_training_others.tolist()
+            reset_idxs_validation = reset_idxs_validation_dst1.tolist() + reset_idxs_validation_others.tolist()
+
+        else:
+            reset_idxs_training = np.arange( math.ceil( train_set_size_batches/train_params['strided_dataset_count'] ), train_set_size_batches,  train_set_size_batches//train_params['strided_dataset_count'] ).tolist()
+            reset_idxs_validation = np.arange(math.ceil( val_set_size_batches/train_params['strided_dataset_count'] ), val_set_size_batches,  train_set_size_batches//train_params['strided_dataset_count'] ).tolist()
     else:
         reset_idxs_training = [ ]
         reset_idxs_validation = [ ]
@@ -428,7 +450,7 @@ def train_loop(train_params, model_params):
                     gc.collect()
                     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
                     
-                elif( model_params['model_name'] in ["SimpleLSTM","SimpleDense"]):
+                elif( model_params['model_name'] in ["SimpleLSTM","SimpleGRU","SimpleDense"]):
                     if( model_params['model_type_settings']['stochastic']==False):
                         target, mask = target # (bs, seq_len)
 
@@ -678,7 +700,7 @@ def train_loop(train_params, model_params):
                     val_metric_loss( tf.reduce_mean( tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  ) #TODO: Ensure that both preds and target are reshaped prior 
                     #TODO: Add Discrete Continuous Metric here is wrong, should be same as other version
 
-            elif model_params['model_name'] in ["SimpleLSTM","SimpleDense"]:
+            elif model_params['model_name'] in ["SimpleLSTM", "SimpleGRU" ,"SimpleDense"]:
                 if model_params['model_type_settings']['stochastic'] == False:
                     target, mask = target
                     preds = model(tf.cast(feature,tf.float16),training=False )

@@ -159,15 +159,9 @@ def pixel_calibration(preds, true, dist_name,rainy_threshold=0.5):
 
     bool_notrainydays = true<rainy_threshold
     idxs_not_rainydays = np.where( true>=rainy_threshold)[0] #This stores information on which timestep t and position h,w relate to positions of a rainy day from the batch (t,h,w) the metric belongs to
-
-    # true_rainydays = true[idxs_rainydays]
-    # np_preds_means_rainydays = np_preds_means[idxs_rainydays]
-    # np_preds_stds_rainydays = np_preds_means[idxs_rainydays]
     
     ratios = uq_calibration(true, distr, p_range ) #shape (bs, h, w, 100 )
 
-
-    #ratios[ np.tile( np.expand_dims( bool_notrainydays, -1 ), [1,1,1,100] ) ] = np.nan
     ratios[ np.tile( np.expand_dims( bool_notrainydays, -1 ), [1,1,1,100] ) ] = 127
 
     return ratios 
@@ -225,10 +219,7 @@ def postproc_pipeline_compress_evaluations(li_gen_data_eval_preds, test_params, 
         Due to Memory Issues Each statistic will be calculated one by one
 
     """
-    # rmse=  None
-    # bias = None
-    # r20_diffs = None
-    # pc_binary_in_range = None
+
     val = None
     for idx_stat, gen_data_eval_preds in enumerate(li_gen_data_eval_preds):
         for idx, batch_datum in enumerate( gen_data_eval_preds ):
@@ -299,7 +290,6 @@ def postproc_pipeline_compress_evaluations(li_gen_data_eval_preds, test_params, 
             pc_binary_rmses_perpixel = np.sqrt( np.mean( (pc_binary_in_range_perpixel_average-p_range)**2  ,axis=-1 ) )    #(h,w)
             pc_binary_rmses_all = np.sqrt( np.mean( (pc_binary_in_range_all_average-p_range)**2  ) )    #(1)
             pc_binary_rmses_all_std = np.nanstd(pc_binary_in_range_all_average-p_range )
-
 
     data_tuple = {"rmse-mean": rmse_mean, "bias-mean": bias_mean ,
                     "r20-mean":r20_mean,  "r20-stds":r20_mean_std,
@@ -399,11 +389,8 @@ def postproc_pipeline_visualized_summary(gen_data_eval_preds, test_params, model
 if __name__ == "__main__":
 
     s_dir = utility.get_script_directory(sys.argv[0])
-    
     args_dict = utility.parse_arguments(s_dir)
-
     test_params, model_params = utility.load_params_test_model(args_dict)  
-    
     main(test_params(), model_params)
     
 

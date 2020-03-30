@@ -90,7 +90,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
     
     test_set_size_batches = test_set_size_elements //( test_params['batch_size'] * model_params['data_pipeline_params']['lookback_target'] )
 
-    if(model_params['model_name'] in ["SimpleLSTM","THST","SimpleConvLSTM", "SimpleConvGRU","SimpleDense"]):
+    if(model_params['model_name'] in ["SimpleGRU","THST","SimpleConvLSTM", "SimpleConvGRU","SimpleDense"]):
         upload_size = test_set_size_batches
     elif(model_params['model_name'] in ["DeepSD"]):
         upload_size = max( int( test_set_size_batches* test_params['dataset_pred_batch_reporting_freq']), 1 )
@@ -108,7 +108,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
         else:
             li_timestamps_chunked = [li_timestamps[i:i+test_params['window_shift']*test_params['batch_size']] for i in range(0, len(li_timestamps), test_params['window_shift']*test_params['batch_size'])] 
     
-    if model_params['model_name'] in ["SimpleLSTM","SimpleDense"]:
+    if model_params['model_name'] in ["SimpleGRU","SimpleDense"]:
         li_timestamps_chunked = [li_timestamps[i:i+test_params['window_shift']*test_params['batch_size'] ] for i in range(0, len(li_timestamps), test_params['window_shift']*test_params['batch_size'])]
 
     li_true_values = []
@@ -125,7 +125,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
             ds, idx_city_in_region = data_generators.load_data_ati(test_params, model_params, None, day_to_start_at=test_params['test_start_date'], data_dir=test_params['data_dir'] )
             ds = ds.take( test_set_size_batches )
     
-    elif(model_params['model_name'] in ["SimpleLSTM","SimpleDense"]):
+    elif(model_params['model_name'] in ["SimpleGRU","SimpleDense"]):
         ds = data_generators.load_data_ati(test_params, model_params, None, day_to_start_at=test_params['test_start_date'], data_dir=test_params['data_dir'] )
         ds = ds.take( test_set_size_batches )
 
@@ -219,7 +219,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
             li_predictions.append( preds_reshaped )
             li_true_values.append( targets_reshaped )
 
-        elif model_params['model_name'] in ['SimpleLSTM','SimpleDense']:
+        elif model_params['model_name'] in ['SimpleGRU','SimpleDense']:
             target, mask = target
 
             if (model_params['model_type_settings']['stochastic'] == False or model_params['model_type_settings']['distr_type']=="None") and model_params['model_type_settings']['stochastic_f_pass']==1 :
