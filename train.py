@@ -532,7 +532,7 @@ def train_loop(train_params, model_params):
                                 _l3 = 0
                                 loss_mse += log_cross_entropy_rainclassification
 
-                        if(model_params['model_type_settings']['model_version'] in ["54","55","56"] ): #multiple optimizers 
+                        if(model_params['model_type_settings']['model_version'] in ["54","55","56","155"] ): #multiple optimizers 
                             
                             #optm_idx = step % len(optimizers)
                             if(model_params['model_type_settings']['model_version'] in ["54"]):
