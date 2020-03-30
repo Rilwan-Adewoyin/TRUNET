@@ -129,7 +129,7 @@ class model_deepsd_hparameters(MParams):
 
         REC_ADAM_PARAMS = {
             "learning_rate":1e-5 , "warmup_proportion":0.5,
-            "min_lr": 1e-6, "beta_1":0.99 , "beta_2": 0.99, "decay":0.98 }
+            "min_lr": 1e-6, "beta_1":0.99 , "beta_2": 0.99, "decay":0.005 }
         LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":0.85}
 
         model_type_settings = {'stochastic':False ,'stochastic_f_pass':10,
@@ -405,7 +405,7 @@ class model_SimpleGRU_hparameters(MParams):
 
         REC_ADAM_PARAMS = {
             "learning_rate":1e-3, "warmup_proportion":0.25,
-            "min_lr":1e-4, "beta_1":0.75, "beta_2":0.95, "decay":0.009,
+            "min_lr":1e-4, "beta_1":0.75, "beta_2":0.95, "decay":0.005,
             "amsgrad":True, "epsilon":5e-3
             } #for multile optimizers asymettric 
 
@@ -429,61 +429,6 @@ class model_SimpleGRU_hparameters(MParams):
             'lookahead_params':LOOKAHEAD_PARAMS
         })
 
-class model_SimpleConvLSTM_hparamaters(MParams):
-
-    def __init__(self, **kwargs):
-        super(model_SimpleConvLSTM_hparamaters, self).__init__(**kwargs)
-    
-    def _default_params(self):
-        #ConvLayers
-        layer_count = 3 #TODO: Shi uses 2 layers
-        filters = [64]*layer_count #[128]*layer_count #Shi Precip nowcasting used 
-        kernel_sizes = [[4,4]]*layer_count
-        paddings = ['same']*layer_count
-        return_sequences = [True]*layer_count
-        dropout = [0.1]*layer_count
-        recurrent_dropout = [0.2]*layer_count
-        
-        ConvLSTM_layer_params = [ { 'filters':fs, 'kernel_size':ks , 'padding': ps,
-                                'return_sequences':rs, "dropout": dp , "recurrent_dropout":rdp,
-                                'kernel_regularizer': tf.keras.regularizers.l2(0.01),
-                                'recurrent_regularizer': tf.keras.regularizers.l2(0.2),
-                                'bias_regularizer':tf.keras.regularizers.l2(0.01)  }
-                                for fs,ks,ps,rs,dp,rdp in zip(filters, kernel_sizes, paddings, return_sequences, dropout, recurrent_dropout)  ]
-        
-        outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'linear','padding':'same' }
-
-        #data pipeline
-        target_to_feature_time_ratio = 4
-        lookback_feature = 30*target_to_feature_time_ratio  #TODO: Try with longer sequence if it fits into memory       
-        DATA_PIPELINE_PARAMS = {
-            'lookback_feature':lookback_feature,
-            'lookback_target': int(lookback_feature/target_to_feature_time_ratio),
-            'target_to_feature_time_ratio' :  target_to_feature_time_ratio
-        }
-
-        #training proc
-        REC_ADAM_PARAMS = {
-            "learning_rate":1e-4 , "warmup_proportion":0.6,
-            "min_lr":1e-5, "beta_1":0.99, "beta_2":0.99, "decay":0.94
-            }
-
-        LOOKAHEAD_PARAMS = { "sync_period":2 , "slow_step_size":0.85 }
-
-        model_type_settings = { }
-
-        self.params.update( {
-            'model_name':'SimpleConvLSTM',
-            'layer_count':layer_count,
-            'ConvLSTM_layer_params':ConvLSTM_layer_params,
-            'outpconv_layer_params': outpconv_layer_params,
-
-            'data_pipeline_params':DATA_PIPELINE_PARAMS,
-            'model_type_settings':model_type_settings,
-
-            'rec_adam_params':REC_ADAM_PARAMS,
-            'lookahead_params':LOOKAHEAD_PARAMS
-        })
 
 class model_SimpleConvGRU_hparamaters(MParams):
 
@@ -537,7 +482,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
         #training proc
         REC_ADAM_PARAMS = {
             "learning_rate":1e-2 , "warmup_proportion":0.6,
-            "min_lr":1e-3, "beta_1":0.5, "beta_2":0.99, "decay":0.94, "amsgrad":True,
+            "min_lr":1e-3, "beta_1":0.5, "beta_2":0.99, "decay":0.009, "amsgrad":True,
             'epsilon':0.005
             }
 
@@ -581,7 +526,7 @@ class model_SimpleDense_hparameters(MParams):
         #training proc
         REC_ADAM_PARAMS = {
             "learning_rate":1e-3 , "warmup_proportion":0.6,
-            "min_lr":1e-4, "beta_1":0.99, "beta_2":0.99,"decay":0.98
+            "min_lr":1e-4, "beta_1":0.99, "beta_2":0.99,"decay":0.005
             }
 
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.999 }
