@@ -405,7 +405,7 @@ class model_SimpleGRU_hparameters(MParams):
 
         REC_ADAM_PARAMS = {
             "learning_rate":1e-3, "warmup_proportion":0.25,
-            "min_lr":1e-4, "beta_1":0.75, "beta_2":0.95, "decay":0.005,
+            "min_lr":1e-5, "beta_1":0.75, "beta_2":0.95, "decay":0.005,
             "amsgrad":True, "epsilon":5e-3
             } #for multile optimizers asymettric 
 
@@ -658,7 +658,7 @@ class train_hparameters_ati(HParams):
         }
 
         NORMALIZATION_SCALES_v1 = {
-                                    "rain":4.69872,
+                                    "rain":4.69872+0.5,
                                     "model_fields": np.array([6.805,
                                                               0.001786,
                                                               5.458,
@@ -779,7 +779,7 @@ class test_hparameters_ati(HParams):
         }
 
         NORMALIZATION_SCALES_v1 = {
-                                    "rain":4.69872,
+                                    "rain":4.69872+0.5,
                                     "model_fields": np.array([6.805,
                                                               0.001786,
                                                               5.458,
