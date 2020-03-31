@@ -539,18 +539,18 @@ def train_loop(train_params, model_params):
                             #optm_idx = step % len(optimizers)
                             if(model_params['model_type_settings']['model_version'] in ["54"]):
                                 #optm_idx = (step // int(train_set_size_batches/4) ) % len(optimizers)
-                                optm_idx = step // % len(optimizers)
+                                optm_idx = step % len(optimizers)
                                 losses = [_l1, _l2, _l3  ]
                                 
 
                             elif(model_params['model_type_settings']['model_version'] in ["55","155"]):
                                 #optm_idx = (step // int(train_set_size_batches/3) ) % 2
-                                optm_idx = step // % len(optimizers)
+                                optm_idx = step % len(optimizers)
                                 losses = [_l1, _l2 ]
                             
                             elif(model_params['model_type_settings']['model_version'] in ["56"]):
                                 #optm_idx = (step // int(train_set_size_batches/3) ) % 2
-                                optm_idx = step // % len(optimizers)
+                                optm_idx = step % len(optimizers)
                                 losses = [_l1, _l3 ]
 
                             _optimizer = optimizers[optm_idx]
