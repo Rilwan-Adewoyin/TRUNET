@@ -568,8 +568,7 @@ def train_loop(train_params, model_params):
                     if(model_params['model_type_settings']['model_version'] in ["54","55","56","155"] ): #multiple optimizers 
                         gradients, _ = tf.clip_by_global_norm( gradients, 50.0 )
 
-                        #insert code here to handle ensuring all loss functions start at the same time, e.g. when all optimizers have stopped producing nans
-
+                        #ensuring all optimizers start at the same time
                         if optimizer_ready[optm_idx]==False:
                             if tf.math.is_finite( _ ):
                                 optimizer_ready[optm_idx]=True
@@ -581,6 +580,7 @@ def train_loop(train_params, model_params):
                           _optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
                     else:
+                        gradients, _ = tf.clip_by_global_norm( gradients, 30.0 )
                         _optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
                 elif (model_params['model_name'] in ["SimpleConvLSTM","SimpleConvGRU","THST"]):
