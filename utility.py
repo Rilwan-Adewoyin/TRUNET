@@ -212,16 +212,7 @@ def load_params_train_model(args_dict):
         init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
         
         train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
-    
-    elif(args_dict['model_name']=="SimpleConvLSTM"):
-        init_m_params = {}
-        init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
-        model_params = hparameters.model_SimpleConvLSTM_hparamaters(**init_m_params)()
-        init_t_params = {}
-        init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
-        init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
-        
-        train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
+
 
     elif(args_dict['model_name']=="SimpleConvGRU"):
         init_m_params = {}
@@ -235,8 +226,8 @@ def load_params_train_model(args_dict):
 
     #Other Checks
     ## 1) If training and if mc_dropout, change to Deterministic since mc_dropout is not really variational inference
-    if( model_params['model_type_settings']['var_model_type']=='mc_dropout' and model_params['model_type_settings']['stochastic']==False ):
-        model_params['model_type_settings']['var_model_type'] ='Deterministic'
+    # if( model_params['model_type_settings']['var_model_type']=='mc_dropout' and model_params['model_type_settings']['stochastic']==False ):
+    #     model_params['model_type_settings']['var_model_type'] ='Deterministic'
 
     save_model_settings( model_params, train_params() )
 

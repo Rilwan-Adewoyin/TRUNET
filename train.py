@@ -722,10 +722,6 @@ def train_loop(train_params, model_params):
                     else:
                         _optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
-
-
-
-
                 gc.collect()
             #region Tensorboard Update
             
@@ -816,6 +812,7 @@ def train_loop(train_params, model_params):
                     #TODO: Add Discrete Continuous Metric here is wrong, should be same as other version
 
             elif model_params['model_name'] in ["SimpleLSTM", "SimpleGRU" ,"SimpleDense"]:
+                
                 if model_params['model_type_settings']['stochastic'] == False:
                     target, mask = target
                     preds = model(tf.cast(feature,tf.float16),training=False )
@@ -858,7 +855,7 @@ def train_loop(train_params, model_params):
                         elif model_params['model_type_settings']['distr_type'] == 'LogNormal':
                             val_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) ) 
 
-                            loss_mse = (rain_count/all_count)*tf.reduce_mean(custom_losses.lnormal_mse( target_filtrd , preds_filtrd ) ) # (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, preds_cond_rain_mean)
+                            loss_mse = (rain_count/all_count)*tf.reduce_mean(custom_losses.lnormal_mse(target_filtrd , preds_filtrd ) ) # (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, preds_cond_rain_mean)
 
                             if(model_params['model_type_settings']['model_version'] in ["3","4","44","46","54","55","155"] ):
                                 val_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
@@ -893,6 +890,7 @@ def train_loop(train_params, model_params):
                     target, mask = target # (bs, h, w) 
 
                 if model_params['model_type_settings']['stochastic'] == False:
+
                     preds = model(tf.cast(feature,tf.float16), training=False )
                     preds = tf.squeeze(preds)
 
@@ -905,9 +903,60 @@ def train_loop(train_params, model_params):
                     target_filtrd = tf.boolean_mask( target, mask )
                     preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], 
                                                             train_params['normalization_scales']['rain'], reverse=True)
-                    _mse = tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )
-                    val_metric_loss(  _mse )
-                    val_metric_mse( _mse )
+
+                    if model_params['model_type_settings']['discrete_continuous'] == False:
+                        _ = tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) ) 
+                        val_metric_loss( _ )
+                        val_metric_mse( _ )
+
+                    elif model_params['model_type_settings']['discrete_continuous'] == True:
+                        #get classification labels & predictions, true/1 means it has rained   
+                        labels_true = tf.cast( tf.greater( target_filtrd, model_params['model_type_settings']['precip_threshold'] ), tf.float32 )
+                        labels_pred = tf.cast( tf.greater( preds_filtrd, model_params['model_type_settings']['precip_threshold'] ) ,tf.float32 )
+                        
+                        rain_count = tf.math.count_nonzero( target_filtrd, dtype=tf.float32 )
+                        all_count = tf.size( target_filtrd, out_type=tf.float32 )
+
+                        #  gather predictions which are conditional on rain
+                        bool_cond_rain = tf.where(tf.equal(labels_true,1),True,False )
+
+                        preds_cond_rain_mean = tf.boolean_mask( preds_filtrd, bool_cond_rain)
+                        target_cond_rain = tf.boolean_mask( target_filtrd, bool_cond_rain )
+                        
+                        preds_cond_no_rain_mean = tf.boolean_mask( preds_filtrd, tf.math.logical_not(bool_cond_rain) )
+                        target_cond_no_rain = tf.boolean_mask( target_filtrd, tf.math.logical_not(bool_cond_rain) )
+                        
+
+                        if model_params['model_type_settings']['distr_type'] == 'Normal': #These two below handle dc cases of normal and log_normal
+
+                            loss_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_cond_rain , preds_cond_rain_mean ) )  #NOTE: currently the val_metric_loss represents a different target for different combinations of distr_type and stochastic
+                            val_mse = val_metric_loss( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
+                    
+                        elif model_params['model_type_settings']['distr_type'] == 'LogNormal':
+                            val_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) ) 
+
+                            loss_mse = (rain_count/all_count)*tf.reduce_mean(custom_losses.lnormal_mse(target_filtrd , preds_filtrd ) ) # (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, preds_cond_rain_mean)
+
+                            if(model_params['model_type_settings']['model_version'] in ["3","4","44","46","54","55","155"] ):
+                                val_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
+                                loss_mse += val_mse_cond_no_rain
+                                val_mse += val_mse_cond_no_rain
+                            else:
+                                val_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
+                                val_mse +=val_mse_cond_no_rain
+                            
+
+                            if(model_params['model_type_settings']['model_version'] in ["3","4","44","45","145","47","48","49","50","51","52",'53','54',"56"] ):
+                                log_cross_entropy_rainclassification = tf.reduce_mean( 
+                                        tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )
+                            
+                            else:
+                                log_cross_entropy_rainclassification = 0
+
+                            loss_mse +=     log_cross_entropy_rainclassification
+                        
+                        val_metric_loss(loss_mse)
+                        val_metric_mse(val_mse)
 
                 elif(model_params['model_type_settings']['stochastic']==True):
                     raise NotImplementedError                

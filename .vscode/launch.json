@@ -53,9 +53,9 @@
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
-            "args": [ "-mn","SimpleGRU","-sdc","2",
-                        "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':5.0,'var_model_type':'Deterministic','model_version':'100', 'twoD':False,'location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Leeds','Liverpool','Bradford','Edinburgh']}",
-                "-dd","Data/Rain_Data_Nov19","-bs","10", "-od","./Output", "-do","0.0", "-ido","0.0", "-rdo","0.0" ]
+            "args": [ "-mn","SimpleGRU","-sdc","1",
+                        "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':False,'precip_threshold':5.0,'var_model_type':'mc_dropout','model_version':'100', 'twoD':False,'location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Leeds','Liverpool','Bradford','Edinburgh']}",
+                "-dd","Data/Rain_Data_Nov19","-bs","10", "-od","./Output", "-do","0.3", "-ido","0.3", "-rdo","0.4" ]
         },
         {
             "name": "SimpleGRUTest",
