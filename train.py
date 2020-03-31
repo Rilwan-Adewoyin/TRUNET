@@ -478,7 +478,7 @@ def train_loop(train_params, model_params):
                             
                             labels_true = tf.where( target_filtrd>model_params['model_type_settings']['precip_threshold'], 1.0, 0.0)
                             labels_pred = tf.where( preds_filtrd>model_params['model_type_settings']['precip_threshold'], 1.0, 0.0)
-                            alpha = 1000
+                            alpha = 100
                             labels_pred_cont_approx = tf.math.sigmoid( alpha*preds_filtrd - alpha/2 )  #Label calculation allowing back-prop 
                                 #Note in tf.float32 tf.math.sigmoid(16.7)==1 and  
 
