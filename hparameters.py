@@ -404,8 +404,8 @@ class model_SimpleGRU_hparameters(MParams):
         #training proc
 
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-3, "warmup_proportion":0.25,
-            "min_lr":1e-5, "beta_1":0.75, "beta_2":0.95, "decay":0.005,
+            "learning_rate":1e-3, "warmup_proportion":0.60,
+            "min_lr":5e-5, "beta_1":0.75, "beta_2":0.95, "decay":0.005,
             "amsgrad":True, "epsilon":5e-3
             } #for multile optimizers asymettric 
 

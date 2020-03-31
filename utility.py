@@ -9,6 +9,7 @@ import hparameters
 import ast
 import copy
 import datetime
+import re
 
 # region Vandal
 #precip data import - use in data pipeline
@@ -425,7 +426,10 @@ def model_name_mkr(model_params, mode='Generic'):
                         model_params['model_type_settings']['distr_type'], 
                         str(model_params['model_type_settings']['discrete_continuous']),
                         model_params['model_type_settings']['location'],model_params['model_type_settings']['model_version'] )  
-        
+    
+    model_name = re.sub("[ '\(\[\)\]]|ListWrapper",'',model_name )
+    model_name = re.sub(",",'_',model_name )
+
     return model_name
 
 # region ATI modules

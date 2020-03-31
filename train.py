@@ -125,14 +125,10 @@ def train_loop(train_params, model_params):
         #Trying 2 optimizers for discrete_continuious LSTM
         if model_params['model_type_settings']['model_version'] in ["54","55","56","155"]:
 
-            optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":5e-3, "warmup_proportion":0.25, "min_lr":1e-3, "beta_1":0.5, "beta_2":0.85, "decay":0.006, "amsgrad":True, "epsilon":1e-3} , total_steps=total_steps*20 ) 
-            optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":4e-3, "warmup_proportion":0.25, "min_lr":1e-3, "beta_1":0.5, "beta_2":0.85, "decay":0.006, "amsgrad":True,"epsilon":1e-3} , total_steps=total_steps*20 ) 
-            optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":5e-3, "warmup_proportion":0.25, "min_lr":1e-3, "beta_1":0.5, "beta_2":0.85, "decay":0.006, "amsgrad":True,"epsilon":1e-3} , total_steps=total_steps*20 )  
+            optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":1.25e-3, "warmup_proportion":0.75, "min_lr":5e-5, "beta_1":0.15, "beta_2":0.85, "decay":0.006, "amsgrad":True, "epsilon":1e-4} , total_steps=total_steps*20 ) 
+            optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3, "warmup_proportion":0.75, "min_lr":5e-5, "beta_1":0.15, "beta_2":0.85, "decay":0.006, "amsgrad":True,"epsilon":1e-4} , total_steps=total_steps*20 ) 
+            optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":1.25e-3, "warmup_proportion":0.75, "min_lr":5e-5, "beta_1":0.15, "beta_2":0.85, "decay":0.006, "amsgrad":True,"epsilon":1e-4} , total_steps=total_steps*20 )  
                 #copy.deepcopy( optimizer )
-
-            # optimizer_nonrain = tf.keras.optimizers.Nadam( **{"learning_rate":1e-4,"beta_1":0.25, "beta_2":0.30, "epsilon":1e-2, "schedule_decay": (30*train_set_size_batches/3)**-1 }  ) 
-            # optimizer_rain = tf.keras.optimizers.Nadam( **{"learning_rate":1e-3, "beta_1":0.25, "beta_2":0.30, "epsilon":1e-2, "schedule_decay": (30*train_set_size_batches/3)**-1  } ) #Every 30 epochs
-            # optimizer_dc = tf.keras.optimizers.Nadam(  **{"learning_rate":1e-4,"beta_1":0.25, "beta_2":0.30, "epsilon":1e-2, "schedule_decay": (30*train_set_size_batches/3)**-1 } ) 
             
             optimizers          = [ optimizer_rain, optimizer_nonrain, optimizer_dc ]
             optimizers          = [ mixed_precision.LossScaleOptimizer(_opt, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) for _opt in optimizers ]
@@ -561,7 +557,7 @@ def train_loop(train_params, model_params):
                     gradients = _optimizer.get_unscaled_gradients(scaled_gradients)
                     
                     if(model_params['model_type_settings']['model_version'] in ["54","55","56","155"] ): #multiple optimizers 
-                        gradients, _ = tf.clip_by_global_norm( gradients, 30.0 )
+                        gradients, _ = tf.clip_by_global_norm( gradients, 50.0 )
 
                         #insert code here to handle ensuring all loss functions start at the same time, e.g. when all optimizers have stopped producing nans
 
