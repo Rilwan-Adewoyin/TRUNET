@@ -112,11 +112,12 @@ def train_loop(train_params, model_params):
     if type(model_params) == list:
         model_params = model_params[0]
     
+    total_steps = train_set_size_batches*30
     if tfa==None:
         optimizer = tf.keras.optimizers.Adam( learning_rate=1e-4, beta_1=0.1, beta_2=0.99, epsilon=1e-5 )
     else:
-        total_steps = train_set_size_batches        
-        radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=total_steps*30 ) 
+                
+        radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=total_steps ) 
         optimizer = tfa.optimizers.Lookahead(radam, **model_params['lookahead_params'])
     
     optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() )
@@ -125,9 +126,9 @@ def train_loop(train_params, model_params):
         #Trying 2 optimizers for discrete_continuious LSTM
         if model_params['model_type_settings']['model_version'] in ["54","55","56","155"]:
 
-            optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":1.25e-3, "warmup_proportion":0.75, "min_lr":5e-5, "beta_1":0.15, "beta_2":0.85, "decay":0.006, "amsgrad":True, "epsilon":1e-4} , total_steps=total_steps*20 ) 
-            optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3, "warmup_proportion":0.75, "min_lr":5e-5, "beta_1":0.15, "beta_2":0.85, "decay":0.006, "amsgrad":True,"epsilon":1e-4} , total_steps=total_steps*20 ) 
-            optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":1.25e-3, "warmup_proportion":0.75, "min_lr":5e-5, "beta_1":0.15, "beta_2":0.85, "decay":0.006, "amsgrad":True,"epsilon":1e-4} , total_steps=total_steps*20 )  
+            optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":1.25e-3, "warmup_proportion":0.75, "min_lr":1e-4, "beta_1":0.25, "beta_2":0.85, "decay":0.005, "amsgrad":True, "epsilon":1e-4} , total_steps=total_steps ) 
+            optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3, "warmup_proportion":0.75, "min_lr":1e-4, "beta_1":0.25, "beta_2":0.85, "decay":0.005, "amsgrad":True,"epsilon":1e-4} , total_steps=total_steps ) 
+            optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":1.25e-3, "warmup_proportion":0.75, "min_lr":1e-4, "beta_1":0.25, "beta_2":0.85, "decay":0.005, "amsgrad":True,"epsilon":1e-4} , total_steps=total_steps )  
                 #copy.deepcopy( optimizer )
             
             optimizers          = [ optimizer_rain, optimizer_nonrain, optimizer_dc ]
