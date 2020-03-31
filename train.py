@@ -126,12 +126,17 @@ def train_loop(train_params, model_params):
         #Trying 2 optimizers for discrete_continuious LSTM
         if model_params['model_type_settings']['model_version'] in ["54","55","56","155"]:
 
-            optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":1.25e-3, "warmup_proportion":0.75, "min_lr":1e-4, "beta_1":0.25, "beta_2":0.85, "decay":0.005, "amsgrad":True, "epsilon":1e-4} , total_steps=total_steps ) 
-            optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3, "warmup_proportion":0.75, "min_lr":1e-4, "beta_1":0.25, "beta_2":0.85, "decay":0.005, "amsgrad":True,"epsilon":1e-4} , total_steps=total_steps ) 
-            optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":1.25e-3, "warmup_proportion":0.75, "min_lr":1e-4, "beta_1":0.25, "beta_2":0.85, "decay":0.005, "amsgrad":True,"epsilon":1e-4} , total_steps=total_steps )  
-                #copy.deepcopy( optimizer )
+            optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":1.5e-3, "warmup_proportion":0.75, "min_lr":1e-4, "beta_1":0.15, "beta_2":0.85, "decay":0.005, "amsgrad":True, "epsilon":1e-4} , total_steps=total_steps ) 
+            optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3, "warmup_proportion":0.75, "min_lr":1e-4, "beta_1":0.15, "beta_2":0.85, "decay":0.005, "amsgrad":True,"epsilon":1e-4} , total_steps=total_steps ) 
+            optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":1.25e-3, "warmup_proportion":0.75, "min_lr":1e-4, "beta_1":0.15, "beta_2":0.85, "decay":0.005, "amsgrad":True,"epsilon":1e-4} , total_steps=total_steps )  
             
-            optimizers          = [ optimizer_rain, optimizer_nonrain, optimizer_dc ]
+            if(model_params['model_type_settings']['model_version']) in ["54"]:
+                optimizers          = [ optimizer_rain, optimizer_nonrain, optimizer_dc ]
+            elif(model_params['model_type_settings']['model_version']) in ["55","155"]:
+                optimizers          = [ optimizer_rain, optimizer_nonrain ]
+            elif(model_params['model_type_settings']['model_version']) in ["56"]:
+                optimizers          = [ optimizer_rain, optimizer_dc ]
+            
             optimizers          = [ mixed_precision.LossScaleOptimizer(_opt, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) for _opt in optimizers ]
             optimizer_ready     = [ False ]*len( optimizers )
         else:
@@ -533,15 +538,19 @@ def train_loop(train_params, model_params):
                             
                             #optm_idx = step % len(optimizers)
                             if(model_params['model_type_settings']['model_version'] in ["54"]):
-                                optm_idx = (step // int(train_set_size_batches/4) ) % len(optimizers)
+                                #optm_idx = (step // int(train_set_size_batches/4) ) % len(optimizers)
+                                optm_idx = step // % len(optimizers)
                                 losses = [_l1, _l2, _l3  ]
+                                
 
                             elif(model_params['model_type_settings']['model_version'] in ["55","155"]):
-                                optm_idx = (step // int(train_set_size_batches/3) ) % 2
+                                #optm_idx = (step // int(train_set_size_batches/3) ) % 2
+                                optm_idx = step // % len(optimizers)
                                 losses = [_l1, _l2 ]
                             
                             elif(model_params['model_type_settings']['model_version'] in ["56"]):
-                                optm_idx = (step // int(train_set_size_batches/3) ) % 2
+                                #optm_idx = (step // int(train_set_size_batches/3) ) % 2
+                                optm_idx = step // % len(optimizers)
                                 losses = [_l1, _l3 ]
 
                             _optimizer = optimizers[optm_idx]
