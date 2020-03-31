@@ -454,7 +454,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
         if dropout == 0.0:
             _filter = 80
         else:
-            _filter = 112
+            _filter = int(80*1.4)
         filters = [_filter]*layer_count #[128]*layer_count #Shi Precip nowcasting used
         kernel_sizes = [[4,4]]*layer_count
         paddings = ['same']*layer_count
@@ -494,8 +494,8 @@ class model_SimpleConvGRU_hparamaters(MParams):
 
         #training proc
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-2 , "warmup_proportion":0.6,
-            "min_lr":1e-3, "beta_1":0.5, "beta_2":0.99, "decay":0.009, "amsgrad":True,
+            "learning_rate":8e-2 , "warmup_proportion":0.6,
+            "min_lr":4e-3, "beta_1":0.5, "beta_2":0.95, "decay":0.009, "amsgrad":True,
             'epsilon':0.005
             }
 
