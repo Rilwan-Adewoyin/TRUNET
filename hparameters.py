@@ -206,7 +206,11 @@ class model_THST_hparameters(MParams):
         enc_layer_count        = len( SEQ_LEN_FACTOR_REDUCTION ) + 1
 
         # region CLSTM params
-        output_filters_enc     = [ 64 ]*(enc_layer_count-1)                     # [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
+        if DROPOUT == 0.0:
+            _filter = 64
+        else:
+            _filter = int(64*1.4)
+        output_filters_enc     = [ _filter ]*(enc_layer_count-1)                     # [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc     = output_filters_enc + output_filters_enc[-1:]   # the last two layers in the encoder must output the same number of channels
         kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )                # [(2,2)]
         recurrent_regularizers = [ None ] * (enc_layer_count) 
@@ -360,11 +364,16 @@ class model_SimpleGRU_hparameters(MParams):
     def _default_params(self, **kwargs):
         #model
         dropout = kwargs.get('dropout',0.0)
+
         input_dropout = kwargs.get('inp_dropout',0.0)
         recurrent_dropout = kwargs.get('rec_dropout',0.0)
         layer_count = 3
-        
-        li_units = [160]*layer_count
+
+        if dropout == 0.0:
+            units = 160
+        else:
+            units = int(160*1.4)
+        li_units = [units]*layer_count
         
         li_rs =     [True]*layer_count
         ln = [ tf.keras.layers.LayerNormalization(axis=-1) for _idx in range(layer_count) ]
@@ -443,9 +452,9 @@ class model_SimpleConvGRU_hparamaters(MParams):
         #ConvLayers
         layer_count = 3 #TODO: Shi uses 2 layers
         if dropout == 0.0:
-            _filter = 60
+            _filter = 80
         else:
-            _filter = 100
+            _filter = 112
         filters = [_filter]*layer_count #[128]*layer_count #Shi Precip nowcasting used
         kernel_sizes = [[4,4]]*layer_count
         paddings = ['same']*layer_count
