@@ -249,7 +249,7 @@ def train_loop(train_params, model_params):
         for idx in range(1,len(li_ds_vals ) ):
             ds_val = ds_val.concatenate( li_ds_vals[idx] )
 
-        #Version that doesnt work on warwick desktop
+        #Version that works on warwick desktop
         # ds_train_val = ds_train.concatenate(ds_val).repeat(train_params['epochs']-starting_epoch)
         # ds_train_val = ds_train_val.skip(batches_to_skip)
         # iter_val_train = enumerate(ds_train_val)
@@ -705,7 +705,7 @@ def train_loop(train_params, model_params):
                     gradients = _optimizer.get_unscaled_gradients(scaled_gradients)
                     
                     if(model_params['model_type_settings']['model_version'] in ["54","55","56","155"] ): #multiple optimizers 
-                        gradients, _ = tf.clip_by_global_norm( gradients, 15.0 )
+                        gradients, _ = tf.clip_by_global_norm( gradients, 2.5 )
 
                         #insert code here to handle ensuring all loss functions start at the same time, e.g. when all optimizers have stopped producing nans
 
@@ -720,7 +720,7 @@ def train_loop(train_params, model_params):
                           _optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
                     else:
-                        gradients, _ = tf.clip_by_global_norm( gradients, 15.0 )
+                        gradients, _ = tf.clip_by_global_norm( gradients, 2.5 )
                         _optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
                 gc.collect()
