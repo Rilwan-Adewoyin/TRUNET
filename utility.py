@@ -184,7 +184,7 @@ def load_params_train_model(args_dict):
         
         init_m_params = {}
         init_m_params.update({'model_type_settings': ast.literal_eval( args_dict['model_type_settings'] ) } )
-        model_params = hparameters.model_THST_hparameters(**init_m_params, **args_dict)()
+        model_params = hparameters.model_THST_hparameters( **init_m_params, **args_dict )()
         init_t_params = {}
         init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
         init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
@@ -199,7 +199,6 @@ def load_params_train_model(args_dict):
         init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
         init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
         init_t_params.update( {'loss_scales':ast.literal_eval( args_dict['loss_scales']) } )
-        
         train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
     
     elif(args_dict['model_name'] in ["SimpleDense"] ):
@@ -212,7 +211,6 @@ def load_params_train_model(args_dict):
         init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
         
         train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
-
 
     elif(args_dict['model_name']=="SimpleConvGRU"):
         init_m_params = {}
