@@ -477,7 +477,7 @@ def train_loop(train_params, model_params):
                             #get classification labels & predictions, true/1 means it has rained   
                             labels_true = tf.where( target_filtrd>model_params['model_type_settings']['precip_threshold'], 1.0, 0.0)
                             labels_pred = tf.where( preds_filtrd>model_params['model_type_settings']['precip_threshold'], 1.0, 0.0)
-                            alpha = 100
+                            alpha = 1000
                             labels_pred_cont_approx = tf.math.sigmoid( alpha*preds_filtrd - alpha/2 )  #Label calculation allowing back-prop 
                                 #Note in tf.float32 tf.math.sigmoid(16.7)==1 and  
 
@@ -617,7 +617,7 @@ def train_loop(train_params, model_params):
                             #get classification labels & predictions, true/1 means it has rained   
                             labels_true = tf.where( target_filtrd>model_params['model_type_settings']['precip_threshold'], 1.0, 0.0)
                             labels_pred = tf.where( preds_filtrd>model_params['model_type_settings']['precip_threshold'], 1.0, 0.0)
-                            alpha = 100
+                            alpha = 1000
                             labels_pred_cont_approx = tf.math.sigmoid( alpha*preds_filtrd - alpha/2 )  #Label calculation allowing back-prop 
                                 #Note in tf.float32 tf.math.sigmoid(16.7)==1 and  
 
