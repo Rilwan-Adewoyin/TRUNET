@@ -705,7 +705,7 @@ def train_loop(train_params, model_params):
                     gradients = _optimizer.get_unscaled_gradients(scaled_gradients)
                     
                     if(model_params['model_type_settings']['model_version'] in ["54","55","56","155"] ): #multiple optimizers 
-                        gradients, _ = tf.clip_by_global_norm( gradients, 5.0 )
+                        gradients, _ = tf.clip_by_global_norm( gradients, 15.0 )
 
                         #insert code here to handle ensuring all loss functions start at the same time, e.g. when all optimizers have stopped producing nans
 
@@ -720,7 +720,7 @@ def train_loop(train_params, model_params):
                           _optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
                     else:
-                        gradients, _ = tf.clip_by_global_norm( gradients, 5.0 )
+                        gradients, _ = tf.clip_by_global_norm( gradients, 15.0 )
                         _optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
                 gc.collect()
