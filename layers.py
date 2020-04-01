@@ -629,8 +629,7 @@ def HalfCauchy_Guassian_posterior_tensor_fn(obj, dist_weights, kernel_shape, inp
 # endregion
 
 # region THST layers
-
-class THST_Encoder(tf.keras.layers.Layer ):
+class THST_Encoder(tf.keras.layers.Layer):
 	def __init__(self, train_params, encoder_params, h_w):
 		super( THST_Encoder, self ).__init__()
 		self.encoder_params = encoder_params
@@ -670,13 +669,13 @@ class THST_Encoder(tf.keras.layers.Layer ):
 		
 		hidden_state =  self.CGRU_Input_Layer( _input, training ) #(bs, seq_len_1, h, w, c1)
 		
-		#Note: Doing the foor loop this way so more operations can be given to gpu 1
-		#with tf.device('/GPU:0'):
+				#Note: Doing the foor loop this way so more operations can be given to gpu 1
+				#with tf.device('/GPU:0'):
 		for idx in range(self.encoder_params['attn_layers_count'] -1):
 			hidden_state = self.CGRU_Attn_layers[idx]( hidden_state, training=training)
 			hs_list = hs_list.write( idx, hidden_state )
 		
-		#with tf.device('/GPU:1'):
+				#with tf.device('/GPU:1'):
 		hidden_state = self.CGRU_Attn_layers[idx+1]( hidden_state, training=training)
 		hs_list = hs_list.write( idx+1, hidden_state )
 		
@@ -696,8 +695,9 @@ class THST_Decoder(tf.keras.layers.Layer):
 		
 		self.CGRU_2cell_layers = []
 		for idx in range( self.layer_count ):
-			_layer = THST_CGRU_Decoder_Layer( train_params, self.decoder_params['CGRUs_params'][idx], decoder_params['seq_len_factor_expansion'][idx],
-														decoder_params['seq_len'][idx], h_w )
+			_layer = THST_CGRU_Decoder_Layer( train_params, self.decoder_params['CGRUs_params'][idx], 
+												decoder_params['seq_len_factor_expansion'][idx],
+												decoder_params['seq_len'][idx], h_w )
 			self.CGRU_2cell_layers.append(_layer)
 
 	# @tf.function
@@ -707,11 +707,11 @@ class THST_Decoder(tf.keras.layers.Layer):
 	def call(self, hs_list, training=True):
 
 		# hidden_states_l4 = self.CGRU_L4( hidden_states_4_enc , hidden_states_5_enc, training)
-		#     #2, 4, 100, 140, 2
-		# hidden_states_l3 = self.CGRU_L3( hidden_states_3_enc, hidden_states_l4, training ) #(bs, output_len2, 100, 140, layer_below_filters*2)
-		#     #2, 8, 100, 140, 2
-		# hidden_states_l2 = self.CGRU_L2( hidden_states_2_enc, hidden_states_l3, training )     #(bs, output_len1, height, width)     
-		#     #2, 16, 100, 140, 4
+			#     #2, 4, 100, 140, 2
+			# hidden_states_l3 = self.CGRU_L3( hidden_states_3_enc, hidden_states_l4, training ) #(bs, output_len2, 100, 140, layer_below_filters*2)
+			#     #2, 8, 100, 140, 2
+			# hidden_states_l2 = self.CGRU_L2( hidden_states_2_enc, hidden_states_l3, training )     #(bs, output_len1, height, width)     
+			#     #2, 16, 100, 140, 4
 
 		dec_hs_outp = hs_list.read(self.layer_count)
 
@@ -755,26 +755,19 @@ class THST_CGRU_Attention_Layer(tf.keras.layers.Layer):
 	def __init__(self, train_params, CGRU_params, attn_params, attn_downscaling_params ,seq_len_factor_reduction, num_of_splits, h_w ):
 		super( THST_CGRU_Attention_Layer, self ).__init__()
 
-		self.trainable = train_params['trainable']
-		self.num_of_splits = num_of_splits
-		self.seq_len_factor_reduction = seq_len_factor_reduction
+		self.trainable 					= train_params['trainable']
+		self.num_of_splits 				= num_of_splits
+		self.seq_len_factor_reduction 	= seq_len_factor_reduction
 		
-		# self.convLSTM_attn = Bidirectional( layer=layers_ConvLSTM2D.ConvLSTM2D_attn( **CGRU_params,
-		# 										attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
-		# 										attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable ),
-		# 									backward_layer=layers_ConvLSTM2D.ConvLSTM2D_attn( go_backwards=True, **copy.deepcopy(CGRU_params),
-		# 										attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
-		# 										attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable ),
-		# 									merge_mode=None ) #stateful possibly set to True, return_state=True, return_sequences=True
-		self.convGRU_attn = Bidirectional( layer=layers_ConvGRU2D.ConvGRU2D_attn( **CGRU_params,
-												attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
-												attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable ),
-											backward_layer=layers_ConvGRU2D.ConvGRU2D_attn( go_backwards=True, **copy.deepcopy(CGRU_params),
-												attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
-												attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable ),
-											merge_mode=None ) #stateful possibly set to True, return_state=True, return_sequences=True
+		self.convGRU_attn 				= Bidirectional( layer=layers_ConvGRU2D.ConvGRU2D_attn( **CGRU_params,
+															attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
+															attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable ),
+															backward_layer=layers_ConvGRU2D.ConvGRU2D_attn( go_backwards=True, **copy.deepcopy(CGRU_params),
+															attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
+															attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable ),
+															merge_mode=None ) #stateful possibly set to True, return_state=True, return_sequences=True
 
-		self.shape = ( train_params['batch_size'], self.num_of_splits, h_w[0], h_w[1], CGRU_params['filters'] )
+		self.shape 						= ( train_params['batch_size'], self.num_of_splits, h_w[0], h_w[1], CGRU_params['filters'] )
 
 	@tf.function
 	def call(self, input_hidden_states, training=True):
@@ -845,7 +838,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 	@tf.function
 	def call(self, _inputs, training=True ):
 		"""
-		:param tnsr inputs: (bs, seq_len, h,w,c)
+			:param tnsr inputs: (bs, seq_len, h,w,c)
 		"""
 		x = self.conv_hidden( _inputs,training=training )
 		x = self.conv_output( x, training=training ) #shape (bs, height, width)
@@ -1000,7 +993,6 @@ class SpatialConcreteDropout(tf.keras.layers.Wrapper):
 # endregion
 
 # region general layers/functions
-
 class OutputReluFloat32(tf.keras.layers.Layer):
 	def __init__(self, t_params):
 		super(OutputReluFloat32, self).__init__()
@@ -1134,7 +1126,6 @@ class ReLU_correct_layer(tf.keras.layers.Layer):
     @tf_utils.shape_type_conversion
     def compute_output_shape(self, input_shape):
         return input_shape
-
 
 def LeakyRelu_mkr(t_params):
 	CustomRelu = tf.keras.layers.ReLU( threshold=utility.standardize_ati( 0, t_params['normalization_shift']['rain'], 

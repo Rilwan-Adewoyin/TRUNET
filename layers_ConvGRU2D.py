@@ -476,7 +476,6 @@ class ConvRNN2D(RNN):
         K.set_value(state, value)
 
 #Input layer and SimpleConvGRU2D layers
-#Done
 class ConvGRU2D(ConvRNN2D):
     """Convolutional GRU.
 
@@ -829,7 +828,7 @@ class ConvGRU2D(ConvRNN2D):
             return [initial_hidden_state ]
         else:
             return [initial_hidden_state]
-#Done
+
 class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
     """Cell class for the ConvGRU2D layer.
 
@@ -1138,7 +1137,6 @@ class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
 
 
 #Decoder Layer
-#Done
 class ConvGRU2D_custom(ConvRNN2D):
     """
         CUSTOM Convolutional GRU.
@@ -1508,7 +1506,7 @@ class ConvGRU2D_custom(ConvRNN2D):
         else:
             return [initial_hidden_state]
         #endregion
-#Done
+
 class ConvGRU2DCell_custom(DropoutRNNCellMixin, Layer):
     """
         Cell class for the ConvGRU2D layer.
@@ -1862,7 +1860,6 @@ class ConvGRU2DCell_custom(DropoutRNNCellMixin, Layer):
         return dict(list(base_config.items()) + list(config.items()))
 
 # Encoder Layer
-#Not Done
 class ConvGRU2D_attn(ConvRNN2D):
     """
         CUSTOM Convolutional GRU.
@@ -2032,7 +2029,6 @@ class ConvGRU2D_attn(ConvRNN2D):
         self.attn_factor_reduc = attn_factor_reduc
 
         self.Attention2D = MultiHead2DAttention_v2( **attn_params, attention_scaling_params=attn_downscaling_params , attn_factor_reduc=attn_factor_reduc ,trainable=self.trainable )
-        
         
         cell = ConvGRU2DCell_attn(filters=filters,
                                      kernel_size=kernel_size,
@@ -2259,7 +2255,7 @@ class ConvGRU2D_attn(ConvRNN2D):
         else:
             return [initial_hidden_state]
         #endregion
-#NotDone
+
 class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
     """
         Cell class for the ConvGRU2D layer.
@@ -2359,12 +2355,10 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
         self.strides = conv_utils.normalize_tuple(strides, 2, 'strides')
         self.padding = conv_utils.normalize_padding(padding)
         self.data_format = conv_utils.normalize_data_format(data_format)
-        self.dilation_rate = conv_utils.normalize_tuple(dilation_rate, 2,
-                                                        'dilation_rate')
+        self.dilation_rate = conv_utils.normalize_tuple(dilation_rate, 2, 'dilation_rate')
         self.activation = activations.get(activation)
         self.recurrent_activation = activations.get(recurrent_activation)
         self.use_bias = use_bias
-
 
         self.layer_norm = layer_norm
         self.bool_ln = bool_ln
@@ -2541,7 +2535,6 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
         h = z*h_tm1 + (1-z)*hh
         
         return h, [h]
-
 
     def input_conv(self, x, w, b=None, padding='valid'):
         conv_out = K.conv2d(x, w, strides=self.strides,

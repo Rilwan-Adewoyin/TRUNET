@@ -112,7 +112,7 @@ def train_loop(train_params, model_params):
     if type(model_params) == list:
         model_params = model_params[0]
     
-    total_steps = train_set_size_batches*27
+    total_steps = train_set_size_batches*30
     if tfa==None:
         optimizer = tf.keras.optimizers.Adam( learning_rate=1e-4, beta_1=0.1, beta_2=0.99, epsilon=1e-5 )
     else:
@@ -126,9 +126,9 @@ def train_loop(train_params, model_params):
         #Trying 2 optimizers for discrete_continuious LSTM
         if model_params['model_type_settings']['model_version'] in ["54","55","56","155"]:
 
-            optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":1.5e-3, "warmup_proportion":0.75, "min_lr":7e-5, "beta_1":0.15, "beta_2":0.85, "decay":0.005, "amsgrad":True, "epsilon":1e-4} , total_steps=total_steps ) 
-            optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3, "warmup_proportion":0.75, "min_lr":7e-5, "beta_1":0.15, "beta_2":0.85, "decay":0.005, "amsgrad":True,"epsilon":1e-4} , total_steps=total_steps ) 
-            optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":1.25e-3, "warmup_proportion":0.75, "min_lr":7e-5, "beta_1":0.15, "beta_2":0.85, "decay":0.005, "amsgrad":True,"epsilon":1e-4} , total_steps=total_steps )  
+            optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":3e-3, "warmup_proportion":0.75, "min_lr":1e3, "beta_1":0.15, "beta_2":0.85, "decay":0.005, "amsgrad":True, "epsilon":1e-4} , total_steps=total_steps ) 
+            optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":2e-3, "warmup_proportion":0.75, "min_lr":1e-3, "beta_1":0.15, "beta_2":0.85, "decay":0.005, "amsgrad":True,"epsilon":1e-4} , total_steps=total_steps ) 
+            optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":2.5e-3, "warmup_proportion":0.75, "min_lr":1e-3, "beta_1":0.15, "beta_2":0.85, "decay":0.005, "amsgrad":True,"epsilon":1e-4} , total_steps=total_steps )  
             
             if(model_params['model_type_settings']['model_version']) in ["54"]:
                 optimizers          = [ optimizer_rain, optimizer_nonrain, optimizer_dc ]
@@ -831,14 +831,15 @@ def train_loop(train_params, model_params):
                         val_metric_mse( _ )
 
                     elif model_params['model_type_settings']['discrete_continuous'] == True:
-                        #get classification labels & predictions, true/1 means it has rained   
+
+                            #get classification labels & predictions, true/1 means it has rained   
                         labels_true = tf.cast( tf.greater( target_filtrd, model_params['model_type_settings']['precip_threshold'] ), tf.float32 )
-                        labels_pred = tf.cast( tf.greater( preds_filtrd, model_params['model_type_settings']['precip_threshold'] ) ,tf.float32 )
+                        labels_pred = tf.cast( tf.greater( preds_filtrd,  model_params['model_type_settings']['precip_threshold'] ), tf.float32 )
                         
                         rain_count = tf.math.count_nonzero( target_filtrd, dtype=tf.float32 )
-                        all_count = tf.size( target_filtrd, out_type=tf.float32 )
+                        all_count  = tf.size( target_filtrd, out_type=tf.float32 )
 
-                        #  gather predictions which are conditional on rain
+                            # gather predictions which are conditional on rain
                         bool_cond_rain = tf.where(tf.equal(labels_true,1),True,False )
 
                         preds_cond_rain_mean = tf.boolean_mask( preds_filtrd, bool_cond_rain)
@@ -1012,3 +1013,4 @@ if __name__ == "__main__":
 
     
 
+r

@@ -189,7 +189,7 @@ class model_THST_hparameters(MParams):
         seq_len_for_highest_hierachy_level = 4   # 2  
         SEQ_LEN_FACTOR_REDUCTION = [4, 7]        # [ 4, 2 ]
             #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
-            # 6hrs,1Day,1Week,1Month
+            # 6hrs, 1Day, 1Week, 1Month
         # endregion
         
         # region Model Specific Data Generator Params
@@ -207,9 +207,10 @@ class model_THST_hparameters(MParams):
 
         # region CLSTM params
         if DROPOUT == 0.0:
-            _filter = 64
+            _filter = 80
         else:
-            _filter = int(64*1.4)
+            _filter = int(80*1.4)
+
         output_filters_enc     = [ _filter ]*(enc_layer_count-1)                     # [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc     = output_filters_enc + output_filters_enc[-1:]   # the last two layers in the encoder must output the same number of channels
         kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )                # [(2,2)]
@@ -332,15 +333,7 @@ class model_THST_hparameters(MParams):
          ]
         # endregion
 
-        _mts = {
-            'stochastic': False ,
-            'deformable_conv': True ,
-            'var_model_type':"Deterministic" ,
-            'distr_type':"None",
-            'discrete_continuous':False,
-            "location":"wholegrid",
-            "model_version":"1"
-        }
+        _mts = {  }
         model_type_settings = kwargs.get('model_type_settings',_mts)
 
         self.params.update( {

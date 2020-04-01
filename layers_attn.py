@@ -29,25 +29,25 @@ from tensorflow.keras.layers import Conv2D, RNN
 
 class MultiHead2DAttention_v2(Layer):
     def __init__(self, attention_scaling_params,trainable,
-                                bias,
-                                total_key_depth,
-                                total_value_depth,
-                                output_depth,
-                                num_heads,
-                                dropout_rate,
-                                attn_factor_reduc,
-                                transform_value_antecedent=True,
-                                transform_output=True,
-                                max_relative_position=None, #TODO: add code for this much later
-                                heads_share_relative_embedding=False,
-                                add_relative_to_values=False,
-                                name="multihead_rel_attention",
-                                dropout_broadcast_dims=None, 
-                                chunk_number=None,
-                                hard_attention_k=0,
-                                training=True,
-                                model_location="wholeregion",
-                                **kwargs):
+                    bias,
+                        total_key_depth,
+                        total_value_depth,
+                        output_depth,
+                        num_heads,
+                        dropout_rate,
+                        attn_factor_reduc,
+                        transform_value_antecedent=True,
+                        transform_output=True,
+                        max_relative_position=None, #TODO: add code for this much later
+                        heads_share_relative_embedding=False,
+                        add_relative_to_values=False,
+                        name="multihead_rel_attention",
+                        dropout_broadcast_dims=None, 
+                        chunk_number=None,
+                        hard_attention_k=0,
+                        training=True,
+                        model_location="wholeregion",
+                        **kwargs):
 
         """
             TODO: prior to the attention possibly add something like squeeze and excitation to reweight the feature maps. But only in the first layer since taking in the original feature maps, as it shouldnt be needed after
@@ -173,19 +173,19 @@ class MultiHead2DAttention_v2(Layer):
         # endregion
 
         #region scaling
-        # if model_location == "wholeregion":
-        #     self.scaling_layer = tf.keras.layers.AveragePooling3D( pool_size=tuple(self.kq_downscale_kernelshape),
-        #                         strides=tuple(self.kq_downscale_stride), padding='same' )
-        # elif model_location == "region-grid":
-        #     self.scaling_layer = tf.keras.layers.AveragePooling3D( pool_size=tuple(self.kq_downscale_kernelshape),
-        # #                         strides=tuple(self.kq_downscale_stride), padding='same' )
-        # else:
-        #     raise ValueError
-        # endregion
+            # if model_location   == "wholeregion":
+            #     self.scaling_layer = tf.keras.layers.AveragePooling3D( pool_size=tuple(self.kq_downscale_kernelshape),
+            #                         strides=tuple(self.kq_downscale_stride), padding='same' )
+            # elif model_location == "region-grid":
+            #     self.scaling_layer = tf.keras.layers.AveragePooling3D( pool_size=tuple(self.kq_downscale_kernelshape),
+            # #                         strides=tuple(self.kq_downscale_stride), padding='same' )
+            # else:
+            #     raise ValueError
+            # endregion
 
         #region attention layers
         self.dense_query =  tf.keras.layers.Dense( total_key_depth, use_bias=False, activation="linear", name="q")
-        self.dense_key =    tf.keras.layers.Dense( total_key_depth, use_bias=False, activation="linear", name="k")  
+        self.dense_key   =  tf.keras.layers.Dense( total_key_depth, use_bias=False, activation="linear", name="k")  
         
         if transform_value_antecedent:
             self.dense_value = tf.keras.layers.Dense( total_value_depth, use_bias=False, activation="linear", name="v" )
@@ -195,12 +195,12 @@ class MultiHead2DAttention_v2(Layer):
         if( self.max_relative_position==None ):
            self.max_relative_position =  tf.constant( int(self.attn_factor_reduc/2 - 1) , dtype=tf.int32 )
 
-        vocab_size = int(self.attn_factor_reduc) #int(self.max_relative_position * 2 + 1)
-        self.embeddings_table_k = tf.Variable( tf.keras.initializers.glorot_uniform()(shape=[vocab_size, total_key_depth//num_heads ], dtype=self._compute_dtype  ))
-        self.embeddings_table_v = tf.Variable( tf.keras.initializers.glorot_uniform()(shape=[vocab_size, total_value_depth//num_heads ], dtype=self._compute_dtype  )) 
+        vocab_size = int( self.attn_factor_reduc ) #int(self.max_relative_position * 2 + 1)
+        self.embeddings_table_k = tf.Variable( tf.keras.initializers.glorot_uniform()(shape=[vocab_size, total_key_depth//num_heads],   dtype=self._dtype ), name="embedding_table_k" )
+        self.embeddings_table_v = tf.Variable( tf.keras.initializers.glorot_uniform()(shape=[vocab_size, total_value_depth//num_heads], dtype=self._dtype ), name="embedding_table_v" ) 
 
         if transform_output:
-            self.dense_output = tf.keras.layers.Dense( output_depth, use_bias=False  )
+            self.dense_output = tf.keras.layers.Dense(output_depth, use_bias=False)
         elif not transform_output:
             self.dense_output = tf.keras.layers.Activation("linear")
         #endregion
@@ -222,14 +222,15 @@ class MultiHead2DAttention_v2(Layer):
                                 ksize=self.kq_downscale_kernelshape, padding="SAME"), tf.float16)
         k_antecedent = tf.cast(tf.nn.avg_pool3d( tf.cast(k_antecedent,tf.float32), strides=self.kq_downscale_stride,
                                 ksize=self.kq_downscale_kernelshape, padding="SAME"), tf.float16)
-        # q_antecedent = tf.cast( self.scaling_layer( tf.cast(inputs,tf.float32)  ), tf.float16)
-        # k_antecedent = tf.cast( self.scaling_layer( tf.cast(k_antecedent,tf.float32)  ), tf.float16)
+                                
+            # q_antecedent = tf.cast( self.scaling_layer( tf.cast(inputs,tf.float32)  ), tf.float16)
+            # k_antecedent = tf.cast( self.scaling_layer( tf.cast(k_antecedent,tf.float32)  ), tf.float16)
 
         # endregion 
 
         # region reshping from 3D to 2D reshaping for attention
-        q_antecedent_flat = tf.reshape(q_antecedent, q_antecedent.shape.as_list()[:2]  + [-1] ) #( batch_size, seq_len, height*width*filters_in) #NOTE shape.as_list()[:-1] may not work in graph mode
-        k_antecedent_flat = tf.reshape( k_antecedent, k_antecedent.shape.as_list()[:2] +[-1] ) #NOTE shape.as_list()[:-1] may not work in graph mode
+        q_antecedent_flat = tf.reshape(q_antecedent, q_antecedent.shape.as_list()[:2] + [-1] ) #( batch_size, seq_len, height*width*filters_in) #NOTE shape.as_list()[:-1] may not work in graph mode
+        k_antecedent_flat = tf.reshape(k_antecedent, k_antecedent.shape.as_list()[:2] + [-1] ) #NOTE shape.as_list()[:-1] may not work in graph mode
         v_antecedent_flat = tf.reshape(v_antecedent, v_antecedent.shape.as_list()[:2] + [-1] ) #NOTE shape.as_list()[:-1] may not work in graph mode
         # endregion
 
@@ -250,9 +251,9 @@ class MultiHead2DAttention_v2(Layer):
         q_length = q.shape.as_list()[2]
         k_length = k.shape.as_list()[2]
         relations_keys = _generate_relative_positions_embeddings( q_length, k_length,
-                                        self.max_relative_position, self.embeddings_table_k, self._compute_dtype )
+                                self.max_relative_position, self.embeddings_table_k, self._compute_dtype )
         relations_values = _generate_relative_positions_embeddings(q_length, k_length,
-                                        self.max_relative_position, self.embeddings_table_v, self._compute_dtype )
+                                self.max_relative_position, self.embeddings_table_v, self._compute_dtype )
         
         # Compute self attention considering the relative position embeddings.
         logits = _relative_attention_inner(q, k, relations_keys, transpose=True)
@@ -286,15 +287,17 @@ class MultiHead2DAttention_v2(Layer):
         return x
 
 def _generate_relative_positions_embeddings( length_q, length_k,
-                                        max_relative_position, embeddings_table,dtype):
+                                        max_relative_position, embeddings_table, dtype):
     if length_q == length_k:
         range_vec_q = range_vec_k = tf.range(length_q)
     else:
         range_vec_k = tf.range(length_k)
         range_vec_q = range_vec_k[-length_q:]
+    
     distance_mat = range_vec_k[None, :] - range_vec_q[:, None]
     distance_mat_clipped = tf.clip_by_value( distance_mat, -max_relative_position,
-                                          max_relative_position)
+                                                max_relative_position )
+    
     # Shift values to be >= 0. Each integer still uniquely identifies a relative
     # position difference.
     final_mat = distance_mat_clipped + max_relative_position
@@ -302,7 +305,8 @@ def _generate_relative_positions_embeddings( length_q, length_k,
     relative_positions_matrix = final_mat
     
     embeddings = tf.gather(embeddings_table, relative_positions_matrix)
-    return embeddings
+
+    return tf.cast(embeddings,dtype)
 
 def _relative_attention_inner(x, y, z, transpose):
     """Relative position-aware dot-product attention inner calculation.
