@@ -112,7 +112,7 @@ def train_loop(train_params, model_params):
     if type(model_params) == list:
         model_params = model_params[0]
     
-    total_steps = train_set_size_batches*30
+    total_steps = train_set_size_batches*45
     if tfa==None:
         optimizer = tf.keras.optimizers.Adam( learning_rate=1e-4, beta_1=0.1, beta_2=0.99, epsilon=1e-5 )
     else:
@@ -705,7 +705,7 @@ def train_loop(train_params, model_params):
                     gradients = _optimizer.get_unscaled_gradients(scaled_gradients)
                     
                     if(model_params['model_type_settings']['model_version'] in ["54","55","56","155"] ): #multiple optimizers 
-                        gradients, _ = tf.clip_by_global_norm( gradients, 10.0 )
+                        gradients, _ = tf.clip_by_global_norm( gradients, 5.0 )
 
                         #insert code here to handle ensuring all loss functions start at the same time, e.g. when all optimizers have stopped producing nans
 
@@ -1010,7 +1010,3 @@ if __name__ == "__main__":
     train_params, model_params = utility.load_params_train_model(args_dict)
     
     train_loop(train_params(), model_params )
-
-    
-
-r
