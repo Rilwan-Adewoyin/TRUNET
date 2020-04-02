@@ -144,7 +144,7 @@ def train_loop(train_params, model_params):
     
     total_steps = train_set_size_batches*45
     
-    var_optimizer_step = tf.Variable( intial_value=int( batches_to_skip + (starting_epoch)*train_set_size_batches), trianable=False, name="iter", shape=[], dtype=tf.int64, aggregation=tf_variables.VariableAggregation.ONLY_FIRST_REPLICA )
+    var_optimizer_step = tf.Variable( initial_value=int( batches_to_skip + (starting_epoch)*train_set_size_batches), trianable=False, name="iter", shape=[], dtype=tf.int64, aggregation=tf_variables.VariableAggregation.ONLY_FIRST_REPLICA )
     if tfa==None:
         optimizer = tf.keras.optimizers.Adam( learning_rate=1e-4, beta_1=0.1, beta_2=0.99, epsilon=1e-5 )
         optimizer.iterations(  var_optimizer_step )
