@@ -63,6 +63,8 @@ from tensorflow_probability import layers as tfpl
 from tensorflow_probability import distributions as tfd
 from tensorboard.plugins.hparams import api as hp
 
+from tensorflow.python.ops import variables as tf_variables
+
 import math
 
 import argparse 
@@ -107,22 +109,50 @@ def train_loop(train_params, model_params):
     val_batch_reporting_freq = max( int(val_set_size_batches*2*train_params['dataset_trainval_batch_reporting_freq'] ), 1)
     #endregion
 
+    # region ------ Logic for setting up resume location and  resume optimizer step
+    try:
+        df_training_info = pd.read_csv( "checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(model_params)),
+                            header=0, index_col =False   )
+        print("Recovered checkpoint scores model csv")
+    except Exception as e:
+        df_training_info = pd.DataFrame(columns=['Epoch','Train_loss_MSE','Val_loss_MSE','Checkpoint_Path', 'Last_Trained_Batch'] ) #key: epoch number #Value: the corresponding loss #TODO: Implement early stopping
+        print("Did not recover checkpoint scores model csv")
+  
+
+    starting_epoch =  int(max( df_training_info['Epoch'], default=0 )) 
+    df_batch_record = df_training_info.loc[ df_training_info['Epoch'] == starting_epoch,'Last_Trained_Batch' ]
+
+    if( len(df_batch_record)==0 ):
+        batches_to_skip = 0
+    elif (df_batch_record.iloc[0]==-1 ):
+        starting_epoch = starting_epoch + 1
+        batches_to_skip = 0
+    else:
+        batches_to_skip = int(df_batch_record.iloc[0])
+        if batches_to_skip >= train_set_size_batches :
+            starting_epoch = starting_epoch + 1
+            batches_to_skip = train_set_size_batches
+    
+    print("batches to skip", batches_to_skip)
+
+    # endregion
+
     # region ----- Defining Model / Optimizer / Losses / Metrics / Records
     model = models.model_loader(train_params, model_params)
     if type(model_params) == list:
         model_params = model_params[0]
     
     total_steps = train_set_size_batches*45
+    
+    var_optimizer_step = tf.Variable( intial_value=int( batches_to_skip + (starting_epoch)*train_set_size_batches), trianable=False, name="iter", shape=[], dtype=dtype.int64, aggregation=tf_variables.VariableAggregation.ONLY_FIRST_REPLICA )
     if tfa==None:
         optimizer = tf.keras.optimizers.Adam( learning_rate=1e-4, beta_1=0.1, beta_2=0.99, epsilon=1e-5 )
-    else:
-                
-        radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=total_steps ) 
-        optimizer = tfa.optimizers.Lookahead(radam, **model_params['lookahead_params'])
-    
-    optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() )
+        optimizer.iterations(  var_optimizer_step )
 
-    if model_params['model_type_settings']['discrete_continuous'] == True:
+        optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() )
+        _optimizer = optimizer
+
+    elif model_params['model_type_settings']['discrete_continuous'] == True:
         #Trying 2 optimizers for discrete_continuious LSTM
         if model_params['model_type_settings']['model_version'] in ["54","55","56","155"]:
 
@@ -136,12 +166,21 @@ def train_loop(train_params, model_params):
                 optimizers          = [ optimizer_rain, optimizer_nonrain ]
             elif(model_params['model_type_settings']['model_version']) in ["56"]:
                 optimizers          = [ optimizer_rain, optimizer_dc ]
-            
+            optimizers          = [_opt.iterations(  var_optimizer_step ) for _opt in optimizers ]
             optimizers          = [ mixed_precision.LossScaleOptimizer(_opt, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) for _opt in optimizers ]
             optimizer_ready     = [ False ]*len( optimizers )
         else:
             _optimizer = optimizer
             ##monkey patch so optimizer works with mixed precision
+
+    else:
+                
+        radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=total_steps ) 
+        optimizer = tfa.optimizers.Lookahead(radam, **model_params['lookahead_params'])
+        optimizer.iterations(  var_optimizer_step )
+        optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() )
+        _optimizer = optimizer
+
     
     train_loss_mean_groupbatch = tf.keras.metrics.Mean(name='train_loss_mse_obj')
     train_loss_mean_epoch = tf.keras.metrics.Mean(name="train_loss_obj_epoch")
@@ -151,14 +190,7 @@ def train_loop(train_params, model_params):
     val_metric_loss = tf.keras.metrics.Mean(name='val_metric_obj')
     val_metric_mse = tf.keras.metrics.Mean(name='val_metric_mse_obj')
 
-    try:
-        df_training_info = pd.read_csv( "checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(model_params)),
-                            header=0, index_col =False   )
-        print("Recovered checkpoint scores model csv")
-    except Exception as e:
-        df_training_info = pd.DataFrame(columns=['Epoch','Train_loss_MSE','Val_loss_MSE','Checkpoint_Path', 'Last_Trained_Batch'] ) #key: epoch number #Value: the corresponding loss #TODO: Implement early stopping
-        print("Did not recover checkpoint scores model csv")
-  
+    
     # endregion
 
     # region ----- Setting up Checkpoints 
@@ -186,26 +218,6 @@ def train_loop(train_params, model_params):
         print (' Initializing from scratch')
 
     # endregion     
-
-    # region Logic for setting up resume location
-    starting_epoch =  int(max( df_training_info['Epoch'], default=0 )) 
-    df_batch_record = df_training_info.loc[ df_training_info['Epoch'] == starting_epoch,'Last_Trained_Batch' ]
-
-    if( len(df_batch_record)==0 ):
-        batches_to_skip = 0
-    elif (df_batch_record.iloc[0]==-1 ):
-        starting_epoch = starting_epoch + 1
-        batches_to_skip = 0
-    else:
-        batches_to_skip = int(df_batch_record.iloc[0])
-        if batches_to_skip >= train_set_size_batches :
-            starting_epoch = starting_epoch + 1
-            batches_to_skip = train_set_size_batches
-    
-    print("batches to skip", batches_to_skip)
-
-    #batches_to_skip_on_error = 2
-    # endregion
 
     # region --- Tensorboard
     os.makedirs("log_tensboard/{}".format(utility.model_name_mkr(model_params)), exist_ok=True ) 
@@ -269,7 +281,7 @@ def train_loop(train_params, model_params):
 
     #endregion
 
-    #region Setting up points at which we must reset states for training on a particular location
+    # region ---- Recurrent States Resets
     if train_params['strided_dataset_count'] > 1:
         if type( model_params['model_type_settings']['location'][:] ) == list:
             #Note: In this scenario The train dataset is
