@@ -168,8 +168,9 @@ class MultiHead2DAttention_v2(Layer):
         assert_op1 = tf.Assert( tf.equal( tf.math.floormod(total_key_depth, num_heads), 0 ), [total_key_depth, tf.constant(num_heads)] )
         assert_op2 = tf.Assert( tf.equal( tf.math.floormod(total_value_depth, num_heads), 0 ), [total_value_depth, tf.constant(num_heads)] )
 
-        with tf.control_dependencies([assert_op1, assert_op2]):
-            self.ln1 = tf.keras.layers.LayerNormalization(axis=-1 , epsilon=1e-4 , trainable=self.trainable )
+        # with tf.control_dependencies([assert_op1, assert_op2]):
+            # self.ln1 = tf.keras.layers.LayerNormalization(axis=-1 , epsilon=1e-4 , trainable=self.trainable )
+
         # endregion
 
         #region scaling
@@ -184,8 +185,9 @@ class MultiHead2DAttention_v2(Layer):
             # endregion
 
         #region attention layers
-        self.dense_query =  tf.keras.layers.Dense( total_key_depth, use_bias=False, activation="linear", name="q")
-        self.dense_key   =  tf.keras.layers.Dense( total_key_depth, use_bias=False, activation="linear", name="k")  
+        with tf.control_dependencies([assert_op1, assert_op2]):
+            self.dense_query =  tf.keras.layers.Dense( total_key_depth, use_bias=False, activation="linear", name="q")
+            self.dense_key   =  tf.keras.layers.Dense( total_key_depth, use_bias=False, activation="linear", name="k")  
         
         if transform_value_antecedent:
             self.dense_value = tf.keras.layers.Dense( total_value_depth, use_bias=False, activation="linear", name="v" )
@@ -205,7 +207,7 @@ class MultiHead2DAttention_v2(Layer):
             self.dense_output = tf.keras.layers.Activation("linear")
         #endregion
 
-    @tf.function
+    #@tf.function
     def call(self, inputs , k_antecedent, v_antecedent):
         """
             :param inputs: q_antecedent This is required due to keras' need for layers to have an input argument
@@ -280,8 +282,7 @@ class MultiHead2DAttention_v2(Layer):
         x = self.dense_output(x)
         # endregion
 
-        #x = self.ln1(x) #( batch_size, seq_len, height*width*filters_in #NOTE: doesnt work on cpu, add tf.test.is_gpu_available() to make this layer conditional
-        
+                
         x = tf.reshape( x ,  output_shape ) #( batch_size, seq_len, height, width, filters_in)
 
         return x
@@ -327,17 +328,17 @@ def _relative_attention_inner(x, y, z, transpose):
     heads = x.get_shape().as_list()[1]
     length = tf.shape(x)[2]
 
-    # xy_matmul is [batch_size, heads, length or 1, length or depth]
+        # xy_matmul is [batch_size, heads, length or 1, length or depth]
     xy_matmul = tf.matmul(x, y, transpose_b=transpose)
-    # x_t is [length or 1, batch_size, heads, length or depth]
+        # x_t is [length or 1, batch_size, heads, length or depth]
     x_t = tf.transpose(x, [2, 0, 1, 3])
-    # x_t_r is [length or 1, batch_size * heads, length or depth]
+        # x_t_r is [length or 1, batch_size * heads, length or depth]
     x_t_r = tf.reshape(x_t, [length, heads * batch_size, -1])
-    # x_tz_matmul is [length or 1, batch_size * heads, length or depth]
+        # x_tz_matmul is [length or 1, batch_size * heads, length or depth]
     x_tz_matmul = tf.matmul(x_t_r, z, transpose_b=transpose)
-    # x_tz_matmul_r is [length or 1, batch_size, heads, length or depth]
+        # x_tz_matmul_r is [length or 1, batch_size, heads, length or depth]
     x_tz_matmul_r = tf.reshape(x_tz_matmul, [length, batch_size, heads, -1])
-    # x_tz_matmul_r_t is [batch_size, heads, length or 1, length or depth]
+        # x_tz_matmul_r_t is [batch_size, heads, length or 1, length or depth]
     x_tz_matmul_r_t = tf.transpose(x_tz_matmul_r, [1, 2, 0, 3])
     return xy_matmul + x_tz_matmul_r_t
 
@@ -354,7 +355,6 @@ def attn_shape_adjust(inputs, attn_factor_reduc ,reverse=False):
             return outputs : (bs, seq_len_factor_reduc, h, w, c//seq_len_factor_reduc)
     """
 
-    #TODO: change _inputs to inputs to save memory
     if reverse==False:
         shape = inputs.shape
         # s1 = shape[1]//attn_factor_reduc

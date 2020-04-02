@@ -145,7 +145,7 @@ def train_loop(train_params, model_params):
     
     var_optimizer_step = lambda: tf.Variable( initial_value=int( batches_to_skip + (starting_epoch)*train_set_size_batches), trainable=False, name="iter", shape=[], dtype=tf.int64, aggregation=tf_variables.VariableAggregation.ONLY_FIRST_REPLICA )
     if tfa==None:
-        optimizer = tf.keras.optimizers.Adam( learning_rate=1e-4, beta_1=0.1, beta_2=0.99, epsilon=1e-5 )
+        optimizer = tf.keras.optimizers.Adam( learning_rate=1e-3, beta_1=0.6, beta_2=0.95, epsilon=1e-4 )
         optimizer.iterations(  var_optimizer_step() )
 
         optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() )
@@ -155,9 +155,9 @@ def train_loop(train_params, model_params):
     #     #Trying 2 optimizers for discrete_continuious LSTM
     elif model_params['model_type_settings']['model_version'] in ["54","55","56","155"]:
 
-        optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":3e-3, "warmup_proportion":0.85, "min_lr":1e-3, "beta_1":0.05, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":1e-3} , total_steps=total_steps ) 
-        optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":2e-3, "warmup_proportion":0.85, "min_lr":1e-3, "beta_1":0.05, "beta_2":0.85, "decay":0.004, "amsgrad":True,"epsilon":1e-3} , total_steps=total_steps ) 
-        optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":2.5e-3, "warmup_proportion":0.85, "min_lr":1e-3, "beta_1":0.05, "beta_2":0.85, "decay":0.004, "amsgrad":True,"epsilon":1e-3} , total_steps=total_steps )  
+        optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":1.3e-3, "warmup_proportion":0.85, "min_lr":3e-4, "beta_1":0.05, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":1e-4} , total_steps=total_steps ) 
+        optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":0.85e-3, "warmup_proportion":0.85, "min_lr":3e-4, "beta_1":0.05, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":1e-4} , total_steps=total_steps ) 
+        optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":0.85e-3, "warmup_proportion":0.85, "min_lr":3e-4, "beta_1":0.05, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":1e-4} , total_steps=total_steps )  
         
         if(model_params['model_type_settings']['model_version']) in ["54"]:
             optimizers  = [ optimizer_rain, optimizer_nonrain, optimizer_dc ]
@@ -172,7 +172,6 @@ def train_loop(train_params, model_params):
     else:     
         radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=total_steps ) 
         optimizer = tfa.optimizers.Lookahead(radam, **model_params['lookahead_params'])
-        #optimizer.iterations(  var_optimizer_step() )
         optimizer._iterations = var_optimizer_step() 
         optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() )
         _optimizer = optimizer
@@ -244,7 +243,6 @@ def train_loop(train_params, model_params):
         li_ds_trains = [ _ds.take( math.ceil( train_set_size_batches/train_params['strided_dataset_count'] ) )  if idx==0 
                             else _ds.take( train_set_size_batches//train_params['strided_dataset_count'] )  #This ensures that the for loops switch between validation and train sets at the right counts
                             for idx,_ds in  enumerate(li_ds_trains) ] #Only the first ds takes the full amount
-       
         li_ds_vals = [ _ds.take( math.ceil( val_set_size_batches/train_params['strided_dataset_count'] ) )  if idx==0 
                     else _ds.take( val_set_size_batches//train_params['strided_dataset_count'] )  #This ensures that the for loops switch between validation and train sets at the right counts
                     for idx,_ds in  enumerate(li_ds_vals) ] #Only the first ds takes the full amount
@@ -704,8 +702,7 @@ def train_loop(train_params, model_params):
                         else:
                             _optimizer = optimizer
                             scaled_loss = _optimizer.get_scaled_loss(_l1 + _l2 + _l3 + sum(model.losses) )
-
-                        
+  
                     elif(model_params['model_type_settings']['stochastic']==True):
                         raise NotImplementedError
 

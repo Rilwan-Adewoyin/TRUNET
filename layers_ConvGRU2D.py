@@ -1860,7 +1860,7 @@ class ConvGRU2DCell_custom(DropoutRNNCellMixin, Layer):
         return dict(list(base_config.items()) + list(config.items()))
 
 # Encoder Layer
-class ConvGRU2D_attn(ConvRNN2D):
+class ConvGRU2D_attn(ConvRNN2D)/:
     """
         CUSTOM Convolutional GRU.
 
