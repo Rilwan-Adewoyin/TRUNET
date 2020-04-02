@@ -170,8 +170,7 @@ def train_loop(train_params, model_params):
             optimizer_ready     = [ False ]*len( optimizers )
             
 
-    else:
-                
+    else:     
         radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=total_steps ) 
         optimizer = tfa.optimizers.Lookahead(radam, **model_params['lookahead_params'])
         optimizer.iterations(  var_optimizer_step )
@@ -195,7 +194,7 @@ def train_loop(train_params, model_params):
     checkpoint_path_epoch = "checkpoints/{}/epoch".format(utility.model_name_mkr(model_params))
     os.makedirs(checkpoint_path_epoch,exist_ok=True)
         
-    ckpt_epoch = tf.train.Checkpoint(model=model, optimizer=optimizer)
+    ckpt_epoch = tf.train.Checkpoint(model=model)#, optimizer=optimizer)
     ckpt_manager_epoch = tf.train.CheckpointManager(ckpt_epoch, checkpoint_path_epoch, 
                 max_to_keep=train_params['checkpoints_to_keep_epoch'], keep_checkpoint_every_n_hours=None)    
      
@@ -203,7 +202,7 @@ def train_loop(train_params, model_params):
     checkpoint_path_batch = "checkpoints/{}/batch".format(utility.model_name_mkr(model_params))
     os.makedirs(checkpoint_path_batch,exist_ok=True)
         #Create the checkpoint path and the checpoint manager. This will be used to save checkpoints every n epochs
-    ckpt_batch = tf.train.Checkpoint(model=model, optimizer=optimizer)
+    ckpt_batch = tf.train.Checkpoint(model=model)#, optimizer=optimizer)
     ckpt_manager_batch = tf.train.CheckpointManager(ckpt_batch, checkpoint_path_batch, max_to_keep=train_params['checkpoints_to_keep_batch'], keep_checkpoint_every_n_hours=None)
 
         # restoring checkpoint from last batch if it exists
