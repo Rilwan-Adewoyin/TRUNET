@@ -165,14 +165,15 @@ def train_loop(train_params, model_params):
             optimizers  = [ optimizer_rain, optimizer_nonrain ]
         elif(model_params['model_type_settings']['model_version']) in ["56"]:
             optimizers  = [ optimizer_rain, optimizer_dc ]
-        optimizers          = [_opt._iterations = var_optimizer_step()  for _opt in optimizers ]
+        for _opt in optimizers:  _opt._iterations = var_optimizer_step() 
         optimizers          = [ mixed_precision.LossScaleOptimizer(_opt, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) for _opt in optimizers ]
         optimizer_ready     = [ False ]*len( optimizers )
             
     else:     
         radam = tfa.optimizers.RectifiedAdam( **model_params['rec_adam_params'], total_steps=total_steps ) 
         optimizer = tfa.optimizers.Lookahead(radam, **model_params['lookahead_params'])
-        optimizer.iterations(  var_optimizer_step() )
+        #optimizer.iterations(  var_optimizer_step() )
+        optimizer._iterations = var_optimizer_step() 
         optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() )
         _optimizer = optimizer
 
