@@ -17,7 +17,6 @@ tf.keras.backend.set_floatx('float16')
 tf.keras.backend.set_epsilon(1e-3)
 
 
-#DType.is_compatible_with = is_compatible_with
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
 #tf.config.set_soft_device_placement(True)
 #tf.debugging.set_log_device_placement(True)
@@ -33,6 +32,7 @@ for idx, gpu_name in enumerate(gpu_devices):
 policy = mixed_precision.Policy('mixed_float16')
 mixed_precision.set_policy(policy)
 
+#monkey patch so optimizer works with mixed precision
 def is_compatible_with(self, other):
     """Returns True if the `other` DType will be converted to this DType.
     The conversion rules are as follows:
@@ -51,7 +51,6 @@ def is_compatible_with(self, other):
 
     return self._type_enum in (other.as_datatype_enum,
                                 other.base_dtype.as_datatype_enum)
-#from tensorflow.python.framework.dtypes import DType
 tf.DType.is_compatible_with = is_compatible_with
 
 import tensorflow_probability as tfp
@@ -169,9 +168,7 @@ def train_loop(train_params, model_params):
             optimizers          = [_opt.iterations(  var_optimizer_step ) for _opt in optimizers ]
             optimizers          = [ mixed_precision.LossScaleOptimizer(_opt, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) for _opt in optimizers ]
             optimizer_ready     = [ False ]*len( optimizers )
-        else:
-            _optimizer = optimizer
-            ##monkey patch so optimizer works with mixed precision
+            
 
     else:
                 
