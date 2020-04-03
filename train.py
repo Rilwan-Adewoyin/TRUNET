@@ -153,7 +153,7 @@ def train_loop(train_params, model_params):
 
     # elif model_params['model_type_settings']['discrete_continuous'] == True:
     #     #Trying 2 optimizers for discrete_continuious LSTM
-    elif model_params['model_type_settings']['model_version'] in ["54","55","56","155"]:
+    elif model_params['model_type_settings']['model_version'] in ["54","55","56","156","155"]:
 
         optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":1.3e-3, "warmup_proportion":0.85, "min_lr":5e-4, "beta_1":0.02, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":1e-4} , total_steps=total_steps ) 
         optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":0.85e-3, "warmup_proportion":0.85, "min_lr":3e-4, "beta_1":0.02, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":1e-4} , total_steps=total_steps ) 
@@ -163,7 +163,7 @@ def train_loop(train_params, model_params):
             optimizers  = [ optimizer_rain, optimizer_nonrain, optimizer_dc ]
         elif(model_params['model_type_settings']['model_version']) in ["55","155"]:
             optimizers  = [ optimizer_rain, optimizer_nonrain ]
-        elif(model_params['model_type_settings']['model_version']) in ["56"]:
+        elif(model_params['model_type_settings']['model_version']) in ["56","156"]:
             optimizers  = [ optimizer_rain, optimizer_dc ]
         for _opt in optimizers:  _opt._iterations = var_optimizer_step() 
         optimizers          = [ mixed_precision.LossScaleOptimizer(_opt, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) for _opt in optimizers ]
@@ -526,7 +526,7 @@ def train_loop(train_params, model_params):
                                     loss_mse += 0
                                     metric_mse += train_mse_cond_no_rain
                             
-                            if(model_params['model_type_settings']['model_version'] in ["3","4","44","45","145","47","48","49","50","51","52","53","54","56"] ):
+                            if(model_params['model_type_settings']['model_version'] in ["3","4","44","45","145","47","48","49","50","51","52","53","54","56","156"] ):
 
                                 log_cross_entropy_rainclassification = tf.reduce_mean( 
                                                 tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )                         #loss3 conditional on no rain v2
@@ -539,7 +539,7 @@ def train_loop(train_params, model_params):
                                 _l3 = 0
                                 loss_mse += log_cross_entropy_rainclassification
 
-                        if(model_params['model_type_settings']['model_version'] in ["54","55","56","155"] ): #multiple optimizers 
+                        if(model_params['model_type_settings']['model_version'] in ["54","55","56","156","155"] ): #multiple optimizers 
                             
                             #optm_idx = step % len(optimizers)
                             if(model_params['model_type_settings']['model_version'] in ["54"]):
@@ -553,7 +553,7 @@ def train_loop(train_params, model_params):
                                 optm_idx = step % len(optimizers)
                                 losses = [_l1, _l2 ]
                             
-                            elif(model_params['model_type_settings']['model_version'] in ["56"]):
+                            elif(model_params['model_type_settings']['model_version'] in ["56","156"]):
                                 #optm_idx = (step // int(train_set_size_batches/3) ) % 2
                                 optm_idx = step % len(optimizers)
                                 losses = [_l1, _l3 ]
@@ -571,7 +571,7 @@ def train_loop(train_params, model_params):
                     scaled_gradients = tape.gradient( scaled_loss, model.trainable_variables )
                     gradients = _optimizer.get_unscaled_gradients(scaled_gradients)
                     
-                    if(model_params['model_type_settings']['model_version'] in ["54","55","56","155"] ): #multiple optimizers 
+                    if(model_params['model_type_settings']['model_version'] in ["54","55","56","156","155"] ): #multiple optimizers 
                         gradients, _ = tf.clip_by_global_norm( gradients, 30.0 )
 
                         #ensuring all optimizers start at the same time
@@ -664,7 +664,7 @@ def train_loop(train_params, model_params):
                                     loss_mse += 0
                                     metric_mse += train_mse_cond_no_rain
 
-                            if(model_params['model_type_settings']['model_version'] in ["44","45","145","54","56"] ):
+                            if(model_params['model_type_settings']['model_version'] in ["44","45","145","54","56","156"] ):
 
                                 log_cross_entropy_rainclassification = tf.reduce_mean( 
                                                 tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )                         #loss3 conditional on no rain v2
@@ -677,7 +677,7 @@ def train_loop(train_params, model_params):
                                 _l3 = 0
                                 loss_mse += log_cross_entropy_rainclassification
 
-                        if(model_params['model_type_settings']['model_version'] in ["54","55","56","155"] ): #multiple optimizers 
+                        if(model_params['model_type_settings']['model_version'] in ["54","55","56","156","155"] ): #multiple optimizers 
                             
                             #optm_idx = step % len(optimizers)
                             if(model_params['model_type_settings']['model_version'] in ["54"]):
@@ -691,7 +691,7 @@ def train_loop(train_params, model_params):
                                 optm_idx = step % len(optimizers)
                                 losses = [_l1, _l2 ]
                             
-                            elif(model_params['model_type_settings']['model_version'] in ["56"]):
+                            elif(model_params['model_type_settings']['model_version'] in ["56","156"]):
                                 #optm_idx = (step // int(train_set_size_batches/3) ) % 2
                                 optm_idx = step % len(optimizers)
                                 losses = [_l1, _l3 ]
@@ -709,7 +709,7 @@ def train_loop(train_params, model_params):
                     scaled_gradients = tape.gradient( scaled_loss, model.trainable_variables )
                     gradients = _optimizer.get_unscaled_gradients(scaled_gradients)
                     
-                    if(model_params['model_type_settings']['model_version'] in ["54","55","56","155"] ): #multiple optimizers 
+                    if(model_params['model_type_settings']['model_version'] in ["54","55","56","156","155"] ): #multiple optimizers 
                         gradients, _ = tf.clip_by_global_norm( gradients, 2.5 )
 
                         #insert code here to handle ensuring all loss functions start at the same time, e.g. when all optimizers have stopped producing nans
@@ -737,11 +737,6 @@ def train_loop(train_params, model_params):
                     tf.summary.scalar('kl_loss', kl_loss, step=step )
                     tf.summary.scalar('neg_log_likelihood', -log_likelihood, step=step )
                     tf.summary.scalar('train_metric_mse', metric_mse , step = step )
-
-                    if model_params['model_type_settings']['discrete_continuous'] == True:
-                        tf.summary.scalar('train_mse_cond_rain', train_mse_cond_rain, step=step )
-                        tf.summary.scalar('train_mse_cond_no_rain',train_mse_cond_no_rain, step = step)
-                        tf.summary.scalar('cross_entropy_rainclassification',log_cross_entropy_rainclassification, step=step)
                 
                 elif( model_params['model_type_settings']['stochastic']==False ):
                     tf.summary.scalar('train_loss', loss_mse , step = step )
@@ -873,7 +868,7 @@ def train_loop(train_params, model_params):
                                 val_mse +=val_mse_cond_no_rain
                             
 
-                            if(model_params['model_type_settings']['model_version'] in ["3","4","44","45","145","47","48","49","50","51","52",'53','54',"56"] ):
+                            if(model_params['model_type_settings']['model_version'] in ["3","4","44","45","145","47","48","49","50","51","52",'53','54',"56","156"] ):
                                 log_cross_entropy_rainclassification = tf.reduce_mean( 
                                         tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )
                             
@@ -953,7 +948,7 @@ def train_loop(train_params, model_params):
                                 val_mse +=val_mse_cond_no_rain
                             
 
-                            if(model_params['model_type_settings']['model_version'] in ["3","4","44","45","145","47","48","49","50","51","52",'53','54',"56"] ):
+                            if(model_params['model_type_settings']['model_version'] in ["3","4","44","45","145","47","48","49","50","51","52",'53','54',"56","156"] ):
                                 log_cross_entropy_rainclassification = tf.reduce_mean( 
                                         tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )
                             
@@ -993,6 +988,7 @@ def train_loop(train_params, model_params):
                 tf.summary.scalar('Validation MSE', val_metric_mse.result(), step=epoch)
                 tf.summary.scalar('Validation MSE cond_no_rain', val_mse_cond_no_rain, step=epoch)
                 tf.summary.scalar('Validation MSE cond_rain', val_metric_mse.result()-val_mse_cond_no_rain, step=epoch)
+                tf.summary.scalar("Validation Cross Entropy", log_cross_entropy_rainclassification, step=epoch)
             except Exception as e:
                 pass
             
