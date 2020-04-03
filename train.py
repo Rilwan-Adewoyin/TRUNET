@@ -155,9 +155,9 @@ def train_loop(train_params, model_params):
     #     #Trying 2 optimizers for discrete_continuious LSTM
     elif model_params['model_type_settings']['model_version'] in ["54","55","56","155"]:
 
-        optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":1.3e-3, "warmup_proportion":0.85, "min_lr":3e-4, "beta_1":0.05, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":1e-4} , total_steps=total_steps ) 
-        optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":0.85e-3, "warmup_proportion":0.85, "min_lr":3e-4, "beta_1":0.05, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":1e-4} , total_steps=total_steps ) 
-        optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":0.85e-3, "warmup_proportion":0.85, "min_lr":3e-4, "beta_1":0.05, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":1e-4} , total_steps=total_steps )  
+        optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":1.3e-3, "warmup_proportion":0.85, "min_lr":5e-4, "beta_1":0.02, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":1e-4} , total_steps=total_steps ) 
+        optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":0.85e-3, "warmup_proportion":0.85, "min_lr":3e-4, "beta_1":0.02, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":1e-4} , total_steps=total_steps ) 
+        optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":0.85e-3, "warmup_proportion":0.85, "min_lr":3e-4, "beta_1":0.02, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":1e-4} , total_steps=total_steps )  
         
         if(model_params['model_type_settings']['model_version']) in ["54"]:
             optimizers  = [ optimizer_rain, optimizer_nonrain, optimizer_dc ]
@@ -988,10 +988,11 @@ def train_loop(train_params, model_params):
             # endregion
         
         with writer.as_default():
-            tf.summary.scalar('Validation Loss', val_metric_loss.result() , step =  epoch )
+            tf.summary.scalar('Validation Loss', val_metric_loss.result() , step=epoch )
             try:
                 tf.summary.scalar('Validation MSE', val_metric_mse.result(), step=epoch)
                 tf.summary.scalar('Validation MSE cond_no_rain', val_mse_cond_no_rain, step=epoch)
+                tf.summary.scalar('Validation MSE cond_rain', val_metric_mse.result()-val_mse_cond_no_rain, step=epoch)
             except Exception as e:
                 pass
             
