@@ -1135,7 +1135,6 @@ class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
         base_config = super(ConvGRU2DCell, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
-
 #Decoder Layer
 class ConvGRU2D_custom(ConvRNN2D):
     """
@@ -1258,34 +1257,34 @@ class ConvGRU2D_custom(ConvRNN2D):
 
     def __init__(self,
                  filters,
-                 kernel_size,
-                 implementation,
-                 layer_norm,
-                 strides=(1, 1),
-                 padding='valid',
-                 data_format=None,
-                 dilation_rate=(1, 1),
-                 activation='tanh',
-                 recurrent_activation='hard_sigmoid',
-                 use_bias=True,
-                 kernel_initializer='glorot_uniform',
-                 recurrent_initializer='orthogonal',
-                 bias_initializer='zeros',
-                 unit_forget_bias=True,
-                 kernel_regularizer=None,
-                 recurrent_regularizer=None,
-                 bias_regularizer=None,
-                 activity_regularizer=None,
-                 kernel_constraint=None,
-                 recurrent_constraint=None,
-                 bias_constraint=None,
-                 return_sequences=False,
-                 go_backwards=False,
-                 stateful=False,
-                 dropout=0.,
-                 recurrent_dropout=0.,
-                 reset_after=False,
-                 **kwargs):
+                    kernel_size,
+                    implementation,
+                    layer_norm,
+                    strides=(1, 1),
+                    padding='valid',
+                    data_format=None,
+                    dilation_rate=(1, 1),
+                    activation='tanh',
+                    recurrent_activation='hard_sigmoid',
+                    use_bias=True,
+                    kernel_initializer='glorot_uniform',
+                    recurrent_initializer='orthogonal',
+                    bias_initializer='zeros',
+                    unit_forget_bias=True,
+                    kernel_regularizer=None,
+                    recurrent_regularizer=None,
+                    bias_regularizer=None,
+                    activity_regularizer=None,
+                    kernel_constraint=None,
+                    recurrent_constraint=None,
+                    bias_constraint=None,
+                    return_sequences=False,
+                    go_backwards=False,
+                    stateful=False,
+                    dropout=0.,
+                    recurrent_dropout=0.,
+                    reset_after=False,
+                    **kwargs):
         
         if layer_norm[0] != None: 
             layer_norm[0]._dtype =  "float32"
@@ -1860,7 +1859,7 @@ class ConvGRU2DCell_custom(DropoutRNNCellMixin, Layer):
         return dict(list(base_config.items()) + list(config.items()))
 
 # Encoder Layer
-class ConvGRU2D_attn(ConvRNN2D)/:
+class ConvGRU2D_attn(ConvRNN2D):
     """
         CUSTOM Convolutional GRU.
 
@@ -2069,7 +2068,7 @@ class ConvGRU2D_attn(ConvRNN2D)/:
 
     #@tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
-        #self._maybe_reset_cell_dropout_mask(self.cell)
+        self._maybe_reset_cell_dropout_mask(self.cell)
         if initial_state is not None:
             pass
         elif self.stateful:
@@ -2223,9 +2222,8 @@ class ConvGRU2D_attn(ConvRNN2D)/:
     def get_initial_state(self, inputs):
         # inputs (samples, expanded_timesteps, rows, cols, filters)
             # The expanded_timesteps relates to the fact the input has the same spatial time dimension as the lower heirachy
-
             #Note: now inputs will have an extra last dimension, which represents the stacking of all the input vectors
-        #region Adapting input_shape for attention
+            #region Adapting input_shape for attention
         shape_pre_attention = K.zeros_like(inputs)
         shape_post_attention = shape_pre_attention[:, ::self.attn_factor_reduc, :, :, :]
         inputs = shape_post_attention
@@ -2233,22 +2231,17 @@ class ConvGRU2D_attn(ConvRNN2D)/:
 
         #region Adapting for two cell state GRUs
         initial_state = K.zeros_like(inputs)
-        # (samples, rows, cols, filters)
+            # (samples, rows, cols, filters)
         initial_state = K.sum(initial_state, axis=1)
 
         shape_h_state = list(self.cell.kernel_shape)
         shape_h_state[-1] = self.cell.filters
 
-        # shape_c_state = list(self.cell.kernel_shape)
-        # shape_c_state[-1] = self.cell.filters
         
         initial_hidden_state = self.cell.input_conv(initial_state,
                                             array_ops.zeros(tuple(shape_h_state),self._compute_dtype),
                                             padding=self.cell.padding)
         
-        # initial_carry_state = self.cell.input_conv( initial_state,
-        #                                     array_ops.zeros(tuple(shape_c_state)),
-        #                                     padding=self.cell.padding)
 
         if hasattr(self.cell.state_size, '__len__'):
             return [initial_hidden_state, initial_hidden_state ]
