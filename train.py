@@ -155,9 +155,9 @@ def train_loop(train_params, model_params):
     #     #Trying 2 optimizers for discrete_continuious LSTM
     elif model_params['model_type_settings']['model_version'] in ["54","55","56","156","155"]:
 
-        optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":1.3e-3, "warmup_proportion":0.85, "min_lr":5e-4, "beta_1":0.02, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":1e-4} , total_steps=total_steps ) 
-        optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":0.85e-3, "warmup_proportion":0.85, "min_lr":3e-4, "beta_1":0.02, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":1e-4} , total_steps=total_steps ) 
-        optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":0.85e-3, "warmup_proportion":0.85, "min_lr":3e-4, "beta_1":0.02, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":1e-4} , total_steps=total_steps )  
+        optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":2.6e-3, "warmup_proportion":0.85, "min_lr":5e-4, "beta_1":0.75, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":4e-3} , total_steps=total_steps ) 
+        optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":1.7e-3, "warmup_proportion":0.85, "min_lr":3e-4, "beta_1":0.75, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":4e-3} , total_steps=total_steps ) 
+        optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":2.6e-3, "warmup_proportion":0.85, "min_lr":3e-4, "beta_1":0.75, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":4e-3} , total_steps=total_steps )  
         
         if(model_params['model_type_settings']['model_version']) in ["54"]:
             optimizers  = [ optimizer_rain, optimizer_nonrain, optimizer_dc ]
