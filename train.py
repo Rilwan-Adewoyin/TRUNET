@@ -570,7 +570,7 @@ def train_loop(train_params, model_params):
                     gradients = _optimizer.get_unscaled_gradients(scaled_gradients)
                     
                     if(model_params['model_type_settings']['model_version'] in ["54","55","56","156","155"] ): #multiple optimizers 
-                        gradients, _ = tf.clip_by_global_norm( gradients, 15.0 )
+                        gradients, _ = tf.clip_by_global_norm( gradients, 2.5 )
 
                         #ensuring all optimizers start at the same time
                         if optimizer_ready[optm_idx]==False:
@@ -584,7 +584,7 @@ def train_loop(train_params, model_params):
                           _optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
                     else:
-                        gradients, _ = tf.clip_by_global_norm( gradients, 5.0 )
+                        gradients, _ = tf.clip_by_global_norm( gradients, 2.5 )
                         _optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
                 elif (model_params['model_name'] in ["SimpleConvLSTM","SimpleConvGRU","THST"]):
