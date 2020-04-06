@@ -178,7 +178,7 @@ class model_THST_hparameters(MParams):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
             "learning_rate":5e-3, "warmup_proportion":0.75,
-            "min_lr":1e-3, "beta_1":0.80 , "beta_2":0.95,
+            "min_lr":1e-3, "beta_1":0.25 , "beta_2":0.95,
             "amsgrad":True, "decay":0.003, "epsilon":4e-3 }
 
         DROPOUT = kwargs.get('dropout',0.0)
@@ -207,9 +207,9 @@ class model_THST_hparameters(MParams):
 
         # region CLSTM params
         if DROPOUT == 0.0:
-            _filter = 80
+            _filter = 120
         else:
-            _filter = int(80*1.4)
+            _filter = int(120*1.4)
 
         output_filters_enc     = [ _filter ]*(enc_layer_count-1)                     # [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc     = output_filters_enc + output_filters_enc[-1:]   # the last two layers in the encoder must output the same number of channels

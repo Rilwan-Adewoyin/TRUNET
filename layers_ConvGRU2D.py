@@ -1039,7 +1039,6 @@ class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
             x_r = self.input_conv(inputs_r, kernel_r, bias_r, padding=self.padding)
             x_h = self.input_conv(inputs_h, kernel_h, bias_h, padding=self.padding)
                         
-
             if 0 < self.recurrent_dropout < 1.:
                 h_tm1_z = h_tm1 * rec_dp_mask[0]
                 h_tm1_r = h_tm1 * rec_dp_mask[1]
@@ -1739,10 +1738,10 @@ class ConvGRU2DCell_custom(DropoutRNNCellMixin, Layer):
                 inputs_r2 = inputs2 
                 inputs_h2 = inputs2 
 
-                #(kernel_z, kernel_r, kernel_h) = array_ops.split(self.kernel, 3, axis=3)
-                (kernel_z1, kernel_z2, 
-                kernel_r1, kernel_r2,
-                kernel_h1, kernel_h2) = array_ops.split(self.kernel, 6, axis=3)
+            #(kernel_z, kernel_r, kernel_h) = array_ops.split(self.kernel, 3, axis=3)
+            (kernel_z1, kernel_z2, 
+            kernel_r1, kernel_r2,
+            kernel_h1, kernel_h2) = array_ops.split(self.kernel, 6, axis=3)
 
             x_z1 = self.input_conv(inputs_z1, kernel_z1, bias_z1, padding=self.padding)
             x_z2 = self.input_conv(inputs_z2, kernel_z2, bias_z2, padding=self.padding)

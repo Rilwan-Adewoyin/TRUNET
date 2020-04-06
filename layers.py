@@ -791,8 +791,8 @@ class THST_CGRU_Decoder_Layer(tf.keras.layers.Layer):
 		self.shape2 = ( train_params['batch_size'], self.seq_len//self.input_2_factor_increase, h_w[0], h_w[1], layer_params['filters']*2 ) #TODO: the final dimension only works rn since all layers have same filter count. It should be equal to 2* filters of previous layer
 		self.shape1 = ( train_params['batch_size'], self.seq_len, h_w[0], h_w[1], layer_params['filters']*2 ) #same comment as above
 		self.shape3 = ( train_params['batch_size'], self.seq_len, h_w[0], h_w[1], layer_params['filters'] )
-		self.convGRU =  tf.keras.layers.Bidirectional( layer=layers_ConvGRU2D.ConvGRU2D_custom(**layer_params ),
-														backward_layer=layers_ConvGRU2D.ConvGRU2D_custom( **copy.deepcopy(layer_params),go_backwards=True ) ,
+		self.convGRU =  tf.keras.layers.Bidirectional( layer=layers_ConvGRU2D.ConvGRU2D_custom(**layer_params,trainable=self.trainable ),
+														backward_layer=layers_ConvGRU2D.ConvGRU2D_custom( **copy.deepcopy(layer_params),go_backwards=True,trainable=self.trainable ) ,
 														merge_mode=None)
 	
 	@tf.function
