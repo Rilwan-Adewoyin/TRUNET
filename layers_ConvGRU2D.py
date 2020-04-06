@@ -668,7 +668,7 @@ class ConvGRU2D(ConvRNN2D):
         self.activity_regularizer = regularizers.get(activity_regularizer)
     
 
-    #@tf.function
+    @tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
         self._maybe_reset_cell_dropout_mask(self.cell)
         return super(ConvGRU2D, self).call(inputs,
@@ -1001,6 +1001,7 @@ class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
             self.bias = None
         self.built = True
 
+    @tf.function
     def call(self, inputs, states, training=None):
         h_tm1 = tf.cast(states[0],dtype=inputs.dtype) # previous memory state
             # dropout matrices for input units
@@ -1329,7 +1330,7 @@ class ConvGRU2D_custom(ConvRNN2D):
         
         self.activity_regularizer = regularizers.get(activity_regularizer)
 
-    #@tf.function
+    @tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
         self._maybe_reset_cell_dropout_mask(self.cell)
 
@@ -1684,7 +1685,7 @@ class ConvGRU2DCell_custom(DropoutRNNCellMixin, Layer):
             self.bias = None
         self.built = True
 
-    #@tf.function
+    @tf.function
     def call(self, inputs, states, training=None):
         
         h_tm1 = tf.cast( states[0], dtype=inputs.dtype) # previous memory state
@@ -2066,7 +2067,7 @@ class ConvGRU2D_attn(ConvRNN2D):
         
         self.activity_regularizer = regularizers.get(activity_regularizer)
 
-    #@tf.function
+    @tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
         self._maybe_reset_cell_dropout_mask(self.cell)
         if initial_state is not None:
@@ -2428,7 +2429,7 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
             self.bias = None
         self.built = True
 
-    #@tf.function
+    @tf.function
     def call(self, inputs, states, training=None):
         #inputs #shape (bs, h, w, c*self.attn_factor_reduc)
 
