@@ -179,7 +179,7 @@ class model_THST_hparameters(MParams):
         REC_ADAM_PARAMS = {
             "learning_rate":5e-3, "warmup_proportion":0.75,
             "min_lr":1e-3, "beta_1":0.25 , "beta_2":0.95,
-            "amsgrad":True, "decay":0.003, "epsilon":4e-3 }
+            "amsgrad":True, "decay":0.003, "epsilon":4e-4 }
 
         DROPOUT = kwargs.get('dropout',0.0)
         LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.99 }
@@ -207,9 +207,9 @@ class model_THST_hparameters(MParams):
 
         # region CLSTM params
         if DROPOUT == 0.0:
-            _filter = 120
+            _filter = 100
         else:
-            _filter = int(120*1.4)
+            _filter = int(100*1.4)
 
         output_filters_enc     = [ _filter ]*(enc_layer_count-1)                     # [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc     = output_filters_enc + output_filters_enc[-1:]   # the last two layers in the encoder must output the same number of channels
@@ -226,7 +226,7 @@ class model_THST_hparameters(MParams):
         attn_heads = [ 8 ]*attn_layers_count                #[ 8 ]*attn_layers_count        #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
         
         if 'region_grid_params' in self.params.keys():
-            kq_downscale_stride = [1, 8, 8]                 #[1, 8, 8] 
+            kq_downscale_stride = [1, 4, 4]                 #[1, 8, 8] 
             kq_downscale_kernelshape = kq_downscale_stride
 
             #This keeps the hidden representations equal in size to the incoming tensors
@@ -234,10 +234,11 @@ class model_THST_hparameters(MParams):
             val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 ) for idx in range(attn_layers_count)  ]
             
             if kq_downscale_stride == [1,8,8]:
-                effective_base_dscaling = np.prod([1,8,8])*2 
+                effective_base_dscaling = np.prod([1,8,8]) 
             
             elif kq_downscale_stride == [1,4,4]:
-                effective_base_dscaling = np.prod([1,8,8])*4
+                    #kd = 96
+                effective_base_dscaling = np.prod([1,8,8])//2
 
             further_downscaling =  int(effective_base_dscaling / np.prod(kq_downscale_stride) )
 
