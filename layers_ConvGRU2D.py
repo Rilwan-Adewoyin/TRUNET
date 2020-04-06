@@ -668,7 +668,7 @@ class ConvGRU2D(ConvRNN2D):
         self.activity_regularizer = regularizers.get(activity_regularizer)
     
 
-    @tf.function
+    #@tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
         self._maybe_reset_cell_dropout_mask(self.cell)
         return super(ConvGRU2D, self).call(inputs,
@@ -1330,7 +1330,7 @@ class ConvGRU2D_custom(ConvRNN2D):
         
         self.activity_regularizer = regularizers.get(activity_regularizer)
 
-    @tf.function
+    #@tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
         self._maybe_reset_cell_dropout_mask(self.cell)
 
@@ -1805,7 +1805,7 @@ class ConvGRU2DCell_custom(DropoutRNNCellMixin, Layer):
         h = ((z1+z2)/2)*h_tm1 + (1-z1)*hh1 + (1-z2)*hh2
         
         return h, [h]
-    @tf.function
+    #@tf.function
     def input_conv(self, x, w, b=None, padding='valid'):
         conv_out = K.conv2d(x, w, strides=self.strides,
                             padding=padding,
@@ -2067,7 +2067,7 @@ class ConvGRU2D_attn(ConvRNN2D):
         
         self.activity_regularizer = regularizers.get(activity_regularizer)
 
-    @tf.function
+    #@tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
         self._maybe_reset_cell_dropout_mask(self.cell)
         if initial_state is not None:
@@ -2530,7 +2530,7 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
         
         return h, [h]
 
-    @tf.function
+    #@tf.function
     def input_conv(self, x, w, b=None, padding='valid'):
         conv_out = K.conv2d(x, w, strides=self.strides,
                             padding=padding,
