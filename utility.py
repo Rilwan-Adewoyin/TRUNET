@@ -247,7 +247,7 @@ def load_params_test_model(args_dict):
     elif(args_dict['model_name'] == "THST"):
         
         init_m_params = {}
-        init_m_params.update({'model_type_settings': ast.literal_eval( args_dict['model_type_settings'] ) } )
+        init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
         model_params = hparameters.model_THST_hparameters(**init_m_params, **args_dict )()
         init_t_params = {}
         init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
