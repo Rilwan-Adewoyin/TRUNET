@@ -464,8 +464,6 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
                     else:
                         ds = ds.concatenate( li_ds[idx] )
             
-            
-                
         elif m_params['model_name'] in ["SimpleConvGRU","SimpleConvLSTM",'THST']:
 
             if 'location_test' in model_settings.keys():

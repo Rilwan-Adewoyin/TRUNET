@@ -365,7 +365,7 @@ class model_SimpleGRU_hparameters(MParams):
         if dropout == 0.0:
             units = 160
         else:
-            units = int(160*1.4)
+            units = int(160*2.0)
         li_units = [units]*layer_count
         
         li_rs =     [True]*layer_count
