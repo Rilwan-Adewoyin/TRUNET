@@ -182,7 +182,7 @@ class model_THST_hparameters(MParams):
             "amsgrad":True, "decay":0.003, "epsilon":4e-4 }
 
         DROPOUT = kwargs.get('dropout',0.0)
-        LOOKAHEAD_PARAMS = { "sync_period":3, "slow_step_size":0.65 }
+        LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.99 }
         # endregion
         
         #region Key Model Size Settings
