@@ -13,7 +13,7 @@ def load_model(test_params, model_params):
     model_name = model_params['model_name']
 
         # Option 2 - From checkpoint and model.py
-    if model_params['model_type_settings']['var_model_type'] == "mc_dropout":
+    if model_params['model_type_settings']['var_model_type'] == "mc_dropout" and int(model_params['model_type_settings']['model_version'])<100 :
         mode = "mc_dropout_test"
     else:
         mode = "Generic"

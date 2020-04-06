@@ -140,8 +140,8 @@ def predict( model, test_params, model_params ,checkpoint_no ):
             idx, (feature, target, mask) = next(iter_test)
         else:
             idx, (feature, target) = next(iter_test)
+            pred = model.predict( feature, model_params['model_type_settings']['stochastic_f_pass'] ) # shape (bs ,156,352 )  
 
-            pred = model.predict( feature, model_params['model_type_settings']['stochastic_f_pass'] ) # shape (bs ,156,352 )            
         if model_params['model_name'] == "DeepSD":
             pred = utility.water_mask( tf.squeeze(pred), test_params['bool_water_mask'])
 
@@ -249,7 +249,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
                 preds_std = utility.standardize_ati( preds, test_params['normalization_shift']['rain'], test_params['normalization_scales']['rain'], reverse=True)
                 _ = len(preds_std.shape) - 2
                 preds_reshaped = tf.reshape( preds_std, [-1] + preds_std.shape[ -_: ].as_list() )
-                targets_reshaped = tf.reshape( target_masked, [-1] + preds_std.shape[ -_: ].as_list() )
+                targets_reshaped = tf.reshape( target_masked, [-1,1] )
 
             li_predictions.append( preds_reshaped )
             li_true_values.append( targets_reshaped )

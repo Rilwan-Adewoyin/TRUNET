@@ -54,19 +54,19 @@
             "console": "internalConsole",
             "justMyCode": false,
             "args": [ "-mn","SimpleGRU","-sdc","1",
-                        "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':False,'precip_threshold':5.0,'var_model_type':'mc_dropout','model_version':'100', 'twoD':False,'location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Leeds','Liverpool','Bradford','Edinburgh']}",
+                        "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'mc_dropout','model_version':'100', 'twoD':False,'location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh'], 'twoD':False}",
                 "-dd","Data/Rain_Data_Nov19","-bs","10", "-od","./Output", "-do","0.3", "-ido","0.3", "-rdo","0.4" ]
         },
         {
-            "name": "SimpleGRUTest",
+            "name": "SimpleConvGRUTest",
             "type": "python",
             "request": "launch",
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
-            "args": [ "-mn","SimpleGRU",
-                "-mts", "{'stochastic':True,'stochastic_f_pass':15,'distr_type':'LogNormal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'London', 'model_version':'100','location_test':'London'}",
-                "-dd","Data/Rain_Data_Nov19","-bs","2","-od","./Output"]
+            "args": [ "-mn","SimpleConvGRU","-dd","Data/Rain_Data_Nov19","-bs","2","-od","./Output", "-do", "0.0", "-ido","0.0", "-rdo","0.0",
+                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','model_version':'100','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh'],'location_test':'London','twoD':True}"
+                ]
         },
 
         {

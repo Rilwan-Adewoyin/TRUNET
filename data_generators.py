@@ -467,9 +467,12 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
         elif m_params['model_name'] in ["SimpleConvGRU","SimpleConvLSTM",'THST']:
 
             if 'location_test' in model_settings.keys():
+                idx_city_in_region = [8,8] #for this setting the city will always be the middle icon
+
                 ds = ds.map( lambda mf, rain_mask: tuple( [mf, rain_mask[0], rain_mask[1]] )  )                         #mf=(80, 100,140,6)                        
                 h_idxs, w_idxs = rain_data.find_idx_of_city_region( model_settings['location_test'], m_params['region_grid_params'] )
-                idx_city_in_region = [8,8] #for this setting the city will always be the middle icon
+                ds = ds.map( lambda mf, rain, rmask : load_data_ati_select_region_from_nonstack( mf, rain, rmask, h_idxs, w_idxs) , num_parallel_calls=_num_parallel_calls )
+                
                 ds = ds.unbatch().batch( t_params['batch_size'],drop_remainder=True )
                 ds = ds.prefetch(_num_parallel_calls)
                 return ds, idx_city_in_region
@@ -487,8 +490,6 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
                     else:
                         ds = ds.concatenate( li_ds[idx] )
                 
-
-
     elif( model_settings['location'] in rain_data.city_location.keys()  ):
         
         if m_params['model_name'] in ["SimpleLSTM","SimpleDense","SimpleGRU"]:
