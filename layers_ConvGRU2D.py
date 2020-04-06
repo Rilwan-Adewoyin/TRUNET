@@ -1084,6 +1084,7 @@ class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
         
         return h, [h]
 
+    @tf.function
     def input_conv(self, x, w, b=None, padding='valid'):
         conv_out = K.conv2d(x, w, strides=self.strides,
                             padding=padding,
@@ -1805,7 +1806,7 @@ class ConvGRU2DCell_custom(DropoutRNNCellMixin, Layer):
         h = ((z1+z2)/2)*h_tm1 + (1-z1)*hh1 + (1-z2)*hh2
         
         return h, [h]
-
+    @tf.function
     def input_conv(self, x, w, b=None, padding='valid'):
         conv_out = K.conv2d(x, w, strides=self.strides,
                             padding=padding,
@@ -2530,6 +2531,7 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
         
         return h, [h]
 
+    @tf.function
     def input_conv(self, x, w, b=None, padding='valid'):
         conv_out = K.conv2d(x, w, strides=self.strides,
                             padding=padding,
