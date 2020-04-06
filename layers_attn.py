@@ -207,7 +207,7 @@ class MultiHead2DAttention_v2(Layer):
             self.dense_output = tf.keras.layers.Activation("linear")
         #endregion
 
-    #@tf.function
+    @tf.function
     def call(self, inputs , k_antecedent, v_antecedent):
         """
             :param inputs: q_antecedent This is required due to keras' need for layers to have an input argument
