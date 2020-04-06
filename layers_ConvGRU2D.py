@@ -1001,7 +1001,7 @@ class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
             self.bias = None
         self.built = True
 
-    @tf.function
+    #@tf.function
     def call(self, inputs, states, training=None):
         h_tm1 = tf.cast(states[0],dtype=inputs.dtype) # previous memory state
             # dropout matrices for input units
@@ -1685,7 +1685,7 @@ class ConvGRU2DCell_custom(DropoutRNNCellMixin, Layer):
             self.bias = None
         self.built = True
 
-    @tf.function
+    #@tf.function
     def call(self, inputs, states, training=None):
         
         h_tm1 = tf.cast( states[0], dtype=inputs.dtype) # previous memory state
@@ -2429,7 +2429,7 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
             self.bias = None
         self.built = True
 
-    @tf.function
+    #@tf.function
     def call(self, inputs, states, training=None):
         #inputs #shape (bs, h, w, c*self.attn_factor_reduc)
 
