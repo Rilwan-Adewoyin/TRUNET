@@ -238,7 +238,7 @@ class model_THST_hparameters(MParams):
             
             elif kq_downscale_stride == [1,4,4]:
                     #kd = 96
-                effective_base_dscaling = np.prod([1,8,8])//2
+                effective_base_dscaling = np.prod([1,8,8])
 
             further_downscaling =  int(effective_base_dscaling / np.prod(kq_downscale_stride) )
 
