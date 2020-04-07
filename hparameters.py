@@ -317,7 +317,8 @@ class model_THST_hparameters(MParams):
             'decoder_layer_count': decoder_layer_count,
             'CGRUs_params' : CGRUs_params_dec,
             'seq_len_factor_expansion': SEQ_LEN_FACTOR_EXPANSION, #This is written in the correct order
-            'seq_len': DECODER_LAYERS_NUM_OF_SPLITS[:decoder_layer_count],
+            'seq_len': DECODER_LAYERS_NUM_OF_SPLITS,
+            'attn_layer_no_splits':ATTN_LAYERS_NUM_OF_SPLITS,
             'dropout':DROPOUT
         }
         # endregion

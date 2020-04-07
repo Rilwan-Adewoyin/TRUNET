@@ -706,9 +706,8 @@ class THST_Decoder(tf.keras.layers.Layer):
 												decoder_params['seq_len'][idx], h_w )
 			self.CGRU_2cell_layers.append(_layer)
 
-		self.seq_lens = self.decoder_params['seq_len'] + [ self.decoder_params['seq_len'][-1]//self.decoder_params['seq_len_factor_expansion'] ]
-		seq_len_dim =  tf.reduce_sum( self.seq_lens ) 
-		self.shape1 = [seq_len_dim] + [ self.train_params['batch_size'] ] + [h_w[0], h_w[1], self.decoder_params[0]['filters']*2 ] 
+		self.seq_lens = self.decoder_params['attn_layer_no_splits']
+		self.shape1 = [tf.reduce_sum( self.seq_lens )] + [ self.train_params['batch_size'] ] + [h_w[0], h_w[1], self.decoder_params[0]['filters']*2 ] 
 	# @tf.function
 	# def call(self, hidden_states_2_enc, hidden_states_3_enc, hidden_states_4_enc, hidden_states_5_enc, training=True  ):
 
