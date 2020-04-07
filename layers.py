@@ -676,7 +676,7 @@ class THST_Encoder(tf.keras.layers.Layer):
 			hidden_state = self.CGRU_Attn_layers[idx]( hidden_state, training=training)
 
 			shape = hidden_state.shape
-			hidden_state = tf.reshape(hidden_state, shape=shape[1]+shape[0]+shape[2:] )
+			hidden_state = tf.reshape(hidden_state, shape=shape[1:2]+shape[:1]+shape[2:] )
 
 			hs_list = hs_list.write( idx, hidden_state )
 		
