@@ -177,7 +177,7 @@ class model_THST_hparameters(MParams):
     def _default_params( self, **kwargs ):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
-            "learning_rate":5e-3, "warmup_proportion":0.75,
+            "learning_rate":5e-3, "warmup_proportion":0.70,
             "min_lr":1e-3, "beta_1":0.50 , "beta_2":0.95,
             "amsgrad":True, "decay":0.007, "epsilon":4e-4 }
 
@@ -244,9 +244,9 @@ class model_THST_hparameters(MParams):
 
             # key_depth = [ _val//further_downscaling for _val in key_depth ]
             if kq_downscale_stride == [1,8,8]:
-                key_depth = [96]*range(attn_layers_count)
+                key_depth = [96]*len(attn_layers_count)
             elif kq_downscale_stride == [1,4,4]:
-                key_depth = [128]*range(attn_layers_count)
+                key_depth = [128]*len(attn_layers_count)
 
         else:
             kq_downscale_stride = [1, 13, 13]
