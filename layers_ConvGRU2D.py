@@ -1083,7 +1083,7 @@ class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
         
         return h, [h]
 
-    @tf.function
+    #@tf.function
     def input_conv(self, x, w, b=None, padding='valid'):
         conv_out = K.conv2d(x, w, strides=self.strides,
                             padding=padding,

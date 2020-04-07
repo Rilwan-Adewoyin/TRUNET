@@ -668,18 +668,23 @@ class THST_Encoder(tf.keras.layers.Layer):
 		hs_list = tf.TensorArray(dtype=self._compute_dtype, size=self.encoder_params['attn_layers_count'], infer_shape=False, dynamic_size=False, clear_after_read=False )
 		
 		hidden_state =  self.CGRU_Input_Layer( _input, training ) #(bs, seq_len_1, h, w, c1)
-		
+
 				#Note: Doing the foor loop this way so more operations can be given to gpu 1
 				#with tf.device('/GPU:0'):
-		for idx in range(self.encoder_params['attn_layers_count'] -1):
+		
+		for idx in range(self.encoder_params['attn_layers_count']):
 			hidden_state = self.CGRU_Attn_layers[idx]( hidden_state, training=training)
+
+			shape = hidden_state.shape
+			hidden_state = tf.reshape(hidden_state, shape=shape[1]+shape[0]+shape[2:] )
+
 			hs_list = hs_list.write( idx, hidden_state )
 		
-				#with tf.device('/GPU:1'):
-		hidden_state = self.CGRU_Attn_layers[idx+1]( hidden_state, training=training)
+		#hidden_state = self.CGRU_Attn_layers[idx+1]( hidden_state, training=training)
 		hs_list = hs_list.write( idx+1, hidden_state )
 		
-		return hs_list
+		#return hs_list
+		return hs_list.concat()
 
 class THST_Decoder(tf.keras.layers.Layer):
 	def __init__(self, train_params ,decoder_params, h_w):
@@ -704,21 +709,36 @@ class THST_Decoder(tf.keras.layers.Layer):
 	# def call(self, hidden_states_2_enc, hidden_states_3_enc, hidden_states_4_enc, hidden_states_5_enc, training=True  ):
 
 	#@tf.function -> cant be used since inpuut hs_list is a TensorArray which Tensorflow does not correctly handle yet
-	def call(self, hs_list, training=True):
+	# def call(self, hs_list, training=True):
+	
+	# 	# hidden_states_l4 = self.CGRU_L4( hidden_states_4_enc , hidden_states_5_enc, training)
+	# 		#     #2, 4, 100, 140, 2
+	# 		# hidden_states_l3 = self.CGRU_L3( hidden_states_3_enc, hidden_states_l4, training ) #(bs, output_len2, 100, 140, layer_below_filters*2)
+	# 		#     #2, 8, 100, 140, 2
+	# 		# hidden_states_l2 = self.CGRU_L2( hidden_states_2_enc, hidden_states_l3, training )     #(bs, output_len1, height, width)     
+	# 		#     #2, 16, 100, 140, 4
 
-		# hidden_states_l4 = self.CGRU_L4( hidden_states_4_enc , hidden_states_5_enc, training)
-			#     #2, 4, 100, 140, 2
-			# hidden_states_l3 = self.CGRU_L3( hidden_states_3_enc, hidden_states_l4, training ) #(bs, output_len2, 100, 140, layer_below_filters*2)
-			#     #2, 8, 100, 140, 2
-			# hidden_states_l2 = self.CGRU_L2( hidden_states_2_enc, hidden_states_l3, training )     #(bs, output_len1, height, width)     
-			#     #2, 16, 100, 140, 4
+	# 	dec_hs_outp = hs_list.read(self.layer_count)
 
-		dec_hs_outp = hs_list.read(self.layer_count)
+	# 	for idx in range(1, self.layer_count+1):
+	# 		dec_hs_outp =  self.CGRU_2cell_layers[-idx]( hs_list.read( self.layer_count -idx ), dec_hs_outp, training )
+	# 	hs_list = hs_list.close()
+	# 	return dec_hs_outp
+	
+	def call(self, tf_vals, training=True):
+		
+		shape = tf_vals.shape
+		tf_hs = tf.reshape( tf_vals, shape[1]+shape[0]+shape[2:] ) #(bs, sum_seq_len, h,w, 6)
+		li_hs = tf.split(tf_hs, [ int(4*28), 28, 4],axis=1 )
+
+		dec_hs_outp = li_hs[-1]
 
 		for idx in range(1, self.layer_count+1):
-			dec_hs_outp =  self.CGRU_2cell_layers[-idx]( hs_list.read( self.layer_count -idx ), dec_hs_outp, training )
-		hs_list = hs_list.close()
+			dec_hs_outp =  self.CGRU_2cell_layers[-idx]( li_hs[ self.layer_count-idx], dec_hs_outp, training )
+
+
 		return dec_hs_outp
+
 			
 class THST_CGRU_Input_Layer(tf.keras.layers.Layer):
 	"""

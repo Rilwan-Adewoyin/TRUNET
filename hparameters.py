@@ -207,9 +207,9 @@ class model_THST_hparameters(MParams):
 
         # region CLSTM params
         if DROPOUT == 0.0:
-            _filter = 88
+            _filter = 96
         else:
-            _filter = int(88*1.4)
+            _filter = int(96*1.4)
 
         output_filters_enc     = [ _filter ]*(enc_layer_count-1)                     # [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc     = output_filters_enc + output_filters_enc[-1:]   # the last two layers in the encoder must output the same number of channels
@@ -230,7 +230,7 @@ class model_THST_hparameters(MParams):
             kq_downscale_kernelshape = kq_downscale_stride
 
             #This keeps the hidden representations equal in size to the incoming tensors
-            key_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 / int(np.prod([kq_downscale_kernelshape[1:]])) ) for idx in range(attn_layers_count)  ]
+            key_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 / np.prod([kq_downscale_kernelshape[1:]]) ) for idx in range(attn_layers_count)  ]
             val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 ) for idx in range(attn_layers_count)  ]
             
             if kq_downscale_stride == [1,8,8]:
@@ -238,7 +238,7 @@ class model_THST_hparameters(MParams):
             
             elif kq_downscale_stride == [1,4,4]:
                     #kd = 96
-                effective_base_dscaling = np.prod([1,8,8])
+                effective_base_dscaling = np.prod([1,8,8])//2
 
             further_downscaling =  int(effective_base_dscaling / np.prod(kq_downscale_stride) )
 
