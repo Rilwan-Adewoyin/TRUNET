@@ -178,8 +178,8 @@ class model_THST_hparameters(MParams):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
             "learning_rate":5e-3, "warmup_proportion":0.75,
-            "min_lr":1e-3, "beta_1":0.25 , "beta_2":0.95,
-            "amsgrad":True, "decay":0.003, "epsilon":4e-4 }
+            "min_lr":1e-3, "beta_1":0.50 , "beta_2":0.95,
+            "amsgrad":True, "decay":0.007, "epsilon":4e-4 }
 
         DROPOUT = kwargs.get('dropout',0.0)
         LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.99 }
@@ -230,19 +230,23 @@ class model_THST_hparameters(MParams):
             kq_downscale_kernelshape = kq_downscale_stride
 
             #This keeps the hidden representations equal in size to the incoming tensors
-            key_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 / np.prod([kq_downscale_kernelshape[1:]]) ) for idx in range(attn_layers_count)  ]
             val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 ) for idx in range(attn_layers_count)  ]
+            # key_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 / np.prod([kq_downscale_kernelshape[1:]]) ) for idx in range(attn_layers_count)  ]
+                        
+            # if kq_downscale_stride == [1,8,8]:
+            #     effective_base_dscaling = np.prod([1,8,8])*2 
             
+            # elif kq_downscale_stride == [1,4,4]:
+            #         #kd = 96
+            #     effective_base_dscaling = np.prod([1,8,8])*2  
+
+            # further_downscaling =  int(effective_base_dscaling / np.prod(kq_downscale_stride) )
+
+            # key_depth = [ _val//further_downscaling for _val in key_depth ]
             if kq_downscale_stride == [1,8,8]:
-                effective_base_dscaling = np.prod([1,8,8]) 
-            
+                key_depth = [96]
             elif kq_downscale_stride == [1,4,4]:
-                    #kd = 96
-                effective_base_dscaling = np.prod([1,8,8])
-
-            further_downscaling =  int(effective_base_dscaling / np.prod(kq_downscale_stride) )
-
-            key_depth = [ _val//further_downscaling for _val in key_depth ]
+                key_depth = [128]
 
         else:
             kq_downscale_stride = [1, 13, 13]
@@ -326,11 +330,11 @@ class model_THST_hparameters(MParams):
         # region --------------- OUTPUT_LAYER_PARAMS -----------------
         
         output_filters = [  int(  8*(((output_filters_dec[-1]*2)/3)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
-        output_kernel_size = [ (4,4), (3,3) ] 
+        output_kernel_size = [ (3,3), (3,3) ] 
         activations = ['relu','linear']
 
         OUTPUT_LAYER_PARAMS = [ 
-            { "filters":fs, "kernel_size":ks ,  "padding":"same", "activation":act } 
+            { "filters":fs, "kernel_size":ks ,  "padding":"same", "activation":act, 'bias_regularizer':tf.keras.regularizers.l2(0.2)  } 
                 for fs, ks, act in zip( output_filters, output_kernel_size, activations )
          ]
         # endregion

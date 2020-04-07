@@ -844,7 +844,7 @@ class THST_CGRU_Decoder_Layer(tf.keras.layers.Layer):
 		return hidden_states
 
 class THST_OutputLayer(tf.keras.layers.Layer):
-	def __init__(self, train_params, layer_params, model_type_settings):
+	def __init__(self, train_params, dropout_rate ,layer_params, model_type_settings):
 		"""
 			:param list layer_params: a list of dicts of params for the layers
 		"""
@@ -852,6 +852,9 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 
 		self.trainable = train_params['trainable']
 		
+		self.do0 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=dropout_rate, data_format = 'channels_last' ) )
+		self.do1 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=dropout_rate, data_format = 'channels_last' ) )
+
 		if(model_type_settings['deformable_conv'] ==False):
 			self.conv_hidden = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
 			self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
@@ -864,8 +867,12 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 	def call(self, _inputs, training=True ):
 		"""
 			:param tnsr inputs: (bs, seq_len, h,w,c)
+
 		"""
-		x = self.conv_hidden( _inputs,training=training )
+		if training:
+			inputs = self.do0(inputs,training=training)
+
+		x = self.conv_hidden( inputs,training=training )
 		x = self.conv_output( x, training=training ) #shape (bs, height, width)
 		return x
 

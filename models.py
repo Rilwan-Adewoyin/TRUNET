@@ -324,8 +324,8 @@ class SimpleConvGRU(tf.keras.Model):
             else:
                 x = x + self.ConvGRU_layers[idx](inputs=x,training=training )
         
-        x = self.conv1( self.do( tf.concat([x,x0] ,axis=-1) ), training=training )
-        outp = self.output_conv( self.do1( x ), training=training )
+        x = self.conv1( self.do( tf.concat([x,x0] ,axis=-1),training=training ), training=training )
+        outp = self.output_conv( self.do1( x, training=training ), training=training )
         outp = self.float32_output(outp)
         outp = self.output_activation(outp)
 
