@@ -844,7 +844,7 @@ class THST_CGRU_Decoder_Layer(tf.keras.layers.Layer):
 		return hidden_states
 
 class THST_OutputLayer(tf.keras.layers.Layer):
-	def __init__(self, train_params, dropout_rate ,layer_params, model_type_settings):
+	def __init__(self, train_params,layer_params, model_type_settings,dropout_rate):
 		"""
 			:param list layer_params: a list of dicts of params for the layers
 		"""
@@ -869,10 +869,8 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			:param tnsr inputs: (bs, seq_len, h,w,c)
 
 		"""
-		if training:
-			inputs = self.do0(inputs,training=training)
 
-		x = self.conv_hidden( inputs,training=training )
+		x = self.conv_hidden( self.do0(inputs,training=training),training=training )
 		x = self.conv_output( x, training=training ) #shape (bs, height, width)
 		return x
 

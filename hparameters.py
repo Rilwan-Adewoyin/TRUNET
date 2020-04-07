@@ -352,7 +352,8 @@ class model_THST_hparameters(MParams):
             'data_pipeline_params':DATA_PIPELINE_PARAMS,
 
             'rec_adam_params':REC_ADAM_PARAMS,
-            'lookahead_params':LOOKAHEAD_PARAMS
+            'lookahead_params':LOOKAHEAD_PARAMS,
+            'dropout':DROPOUT
             } )
 
 class model_SimpleGRU_hparameters(MParams):

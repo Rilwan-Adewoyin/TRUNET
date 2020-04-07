@@ -77,7 +77,7 @@ class THST(tf.keras.Model):
         #TODO: in bidirectional layers explicity add the go_backwards line and second LSTM / GRU layer
         self.encoder = layers.THST_Encoder( train_params, model_params['encoder_params'], h_w )
         self.decoder = layers.THST_Decoder( train_params, model_params['decoder_params'], h_w )
-        self.output_layer = layers.THST_OutputLayer( train_params, model_params['output_layer_params'], model_params['model_type_settings']  )
+        self.output_layer = layers.THST_OutputLayer( train_params, model_params['output_layer_params'], model_params['model_type_settings'], model_params['dropout']  )
 
         self.float32_custom_relu = layers.OutputReluFloat32(train_params) 
         
@@ -95,7 +95,7 @@ class THST(tf.keras.Model):
         hs_list_enc = self.encoder(_input, training=training)
         #: with tf.device('/GPU:1'):
         hs_dec = self.decoder(hs_list_enc, training=training)
-        output = self.output_layer(hs_dec, training)
+        output = self.output_layer(hs_dec, training=training)
         output = self.float32_custom_relu(output)   
         return output
 
