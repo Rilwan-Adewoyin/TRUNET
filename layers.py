@@ -728,7 +728,7 @@ class THST_Decoder(tf.keras.layers.Layer):
 	def call(self, tf_vals, training=True):
 		
 		shape = tf_vals.shape
-		tf_hs = tf.reshape( tf_vals, shape[1]+shape[0]+shape[2:] ) #(bs, sum_seq_len, h,w, 6)
+		tf_hs = tf.reshape( tf_vals, shape[1:2]+shape[:1]+shape[2:] ) #(bs, sum_seq_len, h,w, 6)
 		li_hs = tf.split(tf_hs, [ int(4*28), 28, 4],axis=1 )
 
 		dec_hs_outp = li_hs[-1]
