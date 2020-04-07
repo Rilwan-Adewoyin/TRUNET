@@ -380,10 +380,17 @@ def model_name_mkr(model_params, mode='Generic'):
 
     
     if  model_params['model_name'] == "THST":
-        model_name = "{}_{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
-                                          model_params['model_type_settings']['distr_type'], 
-                                          str(model_params['model_type_settings']['discrete_continuous']),
-                                          model_params['model_type_settings']['location'], model_params['model_type_settings']['model_version']   )
+        if model_params['model_type_settings']['deformable_conv'] == False:
+            model_name = "{}_{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
+                                            model_params['model_type_settings']['distr_type'], 
+                                            str(model_params['model_type_settings']['discrete_continuous']),
+                                            model_params['model_type_settings']['location'], model_params['model_type_settings']['model_version']   )
+        else:
+            model_name = "{}_{}_{}_{}_{}_v{}_dc".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
+                                model_params['model_type_settings']['distr_type'], 
+                                str(model_params['model_type_settings']['discrete_continuous']),
+                                model_params['model_type_settings']['location'], model_params['model_type_settings']['model_version']  )
+
     elif model_params['model_name'] == "DeepSD":
         model_name =    "{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
                                 model_params['model_type_settings']['distr_type'], 
