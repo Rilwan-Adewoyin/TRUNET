@@ -764,7 +764,7 @@ class THST_CGRU_Input_Layer(tf.keras.layers.Layer):
 										backward_layer=layers_ConvGRU2D.ConvGRU2D( **copy.deepcopy(self.layer_params), go_backwards=True ),
 										merge_mode=None ) 
 		
-	@tf.function
+	#@tf.function
 	def call( self, _input, training ):
 		#NOTE: consider addding multiple LSTM Layers to extract more latent features
 
@@ -794,7 +794,7 @@ class THST_CGRU_Attention_Layer(tf.keras.layers.Layer):
 
 		self.shape 						= ( train_params['batch_size'], self.num_of_splits, h_w[0], h_w[1], CGRU_params['filters'] )
 
-	@tf.function
+	#@tf.function
 	def call(self, input_hidden_states, training=True):
 		
 		hidden_states_f, hidden_states_b = self.convGRU_attn(input_hidden_states, training=training)
@@ -820,7 +820,7 @@ class THST_CGRU_Decoder_Layer(tf.keras.layers.Layer):
 														backward_layer=layers_ConvGRU2D.ConvGRU2D_custom( **copy.deepcopy(layer_params),go_backwards=True,trainable=self.trainable ) ,
 														merge_mode=None)
 	
-	@tf.function
+	#@tf.function
 	def call(self, input1, input2, training=True ):
 		"""
 
@@ -860,7 +860,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			self.conv_hidden = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[0] ) )
 			self.conv_output = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
 	
-	@tf.function
+	#@tf.function
 	def call(self, _inputs, training=True ):
 		"""
 			:param tnsr inputs: (bs, seq_len, h,w,c)
@@ -1024,7 +1024,7 @@ class OutputReluFloat32(tf.keras.layers.Layer):
 		self.custom_relu = CustomRelu_maker(t_params, dtype='float32')
 		self.outputf32 = tf.keras.layers.Activation('linear', dtype='float32')
 	
-	@tf.function
+	#@tf.function
 	def call(self, inputs):
 		outp = self.outputf32(inputs)
 		outp = self.custom_relu(outp)
@@ -1091,7 +1091,7 @@ class ReLU_correct_layer(tf.keras.layers.Layer):
         self.sdtype = sdtype
         self._dtype = sdtype
     
-    @tf.function
+    #@tf.function
     def call(self, inputs):
         # alpha is used for leaky relu slope in activations instead of
         # negative_slope.

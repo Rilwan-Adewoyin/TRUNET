@@ -96,9 +96,9 @@ class THST(tf.keras.Model):
         #: with tf.device('/GPU:1'):
         hs_dec = self.decoder(hs_list_enc, training=training)
         output = self.output_layer(hs_dec, training)
-        output = self.float32_custom_relu(output)
-             
+        output = self.float32_custom_relu(output)   
         return output
+
 
     def predict( self, inputs, n_preds, training=True):
         """
