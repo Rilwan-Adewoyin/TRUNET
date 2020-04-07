@@ -244,9 +244,9 @@ class model_THST_hparameters(MParams):
 
             # key_depth = [ _val//further_downscaling for _val in key_depth ]
             if kq_downscale_stride == [1,8,8]:
-                key_depth = [96]*len(attn_layers_count)
+                key_depth = [96]*attn_layers_count
             elif kq_downscale_stride == [1,4,4]:
-                key_depth = [128]*len(attn_layers_count)
+                key_depth = [128]*attn_layers_count
 
         else:
             kq_downscale_stride = [1, 13, 13]
