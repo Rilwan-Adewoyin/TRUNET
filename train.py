@@ -78,8 +78,6 @@ import json
 
 import custom_losses
 import copy
-import warnings
-warnings.simplefilter(action = "ignore", category = RuntimeWarning)
 #tf.random.set_seed(seed)
 # endregion
 
@@ -157,9 +155,9 @@ def train_loop(train_params, model_params):
     #     #Trying 2 optimizers for discrete_continuious LSTM
     elif model_params['model_type_settings']['model_version'] in ["54","55","56","156","155"]:
 
-        optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":5.2e-3, "warmup_proportion":0.85, "min_lr":1e-3, "beta_1":0.75, "beta_2":0.85, "decay":0.003, "amsgrad":True, "epsilon":4e-4} , total_steps=total_steps ) 
-        optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":3.4e-3, "warmup_proportion":0.85, "min_lr":1e-3, "beta_1":0.75, "beta_2":0.85, "decay":0.003, "amsgrad":True, "epsilon":4e-4} , total_steps=total_steps ) 
-        optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":5.2e-3, "warmup_proportion":0.85, "min_lr":1e-3, "beta_1":0.75, "beta_2":0.85, "decay":0.003, "amsgrad":True, "epsilon":4e-4} , total_steps=total_steps )  
+        optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":2.6e-3, "warmup_proportion":0.85, "min_lr":1e-3, "beta_1":0.75, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":4e-3} , total_steps=total_steps ) 
+        optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":1.7e-3, "warmup_proportion":0.85, "min_lr":1e-3, "beta_1":0.75, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":4e-3} , total_steps=total_steps ) 
+        optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":2.6e-3, "warmup_proportion":0.85, "min_lr":1e-3, "beta_1":0.75, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":4e-3} , total_steps=total_steps )  
         
         if(model_params['model_type_settings']['model_version']) in ["54"]:
             optimizers  = [ optimizer_rain, optimizer_nonrain, optimizer_dc ]
@@ -572,7 +570,7 @@ def train_loop(train_params, model_params):
                     gradients = _optimizer.get_unscaled_gradients(scaled_gradients)
                     
                     if(model_params['model_type_settings']['model_version'] in ["54","55","56","156","155"] ): #multiple optimizers 
-                        gradients, _ = tf.clip_by_global_norm( gradients, 1.5 )
+                        gradients, _ = tf.clip_by_global_norm( gradients, 2.5 )
 
                         #ensuring all optimizers start at the same time
                         if optimizer_ready[optm_idx]==False:
@@ -586,7 +584,7 @@ def train_loop(train_params, model_params):
                           _optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
                     else:
-                        gradients, _ = tf.clip_by_global_norm( gradients, 1.5 )
+                        gradients, _ = tf.clip_by_global_norm( gradients, 2. )
                         _optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
                 elif (model_params['model_name'] in ["SimpleConvLSTM","SimpleConvGRU","THST"]):
@@ -710,7 +708,7 @@ def train_loop(train_params, model_params):
                     gradients = _optimizer.get_unscaled_gradients(scaled_gradients)
                     
                     if(model_params['model_type_settings']['model_version'] in ["54","55","56","156","155"] ): #multiple optimizers 
-                        gradients, _ = tf.clip_by_global_norm( gradients, 5.0 )
+                        gradients, _ = tf.clip_by_global_norm( gradients, 2.5 )
 
                         #insert code here to handle ensuring all loss functions start at the same time, e.g. when all optimizers have stopped producing nans
 
@@ -725,7 +723,7 @@ def train_loop(train_params, model_params):
                           _optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
                     else:
-                        gradients, _ = tf.clip_by_global_norm( gradients, 5.0 )
+                        gradients, _ = tf.clip_by_global_norm( gradients, 2.5 )
                         _optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
                 gc.collect()
