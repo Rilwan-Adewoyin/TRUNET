@@ -78,6 +78,8 @@ import json
 
 import custom_losses
 import copy
+import warnings
+warnings.simplefilter(action = "ignore", category = RuntimeWarning)
 #tf.random.set_seed(seed)
 # endregion
 
