@@ -177,9 +177,9 @@ class model_THST_hparameters(MParams):
     def _default_params( self, **kwargs ):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-3, "warmup_proportion":0.65,
+            "learning_rate":5e-3, "warmup_proportion":0.65,
             "min_lr":8e-5, "beta_1":0.50 , "beta_2":0.95,
-            "amsgrad":True, "decay":0.007, "epsilon":0.005 }
+            "amsgrad":True, "decay":0.007, "epsilon":0.0005 }
 
         DROPOUT = kwargs.get('dropout',0.0)
         LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.99 }
@@ -226,7 +226,7 @@ class model_THST_hparameters(MParams):
         attn_heads = [ 8 ]*attn_layers_count                #[ 8 ]*attn_layers_count        #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
         
         if 'region_grid_params' in self.params.keys():
-            kq_downscale_stride = [1, 4, 4]                 #[1, 8, 8] 
+            kq_downscale_stride = [1, 8, 8]                 #[1, 8, 8] 
             kq_downscale_kernelshape = kq_downscale_stride
 
             #This keeps the hidden representations equal in size to the incoming tensors
