@@ -870,7 +870,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 
 		"""
 
-		x = self.conv_hidden( self.do0(inputs,training=training),training=training )
+		x = self.conv_hidden( self.do0(_inputs,training=training),training=training )
 		x = self.conv_output( x, training=training ) #shape (bs, height, width)
 		return x
 
