@@ -32,7 +32,7 @@
             "console": "internalConsole",
             "justMyCode": false,
             "args": [ "-mn","THST","-dd","Data/Rain_Data_Nov19", "-bs","4","-sdc","1" , "-do","0.3", "-ido","0.3", "-rdo","0.4",
-                "-mts" ,"{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh'],'deformable_conv':False, 'model_version':'100','twoD':True}"
+                "-mts" ,"{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh'],'deformable_conv':False, 'model_version':'10','twoD':True}"
                 ]  
         },
         {

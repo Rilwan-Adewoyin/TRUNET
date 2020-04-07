@@ -695,6 +695,7 @@ class THST_Decoder(tf.keras.layers.Layer):
 		self.decoder_params = decoder_params
 		self.train_params = train_params
 		self.layer_count = decoder_params['decoder_layer_count']
+		self.h_w = h_w
 		#self.encoder_hidden_state_count = self.layer_count + 1
 		
 		
@@ -705,6 +706,9 @@ class THST_Decoder(tf.keras.layers.Layer):
 												decoder_params['seq_len'][idx], h_w )
 			self.CGRU_2cell_layers.append(_layer)
 
+		self.seq_lens = self.decoder_params['seq_len'] + [ self.decoder_params['seq_len'][-1]//self.decoder_params['seq_len_factor_expansion'] ]
+		seq_len_dim =  tf.reduce_sum( self.seq_lens ) 
+		self.shape1 = [seq_len_dim] + [ self.train_params['batch_size'] ] + [h_w[0], h_w[1], self.decoder_params[0]['filters']*2 ] 
 	# @tf.function
 	# def call(self, hidden_states_2_enc, hidden_states_3_enc, hidden_states_4_enc, hidden_states_5_enc, training=True  ):
 
@@ -727,9 +731,11 @@ class THST_Decoder(tf.keras.layers.Layer):
 	
 	def call(self, tf_vals, training=True):
 		
-		shape = tf_vals.shape
-		tf_hs = tf.reshape( tf_vals, shape[1:2]+shape[:1]+shape[2:] ) #(bs, sum_seq_len, h,w, 6)
-		li_hs = tf.split(tf_hs, [ int(4*28), 28, 4],axis=1 )
+		
+
+		tf_vals.set_shape( self.shape1 )
+		tf_hs = tf.reshape( tf_vals, shape=self.shape1[1:2]+self.shape1[:1]+self.shape1[2:] ) #(bs, sum_seq_len, h,w, 6)
+		li_hs = tf.split(tf_hs, self.seq_lens, axis=1 )
 
 		dec_hs_outp = li_hs[-1]
 
