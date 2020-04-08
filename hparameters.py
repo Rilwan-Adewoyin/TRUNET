@@ -209,7 +209,7 @@ class model_THST_hparameters(MParams):
         if DROPOUT == 0.0:
             _filter = 96
         else:
-            _filter = int(96*1.4)
+            _filter = 112
 
         output_filters_enc     = [ _filter ]*(enc_layer_count-1)                     # [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc     = output_filters_enc + output_filters_enc[-1:]   # the last two layers in the encoder must output the same number of channels
