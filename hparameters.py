@@ -226,7 +226,7 @@ class model_THST_hparameters(MParams):
         attn_heads = [ 8 ]*attn_layers_count                #[ 8 ]*attn_layers_count        #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
         
         if 'region_grid_params' in self.params.keys():
-            kq_downscale_stride = [1, 8, 8]                 #[1, 8, 8] 
+            kq_downscale_stride = [1, 4, 4]                 #[1, 8, 8] 
             kq_downscale_kernelshape = kq_downscale_stride
 
             #This keeps the hidden representations equal in size to the incoming tensors
@@ -244,8 +244,8 @@ class model_THST_hparameters(MParams):
 
             # key_depth = [ _val//further_downscaling for _val in key_depth ]
             if kq_downscale_stride == [1,8,8]:
-                #key_depth = [96]*attn_layers_count
-                key_depth = [320]*attn_layers_count
+                key_depth = [96]*attn_layers_count
+                #key_depth = [320]*attn_layers_count
             elif kq_downscale_stride == [1,4,4]:
                 key_depth = [128]*attn_layers_count
 

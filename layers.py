@@ -669,22 +669,21 @@ class THST_Encoder(tf.keras.layers.Layer):
 		
 		hidden_state =  self.CGRU_Input_Layer( _input, training ) #(bs, seq_len_1, h, w, c1)
 
-				#Note: Doing the foor loop this way so more operations can be given to gpu 1
-				#with tf.device('/GPU:0'):
-		#for idx in range(self.encoder_params['attn_layers_count']-1):
 		for idx in range(self.encoder_params['attn_layers_count']):
-			hidden_state = self.CGRU_Attn_layers[idx]( hidden_state, training=training)
+			hidden_state = self.CGRU_Attn_layers[idx]( hidden_state, training=training)		
+			hs_list = hs_list.write( idx, hidden_state )
+		
+		return hs_list
 
-			shape = hidden_state.shape
-			
-			#hs_list = hs_list.write( idx, hidden_state )
-			hs_list = hs_list.write( idx, tf.reshape(hidden_state, shape=shape[1:2]+shape[:1]+shape[2:] ) )
+
+		# for idx in range(self.encoder_params['attn_layers_count']):
+		# 	hidden_state = self.CGRU_Attn_layers[idx]( hidden_state, training=training)
+		# 	shape = hidden_state.shape
+		# 	hs_list = hs_list.write( idx, tf.reshape(hidden_state, shape=shape[1:2]+shape[:1]+shape[2:] ) )
 		
-		#hidden_state = self.CGRU_Attn_layers[idx+1]( hidden_state, training=training)
-		#hs_list = hs_list.write( idx+1, hidden_state )
-		
-		#return hs_list
-		return hs_list.concat()
+		# _res = hs_list.concat()
+		# hs_list = hs_list.close()
+		# return _res
 
 class THST_Decoder(tf.keras.layers.Layer):
 	def __init__(self, train_params ,decoder_params, h_w):
@@ -708,41 +707,39 @@ class THST_Decoder(tf.keras.layers.Layer):
 
 		self.seq_lens = self.decoder_params['attn_layer_no_splits']
 		self.shape1 = [tf.reduce_sum( self.seq_lens )] + [ self.train_params['batch_size'] ] + [h_w[0], h_w[1], self.decoder_params['CGRUs_params'][0]['filters']*2 ] 
+	
 	# @tf.function
 	# def call(self, hidden_states_2_enc, hidden_states_3_enc, hidden_states_4_enc, hidden_states_5_enc, training=True  ):
 
 	#@tf.function -> cant be used since inpuut hs_list is a TensorArray which Tensorflow does not correctly handle yet
-	# def call(self, hs_list, training=True):
-	
+		
 	# 	# hidden_states_l4 = self.CGRU_L4( hidden_states_4_enc , hidden_states_5_enc, training)
 	# 		#     #2, 4, 100, 140, 2
 	# 		# hidden_states_l3 = self.CGRU_L3( hidden_states_3_enc, hidden_states_l4, training ) #(bs, output_len2, 100, 140, layer_below_filters*2)
 	# 		#     #2, 8, 100, 140, 2
 	# 		# hidden_states_l2 = self.CGRU_L2( hidden_states_2_enc, hidden_states_l3, training )     #(bs, output_len1, height, width)     
 	# 		#     #2, 16, 100, 140, 4
-
-	# 	dec_hs_outp = hs_list.read(self.layer_count)
-
-	# 	for idx in range(1, self.layer_count+1):
-	# 		dec_hs_outp =  self.CGRU_2cell_layers[-idx]( hs_list.read( self.layer_count -idx ), dec_hs_outp, training )
-	# 	hs_list = hs_list.close()
-	# 	return dec_hs_outp
 	
-	def call(self, tf_vals, training=True):
-		
-		
-
-		tf_vals.set_shape( self.shape1 )
-		tf_hs = tf.reshape( tf_vals, shape=self.shape1[1:2]+self.shape1[:1]+self.shape1[2:] ) #(bs, sum_seq_len, h,w, 6)
-		li_hs = tf.split(tf_hs, self.seq_lens, axis=1 )
-
-		dec_hs_outp = li_hs[-1]
+	def call(self, hs_list, training=True):
+		dec_hs_outp = hs_list.read(self.layer_count)
 
 		for idx in range(1, self.layer_count+1):
-			dec_hs_outp =  self.CGRU_2cell_layers[-idx]( li_hs[ self.layer_count-idx], dec_hs_outp, training )
-
-
+			dec_hs_outp =  self.CGRU_2cell_layers[-idx]( hs_list.read( self.layer_count -idx ), dec_hs_outp, training )
+		hs_list = hs_list.close()
 		return dec_hs_outp
+	
+	# def call(self, tf_vals, training=True):
+
+	# 	tf_vals.set_shape( self.shape1 )
+	# 	tf_hs = tf.reshape( tf_vals, shape=self.shape1[1:2]+self.shape1[:1]+self.shape1[2:] ) #(bs, sum_seq_len, h,w, 6)
+	# 	li_hs = tf.split(tf_hs, self.seq_lens, axis=1 )
+
+	# 	dec_hs_outp = li_hs[-1]
+
+	# 	for idx in range(1, self.layer_count+1):
+	# 		dec_hs_outp =  self.CGRU_2cell_layers[-idx]( li_hs[ self.layer_count-idx], dec_hs_outp, training )
+
+	# 	return dec_hs_outp
 
 			
 class THST_CGRU_Input_Layer(tf.keras.layers.Layer):
@@ -756,15 +753,12 @@ class THST_CGRU_Input_Layer(tf.keras.layers.Layer):
 		self.trainable = train_params['trainable']
 		self.layer_params = layer_params #list of dictionaries containing params for all layers
 
-		# self.convLSTM = Bidirectional( layer=layers_ConvLSTM2D.ConvLSTM2D( **self.layer_params ), 
-		# 								backward_layer=layers_ConvLSTM2D.ConvLSTM2D( **copy.deepcopy(self.layer_params), go_backwards=True ),
-		# 								merge_mode=None ) 
 		
 		self.convGRU = Bidirectional( layer=layers_ConvGRU2D.ConvGRU2D( **self.layer_params ), 
 										backward_layer=layers_ConvGRU2D.ConvGRU2D( **copy.deepcopy(self.layer_params), go_backwards=True ),
 										merge_mode=None ) 
 		
-	#@tf.function
+	@tf.function
 	def call( self, _input, training ):
 		#NOTE: consider addding multiple LSTM Layers to extract more latent features
 
@@ -794,7 +788,7 @@ class THST_CGRU_Attention_Layer(tf.keras.layers.Layer):
 
 		self.shape 						= ( train_params['batch_size'], self.num_of_splits, h_w[0], h_w[1], CGRU_params['filters'] )
 
-	#@tf.function
+	@tf.function
 	def call(self, input_hidden_states, training=True):
 		
 		hidden_states_f, hidden_states_b = self.convGRU_attn(input_hidden_states, training=training)
@@ -820,7 +814,7 @@ class THST_CGRU_Decoder_Layer(tf.keras.layers.Layer):
 														backward_layer=layers_ConvGRU2D.ConvGRU2D_custom( **copy.deepcopy(layer_params),go_backwards=True,trainable=self.trainable ) ,
 														merge_mode=None)
 	
-	#@tf.function
+	@tf.function
 	def call(self, input1, input2, training=True ):
 		"""
 

@@ -82,7 +82,7 @@ class THST(tf.keras.Model):
         self.float32_custom_relu = layers.OutputReluFloat32(train_params) 
         
 
-    @tf.function
+    #@tf.function
     def call(self, _input, tape=None, training=False):
         
         #old
@@ -91,9 +91,9 @@ class THST(tf.keras.Model):
         # output                                                                = self.output_layer(hidden_states_dec, training)
         # output                                                                = self.float32_output(output)
         
-        #with tf.device('/GPU:0'):
+        
         hs_list_enc = self.encoder(_input, training=training)
-        #: with tf.device('/GPU:1'):
+        
         hs_dec = self.decoder(hs_list_enc, training=training)
         output = self.output_layer(hs_dec, training=training)
         output = self.float32_custom_relu(output)   
