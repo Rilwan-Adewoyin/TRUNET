@@ -856,7 +856,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			self.conv_hidden = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[0] ) )
 			self.conv_output = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
 	
-	#@tf.function
+	@tf.function
 	def call(self, _inputs, training=True ):
 		"""
 			:param tnsr inputs: (bs, seq_len, h,w,c)
@@ -1022,7 +1022,7 @@ class OutputReluFloat32(tf.keras.layers.Layer):
 		self.custom_relu = CustomRelu_maker(t_params, dtype='float32')
 		self.outputf32 = tf.keras.layers.Activation('linear', dtype='float32')
 	
-	#@tf.function
+	@tf.function
 	def call(self, inputs):
 		outp = self.outputf32(inputs)
 		outp = self.custom_relu(outp)
