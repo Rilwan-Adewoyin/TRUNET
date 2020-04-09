@@ -177,8 +177,8 @@ class model_THST_hparameters(MParams):
     def _default_params( self, **kwargs ):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
-            "learning_rate":5e-3, "warmup_proportion":0.65,
-            "min_lr":8e-5, "beta_1":0.50 , "beta_2":0.95,
+            "learning_rate":6e-3, "warmup_proportion":0.65,
+            "min_lr":8e-4, "beta_1":0.50 , "beta_2":0.95,
             "amsgrad":True, "decay":0.007, "epsilon":0.0005 }
 
         DROPOUT = kwargs.get('dropout',0.0)
@@ -207,9 +207,9 @@ class model_THST_hparameters(MParams):
 
         # region CLSTM params
         if DROPOUT == 0.0:
-            _filter = 96
+            _filter = 80 #96 for the new stochastic predictors
         else:
-            _filter = 112
+            _filter = 88 #112 for the new stochastic predictors
 
         output_filters_enc     = [ _filter ]*(enc_layer_count-1)                     # [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc     = output_filters_enc + output_filters_enc[-1:]   # the last two layers in the encoder must output the same number of channels
@@ -247,7 +247,8 @@ class model_THST_hparameters(MParams):
                 key_depth = [96]*attn_layers_count
                 #key_depth = [320]*attn_layers_count
             elif kq_downscale_stride == [1,4,4]:
-                key_depth = [128]*attn_layers_count
+                key_depth = [120]*attn_layers_count
+                #key_depth = [96]*attn_layers_count in the future to speed up model                                         
 
         else:
             kq_downscale_stride = [1, 13, 13]
