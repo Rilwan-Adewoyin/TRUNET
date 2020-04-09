@@ -207,11 +207,11 @@ class model_THST_hparameters(MParams):
 
         # region CLSTM params
         if DROPOUT == 0.0:
-            _filter = 96
-            #_filter = 80
-        else:
-            _filter = 112
             #_filter = 96
+            _filter = 80
+        else:
+           # _filter = 112
+            _filter = 80
 
         output_filters_enc     = [ _filter ]*(enc_layer_count-1)                     # [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc     = output_filters_enc + output_filters_enc[-1:]   # the last two layers in the encoder must output the same number of channels
@@ -249,8 +249,8 @@ class model_THST_hparameters(MParams):
                 key_depth = [96]*attn_layers_count
                 #key_depth = [320]*attn_layers_count
             elif kq_downscale_stride == [1,4,4]:
-                key_depth = [128]*attn_layers_count
-                #key_depth = [96]*attn_layers_count
+                #key_depth = [128]*attn_layers_count
+                key_depth = [96]*attn_layers_count
 
         else:
             kq_downscale_stride = [1, 13, 13]
