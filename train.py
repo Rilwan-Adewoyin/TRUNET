@@ -267,9 +267,9 @@ def train_loop(train_params, model_params):
 
         #Version that ensures validation and train set are well defined
         ds_train = ds_train.repeat(train_params['epochs']-starting_epoch)
-        ds_val = ds_val.repeat(train_params['epochs']-starting_epoch)
+        ds_val = ds_val.repeat(train_params['epochs']-starting_epoch).prefetch(-1)
 
-        ds_train = ds_train.skip(batches_to_skip)
+        ds_train = ds_train.skip(batches_to_skip).prefetch(-1)
 
         iter_train = enumerate(ds_train)
         iter_val = enumerate(ds_val)
