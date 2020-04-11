@@ -251,13 +251,13 @@ def train_loop(train_params, model_params):
         ds_train = li_ds_trains[0]
         for idx in range(1,len(li_ds_trains ) ):
             ds_train = ds_train.concatenate( li_ds_trains[idx] )
-        ds_train = ds_train.cache('ds_train_cache_{}_{}'.format( model_params['model_type_settings']['model_name'] ,str(model_params['model_type_settings']['location'] ).strip('[]') ) ) 
+        ds_train = ds_train.cache('ds_train_cache_{}_{}'.format( model_params['model_name'] ,str(model_params['model_type_settings']['location'] ).strip('[]') ) ) 
 
         ds_val = li_ds_vals[0]
         for idx in range(1,len(li_ds_vals ) ):
             ds_val = ds_val.concatenate( li_ds_vals[idx] )
         
-        ds_val = ds_val.cache('ds_val_cache_{}_{}'.format( model_params['model_type_settings']['model_name'], str(model_params['model_type_settings']['location'] ).strip('[]') ) )
+        ds_val = ds_val.cache('ds_val_cache_{}_{}'.format( model_params['model_name'], str(model_params['model_type_settings']['location'] ).strip('[]') ) )
         
         if psutil.virtual_memory()[0] / 1e9 <= 10.0 : 
             #Version that works on warwick desktop
