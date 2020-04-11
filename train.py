@@ -688,8 +688,9 @@ def train_loop(train_params, model_params):
 
                             elif model_params['model_type_settings']['distr_type'] == 'LogNormal':
 
-                                metric_mse = (rain_count/all_count) * tf.keras.metrics.MSE(target_cond_rain, preds_cond_rain_mean)
-                                metric_mse += (1 - rain_count/all_count) *  tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
+                                #metric_mse = (rain_count/all_count) * tf.keras.metrics.MSE(target_cond_rain, preds_cond_rain_mean)
+                                #metric_mse += (1 - rain_count/all_count) *  tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
+                                metric_mse = tf.keras.metrics.MSE(target_filtrd, preds_filtrd)
                                 train_mse_cond_rain = (rain_count/all_count) * tf.keras.metrics.MSE(target_cond_rain, preds_cond_rain_mean)
                                 #_l1 = (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, preds_cond_rain_mean) #loss1 conditional on rain
                                 _l1 = tf.reduce_sum( probs_cond_rain*tf.math.squared_difference( tf.math.log(target_cond_rain+1), tf.math.log(preds_cond_rain_mean+1) ) ) / all_count                           
@@ -999,11 +1000,11 @@ def train_loop(train_params, model_params):
                         if model_params['model_type_settings']['distr_type'] == 'Normal': #These two below handle dc cases of normal and log_normal
 
                             #loss_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_cond_rain , preds_cond_rain_mean ) )  #NOTE: currently the val_metric_loss represents a different target for different combinations of distr_type and stochastic
-                            loss_mse = tf.reduce_mean( probs_filtrd *tf.math.squared_difference( preds_filtrd, target_filtrd )  )
+                            loss_mse = tf.reduce_mean( probs_filtrd *tf.math.squared_difference( preds_cond_rain_mean, target_cond_rain )  )
                             val_mse = val_metric_loss( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
                     
                         elif model_params['model_type_settings']['distr_type'] == 'LogNormal':
-                            val_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_cond_rain , preds_cond_rain_mean ) ) 
+                            val_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) ) 
 
                             #loss_mse = (rain_count/all_count)*tf.reduce_mean(custom_losses.lnormal_mse(target_filtrd , preds_filtrd ) ) # (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, preds_cond_rain_mean)
                             loss_mse = tf.reduce_mean( probs_cond_rain*tf.math.squared_difference( tf.math.log(preds_cond_rain_mean+1), tf.math.log(target_cond_rain+1)  )  )

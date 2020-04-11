@@ -502,8 +502,8 @@ class model_SimpleConvGRU_hparamaters(MParams):
         # endregion
         #region training proc
         REC_ADAM_PARAMS = {
-            "learning_rate":2e-3 , "warmup_proportion":0.75,
-            "min_lr":1e-3, "beta_1":0.25, "beta_2":0.85, "decay":0.006, "amsgrad":True,
+            "learning_rate":7e-3 , "warmup_proportion":0.75,
+            "min_lr":1e-3, "beta_1":0.35, "beta_2":0.85, "decay":0.006, "amsgrad":True,
             'epsilon':0.005
             }
 
