@@ -458,8 +458,8 @@ class model_SimpleConvGRU_hparamaters(MParams):
         if dropout == 0.0:
             _filter = 80
         else:
-            #_filter = int(80*1.4)
-            _filter = 80
+            _filter = int(80*1.4)
+            #_filter = 80
 
         filters = [_filter]*layer_count #[128]*layer_count #Shi Precip nowcasting used
         kernel_sizes = [[4,4]]*layer_count
@@ -490,7 +490,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
         # conv1_layer_params = {'filters': int(  8*(((filters[0]*2)/3)//8)) , 'kernel_size':[3,3], 'activation':'relu','padding':'same'}        
         # outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'linear','padding':'same'}
         #endregion
-        
+
         #region data pipeline
         target_to_feature_time_ratio = 4
         lookback_feature = 30*target_to_feature_time_ratio  #TODO: Try with longer sequence if it fits into memory       
