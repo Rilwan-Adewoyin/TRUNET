@@ -972,12 +972,11 @@ def train_loop(train_params, model_params):
                             target = target[:, :, 6:10, 6:10]
     
                         preds_filtrd = tf.boolean_mask( preds, mask )
-                        probs_filtrd = tf.boolean_mask(probs, mask)
+                        probs_filtrd = tf.boolean_mask( probs, mask)
                         target_filtrd = tf.boolean_mask( target, mask )
                         preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], 
                                                                 train_params['normalization_scales']['rain'], reverse=True)
 
-                        
                         #get classification labels & predictions, true/1 means it has rained   
                         labels_true = tf.cast( tf.greater( target_filtrd, model_params['model_type_settings']['precip_threshold'] ), tf.float32 )
                         labels_pred = probs_filtrd #tf.cast( tf.greater( preds_filtrd, model_params['model_type_settings']['precip_threshold'] ) ,tf.float32 )
@@ -1007,7 +1006,7 @@ def train_loop(train_params, model_params):
                             val_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_cond_rain , preds_cond_rain_mean ) ) 
 
                             #loss_mse = (rain_count/all_count)*tf.reduce_mean(custom_losses.lnormal_mse(target_filtrd , preds_filtrd ) ) # (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, preds_cond_rain_mean)
-                            loss_mse = tf.reduce_mean( probs_cond_rain*tf.math.squared_difference( tf.math.log(probs_cond_rain+1), tf.math.log(target_cond_rain+1)  )  )
+                            loss_mse = tf.reduce_mean( probs_cond_rain*tf.math.squared_difference( tf.math.log(preds_cond_rain_mean+1), tf.math.log(target_cond_rain+1)  )  )
 
                             if(model_params['model_type_settings']['model_version'] in ["3","4","44","46","54","55","155"] ):
                                 raise NotImplementedError
