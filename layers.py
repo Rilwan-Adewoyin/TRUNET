@@ -134,7 +134,7 @@ class SRCNN( tf.keras.layers.Layer ):
 
 			self.conv3 = tf.keras.layers.Conv2D( **self.model_params['conv3_params'] )
 
-	#@tf.function
+	##@tf.function
 	def call( self, _input ,upsample_method=tf.constant("zero_padding"), pred=False ): #( batch, height, width)
 		
 		
@@ -647,7 +647,7 @@ class THST_Encoder(tf.keras.layers.Layer):
 						h_w )
 			self.CGRU_Attn_layers.append(_layer)
 
-	#@tf.function -> cant be used since output hs_list is a TensorArray which Tensorflow does not correctly handle yet
+	#@tf.function
 	def call(self, _input, training=True):
 		"""
 			_input #shape( )
@@ -665,25 +665,15 @@ class THST_Encoder(tf.keras.layers.Layer):
 
 			# return hidden_states_2, hidden_states_3, hidden_states_4, hidden_states_5  
 
-		hs_list = tf.TensorArray(dtype=self._compute_dtype, size=self.encoder_params['attn_layers_count'], infer_shape=False, dynamic_size=False, clear_after_read=False )
-		
 		hidden_state =  self.CGRU_Input_Layer( _input, training ) #(bs, seq_len_1, h, w, c1)
-
-		for idx in range(self.encoder_params['attn_layers_count']):
-			hidden_state = self.CGRU_Attn_layers[idx]( hidden_state, training=training)		
-			hs_list = hs_list.write( idx, hidden_state )
+		hidden_state = self.CGRU_Attn_layers[0]( hidden_state, training=training)
+		hidden_states = hidden_state
 		
-		return hs_list
-
-
-		# for idx in range(self.encoder_params['attn_layers_count']):
-		# 	hidden_state = self.CGRU_Attn_layers[idx]( hidden_state, training=training)
-		# 	shape = hidden_state.shape
-		# 	hs_list = hs_list.write( idx, tf.reshape(hidden_state, shape=shape[1:2]+shape[:1]+shape[2:] ) )
+		for idx in range(1, self.encoder_params['attn_layers_count']):
+			hidden_state = self.CGRU_Attn_layers[idx]( hidden_state, training=training)
+			hidden_states = tf.concat( [ hidden_states, hidden_state ], axis=1 )
+		return hidden_states
 		
-		# _res = hs_list.concat()
-		# hs_list = hs_list.close()
-		# return _res
 
 class THST_Decoder(tf.keras.layers.Layer):
 	def __init__(self, train_params ,decoder_params, h_w):
@@ -697,7 +687,6 @@ class THST_Decoder(tf.keras.layers.Layer):
 		self.h_w = h_w
 		#self.encoder_hidden_state_count = self.layer_count + 1
 		
-		
 		self.CGRU_2cell_layers = []
 		for idx in range( self.layer_count ):
 			_layer = THST_CGRU_Decoder_Layer( train_params, self.decoder_params['CGRUs_params'][idx], 
@@ -706,42 +695,21 @@ class THST_Decoder(tf.keras.layers.Layer):
 			self.CGRU_2cell_layers.append(_layer)
 
 		self.seq_lens = self.decoder_params['attn_layer_no_splits']
-		self.shape1 = [tf.reduce_sum( self.seq_lens )] + [ self.train_params['batch_size'] ] + [h_w[0], h_w[1], self.decoder_params['CGRUs_params'][0]['filters']*2 ] 
+		self.shape1 = [ sum( self.seq_lens ) ] + [ self.train_params['batch_size'] ] + [h_w[0], h_w[1], self.decoder_params['CGRUs_params'][0]['filters']*2 ] 
 	
-	# @tf.function
-	# def call(self, hidden_states_2_enc, hidden_states_3_enc, hidden_states_4_enc, hidden_states_5_enc, training=True  ):
+	#@tf.function
+	def call(self, hidden_states, training=True):
 
-	#@tf.function -> cant be used since inpuut hs_list is a TensorArray which Tensorflow does not correctly handle yet
-		
-	# 	# hidden_states_l4 = self.CGRU_L4( hidden_states_4_enc , hidden_states_5_enc, training)
-	# 		#     #2, 4, 100, 140, 2
-	# 		# hidden_states_l3 = self.CGRU_L3( hidden_states_3_enc, hidden_states_l4, training ) #(bs, output_len2, 100, 140, layer_below_filters*2)
-	# 		#     #2, 8, 100, 140, 2
-	# 		# hidden_states_l2 = self.CGRU_L2( hidden_states_2_enc, hidden_states_l3, training )     #(bs, output_len1, height, width)     
-	# 		#     #2, 16, 100, 140, 4
-	
-	def call(self, hs_list, training=True):
-		dec_hs_outp = hs_list.read(self.layer_count)
+
+		li_hs = tf.split(hidden_states, self.seq_lens, axis=1 )
+
+		dec_hs_outp = li_hs[-1]
 
 		for idx in range(1, self.layer_count+1):
-			dec_hs_outp =  self.CGRU_2cell_layers[-idx]( hs_list.read( self.layer_count -idx ), dec_hs_outp, training )
-		hs_list = hs_list.close()
+			dec_hs_outp =  self.CGRU_2cell_layers[-idx]( li_hs[ self.layer_count-idx], dec_hs_outp, training )
+
 		return dec_hs_outp
-	
-	# def call(self, tf_vals, training=True):
-
-	# 	tf_vals.set_shape( self.shape1 )
-	# 	tf_hs = tf.reshape( tf_vals, shape=self.shape1[1:2]+self.shape1[:1]+self.shape1[2:] ) #(bs, sum_seq_len, h,w, 6)
-	# 	li_hs = tf.split(tf_hs, self.seq_lens, axis=1 )
-
-	# 	dec_hs_outp = li_hs[-1]
-
-	# 	for idx in range(1, self.layer_count+1):
-	# 		dec_hs_outp =  self.CGRU_2cell_layers[-idx]( li_hs[ self.layer_count-idx], dec_hs_outp, training )
-
-	# 	return dec_hs_outp
-
-			
+		
 class THST_CGRU_Input_Layer(tf.keras.layers.Layer):
 	"""
 		This corresponds to the lower input layer
@@ -753,12 +721,11 @@ class THST_CGRU_Input_Layer(tf.keras.layers.Layer):
 		self.trainable = train_params['trainable']
 		self.layer_params = layer_params #list of dictionaries containing params for all layers
 
-		
 		self.convGRU = Bidirectional( layer=layers_ConvGRU2D.ConvGRU2D( **self.layer_params ), 
 										backward_layer=layers_ConvGRU2D.ConvGRU2D( **copy.deepcopy(self.layer_params), go_backwards=True ),
 										merge_mode=None ) 
 		
-	@tf.function
+	#@tf.function
 	def call( self, _input, training ):
 		#NOTE: consider addding multiple LSTM Layers to extract more latent features
 
@@ -788,7 +755,7 @@ class THST_CGRU_Attention_Layer(tf.keras.layers.Layer):
 
 		self.shape 						= ( train_params['batch_size'], self.num_of_splits, h_w[0], h_w[1], CGRU_params['filters'] )
 
-	@tf.function
+	#@tf.function
 	def call(self, input_hidden_states, training=True):
 		
 		hidden_states_f, hidden_states_b = self.convGRU_attn(input_hidden_states, training=training)
@@ -814,13 +781,11 @@ class THST_CGRU_Decoder_Layer(tf.keras.layers.Layer):
 														backward_layer=layers_ConvGRU2D.ConvGRU2D_custom( **copy.deepcopy(layer_params),go_backwards=True,trainable=self.trainable ) ,
 														merge_mode=None)
 	
-	@tf.function
+	#@tf.function
 	def call(self, input1, input2, training=True ):
 		"""
-
 			input1 : Contains the hidden representations from the corresponding layer in the encoder #(bs, seq_len1, h,w,c1)
 			input2: Contains the hidden repr from the previous decoder layer #(bs, seq_len2, h,w,c2)
-
 		"""
 		input1.set_shape(self.shape1)
 		input2.set_shape(self.shape2)
@@ -829,9 +794,7 @@ class THST_CGRU_Decoder_Layer(tf.keras.layers.Layer):
 		#tf.debugging.assert_equal(tf.shape(input1),tf.shape(input2), message="Decoder Input1, and Input2 not the same size")
 		
 		inputs = tf.concat( [input1, input2], axis=-1 ) #NOTE: At this point both input1 and input2, must be the same shape
-
 		hidden_states_f, hidden_states_b = self.convGRU( inputs, training=training )
-		
 		hidden_states_f.set_shape( self.shape3 )
 		hidden_states_b.set_shape( self.shape3 )
 		hidden_states = tf.concat( [hidden_states_f,hidden_states_b], axis=-1 ) 
@@ -856,7 +819,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			self.conv_hidden = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[0] ) )
 			self.conv_output = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
 	
-	@tf.function
+	#@tf.function
 	def call(self, _inputs, training=True ):
 		"""
 			:param tnsr inputs: (bs, seq_len, h,w,c)
@@ -1013,6 +976,7 @@ class SpatialConcreteDropout(tf.keras.layers.Wrapper):
 		self.layer.add_loss(regularizer)
 		return True
 
+
 # endregion
 
 # region general layers/functions
@@ -1022,11 +986,12 @@ class OutputReluFloat32(tf.keras.layers.Layer):
 		self.custom_relu = CustomRelu_maker(t_params, dtype='float32')
 		self.outputf32 = tf.keras.layers.Activation('linear', dtype='float32')
 	
-	@tf.function
+	#@tf.function
 	def call(self, inputs):
 		outp = self.outputf32(inputs)
 		outp = self.custom_relu(outp)
 		return outp
+
 
 def CustomRelu_maker(t_params, dtype):
 	CustomRelu = ReLU_correct_layer( threshold= utility.standardize_ati( 0.0, t_params['normalization_shift']['rain'], 
@@ -1089,7 +1054,7 @@ class ReLU_correct_layer(tf.keras.layers.Layer):
         self.sdtype = sdtype
         self._dtype = sdtype
     
-    #@tf.function
+    
     def call(self, inputs):
         # alpha is used for leaky relu slope in activations instead of
         # negative_slope.

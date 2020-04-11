@@ -177,7 +177,7 @@ class model_THST_hparameters(MParams):
     def _default_params( self, **kwargs ):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
-            "learning_rate":6.5e-3, "warmup_proportion":0.65,
+            "learning_rate":8e-3, "warmup_proportion":0.65,
             "min_lr":8e-4, "beta_1":0.50 , "beta_2":0.95,
             "amsgrad":True, "decay":0.007, "epsilon":0.0005 }
 
@@ -210,15 +210,15 @@ class model_THST_hparameters(MParams):
             _filter = 96
             #_filter = 80
         else:
-            _filter = 112
-           # _filter = 80
+            #_filter = 112
+            _filter = 80
 
         output_filters_enc     = [ _filter ]*(enc_layer_count-1)                     # [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc     = output_filters_enc + output_filters_enc[-1:]   # the last two layers in the encoder must output the same number of channels
         kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )                # [(2,2)]
         recurrent_regularizers = [ None ] * (enc_layer_count) 
         kernel_regularizers    = [ None ] * (enc_layer_count)
-        bias_regularizers      = [ tf.keras.regularizers.l2(0.2) ] * (enc_layer_count)
+        bias_regularizers      = [ tf.keras.regularizers.l2(0.2) ] * (enc_layer_count) 
         recurrent_dropouts     = [ kwargs.get('rec_dropout',0.0) ]*(enc_layer_count)
         input_dropouts         = [ kwargs.get('inp_dropout',0.0) ]*(enc_layer_count)
         stateful               = True                       #True if testing on single location , false otherwise
@@ -246,11 +246,11 @@ class model_THST_hparameters(MParams):
 
             # key_depth = [ _val//further_downscaling for _val in key_depth ]
             if kq_downscale_stride == [1,8,8]:
-                #key_depth = [96]*attn_layers_count
-                key_depth = [320]*attn_layers_count
+                key_depth = [96]*attn_layers_count
+                #key_depth = [320]*attn_layers_count
             elif kq_downscale_stride == [1,4,4]:
-                key_depth = [128]*attn_layers_count
-                #key_depth = [96]*attn_layers_count
+                #key_depth = [128]*attn_layers_count
+                key_depth = [96]*attn_layers_count
 
         else:
             kq_downscale_stride = [1, 13, 13]
@@ -446,18 +446,21 @@ class model_SimpleGRU_hparameters(MParams):
 class model_SimpleConvGRU_hparamaters(MParams):
 
     def __init__(self, **kwargs):
+        self.dc = kwargs.get('model_type_settings',{}).get('discrete_continuous',False)
         super(model_SimpleConvGRU_hparamaters, self).__init__(**kwargs)
     
     def _default_params(self,**kwargs):
         #Other
         dropout = kwargs.get('dropout',0.0)
 
-        #ConvLayers
+        #region ConvLayers
         layer_count = 3 #TODO: Shi uses 2 layers
         if dropout == 0.0:
             _filter = 80
         else:
-            _filter = int(80*1.4)
+            #_filter = int(80*1.4)
+            _filter = 80
+
         filters = [_filter]*layer_count #[128]*layer_count #Shi Precip nowcasting used
         kernel_sizes = [[4,4]]*layer_count
         paddings = ['same']*layer_count
@@ -480,13 +483,15 @@ class model_SimpleConvGRU_hparamaters(MParams):
                                 'implementation':1, 'stateful':_st  }
                                 for fs,ks,ps,rs,dp,rdp in zip(filters, kernel_sizes, paddings, return_sequences, input_dropout, recurrent_dropout)  ]
 
-        conv1_layer_params = {'filters': int(  8*(((filters[0]*2)/3)//8)) , 'kernel_size':[3,3], 'activation':'relu','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2) }        
+        conv1_layer_params = {'filters': int(  8*(((filters[0]*2)/3)//8)) , 'kernel_size':[3,3], 'activation':'relu','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2) }  
+
         outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'linear','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2) }
 
         # conv1_layer_params = {'filters': int(  8*(((filters[0]*2)/3)//8)) , 'kernel_size':[3,3], 'activation':'relu','padding':'same'}        
         # outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'linear','padding':'same'}
-
-        #data pipeline
+        #endregion
+        
+        #region data pipeline
         target_to_feature_time_ratio = 4
         lookback_feature = 30*target_to_feature_time_ratio  #TODO: Try with longer sequence if it fits into memory       
         DATA_PIPELINE_PARAMS = {
@@ -494,8 +499,8 @@ class model_SimpleConvGRU_hparamaters(MParams):
             'lookback_target': int(lookback_feature/target_to_feature_time_ratio),
             'target_to_feature_time_ratio' :  target_to_feature_time_ratio
         }
-
-        #training proc
+        # endregion
+        #region training proc
         REC_ADAM_PARAMS = {
             "learning_rate":2e-3 , "warmup_proportion":0.75,
             "min_lr":1e-3, "beta_1":0.25, "beta_2":0.85, "decay":0.006, "amsgrad":True,
@@ -503,7 +508,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
             }
 
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }
-
+        # endregion
         _mts = {}
         model_type_settings = kwargs.get('model_type_settings',_mts)
 

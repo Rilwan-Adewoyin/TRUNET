@@ -191,7 +191,7 @@ def load_params_train_model(args_dict):
         train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
     
     elif(args_dict['model_name'] in ["SimpleGRU"] ):
-        #use settings from THST to initialise the model generator
+        
         init_m_params = {}
         init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
         model_params = hparameters.model_SimpleGRU_hparameters(**init_m_params, **args_dict)()
@@ -202,7 +202,7 @@ def load_params_train_model(args_dict):
         train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
     
     elif(args_dict['model_name'] in ["SimpleDense"] ):
-        #use settings from THST to initialise the model generator
+        
         init_m_params = {}
         init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
         model_params = hparameters.model_SimpleDense_hparameters(**init_m_params)()
@@ -255,7 +255,7 @@ def load_params_test_model(args_dict):
         train_params = hparameters.test_hparameters_ati( **{ **args_dict, **init_t_params} )
     
     elif(args_dict['model_name'] == "SimpleGRU"):
-        #use settings from THST to initialise the model generator
+        
         init_m_params = {}
         init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
         model_params = hparameters.model_SimpleGRU_hparameters(**init_m_params, **args_dict)()
@@ -265,7 +265,7 @@ def load_params_test_model(args_dict):
         
         train_params = hparameters.test_hparameters_ati( **{ **args_dict, **init_t_params} )
     elif(args_dict['model_name'] == "SimpleDense"):
-        #use settings from THST to initialise the model generator
+        
         init_m_params = {}
         init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
         model_params = hparameters.model_SimpleDense_hparameters(**init_m_params, **args_dict)()
@@ -396,17 +396,13 @@ def model_name_mkr(model_params, mode='Generic'):
                                 model_params['model_type_settings']['distr_type'], 
                                 str(model_params['model_type_settings']['discrete_continuous']),
                                 model_params['model_type_settings']['model_version'] )
+   
     elif model_params['model_name'] in ["SimpleGRU","SimpleDense"]:
         model_name =    "{}_{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
                                 model_params['model_type_settings']['distr_type'], 
                                 str(model_params['model_type_settings']['discrete_continuous']),
                                 model_params['model_type_settings']['location'],model_params['model_type_settings']['model_version'] )
    
-    elif model_params['model_name'] == "SimpleConvLSTM":
-        model_name =    "{}_{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
-                        model_params['model_type_settings']['distr_type'], 
-                        str(model_params['model_type_settings']['discrete_continuous']),
-                        model_params['model_type_settings']['location'],model_params['model_type_settings']['model_version'] )  
     
     elif model_params['model_name'] == "SimpleConvGRU":
         model_name =    "{}_{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],

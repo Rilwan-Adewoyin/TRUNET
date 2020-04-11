@@ -155,10 +155,16 @@ def predict( model, test_params, model_params ,checkpoint_no ):
                 target, mask = target # (bs, h, w) 
             
             if model_params['model_type_settings']['stochastic'] == False:
-
-                preds = model( tf.cast(feature,tf.float16),training=False )
-                preds = tf.squeeze(preds,axis=-1) # (1, bs, seq_len, h, w)
-                preds = tf.expand_dims(preds, axis=-1 )
+                
+                if model_params['model_type_settings']['discrete_continuous'] == False:
+                    preds = model( tf.cast(feature,tf.float16),training=False )
+                    preds = tf.squeeze(preds,axis=-1) # (1, bs, seq_len, h, w)
+                    preds = tf.expand_dims(preds, axis=-1 )
+                else:
+                    preds = model( tf.cast(feature,tf.float16),training=False )
+                    preds = tf.squeeze(preds,axis=-1) # (1, bs, seq_len, h, w)
+                    preds, probs = tf.unstack(preds, axis=0)
+                    preds = tf.expand_dims(preds, axis=-1 )
 
                 if model_params['model_type_settings']['location'] == 'region_grid' or model_params['model_type_settings']['twoD']==True:
                     preds = preds[ :, :, 6:10, 6:10, :]
@@ -190,7 +196,10 @@ def predict( model, test_params, model_params ,checkpoint_no ):
                 else:
                     li_preds = model.predict( tf.cast(feature,tf.float16), model_params['model_type_settings']['stochastic_f_pass'],False )
 
-                preds = tf.concat(li_preds, axis=-1) #(bs,ts,h,w,samples)
+                preds = tf.concat(li_preds, axis=-1) #(bs,ts,h,w,samples) or #(2, bs,ts,h,w,samples)
+                
+                if model_params['model_type_settings']['discrete_continuous'] == True:
+                    preds,probs = tf.unstack( preds, axis=0)
 
                 if ( model_params['model_type_settings']['location']=='region_grid' ) or model_params['model_type_settings']['twoD']==True: #focusing on centre of square only
                     preds = preds[:, :, 6:10, 6:10, :]

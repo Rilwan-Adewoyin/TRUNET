@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 from tensorflow.keras.layers import TimeDistributed
 import layers
 import layers_ConvLSTM2D
@@ -26,8 +27,6 @@ def model_loader(train_params,model_params ):
     elif(model_name=="SimpleDense"):
         model = SimpleDense(train_params, model_params)
         
-    elif(model_name == "SimpleConvLSTM"):
-        model = SimpleConvLSTM(train_params, model_params)
 
     elif(model_name=="SimpleConvGRU"):
         model = SimpleConvGRU(train_params, model_params)
@@ -82,7 +81,7 @@ class THST(tf.keras.Model):
         self.float32_custom_relu = layers.OutputReluFloat32(train_params) 
         
 
-    #@tf.function
+    @tf.function
     def call(self, _input, tape=None, training=False):
         
         #old
@@ -240,69 +239,42 @@ class SimpleDense(tf.keras.Model):
             
             return preds
 
-class SimpleConvLSTM(tf.keras.Model):
-
-    def __init__(self, train_params, model_params):
-        super(SimpleConvLSTM, self).__init__()
-
-        self.model_params = model_params
-        self.ConvLSTM_layers = [ tf.keras.layers.Bidirectional( layers_ConvLSTM2D.ConvLSTM2D( **self.model_params['ConvLSTM_layer_params'][idx] ), merge_mode='concat' )  for idx in range( model_params['layer_count'] ) ]
-               
-        self.output_conv = self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **self.model_params['outpconv_layer_params'] ) )
-
-        self.do = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=0.10, data_format = 'channels_last' ) )
-
-        self.output_activation = layers.CustomRelu_maker(train_params)
-
-        self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
-
-        self.new_shape1 = tf.TensorShape( [train_params['batch_size'],model_params['region_grid_params']['outer_box_dims'][0], model_params['region_grid_params']['outer_box_dims'][1],  train_params['lookback_target'] ,int(6*4)] )
-    
-    @tf.function
-    def call(self, _input, training):
-        
-        x = tf.transpose( _input, [0, 2,3,1,4])     # moving time axis next to channel axis
-        x = tf.reshape( x, self.new_shape1 )        # reshape time and channel axis
-        x = tf.transpose( x, [0,3,1,2,4 ] )   # converting back to bs, time, h,w, c
-
-        # for idx in range(self.model_params['layer_count']):
-        #     x = self.ConvLSTM_layers[idx](inputs=x, training=training)
-
-        for idx in range(self.model_params['layer_count']):
-            if idx==0:
-                x0 = self.ConvLSTM_layers[idx](inputs=x,training=training )
-                x = x0
-            else:
-                x = x + self.ConvLSTM_layers[idx](inputs=x,training=training )
-
-        x = self.output_conv( self.do( (x + x0)/2),training=training)
-        outp = self.output_activation(x) #Do not switch round the order of these two lines
-        x = self.float32_output(outp)
-        return x
-
 class SimpleConvGRU(tf.keras.Model):
     def __init__(self, train_params, model_params):
         super(SimpleConvGRU, self).__init__()
 
-        self.model_params = model_params
+        self.dc = np.asarray( [model_params['model_type_settings']['discrete_continuous']],dtype=np.bool )
+        self.layer_count = model_params['layer_count']
+               
         
-        
-        #region old version mv = 5
-        self.ConvGRU_layers = [ tf.keras.layers.Bidirectional( layer= layers_ConvGRU2D.ConvGRU2D( **self.model_params['ConvGRU_layer_params'][idx] ), 
+        self.ConvGRU_layers = [ tf.keras.layers.Bidirectional( layer= layers_ConvGRU2D.ConvGRU2D( **model_params['ConvGRU_layer_params'][idx] ), 
 
-                                                                backward_layer= layers_ConvGRU2D.ConvGRU2D( go_backwards=True,**copy.deepcopy(self.model_params['ConvGRU_layer_params'][idx]) ) ,
+                                                                backward_layer= layers_ConvGRU2D.ConvGRU2D( go_backwards=True,**copy.deepcopy(model_params['ConvGRU_layer_params'][idx]) ) ,
 
                                                                 merge_mode='concat' )  for idx in range( model_params['layer_count'] ) ]
          
         self.do = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=model_params['dropout'], data_format = 'channels_last' ) )
         self.do1 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=model_params['dropout'], data_format = 'channels_last' ) )
 
-        self.conv1 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **self.model_params['conv1_layer_params'] ) )
-        self.output_conv = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **self.model_params['outpconv_layer_params'] ) )
+        if model_params['model_type_settings']['discrete_continuous']:
+            self.conv1_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **model_params['conv1_layer_params'] ) )
+            self.conv1_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **model_params['conv1_layer_params'] ) )
+            
+            self.output_conv_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **model_params['outpconv_layer_params'] ) )
+            self.output_conv_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **model_params['outpconv_layer_params'] ) )
+            
+            self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
+            self.output_activation_val = layers.CustomRelu_maker(train_params, dtype='float32')
+            self.output_activation_prob = tf.keras.layers.Activation('sigmoid', dtype='float32')
 
-        self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
+        else:
+            self.conv1 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **model_params['conv1_layer_params'] ) )
+            self.output_conv = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **model_params['outpconv_layer_params'] ) )
+            self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
 
-        self.output_activation = layers.CustomRelu_maker(train_params, dtype='float32')
+            self.output_activation = layers.CustomRelu_maker(train_params, dtype='float32')
+
+
 
         self.new_shape1 = tf.TensorShape( [train_params['batch_size'],model_params['region_grid_params']['outer_box_dims'][0], model_params['region_grid_params']['outer_box_dims'][1],  train_params['lookback_target'] ,int(6*4)] )
         #endregion
@@ -317,18 +289,34 @@ class SimpleConvGRU(tf.keras.Model):
         x = tf.transpose( x, [0,3,1,2,4 ] )   # converting back to bs, time, h,w, c
 
         
-        for idx in range(self.model_params['layer_count']):
+        for idx in range(self.layer_count):
             if idx==0:
                 x0 = self.ConvGRU_layers[idx](inputs=x,training=training )
                 x = x0
             else:
                 x = x + self.ConvGRU_layers[idx](inputs=x,training=training )
         
-        x = self.conv1( self.do( tf.concat([x,x0] ,axis=-1),training=training ), training=training )
-        outp = self.output_conv( self.do1( x, training=training ), training=training )
-        outp = self.float32_output(outp)
-        outp = self.output_activation(outp)
+        
+        if self.dc ==  False :
+            x = self.conv1( self.do( tf.concat([x,x0] ,axis=-1),training=training ), training=training )
+            outp = self.output_conv( self.do1( x, training=training ), training=training )
+            outp = self.float32_output(outp)
+            outp = self.output_activation(outp)
+        
+        else:
+            x_vals = self.conv1_val( self.do( tf.concat([x,x0] ,axis=-1),training=training ), training=training )
+            x_prob = self.conv1_prob( self.do( tf.concat([x,x0] ,axis=-1),training=training ), training=training )
 
+            outp_vals = self.output_conv_val( self.do1( x_vals, training=training ), training=training )
+            outp_prob = self.output_conv_prob( self.do1( x_prob, training=training ), training=training )
+
+            outp_vals = self.float32_output(outp_vals)
+            outp_prob = self.float32_output(outp_prob)
+
+            outp_vals = self.output_activation_val(outp_vals)
+            outp_prob = self.output_activation_prob(outp_prob)
+
+            outp = tf.stack([outp_vals, outp_prob],axis=0)
 
         return outp
 
