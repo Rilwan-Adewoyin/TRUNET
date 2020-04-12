@@ -84,13 +84,6 @@ class THST(tf.keras.Model):
     @tf.function
     def call(self, _input, tape=None, training=False):
         
-        #old
-        # hidden_states_2_enc, hidden_states_3_enc, hidden_4_enc, hidden_5_enc  = self.encoder( _input, training )
-        # hidden_states_dec                                                     = self.decoder( hidden_states_2_enc, hidden_states_3_enc, hidden_4_enc, hidden_5_enc, training )
-        # output                                                                = self.output_layer(hidden_states_dec, training)
-        # output                                                                = self.float32_output(output)
-        
-        
         hs_list_enc = self.encoder(_input, training=training)
         
         hs_dec = self.decoder(hs_list_enc, training=training)

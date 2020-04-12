@@ -267,7 +267,7 @@ class model_THST_hparameters(MParams):
             
             {'bias':None, 'total_key_depth': kd  ,'total_value_depth':vd, 'output_depth': vd   ,
             'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
-            "transform_value_antecedent":True ,  "transform_output":False, 
+            "transform_value_antecedent":True ,  "transform_output":True, 
             'implementation':1, "value_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':tf.keras.regularizers.l2(0.2), 'padding':'same' },
             "output_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"outp", 'bias_regularizer':tf.keras.regularizers.l2(0.2),'padding':'same' }
             } 
