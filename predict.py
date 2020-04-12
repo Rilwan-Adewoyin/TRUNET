@@ -160,10 +160,14 @@ def predict( model, test_params, model_params ,checkpoint_no ):
                     preds = model( tf.cast(feature,tf.float16),training=False )
                     preds = tf.squeeze(preds,axis=-1) # (1, bs, seq_len, h, w)
                     preds = tf.expand_dims(preds, axis=-1 )
+                
                 else:
                     preds = model( tf.cast(feature,tf.float16),training=False )
                     preds = tf.squeeze(preds,axis=-1) # (1, bs, seq_len, h, w)
                     preds, probs = tf.unstack(preds, axis=0)
+                    #thresholding using probability
+                    if 'prob_rain_thresh' in model_params['model_type_settings']: 
+                        preds = tf.where( probs>model_params['model_type_settings']['prob_rain_thresh'], preds, utility.standardize_ati(0.0, test_params['normalization_shift']['rain'], test_params['normalization_scales']['rain'], reverse=False) )
                     preds = tf.expand_dims(preds, axis=-1 )
 
                 if model_params['model_type_settings']['location'] == 'region_grid' or model_params['model_type_settings']['twoD']==True:
@@ -177,7 +181,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
                     target = target[ :, :, idx_city_in_region[0]-6, idx_city_in_region[1]-6]
                 
                 #splitting in the time dimension
-                preds_std = utility.standardize_ati(preds, test_params['normalization_shift']['rain'], test_params['normalization_scales']['rain'], reverse=True)
+                preds_std = utility.standardize_ati(preds, test_params['normalization_shift']['rain'], test_params['normalization_scales']['rain'], reverse=False)
                 preds_masked = utility.water_mask( preds_std, tf.expand_dims(mask,-1)  )
                 target_masked = utility.water_mask(target, mask )
                 
@@ -199,7 +203,10 @@ def predict( model, test_params, model_params ,checkpoint_no ):
                 preds = tf.concat(li_preds, axis=-1) #(bs,ts,h,w,samples) or #(2, bs,ts,h,w,samples)
                 
                 if model_params['model_type_settings']['discrete_continuous'] == True:
-                    preds,probs = tf.unstack( preds, axis=0)
+                    preds, probs = tf.unstack( preds, axis=0)
+
+                    if 'prob_rain_thresh' in model_params['model_type_settings']: 
+                        preds = tf.where( probs>model_params['model_type_settings']['prob_rain_thresh'], preds, utility.standardize_ati(0.0, test_params['normalization_shift']['rain'], test_params['normalization_scales']['rain'], reverse=False) )
 
                 if ( model_params['model_type_settings']['location']=='region_grid' ) or model_params['model_type_settings']['twoD']==True: #focusing on centre of square only
                     preds = preds[:, :, 6:10, 6:10, :]

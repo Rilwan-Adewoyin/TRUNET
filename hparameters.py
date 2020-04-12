@@ -172,6 +172,7 @@ class model_THST_hparameters(MParams):
         """ 
             
         """
+        self.stoc = kwargs.get('model_type_settings',{}).get('stochastic',False)
         super( model_THST_hparameters, self ).__init__(**kwargs)
 
     def _default_params( self, **kwargs ):
@@ -206,12 +207,13 @@ class model_THST_hparameters(MParams):
         enc_layer_count        = len( SEQ_LEN_FACTOR_REDUCTION ) + 1
 
         # region CLSTM params
-        if DROPOUT == 0.0:
-            _filter = 96
-            #_filter = 80
-        else:
+        if DROPOUT != 0.0 and self.stoc==True :
             #_filter = 112
-            _filter = 80
+            _filter = 72
+        else:
+            #_filter = 96
+            _filter = 72
+            #_filter = 112
 
         output_filters_enc     = [ _filter ]*(enc_layer_count-1)                     # [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc     = output_filters_enc + output_filters_enc[-1:]   # the last two layers in the encoder must output the same number of channels
@@ -235,22 +237,13 @@ class model_THST_hparameters(MParams):
             val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 ) for idx in range(attn_layers_count)  ]
             # key_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 / np.prod([kq_downscale_kernelshape[1:]]) ) for idx in range(attn_layers_count)  ]
                         
-            # if kq_downscale_stride == [1,8,8]:
-            #     effective_base_dscaling = np.prod([1,8,8])*2 
-            
-            # elif kq_downscale_stride == [1,4,4]:
-            #         #kd = 96
-            #     effective_base_dscaling = np.prod([1,8,8])*2  
 
-            # further_downscaling =  int(effective_base_dscaling / np.prod(kq_downscale_stride) )
-
-            # key_depth = [ _val//further_downscaling for _val in key_depth ]
             if kq_downscale_stride == [1,8,8]:
-                key_depth = [96]*attn_layers_count
+                key_depth = [72]*attn_layers_count
                 #key_depth = [320]*attn_layers_count
             elif kq_downscale_stride == [1,4,4]:
                 #key_depth = [128]*attn_layers_count
-                key_depth = [96]*attn_layers_count
+                key_depth = [72]*attn_layers_count
 
         else:
             kq_downscale_stride = [1, 13, 13]
@@ -267,12 +260,20 @@ class model_THST_hparameters(MParams):
             #Each encoder layer receives a seq of 3D tensors from layer below. NUM_OF_SPLITS codes in how many chunks to devide the incoming data. NOTE: This is defined only for Encoder-Attn layers
 
         ATTN_params_enc = [
+            # {'bias':None, 'total_key_depth': kd  ,'total_value_depth':vd, 'output_depth': vd   ,
+            # 'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
+            # "transform_value_antecedent":False ,  "transform_output":False,
+            # 'implementation':1  } 
+            
             {'bias':None, 'total_key_depth': kd  ,'total_value_depth':vd, 'output_depth': vd   ,
             'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
-            "transform_value_antecedent":False ,  "transform_output":False,
-            'implementation':1  } 
-            for kd, vd ,nh in zip( key_depth, val_depth, attn_heads )
+            "transform_value_antecedent":True ,  "transform_output":False, 
+            'implementation':1, "value_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':tf.keras.regularizers.l2(0.2), 'padding':'same' },
+            "output_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"outp", 'bias_regularizer':tf.keras.regularizers.l2(0.2),'padding':'same' }
+            } 
+            for kd, vd ,nh, idx in zip( key_depth, val_depth, attn_heads,range(attn_layers_count) )
         ] 
+            #Note: bias refers to masking attention places
 
         ATTN_DOWNSCALING_params_enc = {
             'kq_downscale_stride': kq_downscale_stride,
@@ -447,6 +448,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
 
     def __init__(self, **kwargs):
         self.dc = kwargs.get('model_type_settings',{}).get('discrete_continuous',False)
+        self.stoc = kwargs.get('model_type_settings',{}).get('stochastic',False)
         super(model_SimpleConvGRU_hparamaters, self).__init__(**kwargs)
     
     def _default_params(self,**kwargs):
@@ -455,11 +457,11 @@ class model_SimpleConvGRU_hparamaters(MParams):
 
         #region ConvLayers
         layer_count = 3 #TODO: Shi uses 2 layers
-        if dropout == 0.0:
-            _filter = 80
-        else:
+        if dropout != 0.0 and self.stoc==True :            
             _filter = int(80*1.4)
             #_filter = 80
+        else:
+            _filter = 80
 
         filters = [_filter]*layer_count #[128]*layer_count #Shi Precip nowcasting used
         kernel_sizes = [[4,4]]*layer_count

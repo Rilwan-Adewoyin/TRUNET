@@ -2443,7 +2443,8 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
         
         attn_avg_inp_hid_state = self.attn_2D( inputs=q,
                                             k_antecedent=k,
-                                            v_antecedent=v ) #(bs, 1, h, w, f)
+                                            v_antecedent=v,
+                                            training=training ) #(bs, 1, h, w, f)
         
     
         inputs = tf.squeeze( attn_avg_inp_hid_state)
