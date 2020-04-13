@@ -601,21 +601,6 @@ def train_loop(train_params, model_params):
 
                     if( model_params['model_type_settings']['stochastic']==False):
 
-                        # preds = model( tf.cast(feature,tf.float16), train_params['trainable'] ) #( bs, tar_seq_len, h, w)
-                        # preds = tf.squeeze(preds)
-
-
-                        # if (model_params['model_type_settings']['location']=='region_grid' )  or model_params['model_type_settings']['twoD']==True :  #focusing on centre of square only
-                        #     preds = preds[:, :, 6:10, 6:10]
-                        #     mask = mask[:, :, 6:10, 6:10]
-                        #     target = target[:, :, 6:10, 6:10]
-
-                        # preds_filtrd = tf.boolean_mask( preds, mask )
-                        # target_filtrd = tf.boolean_mask( target, mask )
-
-                        # preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], 
-                        #                                         train_params['normalization_scales']['rain'], reverse=True)
-
                         if model_params['model_type_settings']['discrete_continuous'] == False:
 
                             preds = model( tf.cast(feature,tf.float16), train_params['trainable'] ) #( bs, tar_seq_len, h, w)
@@ -693,7 +678,7 @@ def train_loop(train_params, model_params):
                                 metric_mse = tf.keras.metrics.MSE(target_filtrd, preds_filtrd)
                                 train_mse_cond_rain = (rain_count/all_count) * tf.keras.metrics.MSE(target_cond_rain, preds_cond_rain_mean)
                                 #_l1 = (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, preds_cond_rain_mean) #loss1 conditional on rain
-                                _l1 = tf.reduce_sum( probs_cond_rain*tf.math.squared_difference( tf.math.log(target_cond_rain+1), tf.math.log(preds_cond_rain_mean+1) ) ) / all_count                           
+                                _l1 = tf.reduce_sum( tf.math.squared_difference( tf.math.log(target_cond_rain+1), tf.math.log(preds_cond_rain_mean+1) ) ) / all_count                           
                                     #_l1 += tf.reduce_sum( probs_cond_no_rain*tf.math.squared_difference( tf.math.log(target_cond_no_rain+1), tf.math.log(preds_cond_no_rain_mean+1) ) ) / all_count                           
                                 loss_mse = _l1  
 
@@ -716,7 +701,7 @@ def train_loop(train_params, model_params):
                                 
                                 #_l3 = tf.reduce_mean( 
                                                 # tf.keras.backend.binary_crossentropy( labels_true, labels_pred_cont_approx, from_logits=False) )  #differentiable version     #loss3 conditional on no rain v2
-                                _l3 = tf.reduce_mean(  (1-probs_filtrd)* tf.keras.backend.binary_crossentropy( labels_true, labels_pred_cont_approx, from_logits=False) )  #differentiable version     #loss3 conditional on no rain v2
+                                _l3 = tf.reduce_mean( tf.keras.backend.binary_crossentropy( labels_true, labels_pred_cont_approx, from_logits=False) )  #differentiable version     #loss3 conditional on no rain v2
                                 loss_mse += _l3 #log_cross_entropy_rainclassification
                             
                             else:
@@ -1007,7 +992,7 @@ def train_loop(train_params, model_params):
                             val_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) ) 
 
                             #loss_mse = (rain_count/all_count)*tf.reduce_mean(custom_losses.lnormal_mse(target_filtrd , preds_filtrd ) ) # (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, preds_cond_rain_mean)
-                            loss_mse = tf.reduce_mean( probs_cond_rain*tf.math.squared_difference( tf.math.log(preds_cond_rain_mean+1), tf.math.log(target_cond_rain+1)  )  )
+                            loss_mse = tf.reduce_sum( tf.math.squared_difference( tf.math.log(preds_cond_rain_mean+1), tf.math.log(target_cond_rain+1)  )  ) / all_count
 
                             if(model_params['model_type_settings']['model_version'] in ["3","4","44","46","54","55","155"] ):
                                 raise NotImplementedError
@@ -1022,9 +1007,8 @@ def train_loop(train_params, model_params):
                         if(model_params['model_type_settings']['model_version'] in ["3","4","44","45","145","47","48","49","50","51","52",'53','54',"56","156"] ):
                             # log_cross_entropy_rainclassification = tf.reduce_mean( 
                             #         tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )
-                            log_cross_entropy_rainclassification = tf.reduce_mean( 
-                                        tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )
-                            _l3 = tf.reduce_mean(  (1-probs_filtrd)* tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )  #differentiable version     #loss3 conditional on no rain v2
+                            log_cross_entropy_rainclassification = tf.reduce_mean(  tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )
+                            _l3 = tf.reduce_mean(  tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )  #differentiable version     #loss3 conditional on no rain v2
 
                         else:
                             log_cross_entropy_rainclassification = 0
