@@ -26,7 +26,14 @@ def scaler(y,y_pred):
     return loss
 
 def adjusted_log( vals, boundary=0.5):
+
     "This log does log transformation for all values above 0.5 and linear transformation for values below"
     vals = tf.where( vals>boundary, tf.math.log(vals), boundary + (vals-boundary)/boundary )
 
+    return vals
+
+def combine_pp(vals, probs):
+
+    round_probs = tf.math.round( probs)
+    vals = vals* round_probs
     return vals
