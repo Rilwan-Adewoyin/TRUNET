@@ -6,6 +6,7 @@ import pandas as pd
 from datetime import datetime
 import pickle
 from functools import reduce
+from tensorflow.python.training.tracking import data_structures
 
 class HParams():
     
