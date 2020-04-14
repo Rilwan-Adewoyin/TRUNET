@@ -986,11 +986,12 @@ def train_loop(train_params, model_params):
                         
 
                         if model_params['model_type_settings']['distr_type'] == 'Normal': #These two below handle dc cases of normal and log_normal
-                            raise NotImplementedError
+                            #raise NotImplementedError
                             #loss_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_cond_rain , preds_cond_rain_mean ) )  #NOTE: currently the val_metric_loss represents a different target for different combinations of distr_type and stochastic
-                            loss_mse = tf.reduce_mean( probs_filtrd *tf.math.squared_difference( preds_cond_rain_mean, target_cond_rain )  )
-                            val_mse = val_metric_loss( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
-                    
+                            #loss_mse = tf.reduce_mean( probs_filtrd *tf.math.squared_difference( preds_cond_rain_mean, target_cond_rain )  )
+                            val_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) ) 
+                            loss_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( preds_cond_rain_mean , target_cond_rain ) ) 
+
                         elif model_params['model_type_settings']['distr_type'] == 'LogNormal':
                             val_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) ) 
 
