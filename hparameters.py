@@ -243,7 +243,14 @@ class model_THST_hparameters(MParams):
                 #key_depth = [128]*attn_layers_count
                 key_depth = [72]*attn_layers_count
 
-        elif  in self.params.keys():
+        elif 'downscale_input_factor' in self.params.keys():
+            _dims = [100//self.params['downscale_input_factor'] , 140//self.params['downscale_input_factor'] ]
+            kq_downscale_stride = [1, _dims[0]//4, _dims[1]//4 ]
+            kq_downscale_kernelshape = kq_downscale_stride
+
+            val_depth = [ int( np.prod([100//self.params['downscale_input_factor'] , 140//self.params['downscale_input_factor'] ]) *output_filters_enc[idx]*2) for idx in range(attn_layers_count)  ]
+            key_depth = [72]*attn_layers_count
+            
 
         else:
             kq_downscale_stride = [1, 13, 13]
