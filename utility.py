@@ -323,6 +323,8 @@ def parse_arguments(s_dir=None):
     parser.add_argument('-ido','--inp_dropout',type=float, required=False, default=0.0)
 
     parser.add_argument('-rdo','--rec_dropout',type=float, required=False, default=0.0)
+
+    parser.add_argument('-dif','--downscale_input_factor',type=int, required=False )
     
     args_dict = vars(parser.parse_args() )
 
@@ -405,11 +407,14 @@ def model_name_mkr(model_params, mode='Generic'):
    
     
     elif model_params['model_name'] == "SimpleConvGRU":
-        model_name =    "{}_{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
+        model_name =  "{}_{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
                         model_params['model_type_settings']['distr_type'], 
                         str(model_params['model_type_settings']['discrete_continuous']),
                         model_params['model_type_settings']['location'],model_params['model_type_settings']['model_version'] )  
     
+    if 'downscale_input_factor' in model_params:
+        model_name  =  model_name + "dsf{}".format( model_params['downscale_input_factor'])
+
     model_name = re.sub("[ '\(\[\)\]]|ListWrapper",'',model_name )
 
     model_name = re.sub(",",'_',model_name )

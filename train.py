@@ -64,6 +64,7 @@ from tensorflow_probability import distributions as tfd
 from tensorboard.plugins.hparams import api as hp
 
 from tensorflow.python.ops import variables as tf_variables
+from tensorflow.python.training.tracking import data_structures
 
 import math
 
@@ -156,9 +157,9 @@ def train_loop(train_params, model_params):
     #     #Trying 2 optimizers for discrete_continuious LSTM
     elif model_params['model_type_settings']['model_version'] in ["54","55","56","156","155"]:
 
-        optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3, "warmup_proportion":0.75, "min_lr":1e-4, "beta_1":0.05, "beta_2":0.75, "decay":0.004, "amsgrad":True, "epsilon":4e-3} , total_steps=total_steps//3 ) 
-        optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3, "warmup_proportion":0.75, "min_lr":1e-4, "beta_1":0.05, "beta_2":0.75, "decay":0.004, "amsgrad":True, "epsilon":4e-3} , total_steps=total_steps//3 ) 
-        optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":1e-3, "warmup_proportion":0.75, "min_lr":1e-4, "beta_1":0.05, "beta_2":0.05, "decay":0.004, "amsgrad":True, "epsilon":4e-3} , total_steps=total_steps//3 )  
+        optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":8e-3, "warmup_proportion":0.75, "min_lr":1e-3, "beta_1":0.5, "beta_2":0.75, "decay":0.004, "amsgrad":True, "epsilon":4e-3} , total_steps=total_steps//2 ) 
+        optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":8e-3, "warmup_proportion":0.75, "min_lr":1e-3, "beta_1":0.5, "beta_2":0.75, "decay":0.004, "amsgrad":True, "epsilon":4e-3} , total_steps=total_steps//2 ) 
+        optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":8e-3, "warmup_proportion":0.75, "min_lr":1e-3, "beta_1":0.5, "beta_2":0.05, "decay":0.004, "amsgrad":True, "epsilon":4e-3} , total_steps=total_steps//2 )  
         
         if(model_params['model_type_settings']['model_version']) in ["54"]:
             optimizers  = [ optimizer_rain, optimizer_nonrain, optimizer_dc ]
@@ -229,7 +230,7 @@ def train_loop(train_params, model_params):
 
     elif model_params['model_name'] in ["THST", "SimpleLSTM", "SimpleGRU" ,"SimpleConvLSTM", "SimpleConvGRU","SimpleDense"]:
     
-        # version 2  for iters, will be used when you want to increase the size of training set, while doing stateful training
+        # This tiles the dataset, to achieve increase in effective dataset size
         li_start_days_train = np.arange( train_params['train_start_date'], 
                                     train_params['train_start_date'] + np.timedelta64(train_params['lookback_target'],'D'),
                                     np.timedelta64(train_params['lookback_target']//train_params['strided_dataset_count'],'D'), dtype='datetime64[D]')[:train_params['strided_dataset_count']]
@@ -260,18 +261,18 @@ def train_loop(train_params, model_params):
         ds_val = ds_val.cache('ds_val_cache_{}_{}'.format( model_params['model_name'], str(model_params['model_type_settings']['location'] ).strip('[]') ) )
         
         if psutil.virtual_memory()[0] / 1e9 <= 10.0 : 
-            #Version that works on warwick desktop
+            #Data Loading Scheme 1 - Version that works on low memeory devices e.g. warwick desktop
             ds_train_val = ds_train.concatenate(ds_val).repeat(train_params['epochs']-starting_epoch)
-            ds_train_val = ds_train_val.skip(batches_to_skip).prefetch(-1)
+            ds_train_val = ds_train_val.skip(batches_to_skip)
             iter_val_train = enumerate(ds_train_val)
             iter_train = iter_val_train
             iter_val = iter_val_train
         else:
-            #Version that ensures validation and train set are well defined
+            #Data Loading Scheme 2 - Version that ensures validation and train set are well defined 
             ds_train = ds_train.repeat(train_params['epochs']-starting_epoch)
-            ds_val = ds_val.repeat(train_params['epochs']-starting_epoch).prefetch(-1)
+            ds_val = ds_val.repeat(train_params['epochs']-starting_epoch)
 
-            ds_train = ds_train.skip(batches_to_skip).prefetch(2)
+            ds_train = ds_train.skip(batches_to_skip)
 
             iter_train = enumerate(ds_train)
             iter_val = enumerate(ds_val)
@@ -593,7 +594,7 @@ def train_loop(train_params, model_params):
                         _optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
                 elif (model_params['model_name'] in ["SimpleConvLSTM","SimpleConvGRU","THST"]):
-                    if model_params['model_type_settings']['location'] == 'region_grid'  or model_params['model_type_settings']['twoD']==True:
+                    if model_params['model_type_settings']['location'] == 'region_grid'  or ( type(model_params['model_type_settings']['location'][:] ) in [ list, data_structures.ListWrapper] ):
                         if( tf.reduce_any( mask[:, :, 6:10, 6:10] )==False ):
                             continue
                     else:
@@ -603,10 +604,10 @@ def train_loop(train_params, model_params):
 
                         if model_params['model_type_settings']['discrete_continuous'] == False:
 
-                            preds = model( tf.cast(feature,tf.float16), train_params['trainable'] ) #( bs, tar_seq_len, h, w)
-                            preds = tf.squeeze(preds)
+                            preds = model( tf.cast(feature, tf.float16), train_params['trainable'] ) #( bs, tar_seq_len, h, w)
+                            preds = tf.squeeze( preds )
 
-                            if (model_params['model_type_settings']['location']=='region_grid' )  or model_params['model_type_settings']['twoD']==True :  #focusing on centre of square only
+                            if( model_params['model_type_settings']['location']=='region_grid' ) or ( type(model_params['model_type_settings']['location'] ) in [ list, data_structures.ListWrapper]):  #focusing on centre of square only
                                 preds = preds[:, :, 6:10, 6:10]
                                 mask = mask[:, :, 6:10, 6:10]
                                 target = target[:, :, 6:10, 6:10]
@@ -614,8 +615,7 @@ def train_loop(train_params, model_params):
                             preds_filtrd = tf.boolean_mask( preds, mask )
                             target_filtrd = tf.boolean_mask( target, mask )
 
-                            preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], 
-                                                                    train_params['normalization_scales']['rain'], reverse=True)
+                            preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], train_params['normalization_scales']['rain'], reverse=True)
                         
                             loss_mse = tf.keras.losses.MSE(target_filtrd, preds_filtrd)
                             metric_mse = loss_mse
@@ -629,11 +629,11 @@ def train_loop(train_params, model_params):
                             preds = tf.squeeze(preds)
                             preds, probs = tf.unstack(preds, axis=0) 
 
-                            if (model_params['model_type_settings']['location']=='region_grid' )  or model_params['model_type_settings']['twoD']==True :  #focusing on centre of square only
-                                preds = preds[:, :, 6:10, 6:10]
-                                probs = probs[:, :, 6:10, 6:10]
-                                mask = mask[:, :, 6:10, 6:10]
-                                target = target[:, :, 6:10, 6:10] 
+                            if (model_params['model_type_settings']['location']=='region_grid') or ( type(model_params['model_type_settings']['location'][:]) in [list, data_structures.ListWrapper] ):  #focusing on centre of square only
+                                preds   = preds[:,    :, 6:10, 6:10]
+                                probs   = probs[:,    :, 6:10, 6:10]
+                                mask    = mask[:,     :, 6:10, 6:10]
+                                target  = target[:,  :, 6:10, 6:10] 
 
                             preds_filtrd = tf.boolean_mask( preds, mask )
                             probs_filtrd = tf.boolean_mask(probs, mask ) 
@@ -642,18 +642,20 @@ def train_loop(train_params, model_params):
                             preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], 
                                                                     train_params['normalization_scales']['rain'], reverse=True) 
                                                                     
+                                # get classification labels & predictions, true/1 means it has rained
+                            labels_true = tf.where( target_filtrd > model_params['model_type_settings']['precip_threshold'], 1.0, 0.0 )
+                            labels_pred = probs_filtrd 
+                                # tf.where( preds_filtrd>model_params['model_type_settings']['precip_threshold'], 1.0, 0.0)
+                                # alpha = 1000
+                            labels_pred_cont_approx = probs_filtrd 
+                                # tf.math.sigmoid( alpha*preds_filtrd - alpha/2 )
+                                # Label calculation allowing back-prop 
+                                # Note in tf.float32 tf.math.sigmoid(16.7)==1 and  
 
-                            #get classification labels & predictions, true/1 means it has rained   
-                            labels_true = tf.where( target_filtrd>model_params['model_type_settings']['precip_threshold'], 1.0, 0.0)
-                            labels_pred = probs_filtrd #tf.where( preds_filtrd>model_params['model_type_settings']['precip_threshold'], 1.0, 0.0)
-                            #alpha = 1000
-                            labels_pred_cont_approx = probs_filtrd # tf.math.sigmoid( alpha*preds_filtrd - alpha/2 )  #Label calculation allowing back-prop 
-                                #Note in tf.float32 tf.math.sigmoid(16.7)==1 and  
+                            rain_count = tf.math.count_nonzero( labels_true, dtype=tf.float32 )
+                            all_count = tf.size( target_filtrd, out_type=tf.float32 )
 
-                            rain_count = tf.math.count_nonzero( labels_true,dtype=tf.float32 )
-                            all_count = tf.size( target_filtrd,out_type=tf.float32 )
-
-                            #  gather predictions which are conditional on rain
+                                #  gather predictions which are conditional on rain
                             bool_cond_rain = tf.where(tf.equal(labels_true,1.0),True,False )
 
                             preds_cond_rain_mean = tf.boolean_mask( preds_filtrd, bool_cond_rain)
@@ -665,11 +667,12 @@ def train_loop(train_params, model_params):
                             target_cond_no_rain = tf.boolean_mask( target_filtrd, tf.math.logical_not(bool_cond_rain) )
 
                             if model_params['model_type_settings']['distr_type'] == 'Normal': #These two below handle dc cases of normal and log_normal
-                                raise NotImplementedError
-                                metric_mse = (rain_count/all_count)*tf.keras.losses.MSE(target_cond_rain, preds_cond_rain_mean)
+                                metric_mse = tf.keras.metrics.MSE(target_filtrd, preds_filtrd)
+                                train_mse_cond_rain = (rain_count/all_count) * tf.keras.metrics.MSE(target_cond_rain, preds_cond_rain_mean)
+                                #metric_mse = (rain_count/all_count)*tf.keras.losses.MSE(target_cond_rain, preds_cond_rain_mean)
                                 #loss_mse =  rain_count/all_count)*tf.keras.losses.MSE(target_cond_rain, preds_cond_rain_mean)
-                                loss_mse =  tf.reduce_sum( probs_cond_rain*tf.math.squared_difference(target_cond_rain, preds_cond_rain_mean) ) / all_count
-                                
+                                _l1 =  (rain_count/all_count) * tf.keras.metrics.MSE(target_cond_rain, preds_cond_rain_mean)
+                                loss_mse = _l1
 
                             elif model_params['model_type_settings']['distr_type'] == 'LogNormal':
 
@@ -709,7 +712,7 @@ def train_loop(train_params, model_params):
                                 _l3 = 0
                                 loss_mse += _l3 #log_cross_entropy_rainclassification
 
-                        if(model_params['model_type_settings']['model_version'] in ["54","55","56","156","155"] ): #multiple optimizers 
+                        if(  model_params['model_type_settings']['model_version'] in ["54","55","56","156","155"] ): #multiple optimizers 
                             
                             #optm_idx = step % len(optimizers)
                             if(model_params['model_type_settings']['model_version'] in ["54"]):
@@ -841,7 +844,8 @@ def train_loop(train_params, model_params):
                     
                     target_filtrd = tf.reshape( tf.boolean_mask(  target , train_params['bool_water_mask'], axis=1 ), [train_params['batch_size'], -1] )
                     preds_filtrd = tf.reshape( tf.boolean_mask( preds, train_params['bool_water_mask'],axis=1 ), [train_params['batch_size'], -1] )
-                    val_metric_loss( tf.reduce_mean( tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  ) #TODO: Ensure that both preds and target are reshaped prior 
+                    val_metric_loss( tf.reduce_mean( tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  ) 
+                    #TODO: Ensure that both preds and target are reshaped prior 
                     #TODO: Add Discrete Continuous Metric here is wrong, should be same as other version
 
             elif model_params['model_name'] in ["SimpleLSTM", "SimpleGRU" ,"SimpleDense"]:
@@ -917,7 +921,7 @@ def train_loop(train_params, model_params):
             
             elif model_params['model_name'] in ["SimpleConvLSTM", "SimpleConvGRU","THST"]:
                 
-                if model_params['model_type_settings']['location'] == 'region_grid' or model_params['model_type_settings']['twoD']==True:
+                if model_params['model_type_settings']['location'] == 'region_grid' or  ( type(model_params['model_type_settings']['location'][:] ) in [ list, data_structures.ListWrapper] ):
                     if tf.reduce_any( mask[:, :, 6:10, 6:10] )==False  :
                         continue
                 else:
@@ -930,7 +934,7 @@ def train_loop(train_params, model_params):
                         preds = model(tf.cast(feature,tf.float16), training=False )
                         preds = tf.squeeze(preds)
 
-                        if model_params['model_type_settings']['location']=='region_grid'  or model_params['model_type_settings']['twoD']==True : #focusing on centre of square only
+                        if model_params['model_type_settings']['location']=='region_grid'  or (type(model_params['model_type_settings']['location']) in [ list, data_structures.ListWrapper]) : #focusing on centre of square only
                             preds = preds[:, :, 6:10, 6:10]
                             mask = mask[:, :, 6:10, 6:10]
                             target = target[:, :, 6:10, 6:10]
@@ -939,7 +943,6 @@ def train_loop(train_params, model_params):
                         target_filtrd = tf.boolean_mask( target, mask )
                         preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], 
                                                                 train_params['normalization_scales']['rain'], reverse=True)
-
 
                         _ = tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) ) 
                         val_metric_loss( _ )
@@ -951,7 +954,7 @@ def train_loop(train_params, model_params):
                         preds = tf.squeeze(preds)
                         preds, probs = tf.unstack(preds, axis=0)
 
-                        if model_params['model_type_settings']['location']=='region_grid'  or model_params['model_type_settings']['twoD']==True : #focusing on centre of square only
+                        if model_params['model_type_settings']['location']=='region_grid'  or (type(model_params['model_type_settings']['location']) in [ list, data_structures.ListWrapper] ) : #focusing on centre of square only
                             preds = preds[:, :, 6:10, 6:10]
                             probs = probs[:, :,  6:10, 6:10]
                             mask = mask[:, :, 6:10, 6:10]
@@ -983,7 +986,7 @@ def train_loop(train_params, model_params):
                         
 
                         if model_params['model_type_settings']['distr_type'] == 'Normal': #These two below handle dc cases of normal and log_normal
-
+                            raise NotImplementedError
                             #loss_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_cond_rain , preds_cond_rain_mean ) )  #NOTE: currently the val_metric_loss represents a different target for different combinations of distr_type and stochastic
                             loss_mse = tf.reduce_mean( probs_filtrd *tf.math.squared_difference( preds_cond_rain_mean, target_cond_rain )  )
                             val_mse = val_metric_loss( tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) )  )
@@ -1003,7 +1006,6 @@ def train_loop(train_params, model_params):
                                 val_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
                                 val_mse +=val_mse_cond_no_rain
                             
-
                         if(model_params['model_type_settings']['model_version'] in ["3","4","44","45","145","47","48","49","50","51","52",'53','54',"56","156"] ):
                             # log_cross_entropy_rainclassification = tf.reduce_mean( 
                             #         tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )
@@ -1027,7 +1029,7 @@ def train_loop(train_params, model_params):
                 est_completion_time_seconds = (batches_report_time/train_params['dataset_trainval_batch_reporting_freq']) *( 1 -  ((batch)/val_set_size_batches ) )
                 est_completion_time_mins = est_completion_time_seconds/60
 
-                print("\t\tCompleted Validation Batch:{}/{} \t Time:{:.4f} \tEst Time Left:{:.1f}".format( batch, val_set_size_batches ,batches_report_time,est_completion_time_mins ))
+                print("\t\tCompleted Validation Batch:{}/{} \t Time:{:.4f} \tEst Time Left:{:.1f}".format( batch, val_set_size_batches, batches_report_time,est_completion_time_mins ))
                                             
                 start_batch_time = time.time()
                 #iter_train = None
@@ -1036,9 +1038,8 @@ def train_loop(train_params, model_params):
         model.reset_states()
 
         print("\tEpoch:{}\t Train Loss:{:.8f}\tValidation Loss:{:.5f}\t Train MSE:{:.5f}\t Val MSE:{:.5f}\t Time:{:.5f}".format(epoch, train_loss_mean_epoch.result(), val_metric_loss.result(), train_mse_metric_epoch.result(), val_metric_mse.result() ,time.time()-start_epoch_val  ) )
-        if( model_params['model_type_settings']['stochastic']==True ):
+        if( model_params['model_type_settings']['stochastic'] == True ):
             print('\t\tVar_Free_Nrg: {:.5f} '.format(train_loss_var_free_nrg_mean_epoch.result()  ) )
-
             # endregion
         
         with writer.as_default():

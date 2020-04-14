@@ -27,7 +27,7 @@ class MParams(HParams):
     def __init__(self,**kwargs):
         
         #if kwargs['model_type_settings']['location'] == "region_grid":
-        if kwargs['model_type_settings']['twoD'] == True:
+        if type( kwargs['model_type_settings']['location'][:] ) in [list, data_structures.ListWrapper] :
             self.regiongrid_param_adjustment()
         else:
             self.params = {}
@@ -35,7 +35,7 @@ class MParams(HParams):
         self._default_params(**kwargs)
         #super(MParams, self).__init__(**kwargs)
                  
-        if kwargs['model_type_settings']['twoD'] == True:     
+        if type( kwargs['model_type_settings']['location'][:] ) in [list, data_structures.ListWrapper] :
             self.params['lookahead_params']['sync_period'] == int( np.prod( self.params['region_grid_params']['slides_v_h']  * min( [ self.params['lookahead_params']['sync_period'] // 2, 1] ) ) )
 
     def regiongrid_param_adjustment(self):
@@ -53,7 +53,7 @@ class MParams(HParams):
         )
         vertical_slides = (self.params['region_grid_params']['input_image_shape'][0] - self.params['region_grid_params']['outer_box_dims'][0] +1 )// self.params['region_grid_params']['vertical_shift']
         horizontal_slides = (self.params['region_grid_params']['input_image_shape'][1] - self.params['region_grid_params']['outer_box_dims'][1] +1 ) // self.params['region_grid_params']['horizontal_shift']
-        self.params['region_grid_params'].update({'slides_v_h':[vertical_slides,horizontal_slides]})
+        self.params['region_grid_params'].update({'slides_v_h':[vertical_slides, horizontal_slides]})
 
 class model_deepsd_hparameters(MParams):
     """
@@ -169,8 +169,7 @@ class model_deepsd_hparameters(MParams):
 class model_THST_hparameters(MParams):
 
     def __init__(self, **kwargs):
-        """ 
-            
+        """  
         """
         self.stoc = kwargs.get('model_type_settings',{}).get('stochastic',False)
         super( model_THST_hparameters, self ).__init__(**kwargs)
@@ -237,13 +236,14 @@ class model_THST_hparameters(MParams):
             val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 ) for idx in range(attn_layers_count)  ]
             # key_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 / np.prod([kq_downscale_kernelshape[1:]]) ) for idx in range(attn_layers_count)  ]
                         
-
             if kq_downscale_stride == [1,8,8]:
                 key_depth = [72]*attn_layers_count
                 #key_depth = [320]*attn_layers_count
             elif kq_downscale_stride == [1,4,4]:
                 #key_depth = [128]*attn_layers_count
                 key_depth = [72]*attn_layers_count
+
+        elif  in self.params.keys():
 
         else:
             kq_downscale_stride = [1, 13, 13]
@@ -256,6 +256,7 @@ class model_THST_hparameters(MParams):
             #The keydepth for any given layer will be equal to (h*w*c/avg_pool_strideh*avg_pool_stridew)
                 # where h,w = 100,140 and c is from the output_filters_enc from the layer below
             
+
         ATTN_LAYERS_NUM_OF_SPLITS = list(reversed((np.cumprod( list( reversed(SEQ_LEN_FACTOR_REDUCTION[1:] + [1] ) ) ) *seq_len_for_highest_hierachy_level ).tolist())) 
             #Each encoder layer receives a seq of 3D tensors from layer below. NUM_OF_SPLITS codes in how many chunks to devide the incoming data. NOTE: This is defined only for Encoder-Attn layers
 

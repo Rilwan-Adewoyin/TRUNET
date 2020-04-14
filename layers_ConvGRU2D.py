@@ -2023,8 +2023,8 @@ class ConvGRU2D_attn(ConvRNN2D):
         self.layer_norm = layer_norm
 
         #Amending Initialisation -> since the init is called after the sub layer MultiHead2DAtt is made
-        self._trainable = trainable
-        self.attn_params= attn_params
+        self._trainable  = trainable
+        self.attn_params = attn_params
         self.attn_downscaling_params = attn_downscaling_params
         self.attn_factor_reduc = attn_factor_reduc
 
@@ -2067,7 +2067,7 @@ class ConvGRU2D_attn(ConvRNN2D):
         
         self.activity_regularizer = regularizers.get(activity_regularizer)
 
-    #@tf.function
+    
     def call(self, inputs, mask=None, training=None, initial_state=None):
         self._maybe_reset_cell_dropout_mask(self.cell)
         if initial_state is not None:
@@ -2429,10 +2429,8 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
             self.bias = None
         self.built = True
 
-    #@tf.function
     def call(self, inputs, states, training=None):
-        #inputs #shape (bs, h, w, c*self.attn_factor_reduc)
-
+            #inputs #shape (bs, h, w, c*self.attn_factor_reduc)
         h_tm1 = tf.cast( states[0], dtype=inputs.dtype)  # previous memory state
         
         #region new: attn part
@@ -2446,11 +2444,10 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
                                             v_antecedent=v,
                                             training=training ) #(bs, 1, h, w, f)
         
-    
         inputs = tf.squeeze( attn_avg_inp_hid_state)
         # endregion
 
-        # dropout  masks
+            # dropout masks
         dp_mask = self.get_dropout_mask_for_cell(inputs, training, count=3)
             # dropout matrices for recurrent units
         rec_dp_mask = self.get_recurrent_dropout_mask_for_cell(
@@ -2527,11 +2524,10 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
         
         if self.bool_ln:
             hh = tf.cast(self.layer_norm(hh),self._compute_dtype)
-        h = z*h_tm1 + (1-z)*hh
         
+        h = z*h_tm1 + (1-z)*hh
         return h, [h]
 
-    #@tf.function
     def input_conv(self, x, w, b=None, padding='valid'):
         conv_out = K.conv2d(x, w, strides=self.strides,
                             padding=padding,

@@ -72,7 +72,11 @@ class THST(tf.keras.Model):
         if model_params['model_type_settings']['location'] not in ["whole_region"]:
             h_w = model_params['region_grid_params']['outer_box_dims']
         else:
-            h_w = [100,140]
+            try:
+                h_w = [ 100//train_params['downscale_input_factor'], 140//train_params['downscale_input_factor'] ]
+            except Exception as e:
+                h_w = [ 100, 140 ]
+
         #TODO: in bidirectional layers explicity add the go_backwards line and second LSTM / GRU layer
         self.encoder = layers.THST_Encoder( train_params, model_params['encoder_params'], h_w )
         self.decoder = layers.THST_Decoder( train_params, model_params['decoder_params'], h_w )
@@ -85,7 +89,6 @@ class THST(tf.keras.Model):
     def call(self, _input, tape=None, training=False):
         
         hs_list_enc = self.encoder(_input, training=training)
-        
         hs_dec = self.decoder(hs_list_enc, training=training)
         output = self.output_layer(hs_dec, training=training)
         output = self.float32_custom_relu(output)   
@@ -270,9 +273,6 @@ class SimpleConvGRU(tf.keras.Model):
 
 
         self.new_shape1 = tf.TensorShape( [train_params['batch_size'],model_params['region_grid_params']['outer_box_dims'][0], model_params['region_grid_params']['outer_box_dims'][1],  train_params['lookback_target'] ,int(6*4)] )
-        #endregion
-
-
 
     @tf.function
     def call(self, _input, training):

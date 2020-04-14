@@ -755,7 +755,6 @@ class THST_CGRU_Attention_Layer(tf.keras.layers.Layer):
 
 		self.shape 						= ( train_params['batch_size'], self.num_of_splits, h_w[0], h_w[1], CGRU_params['filters'] )
 
-	#@tf.function
 	def call(self, input_hidden_states, training=True):
 		
 		hidden_states_f, hidden_states_b = self.convGRU_attn(input_hidden_states, training=training)
@@ -781,7 +780,6 @@ class THST_CGRU_Decoder_Layer(tf.keras.layers.Layer):
 														backward_layer=layers_ConvGRU2D.ConvGRU2D_custom( **copy.deepcopy(layer_params),go_backwards=True,trainable=self.trainable ) ,
 														merge_mode=None)
 	
-	#@tf.function
 	def call(self, input1, input2, training=True ):
 		"""
 			input1 : Contains the hidden representations from the corresponding layer in the encoder #(bs, seq_len1, h,w,c1)
@@ -992,7 +990,6 @@ class OutputReluFloat32(tf.keras.layers.Layer):
 		outp = self.custom_relu(outp)
 		return outp
 
-
 def CustomRelu_maker(t_params, dtype):
 	CustomRelu = ReLU_correct_layer( threshold= utility.standardize_ati( 0.0, t_params['normalization_shift']['rain'], 
 									t_params['normalization_scales']['rain'], reverse=False), sdtype=dtype )
@@ -1014,8 +1011,7 @@ class ReLU_correct_layer(tf.keras.layers.Layer):
         Arguments:
             max_value: Float >= 0. Maximum activation value.
             negative_slope: Float >= 0. Negative slope coefficient.
-            threshold: Float. Threshold value for thresholded activation.
-    """
+            threshold: Float. Threshold value for thresholded activation."""
     """Rectified linear unit.
         With default values, it returns element-wise `max(x, 0)`.
         Otherwise, it follows:
@@ -1028,8 +1024,7 @@ class ReLU_correct_layer(tf.keras.layers.Layer):
             max_value: float. Saturation threshold.
             threshold: float. Threshold value for thresholded activation.
         Returns:
-            A tensor.
-    """
+            A tensor.    """
     def __init__(self, max_value=None, negative_slope=0.0, threshold=0.0, sdtype='float32' ,**kwargs):
         super(ReLU_correct_layer, self).__init__()
         if max_value is not None and max_value < 0.:
@@ -1053,7 +1048,6 @@ class ReLU_correct_layer(tf.keras.layers.Layer):
         self.threshold = np.array([threshold],dtype=sdtype)		
         self.sdtype = sdtype
         self._dtype = sdtype
-    
     
     def call(self, inputs):
         # alpha is used for leaky relu slope in activations instead of
@@ -1120,4 +1114,5 @@ def LeakyRelu_mkr(t_params):
 															t_params['normalization_scales']['rain'], reverse=False), negative_slope=0.1 )
 
 	return CustomRelu
+
 # endregion

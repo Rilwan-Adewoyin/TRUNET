@@ -437,10 +437,15 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     
     # region mode of data
     model_settings = m_params['model_type_settings']
+
     if(model_settings['location']=="wholegrid"):
         ds = ds.batch(t_params['batch_size'], drop_remainder=True)
-    
 
+        if 'downscale_input_factor' in model_settings:
+            ds = ds.map( lambda mf, rain_mask: load_data_ati_input_dscale( mf, rain_mask[0], rain_mask[1], t_params ), num_parallel_calls=_num_parallel_calls )
+
+        return ds        
+    
     elif( type(model_settings['location'][:]) == list ):
 
         if m_params['model_name'] in ["SimpleLSTM","SimpleDense","SimpleGRU"]:
@@ -515,7 +520,6 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
                 return ds, idx_city_in_region
             
         ds = ds.unbatch().batch( t_params['batch_size'],drop_remainder=True )
-
 
     elif(model_settings['location']=="region_grid"):
         
@@ -703,4 +707,11 @@ def load_data_ati_post_region_folding(mf, rain, mask):
 
     return mf, (rain, mask)
 
+def load_data_ati_input_dscale(mf, rain, mask, d_factor):
+    
+    mf = mf[:, :, ::d_factor, ::d_factor, :]          #(bs, seq_len, h, w, d)
+    rain = rain[:, :, ::d_factor, ::d_factor, :]      #(bs, seq_len, h, w, d)
+    rain = rain[:, :, ::d_factor, ::d_factor, :]      #(bs, seq_len, h, w, d)
+
+    return mf, (rain, mask)
 #endregion
