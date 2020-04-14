@@ -685,17 +685,17 @@ def train_loop(train_params, model_params):
                                     #_l1 += tf.reduce_sum( probs_cond_no_rain*tf.math.squared_difference( tf.math.log(target_cond_no_rain+1), tf.math.log(preds_cond_no_rain_mean+1) ) ) / all_count                           
                                 loss_mse = _l1  
 
-                                if(model_params['model_type_settings']['model_version'] in ["44","46","54","55","155"] ):
-                                    raise NotImplementedError
-                                    train_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean ) #loss2 conditional on no rain
-                                    _l2 = train_mse_cond_no_rain
-                                    loss_mse += train_mse_cond_no_rain
-                                    metric_mse += train_mse_cond_no_rain
-                                else:
-                                    train_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean ) #loss2 conditional on no rain
-                                    _l2 = 0
-                                    loss_mse += 0
-                                    metric_mse += train_mse_cond_no_rain
+                            if(model_params['model_type_settings']['model_version'] in ["44","46","54","55","155"] ):
+                                raise NotImplementedError
+                                train_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean ) #loss2 conditional on no rain
+                                _l2 = train_mse_cond_no_rain
+                                loss_mse += train_mse_cond_no_rain
+                                metric_mse += train_mse_cond_no_rain
+                            else:
+                                train_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean ) #loss2 conditional on no rain
+                                _l2 = 0
+                                loss_mse += 0
+                                metric_mse += train_mse_cond_no_rain
 
                             if(model_params['model_type_settings']['model_version'] in ["44","45","145","54","56","156"] ):
 
@@ -998,14 +998,14 @@ def train_loop(train_params, model_params):
                             #loss_mse = (rain_count/all_count)*tf.reduce_mean(custom_losses.lnormal_mse(target_filtrd , preds_filtrd ) ) # (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, preds_cond_rain_mean)
                             loss_mse = tf.reduce_sum( tf.math.squared_difference( tf.math.log(preds_cond_rain_mean+1), tf.math.log(target_cond_rain+1)  )  ) / all_count
 
-                            if(model_params['model_type_settings']['model_version'] in ["3","4","44","46","54","55","155"] ):
-                                raise NotImplementedError
-                                val_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
-                                loss_mse += val_mse_cond_no_rain
-                                val_mse += val_mse_cond_no_rain
-                            else:
-                                val_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
-                                val_mse +=val_mse_cond_no_rain
+                        if(model_params['model_type_settings']['model_version'] in ["3","4","44","46","54","55","155"] ):
+                            raise NotImplementedError
+                            val_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
+                            loss_mse += val_mse_cond_no_rain
+                            val_mse += val_mse_cond_no_rain
+                        else:
+                            val_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
+                            val_mse +=val_mse_cond_no_rain
                             
                         if(model_params['model_type_settings']['model_version'] in ["3","4","44","45","145","47","48","49","50","51","52",'53','54',"56","156"] ):
                             # log_cross_entropy_rainclassification = tf.reduce_mean( 
