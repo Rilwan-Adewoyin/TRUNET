@@ -69,12 +69,14 @@ class THST(tf.keras.Model):
     def __init__(self, train_params, model_params):
         super(THST, self).__init__()
 
+        self.dsif = np.asarray( [ 'downscale_input_factor' in model_params ] , dtype=np.bool )
+
         if model_params['model_type_settings']['location'] not in ["whole_region"]:
             h_w = model_params['region_grid_params']['outer_box_dims']
         else:
-            try:
+            if self.dsif:
                 h_w = [ 100//train_params['downscale_input_factor'], 140//train_params['downscale_input_factor'] ]
-            except Exception as e:
+            else:
                 h_w = [ 100, 140 ]
 
         #TODO: in bidirectional layers explicity add the go_backwards line and second LSTM / GRU layer
@@ -82,7 +84,7 @@ class THST(tf.keras.Model):
         self.decoder = layers.THST_Decoder( train_params, model_params['decoder_params'], h_w )
         self.output_layer = layers.THST_OutputLayer( train_params, model_params['output_layer_params'], model_params['model_type_settings'], model_params['dropout']  )
 
-        self.float32_custom_relu = layers.OutputReluFloat32(train_params) 
+        #self.float32_custom_relu = layers.OutputReluFloat32(train_params) 
         
 
     @tf.function
@@ -91,7 +93,7 @@ class THST(tf.keras.Model):
         hs_list_enc = self.encoder(_input, training=training)
         hs_dec = self.decoder(hs_list_enc, training=training)
         output = self.output_layer(hs_dec, training=training)
-        output = self.float32_custom_relu(output)   
+        #output = self.float32_custom_relu(output)   
         return output
 
 
@@ -240,6 +242,7 @@ class SimpleConvGRU(tf.keras.Model):
         super(SimpleConvGRU, self).__init__()
 
         self.dc = np.asarray( [model_params['model_type_settings']['discrete_continuous']],dtype=np.bool )
+        self.dsif = np.asarray( [ 'downscale_input_factor' in model_params ] , dtype=np.bool )
         self.layer_count = model_params['layer_count']
                
         
@@ -255,22 +258,31 @@ class SimpleConvGRU(tf.keras.Model):
         if model_params['model_type_settings']['discrete_continuous']:
             self.conv1_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **model_params['conv1_layer_params'] ) )
             self.conv1_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **model_params['conv1_layer_params'] ) )
+
+            if self.dsif:
+                self.conv2_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **model_params['conv2_layer_params'] ) )
+                self.conv2_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **model_params['conv2_layer_params'] ) )
             
             self.output_conv_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **model_params['outpconv_layer_params'] ) )
             self.output_conv_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **model_params['outpconv_layer_params'] ) )
+
+
             
             self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
             self.output_activation_val = layers.CustomRelu_maker(train_params, dtype='float32')
             self.output_activation_prob = tf.keras.layers.Activation('sigmoid', dtype='float32')
+        
 
         else:
             self.conv1 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **model_params['conv1_layer_params'] ) )
             self.output_conv = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **model_params['outpconv_layer_params'] ) )
+
+            if self.dsif:
+                self.conv2 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose(**model_params['conv2_layer_params']) )
+                
             self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
 
             self.output_activation = layers.CustomRelu_maker(train_params, dtype='float32')
-
-
 
         self.new_shape1 = tf.TensorShape( [train_params['batch_size'],model_params['region_grid_params']['outer_box_dims'][0], model_params['region_grid_params']['outer_box_dims'][1],  train_params['lookback_target'] ,int(6*4)] )
 
@@ -292,6 +304,8 @@ class SimpleConvGRU(tf.keras.Model):
         
         if self.dc ==  False :
             x = self.conv1( self.do( tf.concat([x,x0] ,axis=-1),training=training ), training=training )
+            if self.dsif == True:
+                x = self.conv2( self.do( x, training ), training=training )
             outp = self.output_conv( self.do1( x, training=training ), training=training )
             outp = self.float32_output(outp)
             outp = self.output_activation(outp)
@@ -299,6 +313,10 @@ class SimpleConvGRU(tf.keras.Model):
         else:
             x_vals = self.conv1_val( self.do( tf.concat([x,x0] ,axis=-1),training=training ), training=training )
             x_prob = self.conv1_prob( self.do( tf.concat([x,x0] ,axis=-1),training=training ), training=training )
+
+            if self.dsif == True:
+                x_vals = self.conv2_vals( self.do( x_vals, training ), training=training )
+                x_prob = self.conv2_probs( self.do( x_prob, training ), training=training )
 
             outp_vals = self.output_conv_val( self.do1( x_vals, training=training ), training=training )
             outp_prob = self.output_conv_prob( self.do1( x_prob, training=training ), training=training )

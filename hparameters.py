@@ -172,7 +172,9 @@ class model_THST_hparameters(MParams):
     def __init__(self, **kwargs):
         """  
         """
+        self.dc = kwargs.get('model_type_settings',{}).get('discrete_continuous',False)
         self.stoc = kwargs.get('model_type_settings',{}).get('stochastic',False)
+        self.dsif = kwargs.get('downscale_input_factor',False)
         super( model_THST_hparameters, self ).__init__(**kwargs)
 
     def _default_params( self, **kwargs ):
@@ -217,7 +219,10 @@ class model_THST_hparameters(MParams):
 
         output_filters_enc     = [ _filter ]*(enc_layer_count-1)                     # [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
         output_filters_enc     = output_filters_enc + output_filters_enc[-1:]   # the last two layers in the encoder must output the same number of channels
-        kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )                # [(2,2)]
+        if 'downscale_input_factor' not in self.params.keys():
+            kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )                # [(2,2)]
+        else:
+            kernel_size_enc        = [ (2,2) ] * ( enc_layer_count )                # [(2,2)]
         recurrent_regularizers = [ None ] * (enc_layer_count) 
         kernel_regularizers    = [ None ] * (enc_layer_count)
         bias_regularizers      = [ tf.keras.regularizers.l2(0.2) ] * (enc_layer_count) 
@@ -342,7 +347,13 @@ class model_THST_hparameters(MParams):
         # endregion
 
         # region --------------- OUTPUT_LAYER_PARAMS -----------------
-        
+        if self.dsif:
+            conv_upscale_params = {'filters': int(  8*(((output_filters_dec[-1]*2)/4)//8)), 'kernel_size':[2,2], 'strides':[ self.dsif ]*2,
+                                    'activation':'relu','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2)  }  
+
+            #Note: Stride larger than filter size may lead to middle areas being assigned a zero value
+            self.params.update( { 'conv_upscale_params': conv_upscale_params } )
+
         output_filters = [  int(  8*(((output_filters_dec[-1]*2)/3)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
         output_kernel_size = [ (3,3), (3,3) ] 
         activations = ['relu','linear']
@@ -458,6 +469,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
     def __init__(self, **kwargs):
         self.dc = kwargs.get('model_type_settings',{}).get('discrete_continuous',False)
         self.stoc = kwargs.get('model_type_settings',{}).get('stochastic',False)
+        self.dsif = kwargs.get('downscale_input_factor',False)
         super(model_SimpleConvGRU_hparamaters, self).__init__(**kwargs)
     
     def _default_params(self,**kwargs):
@@ -496,10 +508,14 @@ class model_SimpleConvGRU_hparamaters(MParams):
 
         conv1_layer_params = {'filters': int(  8*(((filters[0]*2)/3)//8)) , 'kernel_size':[3,3], 'activation':'relu','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2) }  
 
+        if self.dsif:
+            conv2_layer_params = {'filters': int(  8*(((filters[0]*2)/4)//8)) , 'kernel_size':[2,2], 'strides':[ self.dsif ]*2,
+                                    'activation':'relu','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2)  }  
+            #Note: Stride larger than filter size may lead to middle areas being assigned a zero value
+            self.params.update( { 'conv2_layer_params': conv2_layer_params } )
+
         outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'linear','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2) }
 
-        # conv1_layer_params = {'filters': int(  8*(((filters[0]*2)/3)//8)) , 'kernel_size':[3,3], 'activation':'relu','padding':'same'}        
-        # outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'linear','padding':'same'}
         #endregion
 
         #region data pipeline
