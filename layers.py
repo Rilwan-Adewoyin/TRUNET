@@ -807,6 +807,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 
 		self.trainable = train_params['trainable']
 		self.dsif = dsif
+		self.dc = model_type_settings['discrete_continuous']
 		
 		self.do0 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=dropout_rate, data_format = 'channels_last' ) )
 
@@ -870,7 +871,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			if self.dsif == True:
 				x = self.conv_upscale( self.do0( x, training=training), training=training )
             
-			x = self.conv_output( x, training=training ) #shape (bs, height, width)
+			outp = self.conv_output( x, training=training ) #shape (bs, height, width)
 			outp = self.float32_custom_relu(outp)   
 		
 		else:
@@ -884,13 +885,13 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			x_val = self.conv_output_val( x_val, training=training)
 			x_prob = self.conv_output_prob( x_prob, training=training)
 
-			outp_vals = self.float32_output(outp_vals)
-			outp_prob = self.float32_output(outp_prob)
+			outp_val = self.float32_output(x_val)
+			outp_prob = self.float32_output(x_prob)
 
-			outp_vals = self.output_activation_val(outp_vals)
+			outp_val = self.output_activation_val(outp_val)
 			outp_prob = self.output_activation_prob(outp_prob)
 
-			outp = tf.stack([outp_vals, outp_prob],axis=0)
+			outp = tf.stack([outp_val, outp_prob],axis=0)
 
 		return outp
 

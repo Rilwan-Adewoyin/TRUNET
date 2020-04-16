@@ -51,8 +51,8 @@
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
-            "args": [ "-mn","THST","-dd","Data/Rain_Data_Nov19", "-bs","2","-sdc","4" ,
-                "-mts" ,"{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'London','deformable_conv':False, 'model_version':'4','location_test':'London','twoD':True}"
+            "args": [ "-mn","THST","-dd","Data/Rain_Data_Nov19", "-bs","2","-sdc","4", "-do","0.0", "-ido","0.0", "-rdo","0.0",
+                "-mts" ,"{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'deformable_conv':False,'model_version':'103','location_test':'London','twoD':True}"
                 ]  
         },
         {

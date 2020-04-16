@@ -204,9 +204,10 @@ class MultiHead2DAttention_v2(Layer):
         output_shape[1] = 1 # inputs.shape[1]
 
         q_antecedent = tf.cast( tf.nn.avg_pool3d( tf.cast(inputs,tf.float32), strides=self.kq_downscale_stride,
-                                ksize=self.kq_downscale_kernelshape, padding="SAME"), tf.float16)
+                                    ksize=self.kq_downscale_kernelshape, padding="SAME"), tf.float16)
+
         k_antecedent = tf.cast(tf.nn.avg_pool3d( tf.cast(k_antecedent,tf.float32), strides=self.kq_downscale_stride,
-                                ksize=self.kq_downscale_kernelshape, padding="SAME"), tf.float16)
+                                    ksize=self.kq_downscale_kernelshape, padding="SAME"), tf.float16)
                                 
         # endregion 
 
@@ -216,6 +217,7 @@ class MultiHead2DAttention_v2(Layer):
         
         if self.transform_value_antecedent == True:
             v_antecedent = self.dense_value( v_antecedent, training=True  )
+            
         v_antecedent_flat = tf.reshape(v_antecedent, v_antecedent.shape.as_list()[:2] + [-1] ) #NOTE shape.as_list()[:-1] may not work in graph mode
         # endregion
 

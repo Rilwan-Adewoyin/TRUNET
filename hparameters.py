@@ -264,7 +264,7 @@ class model_THST_hparameters(MParams):
             kq_downscale_kernelshape = [1, 13, 13]
 
             #This keeps the hidden representations equal in size to the incoming tensors
-            key_depth = [80]*attn_layers_count
+            key_depth = [ 80 ]*attn_layers_count
             val_depth = [ int(100*140*output_filters_enc[idx]*2) for idx in range(attn_layers_count)  ]
                 
             #The keydepth for any given layer will be equal to (h*w*c/avg_pool_strideh*avg_pool_stridew)
@@ -360,7 +360,7 @@ class model_THST_hparameters(MParams):
         activations = ['relu','linear']
 
         OUTPUT_LAYER_PARAMS = [ 
-            { "filters":fs, "kernel_size":ks ,  "padding":"same", "activation":act, 'bias_regularizer':tf.keras.regularizers.l2(0.2)  } 
+            { "filters":fs, "kernel_size":ks , "padding":"same", "activation":act, 'bias_regularizer':tf.keras.regularizers.l2(0.2)  } 
                 for fs, ks, act in zip( output_filters, output_kernel_size, activations )
          ]
         # endregion
