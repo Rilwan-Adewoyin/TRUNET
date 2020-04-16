@@ -438,10 +438,11 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     # region mode of data
     model_settings = m_params['model_type_settings']
 
-    if(model_settings['location']=="wholegrid"):
+    if(model_settings['location']=="wholegrid" or  t_params['downscale_input_factor'] != None ):
         ds = ds.batch(t_params['batch_size'], drop_remainder=True)
 
-        if 'downscale_input_factor' in model_settings:
+        if t_params['downscale_input_factor'] != None:
+            #HERE in Debugging downscaled input version
             ds = ds.map( lambda mf, rain_mask: load_data_ati_input_dscale( mf, rain_mask[0], rain_mask[1], t_params ), num_parallel_calls=_num_parallel_calls )
 
         return ds        

@@ -192,7 +192,7 @@ def train_loop(train_params, model_params):
 
     # region ----- Setting up Checkpoints 
         #  (For Epochs)
-    checkpoint_path_epoch = "checkpoints/{}/epoch".format(utility.model_name_mkr(model_params))
+    checkpoint_path_epoch = "checkpoints/{}/epoch".format(utility.model_name_mkr(model_params ))
     os.makedirs(checkpoint_path_epoch,exist_ok=True)
         
     ckpt_epoch = tf.train.Checkpoint(model=model)#, optimizer=optimizer)

@@ -28,7 +28,7 @@ class MParams(HParams):
     def __init__(self,**kwargs):
         
         #if kwargs['model_type_settings']['location'] == "region_grid":
-        if type( kwargs['model_type_settings']['location'][:] ) in [list, data_structures.ListWrapper] :
+        if type( kwargs['model_type_settings']['location'][:] ) in [list, data_structures.ListWrapper] and ('downscale_input_factor' != None ):
             self.regiongrid_param_adjustment()
         else:
             self.params = {}
@@ -36,7 +36,7 @@ class MParams(HParams):
         self._default_params(**kwargs)
         #super(MParams, self).__init__(**kwargs)
                  
-        if type( kwargs['model_type_settings']['location'][:] ) in [list, data_structures.ListWrapper] :
+        if type( kwargs['model_type_settings']['location'][:] ) in [list, data_structures.ListWrapper] and ('downscale_input_factor' != None ) :
             self.params['lookahead_params']['sync_period'] == int( np.prod( self.params['region_grid_params']['slides_v_h']  * min( [ self.params['lookahead_params']['sync_period'] // 2, 1] ) ) )
 
     def regiongrid_param_adjustment(self):
@@ -249,12 +249,13 @@ class model_THST_hparameters(MParams):
                 #key_depth = [128]*attn_layers_count
                 key_depth = [72]*attn_layers_count
 
-        elif 'downscale_input_factor' in self.params.keys():
-            _dims = [100//self.params['downscale_input_factor'] , 140//self.params['downscale_input_factor'] ]
+        #elif 'downscale_input_factor' in kwargs:
+        elif self.dsif != False:
+            _dims = [100//self.dsif , 140//self.dsif ]
             kq_downscale_stride = [1, _dims[0]//4, _dims[1]//4 ]
             kq_downscale_kernelshape = kq_downscale_stride
 
-            val_depth = [ int( np.prod([100//self.params['downscale_input_factor'] , 140//self.params['downscale_input_factor'] ]) *output_filters_enc[idx]*2) for idx in range(attn_layers_count)  ]
+            val_depth = [ int( np.prod([100//self.dsif , 140//self.dsif ]) *output_filters_enc[idx]*2) for idx in range(attn_layers_count)  ]
             key_depth = [72]*attn_layers_count
             
 
@@ -263,7 +264,7 @@ class model_THST_hparameters(MParams):
             kq_downscale_kernelshape = [1, 13, 13]
 
             #This keeps the hidden representations equal in size to the incoming tensors
-            key_depth = [ int( (100*140*output_filters_enc[idx]*2) / int(np.prod([kq_downscale_kernelshape[1:]])) ) for idx in range(attn_layers_count) ]     
+            key_depth = [80]*attn_layers_count
             val_depth = [ int(100*140*output_filters_enc[idx]*2) for idx in range(attn_layers_count)  ]
                 
             #The keydepth for any given layer will be equal to (h*w*c/avg_pool_strideh*avg_pool_stridew)
@@ -479,8 +480,8 @@ class model_SimpleConvGRU_hparamaters(MParams):
         #region ConvLayers
         layer_count = 3 #TODO: Shi uses 2 layers
         if dropout != 0.0 and self.stoc==True :            
-            _filter = int(80*1.4)
-            #_filter = 80
+            #_filter = int(80*1.4)
+            _filter = 80
         else:
             _filter = 80
 

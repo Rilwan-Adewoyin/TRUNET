@@ -799,13 +799,14 @@ class THST_CGRU_Decoder_Layer(tf.keras.layers.Layer):
 		return hidden_states
 
 class THST_OutputLayer(tf.keras.layers.Layer):
-	def __init__(self, train_params,layer_params, model_type_settings,dropout_rate):
+	def __init__(self, train_params,layer_params, model_type_settings, dropout_rate, dsif=False, conv_upscale_params=None):
 		"""
 			:param list layer_params: a list of dicts of params for the layers
 		"""
 		super( THST_OutputLayer, self ).__init__()
 
 		self.trainable = train_params['trainable']
+		self.dsif = dsif
 		
 		self.do0 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=dropout_rate, data_format = 'channels_last' ) )
 
@@ -829,9 +830,9 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 
 			
 			if self.dsif:
-				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **model_params['conv_upscale_params'] ) )
+				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
 			
-			self.float32_custom_relu = layers.OutputReluFloat32(train_params) 
+			self.float32_custom_relu = OutputReluFloat32(train_params) 
 		
 		else:
 			if(model_type_settings['deformable_conv'] ==False):
@@ -847,8 +848,8 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				self.conv_output_prob = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
 
 			if self.dsif:
-				self.conv_upscale_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **model_params['conv_upscale_params'] ) )
-				self.conv_upscale_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **model_params['conv_upscale_params'] ) ) 
+				self.conv_upscale_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
+				self.conv_upscale_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) ) 
 			
 			self.output_activation_val = CustomRelu_maker(train_params, dtype='float32')
 			self.output_activation_prob = tf.keras.layers.Activation('sigmoid', dtype='float32')
@@ -867,8 +868,8 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			x = self.conv_hidden( self.do0(_inputs,training=training),training=training )
 
 			if self.dsif == True:
-                self.conv_upscale( self.do0( x, training=training), training=training )
-                
+				x = self.conv_upscale( self.do0( x, training=training), training=training )
+            
 			x = self.conv_output( x, training=training ) #shape (bs, height, width)
 			outp = self.float32_custom_relu(outp)   
 		
@@ -884,10 +885,10 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			x_prob = self.conv_output_prob( x_prob, training=training)
 
 			outp_vals = self.float32_output(outp_vals)
-            outp_prob = self.float32_output(outp_prob)
+			outp_prob = self.float32_output(outp_prob)
 
-            outp_vals = self.output_activation_val(outp_vals)
-            outp_prob = self.output_activation_prob(outp_prob)
+			outp_vals = self.output_activation_val(outp_vals)
+			outp_prob = self.output_activation_prob(outp_prob)
 
 			outp = tf.stack([outp_vals, outp_prob],axis=0)
 

@@ -137,7 +137,7 @@ def load_model(test_params, model_params):
         ckpt = tf.train.Checkpoint(model=model)
 
         #We will use Optimal Checkpoint information from checkpoint_scores_model.csv
-        df_checkpoint_scores = pd.read_csv( test_params['script_dir']+'/checkpoints/{}/checkpoint_scores.csv'.format(utility.model_name_mkr(model_params,mode=mode), header=0 ) )
+        df_checkpoint_scores = pd.read_csv( test_params['script_dir']+'/checkpoints/{}/checkpoint_scores.csv'.format(utility.model_name_mkr(model_params,mode=mode, load_save="load" )), header=0  ) #Give the load_save param a better name
         best_checkpoint_path = df_checkpoint_scores['Checkpoint_Path'][0]
         checkpoint_code = "E"+str(df_checkpoint_scores['Epoch'][0])
         status = ckpt.restore( best_checkpoint_path ).expect_partial()

@@ -69,25 +69,25 @@ class THST(tf.keras.Model):
     def __init__(self, train_params, model_params):
         super(THST, self).__init__()
 
-        self.dsif = np.asarray( [ 'downscale_input_factor' in model_params ] , dtype=np.bool )
+        self.dsif = np.asarray( [ 'downscale_input_factor' in train_params ] , dtype=np.bool )
 
-        if model_params['model_type_settings']['location'] not in ["whole_region"]:
+        if model_params['model_type_settings']['location'] not in ["whole_region"] and (not self.dsif):
             h_w = model_params['region_grid_params']['outer_box_dims']
         else:
-            if self.dsif:
+            try:
                 h_w = [ 100//train_params['downscale_input_factor'], 140//train_params['downscale_input_factor'] ]
-            else:
+            except Exception as e:
                 h_w = [ 100, 140 ]
 
         #TODO: in bidirectional layers explicity add the go_backwards line and second LSTM / GRU layer
         self.encoder = layers.THST_Encoder( train_params, model_params['encoder_params'], h_w )
         self.decoder = layers.THST_Decoder( train_params, model_params['decoder_params'], h_w )
-        self.output_layer = layers.THST_OutputLayer( train_params, model_params['output_layer_params'], model_params['model_type_settings'], model_params['dropout']  )
+        self.output_layer = layers.THST_OutputLayer( train_params, model_params['output_layer_params'], model_params['model_type_settings'], model_params['dropout'], self.dsif, model_params.get('conv_upscale_params',None) )
 
         #self.float32_custom_relu = layers.OutputReluFloat32(train_params) 
         
 
-    @tf.function
+    #@tf.function
     def call(self, _input, tape=None, training=False):
         
         hs_list_enc = self.encoder(_input, training=training)

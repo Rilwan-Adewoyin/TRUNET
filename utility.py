@@ -371,7 +371,7 @@ def default(obj):
 
 #endregion
 
-def model_name_mkr(model_params, mode='Generic'):
+def model_name_mkr(model_params, mode='Generic', load_save="load"):
     if mode == "Generic":
         pass
     
@@ -405,7 +405,6 @@ def model_name_mkr(model_params, mode='Generic'):
                                 str(model_params['model_type_settings']['discrete_continuous']),
                                 model_params['model_type_settings']['location'],model_params['model_type_settings']['model_version'] )
    
-    
     elif model_params['model_name'] == "SimpleConvGRU":
         model_name =  "{}_{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
                         model_params['model_type_settings']['distr_type'], 
@@ -414,6 +413,9 @@ def model_name_mkr(model_params, mode='Generic'):
     
     if 'downscale_input_factor' in model_params:
         model_name  =  model_name + "dsf{}".format( model_params['downscale_input_factor'])
+    
+    if load_save == "save" and model_params['location_test'] != "London":
+        model_name = model_name + model_params['location_test']
 
     model_name = re.sub("[ '\(\[\)\]]|ListWrapper",'',model_name )
 
