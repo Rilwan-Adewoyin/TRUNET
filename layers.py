@@ -852,6 +852,8 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				self.conv_upscale_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
 				self.conv_upscale_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) ) 
 			
+			self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
+
 			self.output_activation_val = CustomRelu_maker(train_params, dtype='float32')
 			self.output_activation_prob = tf.keras.layers.Activation('sigmoid', dtype='float32')
 
