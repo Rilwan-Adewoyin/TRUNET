@@ -371,7 +371,7 @@ def default(obj):
 
 #endregion
 
-def model_name_mkr(model_params, mode='Generic', load_save="load"):
+def model_name_mkr(model_params, mode='Generic', load_save="load" ) : #change ordering of variables ehre
     if mode == "Generic":
         pass
     
@@ -414,7 +414,7 @@ def model_name_mkr(model_params, mode='Generic', load_save="load"):
     if 'downscale_input_factor' in model_params:
         model_name  =  model_name + "dsf{}".format( model_params['downscale_input_factor'])
     
-    if load_save == "save" and model_params['location_test'] != "London":
+    if load_save == "save" and model_params['model_type_settings'].get('location_test',"London") != "London":
         model_name = model_name + model_params['location_test']
 
     model_name = re.sub("[ '\(\[\)\]]|ListWrapper",'',model_name )
