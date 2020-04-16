@@ -830,7 +830,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				self.conv_output = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
 
 			
-			if self.dsif:
+			if self.dsif == True:
 				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
 			
 			self.float32_custom_relu = OutputReluFloat32(train_params) 
@@ -848,7 +848,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				self.conv_output_val = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
 				self.conv_output_prob = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
 
-			if self.dsif:
+			if self.dsif ==True:
 				self.conv_upscale_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
 				self.conv_upscale_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) ) 
 			
