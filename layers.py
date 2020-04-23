@@ -810,6 +810,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 		self.dc = model_type_settings['discrete_continuous']
 		
 		self.do0 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=dropout_rate, data_format = 'channels_last' ) )
+		self.do1 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=dropout_rate, data_format = 'channels_last' ) )
 
 		if not model_type_settings['discrete_continuous']:
 
@@ -863,7 +864,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			x = self.conv_hidden( self.do0(_inputs,training=training),training=training )
 
 			if self.di == True:
-				x = self.conv_upscale( self.do0( x, training=training), training=training )
+				x = self.conv_upscale( self.do1( x, training=training), training=training )
             
 			outp = self.conv_output( x, training=training ) #shape (bs, height, width)
 			outp = self.float32_custom_relu(outp)   
@@ -873,8 +874,8 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			x_prob = self.conv_hidden_prob( self.do0(_inputs,training=training),training=training )
 
 			if self.di == True:
-				x_val = self.conv_upscale_val( self.do0( x_val, training=training), training=training )
-				x_prob = self.conv_upscale_prob( self.do0( x_prob, training=training), training=training )
+				x_val = self.conv_upscale_val( self.do1( x_val, training=training), training=training )
+				x_prob = self.conv_upscale_prob( self.do1( x_prob, training=training), training=training )
 			
 			x_val = self.conv_output_val( x_val, training=training)
 			x_prob = self.conv_output_prob( x_prob, training=training)

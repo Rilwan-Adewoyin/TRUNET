@@ -86,7 +86,7 @@ class THST(tf.keras.Model):
         #self.float32_custom_relu = layers.OutputReluFloat32(train_params) 
         
 
-    #@tf.function
+    @tf.function
     def call(self, _input, tape=None, training=False):
         
         hs_list_enc = self.encoder(_input, training=training)
@@ -246,13 +246,12 @@ class SimpleConvGRU(tf.keras.Model):
                
         
         self.ConvGRU_layers = [ tf.keras.layers.Bidirectional( layer= layers_ConvGRU2D.ConvGRU2D( **model_params['ConvGRU_layer_params'][idx] ), 
-
                                                                 backward_layer= layers_ConvGRU2D.ConvGRU2D( go_backwards=True,**copy.deepcopy(model_params['ConvGRU_layer_params'][idx]) ) ,
-
                                                                 merge_mode='concat' )  for idx in range( model_params['layer_count'] ) ]
          
         self.do = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=model_params['dropout'], data_format = 'channels_last' ) )
         self.do1 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=model_params['dropout'], data_format = 'channels_last' ) )
+        self.do2 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=model_params['dropout'], data_format = 'channels_last' ) )
 
         if model_params['model_type_settings']['discrete_continuous']:
             self.conv1_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **model_params['conv1_layer_params'] ) )
@@ -314,11 +313,11 @@ class SimpleConvGRU(tf.keras.Model):
             x_prob = self.conv1_prob( self.do( tf.concat([x,x0] ,axis=-1),training=training ), training=training )
 
             if self.dsif == True:
-                x_vals = self.conv2_vals( self.do( x_vals, training ), training=training )
-                x_prob = self.conv2_probs( self.do( x_prob, training ), training=training )
+                x_vals = self.conv2_vals( self.do1( x_vals, training ), training=training )
+                x_prob = self.conv2_probs( self.do1( x_prob, training ), training=training )
 
-            outp_vals = self.output_conv_val( self.do1( x_vals, training=training ), training=training )
-            outp_prob = self.output_conv_prob( self.do1( x_prob, training=training ), training=training )
+            outp_vals = self.output_conv_val( self.do2( x_vals, training=training ), training=training )
+            outp_prob = self.output_conv_prob( self.do2( x_prob, training=training ), training=training )
 
             outp_vals = self.float32_output(outp_vals)
             outp_prob = self.float32_output(outp_prob)
