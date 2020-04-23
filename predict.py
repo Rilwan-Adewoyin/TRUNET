@@ -121,13 +121,13 @@ def predict( model, test_params, model_params ,checkpoint_no ):
         ds = ds.take( test_set_size_batches )
 
     elif(model_params['model_name'] in [ "THST", "SimpleConvLSTM", "SimpleConvGRU"] ):
-        if model_params['location'] =="whole_region":
+        if model_params[['model_type_settings']'location'] =="whole_region":
 
             ds, idx_city_in_whole = data_generators.load_data_ati(test_params, model_params, None, day_to_start_at=test_params['test_start_date'], data_dir=test_params['data_dir'] )
             idx_city_in_region = idx_city_in_whole
             ds = ds.take(test_set_size_batches)
 
-        elif  model_params['location'] !="whole_region" and 'location_test' in model_params['model_type_settings'].keys() :
+        elif  model_params['model_type_settings']['location'] !="whole_region" and 'location_test' in model_params['model_type_settings'].keys() :
 
             ds, idx_city_in_region = data_generators.load_data_ati(test_params, model_params, None, day_to_start_at=test_params['test_start_date'], data_dir=test_params['data_dir'] )
             ds = ds.take( test_set_size_batches )
