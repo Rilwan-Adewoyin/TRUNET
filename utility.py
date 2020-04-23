@@ -324,7 +324,7 @@ def parse_arguments(s_dir=None):
 
     parser.add_argument('-rdo','--rec_dropout',type=float, required=False, default=0.0)
 
-    parser.add_argument('-di','--downscaled_input',type=bool, default=False , required=False )
+    parser.add_argument('-di','--downscaled_input',type=bool, required=False, default=False )
     
     
     args_dict = vars(parser.parse_args() )

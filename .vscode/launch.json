@@ -23,14 +23,14 @@
                 "-mn","DeepSD"]  
         },
         {
-            "name": "THST_London",
+            "name": "THST_London_test",
             "type": "python",
             "request": "launch",
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
             "args": [ "-mn","THST","-dd","Data/Rain_Data_Nov19", "-bs","6","-sdc","1" , "-do","0.0", "-ido","0.0", "-rdo","0.0",
-                "-mts" ,"{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'wholeregion','deformable_conv':False, 'model_version':'12','twoD':True}"
+                "-mts" ,"{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'London','deformable_conv':False,'model_version':'105','twoD':True}"
                 ]  
         },
         {

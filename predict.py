@@ -158,8 +158,6 @@ def predict( model, test_params, model_params ,checkpoint_no ):
         elif model_params['model_name'] in ["THST","SimpleConvGRU"] :
             if model_params['model_type_settings']['location'] == 'region_grid' or model_params['model_type_settings']['twoD']==True: 
                 pass
-            else:
-                target, mask = target # (bs, h, w) 
             
             if model_params['model_type_settings']['stochastic'] == False:
                 
