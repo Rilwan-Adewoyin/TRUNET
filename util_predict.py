@@ -96,7 +96,7 @@ def load_model(test_params, model_params):
             model = models.THST(test_params, model_params)
             if test_params['downscaled_input'] == True:
                 init_inp = tf.zeros(
-                    [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 18 , 18 , 6 ], dtype=tf.float16 
+                    [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 18 , 18 , 6 ], dtype=tf.float16 )
 
             elif model_params['model_type_settings']['location'] == "wholeregion":
                 init_inp = tf.zeros(
