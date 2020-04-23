@@ -315,13 +315,14 @@ class Generator_mf(Generator):
             If an integer return this band
     """
 
-    def __init__(self, **generator_params):
+    def __init__(self, downscaled_input, **generator_params):
 
         super(Generator_mf, self).__init__(**generator_params)
 
         self.vars_for_feature = ['unknown_local_param_137_128', 'unknown_local_param_133_128', 'air_temperature', 'geopotential', 'x_wind', 'y_wind' ]
         self.channel_count = len(self.vars_for_feature)
         self.data_len = 16072
+        self.di = downscaled_input
         
     def yield_all(self):
         raise NotImplementedError
@@ -338,8 +339,11 @@ class Generator_mf(Generator):
             stacked_data = np.stack(_data, axis=-1)
             stacked_masks = np.stack(_masks, axis=-1)
             
-            #yield stacked_data[ -2:1:-1 , 2:-2, :], stacked_masks[ -2:1:-1 , 2:-2, :] #(h,w,6) #(h,w,6)  #this aligns it to rain 
-            yield stacked_data[ 1:-2, 2:-2, :], stacked_masks[ 1:-2 , 2:-2, :] #(h,w,6) #(h,w,6)  #this aligns it to rain 
+            if self.di == False:
+                yield stacked_data[ 1:-2, 2:-2, :], stacked_masks[ 1:-2 , 2:-2, :] #(h,w,6) #(h,w,6)  #this aligns it to rain 
+            elif self.di == True:
+                yield stacked_data[ :-2, 2:-1, :], stacked_masks[ :-2 , 2:-1, :] #(h,w,6) #(h,w,6)  #this aligns it to rain 
+            #yield stacked_data[ 1:-2, 2:-1, :], stacked_masks[ 1:-2 , 2:-1, :] #(h,w,6) #(h,w,6)  #this aligns it to rain 
     
     def __call__(self):
         return self.yield_iter()
@@ -347,7 +351,7 @@ class Generator_mf(Generator):
 def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_at=None, _num_parallel_calls=-1,
                     data_dir="./Data/Rain_Data_Nov19" ):
     """
-        This is specific for the following two files -> ana_input_1.nc and rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc
+        This is specific for the following two files -> ana_input.nc and rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc
         :param day_to_start_at: should be of type np.datetime64
 
     """
@@ -385,7 +389,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     ds_tar = tf.data.Dataset.from_generator( rain_data, output_types=( tf.float32, tf.bool) ) #(values, mask) 
     ds_tar = ds_tar.skip(start_idx_tar) #skipping to correct point
         
-    ds_tar = ds_tar.window(size =t_params['lookback_target'], stride=1, shift=t_params['window_shift'] , drop_remainder=True )
+    ds_tar = ds_tar.window(size=t_params['lookback_target'], stride=1, shift=t_params['window_shift'] , drop_remainder=True )
     
     ds_tar = ds_tar.flat_map( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(t_params['lookback_target']) for w in window ] ) ) ) #shape (lookback,h, w)
 
@@ -404,8 +408,8 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     # endregion
 
     # region prepare feature model fields
-    fn_mf = data_dir + "/ana_input_1.nc"
-    mf_data = Generator_mf(fn=fn_mf, all_at_once=False)
+    fn_mf = data_dir + "/ana_input.nc"
+    mf_data = Generator_mf(fn=fn_mf, all_at_once=False, downscaled_input=t_params['downscaled_input'])
     
     ds_feat = tf.data.Dataset.from_generator( mf_data , output_types=( tf.float32, tf.bool)) #(values, mask) 
     ds_feat = ds_feat.skip(start_idx_feat)
@@ -438,12 +442,21 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     # region mode of data
     model_settings = m_params['model_type_settings']
 
-    if(model_settings['location']=="wholegrid" or  t_params['downscale_input_factor'] != None ):
+    if(model_settings['location']=="wholeregion"):
         ds = ds.batch(t_params['batch_size'], drop_remainder=True)
+        ds = ds.map( lambda mf, rain_rmask: tuple( [mf, rain_rmask[0], rain_rmask[1] ] ) , num_parallel_calls=_num_parallel_calls )  #unbatching final two elements
 
-        if t_params['downscale_input_factor'] != None:
-            #HERE in Debugging downscaled input version
-            ds = ds.map( lambda mf, rain_mask: load_data_ati_input_dscale( mf, rain_mask[0], rain_mask[1], t_params ), num_parallel_calls=_num_parallel_calls )
+        if 'location_test' in model_settings.keys():
+        
+            if m_params['model_name'] in ["SimpleLSTM","SimpleDense","SimpleGRU"]:
+                raise NotImplementedError
+
+            elif m_params['model_name'] in ["SimpleConvGRU",'THST']:
+                idxs_of_city = rain_data.find_idx_of_city( model_settings['location_test'] )
+
+                
+
+            return ds, idxs_of_city
 
         return ds        
     
@@ -503,7 +516,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
             idxs = rain_data.find_idx_of_city( model_settings['location'] )
             ds = ds.map( lambda mf, rain_rmask : load_data_ati_select_location(mf, rain_rmask[0], rain_rmask[1], idxs ), num_parallel_calls=_num_parallel_calls )
         
-        elif m_params['model_name'] in ["SimpleConvGRU","SimpleConvLSTM",'THST']:
+        elif m_params['model_name'] in ["SimpleConvGRU",'THST']:
             ds = ds.map( lambda mf, rain_mask: tuple( [mf, rain_mask[0], rain_mask[1]] )  )                         #mf=(80, 100,140,6)
             
             # region_folding_partial = partial(region_folding, **m_params['region_grid_params'], mode=4,tnsrs=None )  
@@ -705,14 +718,6 @@ def load_data_ati_post_region_folding(mf, rain, mask):
     mf = tf.reshape( mf,[ mfs[-5],mfs[-4]*mfs[-3],mfs[-2],mfs[-1]]).transpose(1,0,2,3,4)
     rain = tf.reshape( rain,[rs[-5],rs[-4]*rs[-3],rs[-2],rs[-1]]).transpose(1,0,2,3)
     mask = tf.reshape( mask,[rs[-5],rs[-4]*rs[-3],rs[-2],rs[-1]]).transpose(1,0,2,3) #NOTE: not sure if this is correct
-
-    return mf, (rain, mask)
-
-def load_data_ati_input_dscale(mf, rain, mask, d_factor):
-    
-    mf = mf[:, :, ::d_factor, ::d_factor, :]          #(bs, seq_len, h, w, d)
-    rain = rain[:, :, ::d_factor, ::d_factor, :]      #(bs, seq_len, h, w, d)
-    rain = rain[:, :, ::d_factor, ::d_factor, :]      #(bs, seq_len, h, w, d)
 
     return mf, (rain, mask)
 #endregion

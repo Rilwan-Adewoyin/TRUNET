@@ -28,7 +28,7 @@ class MParams(HParams):
     def __init__(self,**kwargs):
         
         #if kwargs['model_type_settings']['location'] == "region_grid":
-        if type( kwargs['model_type_settings']['location'][:] ) in [list, data_structures.ListWrapper] and ('downscale_input_factor' != None ):
+        if type( kwargs['model_type_settings']['location'][:] ) in [list, data_structures.ListWrapper] and (kwargs.get('downscaled_input') == False ):
             self.regiongrid_param_adjustment()
         else:
             self.params = {}
@@ -36,7 +36,7 @@ class MParams(HParams):
         self._default_params(**kwargs)
         #super(MParams, self).__init__(**kwargs)
                  
-        if type( kwargs['model_type_settings']['location'][:] ) in [list, data_structures.ListWrapper] and ('downscale_input_factor' != None ) :
+        if type( kwargs['model_type_settings']['location'][:] ) in [list, data_structures.ListWrapper] and (kwargs.get('downscaled_input') == False ) :
             self.params['lookahead_params']['sync_period'] == int( np.prod( self.params['region_grid_params']['slides_v_h']  * min( [ self.params['lookahead_params']['sync_period'] // 2, 1] ) ) )
 
     def regiongrid_param_adjustment(self):
@@ -174,7 +174,7 @@ class model_THST_hparameters(MParams):
         """
         self.dc = kwargs.get('model_type_settings',{}).get('discrete_continuous',False)
         self.stoc = kwargs.get('model_type_settings',{}).get('stochastic',False)
-        self.dsif = kwargs.get('downscale_input_factor',False)
+        self.di = kwargs.get('downscaled_input',False)
         super( model_THST_hparameters, self ).__init__(**kwargs)
 
     def _default_params( self, **kwargs ):
@@ -217,12 +217,14 @@ class model_THST_hparameters(MParams):
             _filter = 72
             #_filter = 112
 
-        output_filters_enc     = [ _filter ]*(enc_layer_count-1)                     # [52]*(enc_layer_count-1)                      # [48] #output filters for each convLSTM2D layer in the encoder
+        output_filters_enc     = [ _filter ]*(enc_layer_count-1)                     
         output_filters_enc     = output_filters_enc + output_filters_enc[-1:]   # the last two layers in the encoder must output the same number of channels
-        if 'downscale_input_factor' not in self.params.keys():
-            kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )                # [(2,2)]
+        
+        if self.di == False:
+            kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )                
         else:
-            kernel_size_enc        = [ (2,2) ] * ( enc_layer_count )                # [(2,2)]
+            kernel_size_enc        = [ (2,2) ] * ( enc_layer_count )                
+
         recurrent_regularizers = [ None ] * (enc_layer_count) 
         kernel_regularizers    = [ None ] * (enc_layer_count)
         bias_regularizers      = [ tf.keras.regularizers.l2(0.2) ] * (enc_layer_count) 
@@ -240,8 +242,7 @@ class model_THST_hparameters(MParams):
 
             #This keeps the hidden representations equal in size to the incoming tensors
             val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 ) for idx in range(attn_layers_count)  ]
-            # key_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 / np.prod([kq_downscale_kernelshape[1:]]) ) for idx in range(attn_layers_count)  ]
-                        
+                                    
             if kq_downscale_stride == [1,8,8]:
                 key_depth = [72]*attn_layers_count
                 #key_depth = [320]*attn_layers_count
@@ -250,12 +251,13 @@ class model_THST_hparameters(MParams):
                 key_depth = [72]*attn_layers_count
 
         #elif 'downscale_input_factor' in kwargs:
-        elif self.dsif != False:
-            _dims = [100//self.dsif , 140//self.dsif ]
-            kq_downscale_stride = [1, _dims[0]//4, _dims[1]//4 ]
+        elif self.di == True:
+
+            _dims = [18 , 18 ]
+            kq_downscale_stride = [1, _dims[0]//6, _dims[1]//6 ]
             kq_downscale_kernelshape = kq_downscale_stride
 
-            val_depth = [ int( np.prod([100//self.dsif , 140//self.dsif ]) *output_filters_enc[idx]*2) for idx in range(attn_layers_count)  ]
+            val_depth = [ int( np.prod(_dims )*output_filters_enc[idx]*2) for idx in range(attn_layers_count)  ]
             key_depth = [72]*attn_layers_count
             
 
@@ -264,7 +266,7 @@ class model_THST_hparameters(MParams):
             kq_downscale_kernelshape = [1, 13, 13]
 
             #This keeps the hidden representations equal in size to the incoming tensors
-            key_depth = [ 80 ]*attn_layers_count
+            key_depth = [ 72 ]*attn_layers_count
             val_depth = [ int(100*140*output_filters_enc[idx]*2) for idx in range(attn_layers_count)  ]
                 
             #The keydepth for any given layer will be equal to (h*w*c/avg_pool_strideh*avg_pool_stridew)
@@ -348,9 +350,20 @@ class model_THST_hparameters(MParams):
         # endregion
 
         # region --------------- OUTPUT_LAYER_PARAMS -----------------
-        if self.dsif:
-            conv_upscale_params = {'filters': int(  8*(((output_filters_dec[-1]*2)/4)//8)), 'kernel_size':[2,2], 'strides':[ self.dsif ]*2,
-                                    'activation':'relu','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2)  }  
+        if self.di:
+            _upscale_target = [100,140]
+            _input_dims = [18, 18]
+            _strides =( np.floor_divide(_upscale_target,_input_dims).astype( np.int32) ).tolist()  #( np.ceil( np.array(_upscale_target)/np.array(_input_dims)).astype(np.int32)  ).tolist()
+            _kernel_size = (np.array(_strides)*2+1 ).tolist()
+            
+            # _output_padding = (np.array(_input_dims)*(np.array(_strides)) )  #This provides a methodology to understand the outer_padding number, https://stackoverflow.com/a/54891027/7497927 
+            # _output_padding = (np.array(_upscale_target) - _output_padding )
+            # _output_padding = (_output_padding/2).astype(np.int32).tolist()
+            _output_padding = np.array( [4,6] )
+            #_output_padding = ( (np.array(_kernel_size)-1)//2 )
+
+            conv_upscale_params = {'filters': int(  8*(((output_filters_dec[-1]*2)/4)//8)), 'kernel_size':_kernel_size, 'strides':_strides, 'output_padding': _output_padding,
+                                    'activation':'relu','padding':'valid','bias_regularizer':tf.keras.regularizers.l2(0.2)  }  
 
             #Note: Stride larger than filter size may lead to middle areas being assigned a zero value
             self.params.update( { 'conv_upscale_params': conv_upscale_params } )
@@ -470,7 +483,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
     def __init__(self, **kwargs):
         self.dc = kwargs.get('model_type_settings',{}).get('discrete_continuous',False)
         self.stoc = kwargs.get('model_type_settings',{}).get('stochastic',False)
-        self.dsif = kwargs.get('downscale_input_factor',False)
+        self.di = kwargs.get('downscaled_input',False)
         super(model_SimpleConvGRU_hparamaters, self).__init__(**kwargs)
     
     def _default_params(self,**kwargs):
@@ -509,13 +522,22 @@ class model_SimpleConvGRU_hparamaters(MParams):
 
         conv1_layer_params = {'filters': int(  8*(((filters[0]*2)/3)//8)) , 'kernel_size':[3,3], 'activation':'relu','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2) }  
 
-        if self.dsif:
-            conv2_layer_params = {'filters': int(  8*(((filters[0]*2)/4)//8)) , 'kernel_size':[2,2], 'strides':[ self.dsif ]*2,
-                                    'activation':'relu','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2)  }  
+        if self.di:
+            _upscale_target = [100,140]
+            _input_dims = [18, 18]
+            _strides =( np.floor_divide(_upscale_target,_input_dims).astype( np.int32) ).tolist()  #( np.ceil( np.array(_upscale_target)/np.array(_input_dims)).astype(np.int32)  ).tolist()
+            _kernel_size = (np.array(_strides)*2+1 ).tolist()
+      
+            _output_padding = np.array( [4,6] )
+            
+            conv2_layer_params = {'filters': int(  8*(((filters[-1]*2)/4)//8)), 'kernel_size':_kernel_size, 'strides':_strides, 'output_padding': _output_padding,
+                                    'activation':'relu','padding':'valid','bias_regularizer':tf.keras.regularizers.l2(0.2)  }  
+
             #Note: Stride larger than filter size may lead to middle areas being assigned a zero value
             self.params.update( { 'conv2_layer_params': conv2_layer_params } )
 
         outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'linear','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2) }
+
 
         #endregion
 
@@ -693,6 +715,8 @@ class train_hparameters_ati(HParams):
         self.lookback_target = kwargs.get('lookback_target',None)
         self.batch_size = kwargs.get("batch_size",None)
         self.strided_dataset_count = kwargs.get("strided_dataset_count", 1)
+        self.di = kwargs.get("downscaled_input")
+        self.dd = kwargs.get("data_dir") 
         kwargs.pop('batch_size')
         kwargs.pop('lookback_target')
         kwargs.pop('strided_dataset_count')
@@ -739,12 +763,21 @@ class train_hparameters_ati(HParams):
 
         # region ---- data information
 
-        target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
-        feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
+        if self.di == False:
+            target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
+            feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
         
-        tar_end_date=  target_start_date + np.timedelta64( 14822, 'D')
-        feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(16072, '6h'), 'D')
+            tar_end_date = target_start_date + np.timedelta64( 14822, 'D')
+            feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(16072, '6h'), 'D')
         
+        elif self.di == True:
+            target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
+            feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
+        
+            tar_end_date =  target_start_date + np.timedelta64( 14822, 'D')
+            feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(59900, '6h'), 'D')
+
+
         if feature_start_date > target_start_date :
             train_start_date = feature_start_date
         else:
@@ -770,7 +803,9 @@ class train_hparameters_ati(HParams):
         
         VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS_TARGET*0.2)
         
-        DATA_DIR = "./Data/Rain_Data_Nov19" 
+        #DATA_DIR = "./Data/Rain_Data_Nov19" 
+        DATA_DIR = self.dd
+
         EARLY_STOPPING_PERIOD = 30
  
         self.params = {
@@ -815,6 +850,7 @@ class test_hparameters_ati(HParams):
         self.batch_size = kwargs.get("batch_size",2)
         kwargs.pop('batch_size')
         #kwargs.pop('lookback_target')
+        self.di = kwargs.get('data_dir')
         super( test_hparameters_ati, self).__init__(**kwargs)
     
     def _default_params(self):
@@ -856,14 +892,21 @@ class test_hparameters_ati(HParams):
         MODEL_RECOVER_METHOD = 'checkpoint_epoch'
         # endregion
 
+        if self.di == False:
+            target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
+            feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
+            
+            tar_end_date=  target_start_date + np.timedelta64( 14822, 'D')
+            feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(16072, '6h'), 'D')
+        
+        elif self.di == True:
+            target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
+            feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
+        
+            tar_end_date =  target_start_date + np.timedelta64( 14822, 'D')
+            feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(59900, '6h'), 'D')
 
-        target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
-        feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
-        
-        tar_end_date=  target_start_date + np.timedelta64( 14822, 'D')
-        feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(16072, '6h'), 'D')
-        
-        if feature_start_date > target_start_date :
+        if feature_start_date > target_start_date:
             train_start_date = feature_start_date
         else:
             train_start_date = target_start_date

@@ -239,8 +239,8 @@ def train_loop(train_params, model_params):
                                     train_params['val_start_date'] + np.timedelta64(train_params['lookback_target'],'D'),
                                     np.timedelta64(train_params['lookback_target']//train_params['strided_dataset_count'],'D'), dtype='datetime64[D]')[:train_params['strided_dataset_count']]
 
-        li_ds_trains = [ data_generators.load_data_ati( train_params, model_params, day_to_start_at=sd, data_dir=train_params['data_dir']) for sd in li_start_days_train ]
-        li_ds_vals = [ data_generators.load_data_ati( train_params, model_params, day_to_start_at=sd, data_dir=train_params['data_dir']) for sd in li_start_days_val ]
+        li_ds_trains = [ data_generators.load_data_ati( train_params, model_params, day_to_start_at=sd, data_dir=train_params['data_dir'] ) for sd in li_start_days_train ]
+        li_ds_vals = [ data_generators.load_data_ati( train_params, model_params, day_to_start_at=sd, data_dir=train_params['data_dir'] ) for sd in li_start_days_val ]
         
         li_ds_trains = [ _ds.take( math.ceil( train_set_size_batches/train_params['strided_dataset_count'] ) )  if idx==0 
                             else _ds.take( train_set_size_batches//train_params['strided_dataset_count'] )  #This ensures that the for loops switch between validation and train sets at the right counts
@@ -260,7 +260,7 @@ def train_loop(train_params, model_params):
         
         ds_val = ds_val.cache('ds_val_cache_{}_{}'.format( model_params['model_name'], str(model_params['model_type_settings']['location'] ).strip('[]') ) )
         
-        if psutil.virtual_memory()[0] / 1e9 <= 10.0 : 
+        if psutil.virtual_memory()[0] / 1e9 <= 50.0 : 
             #Data Loading Scheme 1 - Version that works on low memeory devices e.g. warwick desktop
             ds_train_val = ds_train.concatenate(ds_val).repeat(train_params['epochs']-starting_epoch)
             ds_train_val = ds_train_val.skip(batches_to_skip)
@@ -597,8 +597,6 @@ def train_loop(train_params, model_params):
                     if model_params['model_type_settings']['location'] == 'region_grid'  or ( type(model_params['model_type_settings']['location'][:] ) in [ list, data_structures.ListWrapper] ):
                         if( tf.reduce_any( mask[:, :, 6:10, 6:10] )==False ):
                             continue
-                    else:
-                        target, mask = target # (bs, h, w) 
 
                     if( model_params['model_type_settings']['stochastic']==False):
 
@@ -931,8 +929,6 @@ def train_loop(train_params, model_params):
                 if model_params['model_type_settings']['location'] == 'region_grid' or  ( type(model_params['model_type_settings']['location'][:] ) in [ list, data_structures.ListWrapper] ):
                     if tf.reduce_any( mask[:, :, 6:10, 6:10] )==False  :
                         continue
-                else:
-                    target, mask = target # (bs, h, w) 
 
                 if model_params['model_type_settings']['stochastic'] == False:
 

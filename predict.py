@@ -101,7 +101,7 @@ def predict( model, test_params, model_params ,checkpoint_no ):
     if model_params['model_name']=="DeepSD" :
         li_timestamps_chunked = [li_timestamps[i:i+test_params['batch_size']] for i in range(0, len(li_timestamps), test_params['batch_size'])]
 
-    elif model_params['model_name'] in ["THST","SimpleConvLSTM","SimpleConvGRU"]:
+    elif model_params['model_name'] in ["THST","SimpleConvGRU"]:
         if model_params['model_type_settings']['location'] == 'region_grid':
             li_timestamps_chunked = [li_timestamps[i:i+test_params['window_shift']] for i in range(0, len(li_timestamps), test_params['window_shift'])] 
             li_timestamps_chunked = list( itertools.chain.from_iterable( itertools.repeat(li_timestamps_chunked, x ) for x in range(int(np.prod(model_params['region_grid_params']['slides_v_h']))) ) )
@@ -121,7 +121,14 @@ def predict( model, test_params, model_params ,checkpoint_no ):
         ds = ds.take( test_set_size_batches )
 
     elif(model_params['model_name'] in [ "THST", "SimpleConvLSTM", "SimpleConvGRU"] ):
-        if 'location_test' in model_params['model_type_settings'].keys():
+        if model_params['location'] =="whole_region":
+
+            ds, idx_city_in_whole = data_generators.load_data_ati(test_params, model_params, None, day_to_start_at=test_params['test_start_date'], data_dir=test_params['data_dir'] )
+            idx_city_in_region = idx_city_in_whole
+            ds = ds.take(test_set_size_batches)
+
+        elif  model_params['location'] !="whole_region" and 'location_test' in model_params['model_type_settings'].keys() :
+
             ds, idx_city_in_region = data_generators.load_data_ati(test_params, model_params, None, day_to_start_at=test_params['test_start_date'], data_dir=test_params['data_dir'] )
             ds = ds.take( test_set_size_batches )
     

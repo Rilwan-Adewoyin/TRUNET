@@ -799,25 +799,17 @@ class THST_CGRU_Decoder_Layer(tf.keras.layers.Layer):
 		return hidden_states
 
 class THST_OutputLayer(tf.keras.layers.Layer):
-	def __init__(self, train_params,layer_params, model_type_settings, dropout_rate, dsif=False, conv_upscale_params=None):
+	def __init__(self, train_params,layer_params, model_type_settings, dropout_rate, di, conv_upscale_params=None):
 		"""
 			:param list layer_params: a list of dicts of params for the layers
 		"""
 		super( THST_OutputLayer, self ).__init__()
 
 		self.trainable = train_params['trainable']
-		self.dsif = dsif
+		self.di = di
 		self.dc = model_type_settings['discrete_continuous']
 		
 		self.do0 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=dropout_rate, data_format = 'channels_last' ) )
-
-		# if(model_type_settings['deformable_conv'] ==False):
-		# 	self.conv_hidden = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
-		# 	self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
-		
-		# elif( model_type_settings['deformable_conv'] ==True ):
-		# 	self.conv_hidden = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[0] ) )
-		# 	self.conv_output = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
 
 		if not model_type_settings['discrete_continuous']:
 
@@ -830,7 +822,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				self.conv_output = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
 
 			
-			if self.dsif == True:
+			if self.di == True:
 				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
 			
 			self.float32_custom_relu = OutputReluFloat32(train_params) 
@@ -848,7 +840,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				self.conv_output_val = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
 				self.conv_output_prob = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
 
-			if self.dsif ==True:
+			if self.di ==True:
 				self.conv_upscale_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
 				self.conv_upscale_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) ) 
 			
@@ -858,7 +850,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			self.output_activation_prob = tf.keras.layers.Activation('sigmoid', dtype='float32')
 
 
-	#@tf.function
+	@tf.function
 	def call(self, _inputs, training=True ):
 		"""
 			:param tnsr inputs: (bs, seq_len, h,w,c)
@@ -870,7 +862,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 		if self.dc == False:
 			x = self.conv_hidden( self.do0(_inputs,training=training),training=training )
 
-			if self.dsif == True:
+			if self.di == True:
 				x = self.conv_upscale( self.do0( x, training=training), training=training )
             
 			outp = self.conv_output( x, training=training ) #shape (bs, height, width)
@@ -880,7 +872,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			x_val = self.conv_hidden_val( self.do0(_inputs,training=training),training=training )
 			x_prob = self.conv_hidden_prob( self.do0(_inputs,training=training),training=training )
 
-			if self.dsif == True:
+			if self.di == True:
 				x_val = self.conv_upscale_val( self.do0( x_val, training=training), training=training )
 				x_prob = self.conv_upscale_prob( self.do0( x_prob, training=training), training=training )
 			
