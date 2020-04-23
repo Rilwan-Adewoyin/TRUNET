@@ -223,7 +223,7 @@ class model_THST_hparameters(MParams):
         if self.di == False:
             kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )                
         else:
-            kernel_size_enc        = [ (2,2) ] * ( enc_layer_count )                
+            kernel_size_enc        = [ (3,3) ] * ( enc_layer_count )                
 
         recurrent_regularizers = [ None ] * (enc_layer_count) 
         kernel_regularizers    = [ None ] * (enc_layer_count)
@@ -254,7 +254,7 @@ class model_THST_hparameters(MParams):
         elif self.di == True:
 
             _dims = [18 , 18 ]
-            kq_downscale_stride = [1, _dims[0]//6, _dims[1]//6 ]
+            kq_downscale_stride = [1, _dims[0]//4, _dims[1]//4 ]
             kq_downscale_kernelshape = kq_downscale_stride
 
             val_depth = [ int( np.prod(_dims )*output_filters_enc[idx]*2) for idx in range(attn_layers_count)  ]
