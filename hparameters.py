@@ -850,7 +850,10 @@ class test_hparameters_ati(HParams):
         self.batch_size = kwargs.get("batch_size",2)
         kwargs.pop('batch_size')
         #kwargs.pop('lookback_target')
-        self.di = kwargs.get('data_dir')
+        self.di = kwargs.get('downscaled_input')
+        self.dd = kwargs.get('data_dir')
+        
+
         super( test_hparameters_ati, self).__init__(**kwargs)
     
     def _default_params(self):
@@ -934,7 +937,7 @@ class test_hparameters_ati(HParams):
         date_tss = pd.date_range( end=test_end_date, start=test_start_date, freq='D',normalize=True)
         EPOCHS = list ( (date_tss - pd.Timestamp("1970-01-01") ) // pd.Timedelta('1s') )
 
-        DATA_DIR = "./Data/Rain_Data_Nov19" 
+        DATA_DIR = self.dd
 
         self.params = {
             'batch_size':BATCH_SIZE,
