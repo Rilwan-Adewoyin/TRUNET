@@ -180,8 +180,8 @@ class model_THST_hparameters(MParams):
     def _default_params( self, **kwargs ):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
-            "learning_rate":8e-3, "warmup_proportion":0.65,
-            "min_lr":8e-4, "beta_1":0.50 , "beta_2":0.95,
+            "learning_rate":5e-3, "warmup_proportion":0.65,
+            "min_lr":5e-4, "beta_1":0.50 , "beta_2":0.95,
             "amsgrad":True, "decay":0.007, "epsilon":0.0005 }
 
         DROPOUT = kwargs.get('dropout',0.0)
@@ -493,8 +493,8 @@ class model_SimpleConvGRU_hparamaters(MParams):
         #region ConvLayers
         layer_count = 3 #TODO: Shi uses 2 layers
         if dropout != 0.0 and self.stoc==True :            
-            #_filter = int(80*1.4)
-            _filter = 80
+            _filter = int(80*1.4)
+            #_filter = 80
         else:
             _filter = 80
 

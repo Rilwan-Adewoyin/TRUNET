@@ -29,8 +29,8 @@
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
-            "args": [ "-mn","THST","-dd","Data/Rain_Data_Nov19", "-bs","6","-sdc","1" , "-do","0.0", "-ido","0.0", "-rdo","0.0",
-                "-mts" ,"{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'London','deformable_conv':False,'model_version':'105','twoD':True}"
+            "args": [ "-mn","THST","-dd","Data/Rain_Data_Nov19", "-bs","2","-sdc","1" , "-do","0.0", "-ido","0.0", "-rdo","0.0",
+                "-mts" ,"{'location_test':'London','stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'Deterministic','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'deformable_conv':False,'model_version':'150','twoD':True, 'prob_rain_thresh':0.30}"
                 ]  
         },
         {
@@ -73,8 +73,8 @@
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
-            "args": [ "-mn","SimpleConvGRU","-bs","2","-sdc","1" , "-do","0.0", "-ido","0.0", "-rdo","0.0",
-                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'LogNormal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'Deterministic','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'] , 'model_version':'145', 'location_test':'London','twoD':True, 'prob_rain_thresh':0.5 }",
+            "args": [ "-mn","SimpleConvGRU","-bs","2","-sdc","1" , "-do","0.2", "-ido","0.2", "-rdo","0.3",
+                "-mts", "{'stochastic':True, 'location_test':'Cardiff','stochastic_f_pass':150,'distr_type':'Normal','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'mc_dropout','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh'] , 'model_version':'100','twoD':True, 'prob_rain_thresh':0.3 }",
                 "-dd","Data/Rain_Data_Nov19" ]
         },
         {
