@@ -168,15 +168,14 @@ class MultiHead2DAttention_v2(Layer):
 
         # endregion
 
-
         #region attention layers
         with tf.control_dependencies([assert_op1, assert_op2]):
             self.dense_query =  tf.keras.layers.Dense( total_key_depth, use_bias=False, activation="linear", name="q")
             self.dense_key   =  tf.keras.layers.Dense( total_key_depth, use_bias=False, activation="linear", name="k")  
         
         if self.transform_value_antecedent == True:
-            #self.dense_value = tf.keras.layers.Dense( total_value_depth, use_bias=False, activation="linear", name="v" )
-            self.dense_value = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **value_conv ) )
+            #self.conv_value = tf.keras.layers.Dense( total_value_depth, use_bias=False, activation="linear", name="v" )
+            self.conv_value = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **value_conv ) )
         
         if( self.max_relative_position==None ):
            self.max_relative_position =  tf.constant( int(self.attn_factor_reduc/2 - 1) , dtype=tf.int32 )
@@ -186,12 +185,11 @@ class MultiHead2DAttention_v2(Layer):
         self.embeddings_table_v = tf.Variable( tf.keras.initializers.glorot_uniform()(shape=[vocab_size, total_value_depth//num_heads], dtype=self._dtype ), name="embedding_table_v" ) 
 
         if self.transform_output == True:
-            #self.dense_output = tf.keras.layers.Dense(output_depth, use_bias=False)
             self.dense_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **output_conv) ) 
 
         #endregion
 
-    #@tf.function
+    
     def call(self, inputs , k_antecedent, v_antecedent, training=True):
         """
             :param inputs: q_antecedent This is required due to keras' need for layers to have an input argument
@@ -216,7 +214,7 @@ class MultiHead2DAttention_v2(Layer):
         k_antecedent_flat = tf.reshape(k_antecedent, k_antecedent.shape.as_list()[:2] + [-1] ) #NOTE shape.as_list()[:-1] may not work in graph mode
         
         if self.transform_value_antecedent == True:
-            v_antecedent = self.dense_value( v_antecedent, training=True  )
+            v_antecedent = self.conv_value( v_antecedent, training=True  )
             
         v_antecedent_flat = tf.reshape(v_antecedent, v_antecedent.shape.as_list()[:2] + [-1] ) #NOTE shape.as_list()[:-1] may not work in graph mode
         # endregion

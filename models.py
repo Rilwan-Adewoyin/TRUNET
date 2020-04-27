@@ -65,22 +65,39 @@ class SuperResolutionModel( tf.keras.Model ):
 class THST(tf.keras.Model):
     """
     Temporal Hierarchical Spatial Transformer 
+
     """
     def __init__(self, train_params, model_params):
         super(THST, self).__init__()
 
         self.di = train_params['downscaled_input']
-        
+        self.mv = int(model_params['model_type_settings']['model_version'])
+        self.mg = model_params['model_type_settings'].get('mult_gpu',False)
+
         if model_params['model_type_settings']['location'] not in ["wholeregion"]:
-            h_w = model_params['region_grid_params']['outer_box_dims']
-        elif self.di:
-            h_w = [ 18, 18 ]
+            h_w_enc = h_w_dec = model_params['region_grid_params']['outer_box_dims']
+        
+        elif self.di and model_params['model_type_settings']['model_version'] in ["13"]:
+            h_w_enc = h_w_dec = [ 18, 18 ]
+        
+        elif self.di and model_params['model_type_settings']['model_version'] in ["14"]:
+            h_w_enc = h_w_dec = [ 100, 140 ]
+
+        elif self.di and model_params['model_type_settings']['model_version'] in ["15"]:
+            h_w_enc = [18,18]
+            h_w_dec = [100,140]
+        
+        elif self.di and model_params['model_type_settings']['model_version'] in ["16"]:
+            h_w_enc = [18,18]
+            h_w_dec = [25,35]
+
         elif not self.di:
-            h_w = [ 100, 140 ]
+            h_w_enc = h_w_dec = [ 100, 140 ]
+            
 
         #TODO: in bidirectional layers explicity add the go_backwards line and second LSTM / GRU layer
-        self.encoder = layers.THST_Encoder( train_params, model_params['encoder_params'], h_w )
-        self.decoder = layers.THST_Decoder( train_params, model_params['decoder_params'], h_w )
+        self.encoder = layers.THST_Encoder( train_params, model_params['encoder_params'], h_w_enc, int(model_params['model_type_settings']['model_version']), model_params.get('conv_upscale_params',None) )
+        self.decoder = layers.THST_Decoder( train_params, model_params['decoder_params'], h_w_dec )
         self.output_layer = layers.THST_OutputLayer( train_params, model_params['output_layer_params'], model_params['model_type_settings'], model_params['dropout'], self.di ,model_params.get('conv_upscale_params',None) )
 
         #self.float32_custom_relu = layers.OutputReluFloat32(train_params) 
@@ -89,9 +106,23 @@ class THST(tf.keras.Model):
     @tf.function
     def call(self, _input, tape=None, training=False):
         
-        hs_list_enc = self.encoder(_input, training=training)
-        hs_dec = self.decoder(hs_list_enc, training=training)
-        output = self.output_layer(hs_dec, training=training)
+        if self.di  and self.mv == 16 and self.mg == True:
+            with tf.device("/gpu:0"):
+                hs_list_enc = self.encoder(_input, training=training)
+            
+            with tf.device("/gpu:1"):
+                hs_dec = self.decoder(hs_list_enc, training=training)
+            
+            with tf.device("/gpu:2"):
+                output = self.output_layer(hs_dec, training=training)
+        
+        else:
+            hs_list_enc = self.encoder(_input, training=training)
+            hs_dec = self.decoder(hs_list_enc, training=training)
+            output = self.output_layer(hs_dec, training=training)
+
+
+
         #output = self.float32_custom_relu(output)   
         return output
 

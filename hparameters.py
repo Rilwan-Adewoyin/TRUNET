@@ -178,9 +178,13 @@ class model_THST_hparameters(MParams):
         super( model_THST_hparameters, self ).__init__(**kwargs)
 
     def _default_params( self, **kwargs ):
+
+        _mts = {  }
+        model_type_settings = kwargs.get('model_type_settings',_mts)        
+        
         # region learning/convergence params
         REC_ADAM_PARAMS = {
-            "learning_rate":5e-3, "warmup_proportion":0.65,
+            "learning_rate":1e-3, "warmup_proportion":0.65,
             "min_lr":5e-4, "beta_1":0.50 , "beta_2":0.95,
             "amsgrad":True, "decay":0.007, "epsilon":0.0005 }
 
@@ -189,7 +193,13 @@ class model_THST_hparameters(MParams):
         # endregion
         
         #region Key Model Size Settings
-        seq_len_for_highest_hierachy_level = 4   # 2  
+        if self.di==True and model_type_settings['model_version'] in ["14","15"]:
+            seq_len_for_highest_hierachy_level = 1
+        elif self.di==True and model_type_settings['model_version'] in ["16"]:
+            seq_len_for_highest_hierachy_level = 3
+        else:
+            seq_len_for_highest_hierachy_level = 4   # 2
+
         SEQ_LEN_FACTOR_REDUCTION = [4, 7]        # [ 4, 2 ]
             #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
             # 6hrs, 1Day, 1Week, 1Month
@@ -210,20 +220,28 @@ class model_THST_hparameters(MParams):
 
         # region CLSTM params
         if DROPOUT != 0.0 and self.stoc==True :
-            #_filter = 112
             _filter = 72
         else:
-            #_filter = 96
             _filter = 72
-            #_filter = 112
+            
 
         output_filters_enc     = [ _filter ]*(enc_layer_count-1)                     
         output_filters_enc     = output_filters_enc + output_filters_enc[-1:]   # the last two layers in the encoder must output the same number of channels
         
         if self.di == False:
-            kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )                
-        else:
-            kernel_size_enc        = [ (3,3) ] * ( enc_layer_count )                
+            kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )
+
+        elif self.di == True and model_type_settings['model_version'] == "13":
+            kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )
+        
+        elif self.di == True and model_type_settings['model_version'] == "14":
+            kernel_size_enc         = [ (2,2) ] * ( enc_layer_count )
+
+        elif self.di == True and model_type_settings['model_version'] == "15":
+            kernel_size_enc         = [ (2,2) ] * ( enc_layer_count )      
+        
+        elif self.di == True and model_type_settings['model_version'] == "16":
+            kernel_size_enc         = [ (2,2) ] * ( enc_layer_count )                
 
         recurrent_regularizers = [ None ] * (enc_layer_count) 
         kernel_regularizers    = [ None ] * (enc_layer_count)
@@ -251,16 +269,22 @@ class model_THST_hparameters(MParams):
                 key_depth = [72]*attn_layers_count
 
         #elif 'downscale_input_factor' in kwargs:
-        elif self.di == True:
-
+        elif self.di == True and model_type_settings['model_version'] in ["13","15","16"]:
             _dims = [18 , 18 ]
             kq_downscale_stride = [1, _dims[0]//4, _dims[1]//4 ]
             kq_downscale_kernelshape = kq_downscale_stride
 
             val_depth = [ int( np.prod(_dims )*output_filters_enc[idx]*2) for idx in range(attn_layers_count)  ]
             key_depth = [72]*attn_layers_count
-            
+        
+        elif self.di == True and model_type_settings['model_version'] in ["14"]:
+            _dims = [100 , 140 ]
+            kq_downscale_stride = [1, _dims[0]//6, _dims[1]//6]
+            kq_downscale_kernelshape = kq_downscale_stride
 
+            val_depth = [ int( np.prod(_dims )*output_filters_enc[idx]*2) for idx in range(attn_layers_count)  ]
+            key_depth = [72]*attn_layers_count 
+                  
         else:
             kq_downscale_stride = [1, 13, 13]
             kq_downscale_kernelshape = [1, 13, 13]
@@ -272,20 +296,15 @@ class model_THST_hparameters(MParams):
             #The keydepth for any given layer will be equal to (h*w*c/avg_pool_strideh*avg_pool_stridew)
                 # where h,w = 100,140 and c is from the output_filters_enc from the layer below
             
-
         ATTN_LAYERS_NUM_OF_SPLITS = list(reversed((np.cumprod( list( reversed(SEQ_LEN_FACTOR_REDUCTION[1:] + [1] ) ) ) *seq_len_for_highest_hierachy_level ).tolist())) 
             #Each encoder layer receives a seq of 3D tensors from layer below. NUM_OF_SPLITS codes in how many chunks to devide the incoming data. NOTE: This is defined only for Encoder-Attn layers
 
         ATTN_params_enc = [
-            # {'bias':None, 'total_key_depth': kd  ,'total_value_depth':vd, 'output_depth': vd   ,
-            # 'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
-            # "transform_value_antecedent":False ,  "transform_output":False,
-            # 'implementation':1  } 
-            
             {'bias':None, 'total_key_depth': kd  ,'total_value_depth':vd, 'output_depth': vd   ,
             'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
             "transform_value_antecedent":True,  "transform_output":True, 
-            'implementation':1, "value_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':tf.keras.regularizers.l2(0.2), 'padding':'same' },
+            'implementation':1,
+            "value_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':tf.keras.regularizers.l2(0.2), 'padding':'same' },
             "output_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"outp", 'bias_regularizer':tf.keras.regularizers.l2(0.2),'padding':'same' }
             } 
             for kd, vd ,nh, idx in zip( key_depth, val_depth, attn_heads,range(attn_layers_count) )
@@ -321,8 +340,27 @@ class model_THST_hparameters(MParams):
         # region --------------- DECODER params -----------------
         decoder_layer_count = enc_layer_count-2
         
-        output_filters_dec = output_filters_enc[:1] + output_filters_enc[ :decoder_layer_count ]  #The first part list needs to be changed, only works when all convlstm layers have the same number of filters
-        kernel_size_dec = kernel_size_enc[ 1:1+decoder_layer_count  ]                             # This is written in the correct order
+        if self.di=="Blarghh": #think about another way to reduce computational complexity of two-state decoder layer
+            #for memory saving, so decoder doesnt use twice as much memory
+            output_filters_dec = (np.array(output_filters_enc[:1] + output_filters_enc[ :decoder_layer_count ])//2 ).tolist() 
+        else:
+            output_filters_dec = output_filters_enc[:1] + output_filters_enc[ :decoder_layer_count ]  #The first part list needs to be changed, only works when all convlstm layers have the same number of filters
+        
+        #kernel_size_dec = kernel_size_enc[ 1:1+decoder_layer_count  ]   
+        if  self.di == False:
+            kernel_size_dec = kernel_size_enc[ 1:1+decoder_layer_count  ]           
+
+        elif self.di == True and model_type_settings['model_version'] == "13":
+            kernel_size_dec         = kernel_size_enc[ 1:1+decoder_layer_count  ]   
+        
+        elif self.di == True and model_type_settings['model_version'] == "14":
+            kernel_size_dec         = kernel_size_enc[ 1:1+decoder_layer_count  ]   
+
+        elif self.di == True and model_type_settings['model_version'] == "15":
+            kernel_size_dec         = [ (4,4) ] * ( decoder_layer_count )      
+        
+        elif self.di == True and model_type_settings['model_version'] == "16":
+            kernel_size_dec         = [ (3,3) ] * ( decoder_layer_count )                                           
         
             #Each decoder layer sends in values into the layer below. 
         CGRUs_params_dec = [
@@ -349,37 +387,117 @@ class model_THST_hparameters(MParams):
         }
         # endregion
 
-        # region --------------- OUTPUT_LAYER_PARAMS -----------------
-        if self.di:
+        # region --------------- OUTPUT_LAYER_PARAMS and Upscaling-----------------
+        if  model_type_settings['model_version'] ==  "13"   and self.di:
+            #Upscaling convolution layer at the very end
+
             _upscale_target = [100,140]
             _input_dims = [18, 18]
             _strides =( np.floor_divide(_upscale_target,_input_dims).astype( np.int32) ).tolist()  #( np.ceil( np.array(_upscale_target)/np.array(_input_dims)).astype(np.int32)  ).tolist()
-            _kernel_size = (np.array(_strides)*2+1 ).tolist()
-            
-            # _output_padding = (np.array(_input_dims)*(np.array(_strides)) )  #This provides a methodology to understand the outer_padding number, https://stackoverflow.com/a/54891027/7497927 
-            # _output_padding = (np.array(_upscale_target) - _output_padding )
-            # _output_padding = (_output_padding/2).astype(np.int32).tolist()
-            _output_padding = np.array( [4,6] )
-            #_output_padding = ( (np.array(_kernel_size)-1)//2 )
+            _kernel_size = (np.array(_strides)*2 +1 ).tolist()
 
+            _output_padding = np.array(_strides)*(1 - np.array(_input_dims) ) - np.array(_kernel_size) + np.array(_upscale_target)  #http://deeplearning.net/software/theano/tutorial/conv_arithmetic.html
             conv_upscale_params = {'filters': int(  8*(((output_filters_dec[-1]*2)/4)//8)), 'kernel_size':_kernel_size, 'strides':_strides, 'output_padding': _output_padding,
                                     'activation':'relu','padding':'valid','bias_regularizer':tf.keras.regularizers.l2(0.2)  }  
 
             #Note: Stride larger than filter size may lead to middle areas being assigned a zero value
             self.params.update( { 'conv_upscale_params': conv_upscale_params } )
 
-        output_filters = [  int(  8*(((output_filters_dec[-1]*2)/3)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
-        output_kernel_size = [ (3,3), (3,3) ] 
-        activations = ['relu','linear']
+            output_filters = [  int(  8*(((output_filters_dec[-1]*2)/4)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
+            output_kernel_size = [ (3,3), (3,3) ] 
+            activations = ['relu','linear']
 
-        OUTPUT_LAYER_PARAMS = [ 
-            { "filters":fs, "kernel_size":ks , "padding":"same", "activation":act, 'bias_regularizer':tf.keras.regularizers.l2(0.2)  } 
-                for fs, ks, act in zip( output_filters, output_kernel_size, activations )
-         ]
+            OUTPUT_LAYER_PARAMS = [ 
+                { "filters":fs, "kernel_size":ks , "padding":"same", "activation":act, 'bias_regularizer':tf.keras.regularizers.l2(0.2)  } 
+                    for fs, ks, act in zip( output_filters, output_kernel_size, activations )
+            ]
+        
+        elif model_type_settings['model_version'] == "14" and self.di:
+            #Upscaling convlution layer at the very beginning
+            _upscale_target = [100,140]
+            _input_dims = [18, 18]
+            _strides =( np.floor_divide(_upscale_target,_input_dims).astype( np.int32) ).tolist()  #( np.ceil( np.array(_upscale_target)/np.array(_input_dims)).astype(np.int32)  ).tolist()
+            _kernel_size = (np.array(_strides)*2 +1 ).tolist()
+
+            _output_padding = np.array(_strides)*(1 - np.array(_input_dims) ) - np.array(_kernel_size) + np.array(_upscale_target)  #http://deeplearning.net/software/theano/tutorial/conv_arithmetic.html
+            conv_upscale_params = {'filters': int(output_filters_enc[0] * 2) , 'kernel_size':_kernel_size, 'strides':_strides, 'output_padding': _output_padding,
+                                    'activation':'relu','padding':'valid','bias_regularizer':tf.keras.regularizers.l2(0.2)  }  
+
+            #Note: Stride larger than filter size may lead to middle areas being assigned a zero value
+            self.params.update( { 'conv_upscale_params': conv_upscale_params } )
+
+            output_filters = [  int(  8*(((output_filters_dec[-1]*2)/3)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
+            output_kernel_size = [ (3,3), (3,3) ] 
+            activations = ['relu','linear']
+
+            OUTPUT_LAYER_PARAMS = [ 
+                { "filters":fs, "kernel_size":ks , "padding":"same", "activation":act, 'bias_regularizer':tf.keras.regularizers.l2(0.2)  } 
+                    for fs, ks, act in zip( output_filters, output_kernel_size, activations )
+            ]
+
+        elif model_type_settings['model_version'] == "15" and self.di:
+            #Upscaling convlution layer at the middle 
+            _upscale_target = [100,140]
+            _input_dims = [18, 18]
+            _strides =( np.floor_divide(_upscale_target,_input_dims).astype( np.int32) ).tolist()  #( np.ceil( np.array(_upscale_target)/np.array(_input_dims)).astype(np.int32)  ).tolist()
+            _kernel_size = (np.array(_strides)*2 +1 ).tolist()
+
+            _output_padding = np.array(_strides)*(1 - np.array(_input_dims) ) - np.array(_kernel_size) + np.array(_upscale_target)  #http://deeplearning.net/software/theano/tutorial/conv_arithmetic.html
+            conv_upscale_params = {'filters': int(output_filters_enc[-1] * 2) , 'kernel_size':_kernel_size, 'strides':_strides, 'output_padding': _output_padding,
+                                    'activation':'relu','padding':'valid','bias_regularizer':tf.keras.regularizers.l2(0.2)  }  
+
+            #Note: Stride larger than filter size may lead to middle areas being assigned a zero value
+            self.params.update( { 'conv_upscale_params': conv_upscale_params } )
+
+            output_filters = [  int(  8*(((output_filters_dec[-1]*2)/3)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
+            output_kernel_size = [ (3,3), (3,3) ] 
+            activations = ['relu','linear']
+
+            OUTPUT_LAYER_PARAMS = [ 
+                { "filters":fs, "kernel_size":ks , "padding":"same", "activation":act, 'bias_regularizer':tf.keras.regularizers.l2(0.2)  } 
+                    for fs, ks, act in zip( output_filters, output_kernel_size, activations )
+            ]
+
+        elif model_type_settings['model_version'] == "16" and self.di:
+            li_conv_upscale_params = []
+
+            #Upscaling convlution layer before the decoder
+            _upscale_target_0 = [25,35]
+            _input_dims_0 = [18, 18]
+            mult_0, rem = np.divmod( _upscale_target_0, _input_dims_0 )
+            _strides_0 = mult_0.tolist() #( np.floor_divide(_upscale_target_0,_input_dims_0).astype( np.int32) ).tolist()  #( np.ceil( np.array(_upscale_target)/np.array(_input_dims)).astype(np.int32)  ).tolist()
+                        
+            _kernel_size_0 = np.maximum( 1 + np.array( _upscale_target_0 ) - mult_0*np.array(_input_dims_0), mult_0)
+            
+            _output_padding_0 = np.array(_strides_0)*(1 - np.array(_input_dims_0) ) - np.array(_kernel_size_0) + np.array(_upscale_target_0)  #http://deeplearning.net/software/theano/tutorial/conv_arithmetic.html
+            li_conv_upscale_params.append( {'filters': int(output_filters_enc[-1] * 2) , 'kernel_size':_kernel_size_0, 'strides':_strides_0, 'output_padding': _output_padding_0,
+                'activation':'relu','padding':'valid','bias_regularizer':tf.keras.regularizers.l2(0.2)  } )
+
+            #Upscaling convlution layer at the output 
+            _upscale_target = [100,140]
+            _input_dims = _upscale_target_0
+            mult, rem = np.divmod( _upscale_target, _input_dims )
+            _strides = mult.tolist() #( np.floor_divide(_upscale_target,_input_dims).astype( np.int32) ).tolist()  #( np.ceil( np.array(_upscale_target)/np.array(_input_dims)).astype(np.int32)  ).tolist()
+            
+            _kernel_size = np.maximum( 1+ np.array( _upscale_target ) - mult*np.array(_input_dims), mult ) 
+
+            _output_padding = np.array(_strides)*(1 - np.array(_input_dims) ) - np.array(_kernel_size) + np.array(_upscale_target)  #http://deeplearning.net/software/theano/tutorial/conv_arithmetic.html
+            li_conv_upscale_params.append( {'filters': int(  8*(((output_filters_dec[-1]*2)/4)//8)), 'kernel_size':_kernel_size, 'strides':_strides, 'output_padding': _output_padding,
+                                    'activation':'relu','padding':'valid','bias_regularizer':tf.keras.regularizers.l2(0.2)}  )
+
+            self.params.update( { 'conv_upscale_params': li_conv_upscale_params } )
+
+            #Output layer
+            output_filters = [  int(  8*(((output_filters_dec[-1]*2)/4)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
+            output_kernel_size = [ (3,3), (3,3) ] 
+            activations = ['relu','linear']
+
+            OUTPUT_LAYER_PARAMS = [ 
+                { "filters":fs, "kernel_size":ks , "padding":"same", "activation":act, 'bias_regularizer':tf.keras.regularizers.l2(0.2)  } 
+                    for fs, ks, act in zip( output_filters, output_kernel_size, activations )
+            ]
+
         # endregion
-
-        _mts = {  }
-        model_type_settings = kwargs.get('model_type_settings',_mts)
 
         self.params.update( {
             'model_name':"THST",
@@ -493,8 +611,8 @@ class model_SimpleConvGRU_hparamaters(MParams):
         #region ConvLayers
         layer_count = 3 #TODO: Shi uses 2 layers
         if dropout != 0.0 and self.stoc==True :            
-            _filter = int(80*1.4)
-            #_filter = 80
+            #_filter = int(80*1.4)
+            _filter = 80
         else:
             _filter = 80
 

@@ -630,16 +630,18 @@ def HalfCauchy_Guassian_posterior_tensor_fn(obj, dist_weights, kernel_shape, inp
 
 # region THST layers
 class THST_Encoder(tf.keras.layers.Layer):
-	def __init__(self, train_params, encoder_params, h_w):
+	def __init__(self, train_params, encoder_params, h_w, model_version=100, conv_upscale_params=None):
 		super( THST_Encoder, self ).__init__()
 		self.encoder_params = encoder_params
 		self.train_params = train_params
 		self.layer_count = encoder_params['enc_layer_count']
+		self.di = train_params['downscaled_input']
+		self.mv = model_version
 		
-
-		self.CGRU_Input_Layer = THST_CGRU_Input_Layer( train_params, encoder_params['CGRUs_params'][0] )
+		self.CGRU_Input_Layer = THST_CGRU_Input_Layer( train_params, encoder_params['CGRUs_params'][0], model_version, conv_upscale_params )
 
 		self.CGRU_Attn_layers = []
+		self.CGRU_Upscaling_layers = []
 		for idx in range( encoder_params['attn_layers_count'] ):
 			_layer = THST_CGRU_Attention_Layer( train_params, encoder_params['CGRUs_params'][idx+1],
 						encoder_params['ATTN_params'][idx], encoder_params['ATTN_DOWNSCALING_params_enc'] ,
@@ -647,7 +649,11 @@ class THST_Encoder(tf.keras.layers.Layer):
 						h_w )
 			self.CGRU_Attn_layers.append(_layer)
 
-	#@tf.function
+		if self.di == True and self.mv == 15:
+			self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
+		elif self.di == True and self.mv == 16:
+			self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params[0] ) )
+				
 	def call(self, _input, training=True):
 		"""
 			_input #shape( )
@@ -672,8 +678,126 @@ class THST_Encoder(tf.keras.layers.Layer):
 		for idx in range(1, self.encoder_params['attn_layers_count']):
 			hidden_state = self.CGRU_Attn_layers[idx]( hidden_state, training=training)
 			hidden_states = tf.concat( [ hidden_states, hidden_state ], axis=1 )
+			
+		if self.di==True and self.mv == 15:
+			hidden_states = self.conv_upscale( hidden_states )
+		
+		if self.di==True and self.mv == 16:
+			hidden_states = self.conv_upscale( hidden_states )
+		
+
 		return hidden_states
 		
+
+class THST_OutputLayer(tf.keras.layers.Layer):
+	def __init__(self, train_params,layer_params, model_type_settings, dropout_rate, di, conv_upscale_params=None):
+		"""
+			:param list layer_params: a list of dicts of params for the layers
+		"""
+		super( THST_OutputLayer, self ).__init__()
+
+		self.trainable = train_params['trainable']
+		self.di = di
+		self.dc = model_type_settings['discrete_continuous']
+		self.mv = int(model_type_settings['model_version'])
+		
+		self.do0 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=dropout_rate, data_format = 'channels_last' ) )
+		self.do1 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=dropout_rate, data_format = 'channels_last' ) )
+
+		if not model_type_settings['discrete_continuous']:
+
+			if(model_type_settings['deformable_conv'] ==False):
+				self.conv_hidden = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
+				self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
+			
+			elif( model_type_settings['deformable_conv'] ==True ):
+				self.conv_hidden = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[0] ) )
+				self.conv_output = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
+
+			
+			if self.di ==True and self.mv == 13 :
+				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
+			
+			if self.di ==True and self.mv == 16 :
+				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params[1] ) )
+			
+			self.float32_custom_relu = OutputReluFloat32(train_params) 
+		
+		else:
+			if(model_type_settings['deformable_conv'] ==False):
+				self.conv_hidden_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
+				self.conv_hidden_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
+				self.conv_output_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
+				self.conv_output_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
+
+			elif( model_type_settings['deformable_conv'] ==True ):
+				self.conv_hidden_val = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[0] ) )
+				self.conv_hidden_prob = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[0] ) )
+				self.conv_output_val = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
+				self.conv_output_prob = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
+
+			if self.di ==True and self.mv == 13 :
+				self.conv_upscale_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
+				self.conv_upscale_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) ) 
+
+			elif self.di ==True and self.mv == 16 :
+				self.conv_upscale_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params[1] ) )
+				self.conv_upscale_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params[1] ) ) 
+
+
+			self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
+
+			self.output_activation_val = CustomRelu_maker(train_params, dtype='float32')
+			self.output_activation_prob = tf.keras.layers.Activation('sigmoid', dtype='float32')
+
+
+	
+	def call(self, _inputs, training=True ):
+		"""
+			:param tnsr inputs: (bs, seq_len, h,w,c)
+
+		"""
+
+		if self.dc == False:
+			
+			if self.di ==True and self.mv == 13 :
+				_inputs = self.conv_upscale( self.do1( _inputs, training=training), training=training )
+			
+			if self.di ==True and self.mv == 16 :
+				_inputs = self.conv_upscale( self.do1( _inputs, training=training), training=training )
+
+			_inputs = self.conv_hidden( self.do0(_inputs,training=training),training=training )
+           
+			outp = self.conv_output( _inputs, training=training ) #shape (bs, height, width)
+			outp = self.float32_custom_relu(outp)   
+		
+		else:
+			
+			if self.di == True and self.mv== 13:
+				x_val = self.conv_upscale_val( _inputs, training=training )
+				x_prob = self.conv_upscale_prob( _inputs, training=training )
+			
+			if self.di == True and self.mv== 16:
+				x_val = self.conv_upscale_val( _inputs, training=training )
+				x_prob = self.conv_upscale_prob( _inputs, training=training )
+
+			x_val = self.conv_hidden_val( self.do0(x_val,training=training),training=training )
+			x_prob = self.conv_hidden_prob( self.do0(x_prob,training=training),training=training )
+			
+			x_val = self.conv_output_val( x_val, training=training)
+			x_prob = self.conv_output_prob( x_prob, training=training)
+
+			outp_val = self.float32_output(x_val)
+			outp_prob = self.float32_output(x_prob)
+
+			outp_val = self.output_activation_val(outp_val)
+			outp_prob = self.output_activation_prob(outp_prob)
+
+			outp = tf.stack([outp_val, outp_prob],axis=0)
+
+		return outp
+
+
 
 class THST_Decoder(tf.keras.layers.Layer):
 	def __init__(self, train_params ,decoder_params, h_w):
@@ -697,9 +821,7 @@ class THST_Decoder(tf.keras.layers.Layer):
 		self.seq_lens = self.decoder_params['attn_layer_no_splits']
 		self.shape1 = [ sum( self.seq_lens ) ] + [ self.train_params['batch_size'] ] + [h_w[0], h_w[1], self.decoder_params['CGRUs_params'][0]['filters']*2 ] 
 	
-	#@tf.function
 	def call(self, hidden_states, training=True):
-
 
 		li_hs = tf.split(hidden_states, self.seq_lens, axis=1 )
 
@@ -709,28 +831,36 @@ class THST_Decoder(tf.keras.layers.Layer):
 			dec_hs_outp =  self.CGRU_2cell_layers[-idx]( li_hs[ self.layer_count-idx], dec_hs_outp, training )
 
 		return dec_hs_outp
-		
+
+
+
 class THST_CGRU_Input_Layer(tf.keras.layers.Layer):
 	"""
 		This corresponds to the lower input layer
 		rmrbr to add spatial LSTM
 	"""
-	def __init__(self, train_params, layer_params ):
+	def __init__(self, train_params, layer_params, model_version, conv_upscale_params ):
 		super( THST_CGRU_Input_Layer, self ).__init__()
 		
 		self.trainable = train_params['trainable']
 		self.layer_params = layer_params #list of dictionaries containing params for all layers
+		self.di = train_params['downscaled_input']
+		self.mv = model_version
 
 		self.convGRU = Bidirectional( layer=layers_ConvGRU2D.ConvGRU2D( **self.layer_params ), 
 										backward_layer=layers_ConvGRU2D.ConvGRU2D( **copy.deepcopy(self.layer_params), go_backwards=True ),
 										merge_mode=None ) 
 		
-	#@tf.function
+		if self.di == True and self.mv == 14:
+			self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
+		
 	def call( self, _input, training ):
-		#NOTE: consider addding multiple LSTM Layers to extract more latent features
 
 		hidden_states_f, hidden_states_b = self.convGRU(_input, training=training ) #(bs, seq_len_1, h, w, c)
 		hidden_states = tf.concat([hidden_states_f, hidden_states_b],axis=-1)
+
+		if self.di == True and self.mv == 14:
+			hidden_states = self.conv_upscale( hidden_states, training=training )
 			   
 		return hidden_states #(bs, seq_len_1, h, w, c*2)
 
@@ -797,98 +927,6 @@ class THST_CGRU_Decoder_Layer(tf.keras.layers.Layer):
 		hidden_states_b.set_shape( self.shape3 )
 		hidden_states = tf.concat( [hidden_states_f,hidden_states_b], axis=-1 ) 
 		return hidden_states
-
-class THST_OutputLayer(tf.keras.layers.Layer):
-	def __init__(self, train_params,layer_params, model_type_settings, dropout_rate, di, conv_upscale_params=None):
-		"""
-			:param list layer_params: a list of dicts of params for the layers
-		"""
-		super( THST_OutputLayer, self ).__init__()
-
-		self.trainable = train_params['trainable']
-		self.di = di
-		self.dc = model_type_settings['discrete_continuous']
-		
-		self.do0 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=dropout_rate, data_format = 'channels_last' ) )
-		self.do1 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=dropout_rate, data_format = 'channels_last' ) )
-
-		if not model_type_settings['discrete_continuous']:
-
-			if(model_type_settings['deformable_conv'] ==False):
-				self.conv_hidden = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
-				self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
-			
-			elif( model_type_settings['deformable_conv'] ==True ):
-				self.conv_hidden = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[0] ) )
-				self.conv_output = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
-
-			
-			if self.di == True:
-				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
-			
-			self.float32_custom_relu = OutputReluFloat32(train_params) 
-		
-		else:
-			if(model_type_settings['deformable_conv'] ==False):
-				self.conv_hidden_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
-				self.conv_hidden_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
-				self.conv_output_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
-				self.conv_output_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
-
-			elif( model_type_settings['deformable_conv'] ==True ):
-				self.conv_hidden_val = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[0] ) )
-				self.conv_hidden_prob = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[0] ) )
-				self.conv_output_val = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
-				self.conv_output_prob = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
-
-			if self.di ==True:
-				self.conv_upscale_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
-				self.conv_upscale_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) ) 
-			
-			self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
-
-			self.output_activation_val = CustomRelu_maker(train_params, dtype='float32')
-			self.output_activation_prob = tf.keras.layers.Activation('sigmoid', dtype='float32')
-
-
-	@tf.function
-	def call(self, _inputs, training=True ):
-		"""
-			:param tnsr inputs: (bs, seq_len, h,w,c)
-
-		"""
-
-		# x = self.conv_hidden( self.do0(_inputs,training=training),training=training )
-		# outp = self.conv_output( x, training=training ) #shape (bs, height, width)
-		if self.dc == False:
-			x = self.conv_hidden( self.do0(_inputs,training=training),training=training )
-
-			if self.di == True:
-				x = self.conv_upscale( self.do1( x, training=training), training=training )
-            
-			outp = self.conv_output( x, training=training ) #shape (bs, height, width)
-			outp = self.float32_custom_relu(outp)   
-		
-		else:
-			x_val = self.conv_hidden_val( self.do0(_inputs,training=training),training=training )
-			x_prob = self.conv_hidden_prob( self.do0(_inputs,training=training),training=training )
-
-			if self.di == True:
-				x_val = self.conv_upscale_val( self.do1( x_val, training=training), training=training )
-				x_prob = self.conv_upscale_prob( self.do1( x_prob, training=training), training=training )
-			
-			x_val = self.conv_output_val( x_val, training=training)
-			x_prob = self.conv_output_prob( x_prob, training=training)
-
-			outp_val = self.float32_output(x_val)
-			outp_prob = self.float32_output(x_prob)
-
-			outp_val = self.output_activation_val(outp_val)
-			outp_prob = self.output_activation_prob(outp_prob)
-
-			outp = tf.stack([outp_val, outp_prob],axis=0)
-
-		return outp
 
 class SpatialConcreteDropout(tf.keras.layers.Wrapper):
 	"""This wrapper allows to learn the dropout probability for any given Conv2D input layer.

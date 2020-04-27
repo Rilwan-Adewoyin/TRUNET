@@ -2344,6 +2344,7 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
                 recurrent_dropout=0.,
                 **kwargs):
         super(ConvGRU2DCell_attn, self).__init__(**kwargs)
+        
         self.filters = filters
         self.kernel_size = conv_utils.normalize_tuple(kernel_size, 2, 'kernel_size')
         self.strides = conv_utils.normalize_tuple(strides, 2, 'strides')
@@ -2381,7 +2382,6 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
         self.attn_factor_reduc = attn_factor_reduc 
 
     def build(self, input_shape): 
-
         if self.data_format == 'channels_first':
             channel_axis = 1
         else:
