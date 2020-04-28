@@ -794,7 +794,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				_inputs = tf.reshape(_inputs, new_shape )
 
 				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
-				_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[100,140, orig_shape[4]]]) )
+				_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[100,140, orig_shape[4]]],axis=0 )  )
 				_inputs = self.conv_upscale( _inputs, training=training)
 				
 			if self.di ==True and self.mv == 16 :
@@ -805,7 +805,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				new_shape = tf.concat( [ [-1],orig_shape[2:] ], 0 )
 				_inputs = tf.reshape(_inputs, new_shape )
 				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
-				_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[100,140, orig_shape[4]]]) )
+				_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[100,140, orig_shape[4]]],axis=0) )
 				_inputs = self.conv_upscale( _inputs, training=training)
 
 			_inputs = self.conv_hidden( self.do1(_inputs,training=training),training=training )
@@ -824,7 +824,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				new_shape = tf.concat( [ [-1],orig_shape[2:] ], 0 )
 				_inputs = tf.reshape(_inputs, new_shape )
 				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
-				_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[100,140, orig_shape[4]]]) )
+				_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[100,140, orig_shape[4]]], axis=0 ) )
 							
 				x_val = self.conv_upscale_val( _inputs, training=training )
 				x_prob = self.conv_upscale_prob( _inputs, training=training )				
@@ -838,7 +838,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				new_shape = tf.concat( [ [-1],orig_shape[2:] ], 0 )
 				_inputs = tf.reshape(_inputs, new_shape )
 				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
-				_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[100,140, orig_shape[4]]]) )
+				_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[100,140, orig_shape[4]]], axis=0) )
 
 				x_val = self.conv_upscale_val( _inputs, training=training )
 				x_prob = self.conv_upscale_prob( _inputs, training=training )
