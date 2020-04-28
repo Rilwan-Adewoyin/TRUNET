@@ -697,7 +697,7 @@ class THST_Encoder(tf.keras.layers.Layer):
 
 			hidden_state = tf.reshape(hidden_state, new_shape )
 			hidden_states = tf.image.resize( hidden_states, self.t_dim , method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
-			hidden_state = tf.reshape(hidden_state, orig_shape )
+			hidden_state = tf.reshape(hidden_state, tf.concat( [orig_shape[:2], tf.concat( [self.t_dim, [-1]],axis=0) ] , axis=0) )
 			
 			hidden_states = self.conv_upscale( hidden_states )
 		
@@ -790,11 +790,11 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 
 			if self.di ==True and self.mv == 131 :
 				orig_shape = tf.shape(_inputs)
-				new_shape = tf.concat( [ [-1],orig_shape[2:] ], 0 )
+				new_shape = tf.concat( [ [-1], orig_shape[2:] ], 0 )
 				_inputs = tf.reshape(_inputs, new_shape )
 
 				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
-				_inputs = tf.reshape(_inputs, orig_shape )
+				_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[100,140, orig_shape[4]]]) )
 				_inputs = self.conv_upscale( _inputs, training=training)
 				
 			if self.di ==True and self.mv == 16 :
@@ -805,7 +805,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				new_shape = tf.concat( [ [-1],orig_shape[2:] ], 0 )
 				_inputs = tf.reshape(_inputs, new_shape )
 				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
-				_inputs = tf.reshape(_inputs, orig_shape )
+				_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[100,140, orig_shape[4]]]) )
 				_inputs = self.conv_upscale( _inputs, training=training)
 
 			_inputs = self.conv_hidden( self.do1(_inputs,training=training),training=training )
@@ -824,7 +824,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				new_shape = tf.concat( [ [-1],orig_shape[2:] ], 0 )
 				_inputs = tf.reshape(_inputs, new_shape )
 				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
-				_inputs = tf.reshape(_inputs, orig_shape )
+				_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[100,140, orig_shape[4]]]) )
 							
 				x_val = self.conv_upscale_val( _inputs, training=training )
 				x_prob = self.conv_upscale_prob( _inputs, training=training )				
@@ -838,7 +838,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				new_shape = tf.concat( [ [-1],orig_shape[2:] ], 0 )
 				_inputs = tf.reshape(_inputs, new_shape )
 				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
-				_inputs = tf.reshape(_inputs, orig_shape )
+				_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[100,140, orig_shape[4]]]) )
 
 				x_val = self.conv_upscale_val( _inputs, training=training )
 				x_prob = self.conv_upscale_prob( _inputs, training=training )
