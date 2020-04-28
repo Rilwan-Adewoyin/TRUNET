@@ -252,13 +252,17 @@ def train_loop(train_params, model_params):
         ds_train = li_ds_trains[0]
         for idx in range(1,len(li_ds_trains ) ):
             ds_train = ds_train.concatenate( li_ds_trains[idx] )
-        ds_train = ds_train.cache('data_cache/ds_train_cache_{}_{}'.format( model_params['model_name'] ,str(model_params['model_type_settings']['location'] ).strip('[]') ) ) 
-
+        
         ds_val = li_ds_vals[0]
         for idx in range(1,len(li_ds_vals ) ):
             ds_val = ds_val.concatenate( li_ds_vals[idx] )
         
-        ds_val = ds_val.cache('data_cache/ds_val_cache_{}_{}'.format( model_params['model_name'], str(model_params['model_type_settings']['location'] ).strip('[]') ) )
+        cache_suffix = '_{}_{}'.format( model_params['model_name'] ,str(model_params['model_type_settings']['location'] ).strip('[]') )
+        if train_params.get( 'downscaled_input', False) and model_params['model_type_settings'] == "16":
+            cache_suffix = cache_suffix+"_utm_{}".format( str( model_params['model_type_settings'].get('upscale_target_mid', [25,35]) ) )
+
+        ds_train = ds_train.cache('data_cache/ds_train_cache'+cache_suffix ) 
+        ds_val = ds_val.cache('data_cache/ds_val_cache'+cache_suffix )
         
         if psutil.virtual_memory()[0] / 1e9 <= 50.0 : 
             #Data Loading Scheme 1 - Version that works on low memeory devices e.g. warwick desktop
