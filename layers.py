@@ -693,7 +693,7 @@ class THST_Encoder(tf.keras.layers.Layer):
 		if self.di==True and self.mv == 161:
 			#Join first two dimensions together, then unjoin them
 			orig_shape = tf.shape(hidden_state)
-			new_shape = tf.TensorShape([-1]) + orig_shape[2:]
+			new_shape = [-1] + orig_shape[2:].as_list()
 
 			hidden_state = tf.reshape(hidden_state, new_shape )
 			hidden_states = tf.image.resize( hidden_states, self.t_dim , method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
@@ -790,7 +790,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 
 			if self.di ==True and self.mv == 131 :
 				orig_shape = tf.shape(_inputs)
-				new_shape = tf.TensorShape([-1]) + orig_shape[2:]
+				new_shape = [-1] + orig_shape[2:].as_list()
 				_inputs = tf.reshape(_inputs, new_shape )
 
 				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
@@ -802,7 +802,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			
 			if self.di ==True and self.mv == 161 :
 				orig_shape = tf.shape(_inputs)
-				new_shape = tf.TensorShape([-1]) + orig_shape[2:]
+				new_shape = [-1] + orig_shape[2:].as_list()
 				_inputs = tf.reshape(_inputs, new_shape )
 				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
 				_inputs = tf.reshape(_inputs, orig_shape )
@@ -821,7 +821,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 
 			if self.di == True and self.mv== 131:
 				orig_shape = tf.shape(_inputs)
-				new_shape = tf.TensorShape([-1]) + orig_shape[2:]
+				new_shape = [-1] + orig_shape[2:].as_list()
 				_inputs = tf.reshape(_inputs, new_shape )
 				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
 				_inputs = tf.reshape(_inputs, orig_shape )
@@ -835,7 +835,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			
 			if self.di == True and self.mv==161:
 				orig_shape = tf.shape(_inputs)
-				new_shape = tf.TensorShape([-1]) + orig_shape[2:]
+				new_shape = [-1] + orig_shape[2:].as_list()
 				_inputs = tf.reshape(_inputs, new_shape )
 				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
 				_inputs = tf.reshape(_inputs, orig_shape )
