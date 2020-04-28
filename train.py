@@ -614,6 +614,16 @@ def train_loop(train_params, model_params):
                                 preds = preds[:, :, 6:10, 6:10]
                                 mask = mask[:, :, 6:10, 6:10]
                                 target = target[:, :, 6:10, 6:10]
+                            
+                            elif( model_params['model_type_settings']['location']=="wholeregion"):
+                                preds = preds[:, :, 6:-6, 6:-6]
+                                mask = mask[:, :, 6:-6, 6:-6]
+                                target = target[:, :, 6:-6, 6:-6]
+                                
+                                rand_region_mask = tf.reshape( tf.random.shuffle( tf.range(start=0.0,limit=1.0, delta=1/(88*128), dtype=tf.float32 ) ), preds.shape )
+                                rand_region_mask = rand_region_mask < 0.25
+                                preds   = tf.where( rand_region_mask, preds, 0 )                                                         
+                                target  = tf.where( rand_region_mask, target, 0  )     
 
                             preds_filtrd = tf.boolean_mask( preds, mask )
                             target_filtrd = tf.boolean_mask( target, mask )
@@ -946,6 +956,11 @@ def train_loop(train_params, model_params):
                             preds = preds[:, :, 6:10, 6:10]
                             mask = mask[:, :, 6:10, 6:10]
                             target = target[:, :, 6:10, 6:10]
+                        
+                        elif( model_params['model_type_settings']['location']=="wholeregion"):
+                            preds   = preds[:, :, 6:-6, 6:-6]
+                            mask    = mask[:, :, 6:-6, 6:-6]
+                            target  = target[:, :, 6:-6, 6:-6]
     
                         preds_filtrd = tf.boolean_mask( preds, mask )
                         target_filtrd = tf.boolean_mask( target, mask )

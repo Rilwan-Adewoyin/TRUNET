@@ -977,7 +977,7 @@ class train_hparameters_ati(HParams):
         #DATA_DIR = "./Data/Rain_Data_Nov19" 
         DATA_DIR = self.dd
 
-        EARLY_STOPPING_PERIOD = 30
+        EARLY_STOPPING_PERIOD = 5
  
         self.params = {
             'batch_size':BATCH_SIZE,
