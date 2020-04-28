@@ -631,7 +631,7 @@ def HalfCauchy_Guassian_posterior_tensor_fn(obj, dist_weights, kernel_shape, inp
 
 # region THST layers
 class THST_Encoder(tf.keras.layers.Layer):
-	def __init__(self, train_params, encoder_params, h_w, model_version=100, conv_upscale_params=None):
+	def __init__(self, train_params, encoder_params, h_w, model_version=100, conv_upscale_params=None, h_w_dec=None):
 		super( THST_Encoder, self ).__init__()
 		self.encoder_params = encoder_params
 		self.train_params = train_params
@@ -656,7 +656,7 @@ class THST_Encoder(tf.keras.layers.Layer):
 			self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params[0] ) )
 		elif self.di == True and self.mv == 161 :
 			self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params[0] )   )
-			self.t_dim = h_w
+			self.t_dim = h_w_dec
 
 				
 	def call(self, _input, training=True):

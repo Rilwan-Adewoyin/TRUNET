@@ -96,7 +96,7 @@ class THST(tf.keras.Model):
             
 
         #TODO: in bidirectional layers explicity add the go_backwards line and second LSTM / GRU layer
-        self.encoder = layers.THST_Encoder( train_params, model_params['encoder_params'], h_w_enc, int(model_params['model_type_settings']['model_version']), model_params.get('conv_upscale_params',None) )
+        self.encoder = layers.THST_Encoder( train_params, model_params['encoder_params'], h_w_enc, int(model_params['model_type_settings']['model_version']), model_params.get('conv_upscale_params',None), h_w_dec=h_w_dec )
         self.decoder = layers.THST_Decoder( train_params, model_params['decoder_params'], h_w_dec )
         self.output_layer = layers.THST_OutputLayer( train_params, model_params['output_layer_params'], model_params['model_type_settings'], model_params['dropout'], self.di ,model_params.get('conv_upscale_params',None) )
 
