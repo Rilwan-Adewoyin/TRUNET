@@ -89,7 +89,7 @@ class THST(tf.keras.Model):
         
         elif self.di and model_params['model_type_settings']['model_version'] in ["16"]:
             h_w_enc = [18,18]
-            h_w_dec = [25,35]
+            h_w_dec = model_params['model_type_settings'].get('upscale_target_mid', [25,35])
 
         elif not self.di:
             h_w_enc = h_w_dec = [ 100, 140 ]
