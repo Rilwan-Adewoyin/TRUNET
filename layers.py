@@ -789,7 +789,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				_inputs = self.conv_upscale( _inputs, training=training )
 
 			if self.di ==True and self.mv == 131 :
-				orig_shape = _inputs.shape
+				orig_shape = _inputs.shape.as_list()
 				new_shape = tf.TensorShape([tf.math.reduce_prod( orig_shape[:2] ) ]) + orig_shape[2:]
 				hidden_state = tf.reshape(hidden_state, new_shape )
 				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
@@ -800,7 +800,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				_inputs = self.conv_upscale( _inputs, training=training)
 			
 			if self.di ==True and self.mv == 161 :
-				orig_shape = _inputs.shape
+				orig_shape = _inputs.shape.as_list()
 				new_shape = tf.TensorShape([tf.math.reduce_prod( orig_shape[:2] ) ]) + orig_shape[2:]
 				hidden_state = tf.reshape(hidden_state, new_shape )
 				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
@@ -819,7 +819,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				x_prob = self.conv_upscale_prob( _inputs, training=training )
 
 			if self.di == True and self.mv== 131:
-				orig_shape = _inputs.shape
+				orig_shape = _inputs.shape.as_list()
 				new_shape = tf.TensorShape([tf.math.reduce_prod( orig_shape[:2] ) ]) + orig_shape[2:]
 				hidden_state = tf.reshape(hidden_state, new_shape )
 				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
@@ -833,7 +833,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				x_prob = self.conv_upscale_prob( _inputs, training=training )
 			
 			if self.di == True and self.mv==161:
-				orig_shape = _inputs.shape
+				orig_shape = _inputs.shape.as_list()
 				new_shape = tf.TensorShape([tf.math.reduce_prod( orig_shape[:2] ) ]) + orig_shape[2:]
 				hidden_state = tf.reshape(hidden_state, new_shape )
 				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
