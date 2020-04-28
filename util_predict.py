@@ -71,7 +71,7 @@ def load_model(test_params, model_params):
                     [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] ,16 , 16, 6 ], dtype=tf.float16 )
             model(init_inp, training=False )
 
-        checkpoint_path = test_params['script_dir']+"/checkpoints/{}/batch".format(utility.model_name_mkr(model_params,mode=mode))
+        checkpoint_path = test_params['script_dir']+"/checkpoints/{}/batch".format(utility.model_name_mkr(model_params,mode=mode,train_params=test_params))
 
         ckpt = tf.train.Checkpoint(att_con=model)
         checkpoint_code = "B"+ str(tf.train.latest_checkpoint(checkpoint_path)[-5:])
@@ -137,7 +137,7 @@ def load_model(test_params, model_params):
         ckpt = tf.train.Checkpoint(model=model)
 
         #We will use Optimal Checkpoint information from checkpoint_scores_model.csv
-        df_checkpoint_scores = pd.read_csv( test_params['script_dir']+'/checkpoints/{}/checkpoint_scores.csv'.format(utility.model_name_mkr(model_params,mode=mode, load_save="load" )), header=0  ) #Give the load_save param a better name
+        df_checkpoint_scores = pd.read_csv( test_params['script_dir']+'/checkpoints/{}/checkpoint_scores.csv'.format(utility.model_name_mkr(model_params,mode=mode, load_save="load", train_params=test_params )), header=0  ) #Give the load_save param a better name
         best_checkpoint_path = df_checkpoint_scores['Checkpoint_Path'][0]
         checkpoint_code = "E"+str(df_checkpoint_scores['Epoch'][0])
         status = ckpt.restore( best_checkpoint_path ).expect_partial()
@@ -153,7 +153,7 @@ def save_preds( test_params, model_params, li_preds, li_timestamps, li_truevalue
     if type(model_params) == list:
         model_params = model_params[0]
 
-    _path_pred = test_params['output_dir'] + "/{}/Predictions".format(utility.model_name_mkr(model_params, load_save="save"))
+    _path_pred = test_params['output_dir'] + "/{}/Predictions".format(utility.model_name_mkr(model_params, load_save="save", train_params=test_params))
 
     fn = str(li_timestamps[0][0]) + "___" + str(li_timestamps[-1][-1]) + ".dat"
 

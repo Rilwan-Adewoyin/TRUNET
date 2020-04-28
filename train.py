@@ -112,7 +112,7 @@ def train_loop(train_params, model_params):
 
     # region ------ Logic for setting up resume location and  resume optimizer step
     try:
-        df_training_info = pd.read_csv( "checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(model_params)),
+        df_training_info = pd.read_csv( "checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(model_params,train_params=train_params)),
                             header=0, index_col =False   )
         print("Recovered checkpoint scores model csv")
     except Exception as e:
@@ -192,7 +192,7 @@ def train_loop(train_params, model_params):
 
     # region ----- Setting up Checkpoints 
         #  (For Epochs)
-    checkpoint_path_epoch = "checkpoints/{}/epoch".format(utility.model_name_mkr(model_params ))
+    checkpoint_path_epoch = "checkpoints/{}/epoch".format(utility.model_name_mkr(model_params,train_params=train_params ))
     os.makedirs(checkpoint_path_epoch,exist_ok=True)
         
     ckpt_epoch = tf.train.Checkpoint(model=model)#, optimizer=optimizer)
@@ -200,7 +200,7 @@ def train_loop(train_params, model_params):
                 max_to_keep=train_params['checkpoints_to_keep_epoch'], keep_checkpoint_every_n_hours=None)    
      
         # (For Batches)
-    checkpoint_path_batch = "checkpoints/{}/batch".format(utility.model_name_mkr(model_params))
+    checkpoint_path_batch = "checkpoints/{}/batch".format(utility.model_name_mkr(model_params,train_params=train_params))
     os.makedirs(checkpoint_path_batch,exist_ok=True)
         #Create the checkpoint path and the checpoint manager. This will be used to save checkpoints every n epochs
     ckpt_batch = tf.train.Checkpoint(model=model)#, optimizer=optimizer)
@@ -217,8 +217,8 @@ def train_loop(train_params, model_params):
     # endregion     
 
     # region --- Tensorboard
-    os.makedirs("log_tensboard/{}".format(utility.model_name_mkr(model_params)), exist_ok=True ) 
-    writer = tf.summary.create_file_writer( "log_tensboard/{}".format(utility.model_name_mkr(model_params) ) )
+    os.makedirs("log_tensboard/{}".format(utility.model_name_mkr(model_params, train_params=train_params)), exist_ok=True ) 
+    writer = tf.summary.create_file_writer( "log_tensboard/{}".format(utility.model_name_mkr(model_params,train_params=train_params) ) )
     # endregion
 
     # region ---- Making Datasets
@@ -819,7 +819,7 @@ def train_loop(train_params, model_params):
 
                 # Updating record of the last batch to be operated on in training epoch
             df_training_info.loc[ ( df_training_info['Epoch']==epoch) , ['Last_Trained_Batch'] ] = batch
-            df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(model_params)), header=True, index=False )
+            df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(model_params,train_params=train_params)), header=True, index=False )
 
         start_epoch_val = time.time()
         start_batch_time = time.time()

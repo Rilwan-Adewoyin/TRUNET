@@ -435,7 +435,7 @@ class model_THST_hparameters(MParams):
                     for fs, ks, act in zip( output_filters, output_kernel_size, activations )
             ]
 
-        elif model_type_settings['model_version'] == "15" and self.di:
+        elif model_type_settings['model_version'] == "15" and self.dfi:
             #Upscaling convlution layer at the middle 
             _upscale_target = [100,140]
             _input_dims = [18, 18]

@@ -122,7 +122,7 @@ def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoc
             print(df_training_info[['Epoch','Val_loss_MSE']] )
         else:
             print(df_training_info[['Epoch','Val_loss_MSE','Validation_metric_mse','Train_metric_mse']] )
-        df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(model_name_mkr(model_params)),
+        df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(model_name_mkr(model_params, train_params=train_params)),
                                     header=True, index=False ) #saving df of scores                      
     return df_training_info
 
@@ -333,7 +333,7 @@ def parse_arguments(s_dir=None):
 
 def save_model_settings(model_params,t_params):
     
-    f_dir = "model_params/{}".format( model_name_mkr(model_params) )
+    f_dir = "model_params/{}".format( model_name_mkr(model_params, train_params=t_params) )
 
     m_path = "model_params.json"
     
@@ -372,7 +372,7 @@ def default(obj):
 
 #endregion
 
-def model_name_mkr(model_params, mode='Generic', load_save="load" ) : #change ordering of variables ehre
+def model_name_mkr(model_params, mode='Generic', load_save="load", train_params=None ) : #change ordering of variables ehre
     if mode == "Generic":
         pass
     
@@ -412,11 +412,11 @@ def model_name_mkr(model_params, mode='Generic', load_save="load" ) : #change or
                         str(model_params['model_type_settings']['discrete_continuous']),
                         model_params['model_type_settings']['location'],model_params['model_type_settings']['model_version'] )  
     
-    if 'downscaled_input' == True:
-        model_name  =  model_name + "di{}".format( model_params['downscaled_input'])
+    if train_params['downscaled_input'] == True:
+        model_name  =  model_name + "di_{}".format( model_params['downscaled_input'])
 
         if model_params['model_type_settings']['model_version'] == "16":
-            model_name = model_name + "utm_{}".format(str( model_params['model_type_settings'].get('upscale_target_mid', [25,35]) ) )
+            model_name = model_name + "_utm_{}".format( str( model_params['model_type_settings'].get('upscale_target_mid', [25,35]) ) )
     
     if load_save == "save" and model_params['model_type_settings'].get('location_test',"London") != "London":
         model_name = model_name + model_params['model_type_settings']['location_test']
