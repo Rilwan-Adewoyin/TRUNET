@@ -196,7 +196,7 @@ class model_THST_hparameters(MParams):
         if self.di==True and model_type_settings['model_version'] in ["14","15"]:
             seq_len_for_highest_hierachy_level = 1
         elif self.di==True and model_type_settings['model_version'] in ["16"]:
-            seq_len_for_highest_hierachy_level = 3
+            seq_len_for_highest_hierachy_level = 2
         else:
             seq_len_for_highest_hierachy_level = 4   # 2
 
