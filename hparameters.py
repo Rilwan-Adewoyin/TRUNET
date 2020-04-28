@@ -231,7 +231,7 @@ class model_THST_hparameters(MParams):
         if self.di == False:
             kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )
 
-        elif self.di == True and model_type_settings['model_version'] == ["13","131"]:
+        elif self.di == True and model_type_settings['model_version'] in ["13","131"]:
             kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )
         
         elif self.di == True and model_type_settings['model_version'] == "14":
@@ -359,7 +359,7 @@ class model_THST_hparameters(MParams):
         elif self.di == True and model_type_settings['model_version'] == "15":
             kernel_size_dec         = [ (4,4) ] * ( decoder_layer_count )      
         
-        elif self.di == True and model_type_settings['model_version'] == ["16","161"]:
+        elif self.di == True and model_type_settings['model_version'] in ["16","161"]:
             kernel_size_dec         = [ (3,3) ] * ( decoder_layer_count )                                           
         
             #Each decoder layer sends in values into the layer below. 
