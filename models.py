@@ -77,7 +77,7 @@ class THST(tf.keras.Model):
         if model_params['model_type_settings']['location'] not in ["wholeregion"]:
             h_w_enc = h_w_dec = model_params['region_grid_params']['outer_box_dims']
         
-        elif self.di and model_params['model_type_settings']['model_version'] in ["13"]:
+        elif self.di and model_params['model_type_settings']['model_version'] in ["13","131"]:
             h_w_enc = h_w_dec = [ 18, 18 ]
         
         elif self.di and model_params['model_type_settings']['model_version'] in ["14"]:
@@ -87,7 +87,7 @@ class THST(tf.keras.Model):
             h_w_enc = [18,18]
             h_w_dec = [100,140]
         
-        elif self.di and model_params['model_type_settings']['model_version'] in ["16"]:
+        elif self.di and model_params['model_type_settings']['model_version'] in ["16","161"]:
             h_w_enc = [18,18]
             h_w_dec = model_params['model_type_settings'].get('upscale_target_mid', [25,35])
 
@@ -106,7 +106,7 @@ class THST(tf.keras.Model):
     @tf.function
     def call(self, _input, tape=None, training=False):
         
-        if self.di  and self.mv == 16 and self.mg == True:
+        if self.di  and self.mg == True:
             with tf.device("/gpu:0"):
                 hs_list_enc = self.encoder(_input, training=training)
             

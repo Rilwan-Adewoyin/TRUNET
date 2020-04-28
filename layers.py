@@ -4,6 +4,7 @@ os.environ["OMP_NUM_THREADS"] = "1"
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+
 try:
 	import tensorflow_addons as tfa
 except:
@@ -651,8 +652,12 @@ class THST_Encoder(tf.keras.layers.Layer):
 
 		if self.di == True and self.mv == 15:
 			self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
-		elif self.di == True and self.mv == 16:
+		elif self.di == True and self.mv == 16 :
 			self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params[0] ) )
+		elif self.di == True and self.mv == 161 :
+			self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params[0] )   )
+			self.t_dim = h_w
+
 				
 	def call(self, _input, training=True):
 		"""
@@ -685,10 +690,12 @@ class THST_Encoder(tf.keras.layers.Layer):
 		if self.di==True and self.mv == 16:
 			hidden_states = self.conv_upscale( hidden_states )
 		
-
+		if self.di==True and self.mv == 161:
+			hidden_states = tf.image.resize( hidden_states, self.t_dim , method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
+			hidden_states = self.conv_upscale( hidden_states )
+		
 		return hidden_states
 		
-
 class THST_OutputLayer(tf.keras.layers.Layer):
 	def __init__(self, train_params,layer_params, model_type_settings, dropout_rate, di, conv_upscale_params=None):
 		"""
@@ -717,9 +724,12 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			
 			if self.di ==True and self.mv == 13 :
 				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
-			
+			if self.di ==True and self.mv == 131 :
+				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params ) )
 			if self.di ==True and self.mv == 16 :
 				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params[1] ) )
+			if self.di ==True and self.mv == 161 :
+				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params ) )				
 			
 			self.float32_custom_relu = OutputReluFloat32(train_params) 
 		
@@ -738,11 +748,19 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 
 			if self.di ==True and self.mv == 13 :
 				self.conv_upscale_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
-				self.conv_upscale_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) ) 
+				self.conv_upscale_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
+
+			elif self.di ==True and self.mv == 131 :
+				self.conv_upscale_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params ) )
+				self.conv_upscale_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params ) )
 
 			elif self.di ==True and self.mv == 16 :
 				self.conv_upscale_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params[1] ) )
-				self.conv_upscale_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params[1] ) ) 
+				self.conv_upscale_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params[1] ) )
+			
+			elif self.di ==True and self.mv == 161 :
+				self.conv_upscale_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params[1] ) )
+				self.conv_upscale_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params[1] ) ) 
 
 
 			self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
@@ -761,12 +779,21 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 		if self.dc == False:
 			
 			if self.di ==True and self.mv == 13 :
-				_inputs = self.conv_upscale( self.do1( _inputs, training=training), training=training )
-			
-			if self.di ==True and self.mv == 16 :
-				_inputs = self.conv_upscale( self.do1( _inputs, training=training), training=training )
+				_inputs = self.conv_upscale( _inputs, training=training )
 
-			_inputs = self.conv_hidden( self.do0(_inputs,training=training),training=training )
+			if self.di ==True and self.mv == 131 :
+				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
+				_inputs = self.conv_upscale( _inputs, training=training)
+
+
+			if self.di ==True and self.mv == 16 :
+				_inputs = self.conv_upscale( _inputs, training=training)
+			
+			if self.di ==True and self.mv == 161 :
+				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
+				_inputs = self.conv_upscale( _inputs, training=training)
+
+			_inputs = self.conv_hidden( self.do1(_inputs,training=training),training=training )
            
 			outp = self.conv_output( _inputs, training=training ) #shape (bs, height, width)
 			outp = self.float32_custom_relu(outp)   
@@ -776,8 +803,18 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			if self.di == True and self.mv== 13:
 				x_val = self.conv_upscale_val( _inputs, training=training )
 				x_prob = self.conv_upscale_prob( _inputs, training=training )
-			
+
+			if self.di == True and self.mv== 131:
+				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
+				x_val = self.conv_upscale_val( _inputs, training=training )
+				x_prob = self.conv_upscale_prob( _inputs, training=training )				
+
 			if self.di == True and self.mv== 16:
+				x_val = self.conv_upscale_val( _inputs, training=training )
+				x_prob = self.conv_upscale_prob( _inputs, training=training )
+			
+			if self.di == True and self.mv==161:
+				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
 				x_val = self.conv_upscale_val( _inputs, training=training )
 				x_prob = self.conv_upscale_prob( _inputs, training=training )
 
@@ -796,8 +833,6 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			outp = tf.stack([outp_val, outp_prob],axis=0)
 
 		return outp
-
-
 
 class THST_Decoder(tf.keras.layers.Layer):
 	def __init__(self, train_params ,decoder_params, h_w):
@@ -831,8 +866,6 @@ class THST_Decoder(tf.keras.layers.Layer):
 			dec_hs_outp =  self.CGRU_2cell_layers[-idx]( li_hs[ self.layer_count-idx], dec_hs_outp, training )
 
 		return dec_hs_outp
-
-
 
 class THST_CGRU_Input_Layer(tf.keras.layers.Layer):
 	"""
@@ -918,8 +951,6 @@ class THST_CGRU_Decoder_Layer(tf.keras.layers.Layer):
 		input1.set_shape(self.shape1)
 		input2.set_shape(self.shape2)
 		input2 = tf.keras.backend.repeat_elements( input2, self.input_2_factor_increase, axis=1) #(bs, seq_len1, h,w,c2)
-
-		#tf.debugging.assert_equal(tf.shape(input1),tf.shape(input2), message="Decoder Input1, and Input2 not the same size")
 		
 		inputs = tf.concat( [input1, input2], axis=-1 ) #NOTE: At this point both input1 and input2, must be the same shape
 		hidden_states_f, hidden_states_b = self.convGRU( inputs, training=training )

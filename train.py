@@ -259,7 +259,7 @@ def train_loop(train_params, model_params):
         
         cache_suffix = '_{}_{}'.format( model_params['model_name'] ,str(model_params['model_type_settings']['location'] ).strip('[]') )
         
-        if train_params.get( 'downscaled_input', False) and model_params['model_type_settings']['model_version'] == "16":
+        if train_params.get( 'downscaled_input', False) and model_params['model_type_settings']['model_version'] in ["16","161"]:
             cache_suffix = cache_suffix+"_utm_{}".format( str( model_params['model_type_settings'].get('upscale_target_mid', [25,35]) ) )
 
         ds_train = ds_train.cache('data_cache/ds_train_cache'+cache_suffix ) 

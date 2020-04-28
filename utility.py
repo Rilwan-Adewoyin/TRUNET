@@ -415,7 +415,7 @@ def model_name_mkr(model_params, mode='Generic', load_save="load", train_params=
     if train_params['downscaled_input'] == True:
         model_name  =  model_name + "di_{}".format( train_params['downscaled_input'])
 
-        if model_params['model_type_settings']['model_version'] == "16":
+        if model_params['model_type_settings']['model_version'] in ["16","161"]:
             model_name = model_name + "_utm_{}".format( str( model_params['model_type_settings'].get('upscale_target_mid', [25,35]) ) )
     
     if load_save == "save" and model_params['model_type_settings'].get('location_test',"London") != "London":
