@@ -462,7 +462,7 @@ class model_THST_hparameters(MParams):
             li_conv_upscale_params = []
 
             #Upscaling convlution layer before the decoder
-            _upscale_target_0 = [25,35]
+            _upscale_target_0 = model_type_settings.get('upscale_target_mid', [25,35] ) 
             _input_dims_0 = [18, 18]
             mult_0, rem = np.divmod( _upscale_target_0, _input_dims_0 )
             _strides_0 = mult_0.tolist() #( np.floor_divide(_upscale_target_0,_input_dims_0).astype( np.int32) ).tolist()  #( np.ceil( np.array(_upscale_target)/np.array(_input_dims)).astype(np.int32)  ).tolist()

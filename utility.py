@@ -414,9 +414,13 @@ def model_name_mkr(model_params, mode='Generic', load_save="load" ) : #change or
     
     if 'downscaled_input' == True:
         model_name  =  model_name + "di{}".format( model_params['downscaled_input'])
+
+        if model_params['model_type_settings']['model_version'] == "16":
+            model_name = model_name + "utm_{}".format(str( model_params['model_type_settings'].get('upscale_target_mid', [25,35]) ) )
     
     if load_save == "save" and model_params['model_type_settings'].get('location_test',"London") != "London":
         model_name = model_name + model_params['model_type_settings']['location_test']
+
 
     model_name = re.sub("[ '\(\[\)\]]|ListWrapper",'',model_name )
 
