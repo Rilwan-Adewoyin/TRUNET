@@ -555,7 +555,7 @@ class model_THST_hparameters(MParams):
         self.params.update( {
             'model_name':"THST",
             'model_type_settings':model_type_settings,
-
+    
             'encoder_params':ENCODER_PARAMS,
             'decoder_params':DECODER_PARAMS,
             'output_layer_params':OUTPUT_LAYER_PARAMS,
