@@ -685,15 +685,15 @@ class THST_Encoder(tf.keras.layers.Layer):
 		hidden_state =  self.CGRU_Input_Layer( _input, training ) #(bs, seq_len_1, h, w, c1)
 		hidden_state = self.CGRU_Attn_layers[0]( hidden_state, training=training)
 
-		if self.di==True and self.mv == 161:
-			orig_shape = tf.shape(hidden_state)
-			new_shape = tf.concat( [ [-1],orig_shape[2:] ], 0 )
-			hidden_state = tf.reshape(hidden_state, new_shape )
-			hidden_state = tf.image.resize( hidden_state, self.t_dim , method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
-			hidden_state = tf.reshape(hidden_state, tf.concat( [orig_shape[:2], tf.concat( [self.t_dim, [-1]],axis=0) ] , axis=0) )
-			hidden_state = self.CGRU_Upscaling_layers[0]( hidden_state )
-
 		hidden_states = hidden_state
+
+		if self.di==True and self.mv == 161:
+			orig_shape = tf.shape(hidden_states)
+			new_shape = tf.concat( [ [-1],orig_shape[2:] ], 0 )
+			hidden_states = tf.reshape(hidden_states, new_shape )
+			hidden_states = tf.image.resize( hidden_states, self.t_dim , method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
+			hidden_states = tf.reshape(hidden_states, tf.concat( [orig_shape[:2], tf.concat( [self.t_dim, [-1]],axis=0) ] , axis=0) )
+			hidden_states = self.CGRU_Upscaling_layers[0]( hidden_states )
 		
 		for idx in range(1, self.encoder_params['attn_layers_count']):
 			hidden_state = self.CGRU_Attn_layers[idx]( hidden_state, training=training)
