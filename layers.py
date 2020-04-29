@@ -749,7 +749,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 
 			if(model_type_settings['deformable_conv'] ==False):
 				self.conv_hidden = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
-				self.conv_hidden1 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) ) #r2-v3
+				#self.conv_hidden1 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) ) #r2-v3
 				self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
 			
 			elif( model_type_settings['deformable_conv'] ==True ):
@@ -763,6 +763,8 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params ) )
 			if self.di ==True and self.mv == 16 :
 				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params[1] ) )
+			if self.di ==True and self.mv == 161 :
+				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params[1] ) )	
 			if self.di ==True and self.mv == 161 :
 				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params[1] ) )				
 			
@@ -837,7 +839,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				_inputs = self.conv_upscale( _inputs, training=training)
 
 			_inputs1 = self.conv_hidden( self.do0(_inputs,training=training),training=training ) 
-			_inputs = self.conv_hidden1( self.do1(_inputs+_inputs1,training=training),training=training )#r2-v3
+			#_inputs = self.conv_hidden1( self.do1(_inputs+_inputs1,training=training),training=training )#r2-v3
            
 			outp = self.conv_output( _inputs, training=training ) #shape (bs, height, width)
 			outp = self.float32_custom_relu(outp)   
