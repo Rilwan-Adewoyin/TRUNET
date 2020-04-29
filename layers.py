@@ -847,7 +847,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				_inputs = self.conv_adjust2( _inputs, training=training)
 				_inputs = tf.nn.depth_to_space( _inputs, 2 )
 
-				_inputs = tf.reshape( _inputs, tf.concat([orig_shape[:2],[100,140, -1] ] )  )
+				_inputs = tf.reshape( _inputs, tf.concat([orig_shape[:2],[100,140, -1] ], axis=0 )  )
 				
 			if self.di ==True and self.mv == 16 :
 				_inputs = self.conv_upscale( _inputs, training=training)
