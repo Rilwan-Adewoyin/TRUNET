@@ -768,6 +768,9 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			if self.di ==True and self.mv == 161 :
 				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params[1] ) )				
 			
+			# if self.di ==True and self.mv == 20:
+			# 	self.conv_upscale = layers.Stacked_Upscale()
+
 			self.float32_custom_relu = OutputReluFloat32(train_params) 
 		
 		else:
@@ -840,10 +843,14 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 
 			_inputs1 = self.conv_hidden( self.do0(_inputs,training=training),training=training ) 
 			#_inputs = self.conv_hidden1( self.do1(_inputs+_inputs1,training=training),training=training )#r2-v3
-           
-			outp = self.conv_output( _inputs, training=training ) #shape (bs, height, width)
+			outp = self.conv_output( _inputs1, training=training ) #shape (bs, height, width)
 			outp = self.float32_custom_relu(outp)   
-		
+
+			# if self.di ==True and self.mv == 20: 
+			# 	upscale_input = tf.concat( [ outp, _inputs ], axis=-1 )
+			# 	outp_upscaled = self.conv_upscale( upscale_input ) # [bs, seq_len, 100, 140, 1]
+			# 	return tf.tuple( [outp, outp_upscaled] )
+
 		else:
 			
 			if self.di == True and self.mv== 13:
@@ -1160,6 +1167,12 @@ class SpatialConcreteDropout(tf.keras.layers.Wrapper):
 		regularizer = K.sum(kernel_regularizer + dropout_regularizer)
 		self.layer.add_loss(regularizer)
 		return True
+
+# class Stacked_Upscale(tf.keras.layers.Layer):
+# 	def __init__(self, train_params,model_type_settings):
+# 		self.trainable = train_params['trainable']
+# 		self.mv = int(model_type_settings['model_version'])
+
 
 # endregion
 
