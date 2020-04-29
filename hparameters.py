@@ -220,7 +220,7 @@ class model_THST_hparameters(MParams):
 
         # region CLSTM params
         if self.di == True:
-            _filter = 32
+            _filter = 48
 
         elif DROPOUT != 0.0 and self.stoc==True :
             _filter = 72

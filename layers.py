@@ -1193,34 +1193,56 @@ class Stacked_Upscale(tf.keras.layers.Layer):
 		self.mv = int(model_type_settings['model_version'])
 		self.sublayer_count = 8
 
-		self.conv0 = self.conv0 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( filters= 48, kernel_size=[3,3], padding='same', activation=None) )
+		self.conv0 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( filters= 32, kernel_size=[3,3], padding='same', activation=None) )
 		self.blocks = [ Block(train_params, model_type_settings) for idx in range(self.sublayer_count) ]
-		self.subpixel_shuffles = [ ]
+		
+		self.conv_adjust1 =  tf.keras.layers.Conv2D( filters=(32*3) , kernel_size=[3,3], padding='same', activation=None ) 
+		self.conv_adjust2 =  tf.keras.layers.Conv2D( filters=(32*3) , kernel_size=[3,3], padding='same', activation=None )  
+
+		self.conv_final = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( filters= 32, kernel_size=[3,3], padding='same', activation=None) )
 
 
 	def call(self, _input, training=True ):
 		
+		x = self.conv0( _input )
+
 		for idx in range(self.sublayer_count):
 			x = self.blocks[idx]( x )
 
+		# Upsample Part
+		orig_shape = tf.shape(_input)
+		new_shape = tf.concat( [ [-1], orig_shape[2:] ], 0 )
+		x = tf.reshape(x, new_shape )
+
+		_inputs = tf.image.resize( x, [25,35], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR ) #(bs*seq_len, h, w, c)
+		#_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[25,35, orig_shape[4]]],axis=0 )  )
+
+		_inputs = self.conv_adjust1( _inputs, training=training)
+		_inputs = tf.nn.depth_to_space( _inputs, 2 )
+
+		_inputs = self.conv_adjust2( _inputs, training=training)
+		_inputs = tf.nn.depth_to_space( _inputs, 2 )
+		
+		x = self.conv_final( x )
+
+		return x
 
 class Block(tf.keras.layers.Layer):
 	def __init__(self, train_params,model_type_settings):
+
 		self.trainable = train_params['trainable']
 		self.mv = int(model_type_settings['model_version'])
-
-		#normal
+			#normal
 		
-
 		#Residual Block
 		self.res_conv0 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( filters= 48, kernel_size=[3,3], padding='same', activation='relu') )
 		self.res_conv1 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( filters= 48, kernel_size=[3,3], padding='same', activation=None) )
 
+
 	def call (self, _input, training):
 
-
-		x_res = self.conv0(_input)
-		x_res = self.conv1(x_res)
+		x_res = self.res_conv0(_input)
+		x_res = self.res_conv1(x_res)
 		x_res = x_res*0.1
 
 		return x_res
