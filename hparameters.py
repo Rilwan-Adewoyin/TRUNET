@@ -219,7 +219,10 @@ class model_THST_hparameters(MParams):
         enc_layer_count        = len( SEQ_LEN_FACTOR_REDUCTION ) + 1
 
         # region CLSTM params
-        if DROPOUT != 0.0 and self.stoc==True :
+        if self.di == True:
+            _filter = 36
+
+        elif DROPOUT != 0.0 and self.stoc==True :
             _filter = 72
         else:
             _filter = 72
@@ -241,7 +244,7 @@ class model_THST_hparameters(MParams):
             kernel_size_enc         = [ (2,2) ] * ( enc_layer_count )      
         
         elif self.di == True and model_type_settings['model_version'] in ["16","161"]:
-            kernel_size_enc         = [ (2,2) ] * ( enc_layer_count )                
+            kernel_size_enc         = [ (3,3) ] * ( enc_layer_count )                
 
         recurrent_regularizers = [ None ] * (enc_layer_count) 
         kernel_regularizers    = [ None ] * (enc_layer_count)
@@ -262,20 +265,20 @@ class model_THST_hparameters(MParams):
             val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 ) for idx in range(attn_layers_count)  ]
                                     
             if kq_downscale_stride == [1,8,8]:
-                key_depth = [72]*attn_layers_count
+                key_depth = [_filter]*attn_layers_count
                 #key_depth = [320]*attn_layers_count
             elif kq_downscale_stride == [1,4,4]:
                 #key_depth = [128]*attn_layers_count
-                key_depth = [72]*attn_layers_count
+                key_depth = [_filter]*attn_layers_count
 
         #elif 'downscale_input_factor' in kwargs:
-        elif self.di == True and model_type_settings['model_version'] in ["13","15","16","131","161"]:
+        elif self.di == True and model_type_settings['model_version'] in ["13","15","16","131","161","20"]:
             _dims = [18 , 18 ]
             kq_downscale_stride = [1, _dims[0]//4, _dims[1]//4 ]
             kq_downscale_kernelshape = kq_downscale_stride
 
             val_depth = [ int( np.prod(_dims )*output_filters_enc[idx]*2) for idx in range(attn_layers_count)  ]
-            key_depth = [72]*attn_layers_count
+            key_depth = [_filter]*attn_layers_count
         
         elif self.di == True and model_type_settings['model_version'] in ["14"]:
             _dims = [100 , 140 ]
@@ -283,14 +286,14 @@ class model_THST_hparameters(MParams):
             kq_downscale_kernelshape = kq_downscale_stride
 
             val_depth = [ int( np.prod(_dims )*output_filters_enc[idx]*2) for idx in range(attn_layers_count)  ]
-            key_depth = [72]*attn_layers_count 
+            key_depth = [_filter]*attn_layers_count 
                   
         else:
             kq_downscale_stride = [1, 13, 13]
             kq_downscale_kernelshape = [1, 13, 13]
 
             #This keeps the hidden representations equal in size to the incoming tensors
-            key_depth = [ 72 ]*attn_layers_count
+            key_depth = [ _filter ]*attn_layers_count
             val_depth = [ int(100*140*output_filters_enc[idx]*2) for idx in range(attn_layers_count)  ]
                 
             #The keydepth for any given layer will be equal to (h*w*c/avg_pool_strideh*avg_pool_stridew)
@@ -425,7 +428,7 @@ class model_THST_hparameters(MParams):
             #Note: Stride larger than filter size may lead to middle areas being assigned a zero value
             self.params.update( { 'conv_upscale_params': conv_upscale_params } )
 
-            output_filters = [  int(  8*(((output_filters_dec[-1]*2)/4)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
+            output_filters = [  int( _filter/4 ), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
             output_kernel_size = [ (3,3), (3,3) ] 
             activations = ['relu','linear']
 
