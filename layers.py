@@ -653,9 +653,15 @@ class THST_Encoder(tf.keras.layers.Layer):
 		if self.di == True and self.mv == 15:
 			self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
 		elif self.di == True and self.mv == 16 :
-			self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params[0] ) )
+			for idx in range( encoder_params['attn_layers_count'] ):
+				_layer = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params[0] ) )
+				self.CGRU_Upscaling_layers.append( _layer )
+			#self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params[0] ) )
 		elif self.di == True and self.mv == 161 :
-			self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params[0] )   )
+			for idx in range( encoder_params['attn_layers_count'] ):
+				_layer = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params[0] ) )
+				self.CGRU_Upscaling_layers.append( _layer )			
+			#self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params[0] )   )
 			self.t_dim = h_w_dec
 
 				
@@ -683,24 +689,34 @@ class THST_Encoder(tf.keras.layers.Layer):
 		
 		for idx in range(1, self.encoder_params['attn_layers_count']):
 			hidden_state = self.CGRU_Attn_layers[idx]( hidden_state, training=training)
+			if self.di==True and self.mv == 16:
+				hidden_state = self.CGRU_Upscaling_layers[idx]( hidden_state )
+			if self.di==True and self.mv == 161:
+				orig_shape = tf.shape(hidden_state)
+				new_shape = tf.concat( [ [-1],orig_shape[2:] ], 0 )
+				hidden_state = tf.reshape(hidden_state, new_shape )
+				hidden_state = tf.image.resize( hidden_state, self.t_dim , method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
+				hidden_state = tf.reshape(hidden_state, tf.concat( [orig_shape[:2], tf.concat( [self.t_dim, [-1]],axis=0) ] , axis=0) )
+				hidden_state = self.CGRU_Upscaling_layers[idx]( hidden_state )
+
 			hidden_states = tf.concat( [ hidden_states, hidden_state ], axis=1 )
 			
 		if self.di==True and self.mv == 15:
 			hidden_states = self.conv_upscale( hidden_states )
 		
-		if self.di==True and self.mv == 16:
-			hidden_states = self.conv_upscale( hidden_states )
+		# if self.di==True and self.mv == 16:
+		# 	hidden_states = self.conv_upscale( hidden_states )
 		
-		if self.di==True and self.mv == 161:
-			#Join first two dimensions together, then unjoin them
-			orig_shape = tf.shape(hidden_states)
-			new_shape = tf.concat( [ [-1],orig_shape[2:] ], 0 )
+		# if self.di==True and self.mv == 161:
+		# 	#Join first two dimensions together, then unjoin them
+		# 	orig_shape = tf.shape(hidden_states)
+		# 	new_shape = tf.concat( [ [-1],orig_shape[2:] ], 0 )
 
-			hidden_states = tf.reshape(hidden_states, new_shape )
-			hidden_states = tf.image.resize( hidden_states, self.t_dim , method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
-			hidden_states = tf.reshape(hidden_states, tf.concat( [orig_shape[:2], tf.concat( [self.t_dim, [-1]],axis=0) ] , axis=0) )
+		# 	hidden_states = tf.reshape(hidden_states, new_shape )
+		# 	hidden_states = tf.image.resize( hidden_states, self.t_dim , method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
+		# 	hidden_states = tf.reshape(hidden_states, tf.concat( [orig_shape[:2], tf.concat( [self.t_dim, [-1]],axis=0) ] , axis=0) )
 			
-			hidden_states = self.conv_upscale( hidden_states )
+		# 	hidden_states = self.conv_upscale( hidden_states )
 		
 		return hidden_states
 		
@@ -1132,7 +1148,6 @@ class SpatialConcreteDropout(tf.keras.layers.Wrapper):
 		regularizer = K.sum(kernel_regularizer + dropout_regularizer)
 		self.layer.add_loss(regularizer)
 		return True
-
 
 # endregion
 
