@@ -670,12 +670,9 @@ def train_loop(train_params, model_params):
                                 # get classification labels & predictions, true/1 means it has rained
                             labels_true = tf.where( target_filtrd > model_params['model_type_settings']['precip_threshold'], 1.0, 0.0 )
                             labels_pred = probs_filtrd 
-                                # tf.where( preds_filtrd>model_params['model_type_settings']['precip_threshold'], 1.0, 0.0)
-                                # alpha = 1000
+
                             labels_pred_cont_approx = probs_filtrd 
-                                # tf.math.sigmoid( alpha*preds_filtrd - alpha/2 )
-                                # Label calculation allowing back-prop 
-                                # Note in tf.float32 tf.math.sigmoid(16.7)==1 and  
+
 
                             rain_count = tf.math.count_nonzero( labels_true, dtype=tf.float32 )
                             all_count = tf.size( target_filtrd, out_type=tf.float32 )
@@ -692,26 +689,18 @@ def train_loop(train_params, model_params):
                             target_cond_no_rain = tf.boolean_mask( target_filtrd, tf.math.logical_not(bool_cond_rain) )
 
                             if model_params['model_type_settings']['distr_type'] == 'Normal': #These two below handle dc cases of normal and log_normal
-                                #metric_mse = tf.keras.metrics.MSE(target_filtrd, preds_filtrd)
-                                #train_mse_cond_rain = (rain_count/all_count) * tf.keras.metrics.MSE(target_cond_rain, preds_cond_rain_mean)
+
                                 metric_mse = tf.keras.metrics.MSE(target_filtrd, custom_losses.combine_pp(preds_filtrd,probs_filtrd) )
                                 train_mse_cond_rain = (rain_count/all_count) * tf.keras.metrics.MSE(target_cond_rain, custom_losses.combine_pp(preds_cond_rain_mean,probs_cond_rain) )
                                 
-                                #metric_mse = (rain_count/all_count)*tf.keras.losses.MSE(target_cond_rain, preds_cond_rain_mean)
-                                #loss_mse =  rain_count/all_count)*tf.keras.losses.MSE(target_cond_rain, preds_cond_rain_mean)
                                 _l1 =  (rain_count/all_count) * tf.keras.metrics.MSE(target_cond_rain, preds_cond_rain_mean)
                                 loss_mse = _l1
 
                             elif model_params['model_type_settings']['distr_type'] == 'LogNormal':
 
-                                #metric_mse = (rain_count/all_count) * tf.keras.metrics.MSE(target_cond_rain, preds_cond_rain_mean)
-                                #metric_mse += (1 - rain_count/all_count) *  tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
-                                #metric_mse = tf.keras.metrics.MSE(target_filtrd, preds_filtrd)
-                                #train_mse_cond_rain = (rain_count/all_count) * tf.keras.metrics.MSE(target_cond_rain, preds_cond_rain_mean)
                                 metric_mse = tf.keras.metrics.MSE(target_filtrd, custom_losses.combine_pp(preds_filtrd,probs_filtrd) )
                                 train_mse_cond_rain = (rain_count/all_count) * tf.keras.metrics.MSE(target_cond_rain, custom_losses.combine_pp(preds_cond_rain_mean,probs_cond_rain) )
 
-                                #_l1 = (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, preds_cond_rain_mean) #loss1 conditional on rain
                                 _l1 = tf.reduce_sum( tf.math.squared_difference( tf.math.log(target_cond_rain+1), tf.math.log(preds_cond_rain_mean+1) ) ) / all_count                           
                                     
                                 loss_mse = _l1  
@@ -951,7 +940,7 @@ def train_loop(train_params, model_params):
                 elif model_params['model_type_settings']['stochastic'] == True:
                     raise NotImplementedError
             
-            elif model_params['model_name'] in ["SimpleConvLSTM", "SimpleConvGRU","THST"]:
+            elif model_params['model_name'] in ["SimpleConvGRU","THST"]:
                 
                 if model_params['model_type_settings']['location'] == 'region_grid' or  ( type(model_params['model_type_settings']['location'][:] ) in [ list, data_structures.ListWrapper] ):
                     if tf.reduce_any( mask[:, :, 6:10, 6:10] )==False  :
@@ -994,6 +983,12 @@ def train_loop(train_params, model_params):
                             probs = probs[:, :,  6:10, 6:10]
                             mask = mask[:, :, 6:10, 6:10]
                             target = target[:, :, 6:10, 6:10]
+
+                        elif( model_params['model_type_settings']['location']=="wholeregion"):
+                            preds   = preds[:, :, 6:-6, 6:-6]
+                            probs = probs[:, :, 6:-6, 6:-6]
+                            mask    = mask[:, :, 6:-6, 6:-6]
+                            target  = target[:, :, 6:-6, 6:-6]
     
                         preds_filtrd = tf.boolean_mask( preds, mask )
                         probs_filtrd = tf.boolean_mask( probs, mask)

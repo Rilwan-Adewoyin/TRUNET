@@ -723,6 +723,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 
 			if(model_type_settings['deformable_conv'] ==False):
 				self.conv_hidden = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
+				self.conv_hidden1 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) ) #r2-v3
 				self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
 			
 			elif( model_type_settings['deformable_conv'] ==True ):
@@ -809,7 +810,8 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[100,140, orig_shape[4]]],axis=0) )
 				_inputs = self.conv_upscale( _inputs, training=training)
 
-			_inputs = self.conv_hidden( self.do1(_inputs,training=training),training=training )
+			_inputs1 = self.conv_hidden( self.do(_inputs,training=training),training=training ) 
+			_inputs = self.conv_hidden1( self.do1(_inputs+_inputs1,training=training),training=training )#r2-v3
            
 			outp = self.conv_output( _inputs, training=training ) #shape (bs, height, width)
 			outp = self.float32_custom_relu(outp)   
