@@ -841,10 +841,10 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				_inputs = tf.image.resize( _inputs, [25,35], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR ) #(bs*seq_len, h, w, c)
 				#_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[25,35, orig_shape[4]]],axis=0 )  )
 
-				_inputs = self.self.conv_adjust1( _inputs, training=training)
+				_inputs = self.conv_adjust1( _inputs, training=training)
 				_inputs = tf.nn.depth_to_space( _inputs, 2 )
 
-				_inputs = self.self.conv_adjust2( _inputs, training=training)
+				_inputs = self.conv_adjust2( _inputs, training=training)
 				_inputs = tf.nn.depth_to_space( _inputs, 2 )
 
 				_inputs = tf.reshape( _inputs, tf.concat([orig_shape[:2],[100,140, -1] ] )  )
