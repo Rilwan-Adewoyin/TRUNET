@@ -768,8 +768,8 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			if self.di ==True and self.mv == 161 :
 				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params[1] ) )				
 			
-			# if self.di ==True and self.mv == 20:
-			# 	self.conv_upscale = layers.Stacked_Upscale()
+			if self.di ==True and self.mv == 20:
+				self.conv_upscale = layers.Stacked_Upscale(train_params, model_type_settings)
 
 			self.float32_custom_relu = OutputReluFloat32(train_params) 
 		
@@ -826,7 +826,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				new_shape = tf.concat( [ [-1], orig_shape[2:] ], 0 )
 				_inputs = tf.reshape(_inputs, new_shape )
 
-				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
+				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.BILINEAR )
 				_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[100,140, orig_shape[4]]],axis=0 )  )
 				_inputs = self.conv_upscale( _inputs, training=training)
 				
@@ -846,10 +846,10 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			outp = self.conv_output( _inputs1, training=training ) #shape (bs, height, width)
 			outp = self.float32_custom_relu(outp)   
 
-			# if self.di ==True and self.mv == 20: 
-			# 	upscale_input = tf.concat( [ outp, _inputs ], axis=-1 )
-			# 	outp_upscaled = self.conv_upscale( upscale_input ) # [bs, seq_len, 100, 140, 1]
-			# 	return tf.tuple( [outp, outp_upscaled] )
+			if self.di ==True and self.mv == 20: 
+				upscale_input = tf.concat( [ outp, _inputs ], axis=-1 )
+				outp_upscaled = self.conv_upscale( upscale_input ) # [bs, seq_len, 100, 140, 1]
+				return tf.tuple( [outp, outp_upscaled] )
 
 		else:
 			
@@ -1168,10 +1168,18 @@ class SpatialConcreteDropout(tf.keras.layers.Wrapper):
 		self.layer.add_loss(regularizer)
 		return True
 
-# class Stacked_Upscale(tf.keras.layers.Layer):
-# 	def __init__(self, train_params,model_type_settings):
-# 		self.trainable = train_params['trainable']
-# 		self.mv = int(model_type_settings['model_version'])
+class Stacked_Upscale(tf.keras.layers.Layer):
+	def __init__(self, train_params,model_type_settings):
+		self.trainable = train_params['trainable']
+		self.mv = int(model_type_settings['model_version'])
+		self.sublayer_count = 5
+
+
+		for idx in range(self.sublayer_count):
+			pass
+
+	def call(self, _input, training=True ):
+		pass
 
 
 # endregion

@@ -621,7 +621,7 @@ def train_loop(train_params, model_params):
                                 target = target[:, :, 6:-6, 6:-6]
                                 
                                 rand_region_mask = tf.reshape( tf.random.shuffle( tf.range(start=1/tf.size(preds),limit=100.0, delta=100/tf.size(preds) ) ), preds.shape )
-                                rand_region_mask = rand_region_mask < 0.25*100
+                                rand_region_mask = rand_region_mask < 0.35*100
                                 preds   = tf.where( rand_region_mask, preds, 0 )                                                         
                                 target  = tf.where( rand_region_mask, target, 0  )     
 
