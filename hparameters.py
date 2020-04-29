@@ -220,7 +220,7 @@ class model_THST_hparameters(MParams):
 
         # region CLSTM params
         if self.di == True:
-            _filter = 36
+            _filter = 32
 
         elif DROPOUT != 0.0 and self.stoc==True :
             _filter = 72
@@ -244,7 +244,7 @@ class model_THST_hparameters(MParams):
             kernel_size_enc         = [ (2,2) ] * ( enc_layer_count )      
         
         elif self.di == True and model_type_settings['model_version'] in ["16","161"]:
-            kernel_size_enc         = [ (3,3) ] * ( enc_layer_count )                
+            kernel_size_enc         = [ (4,4) ] * ( enc_layer_count )                
 
         recurrent_regularizers = [ None ] * (enc_layer_count) 
         kernel_regularizers    = [ None ] * (enc_layer_count)
