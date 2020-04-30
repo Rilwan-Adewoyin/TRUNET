@@ -77,7 +77,7 @@ class THST(tf.keras.Model):
         if model_params['model_type_settings']['location'] not in ["wholeregion"]:
             h_w_enc = h_w_dec = model_params['region_grid_params']['outer_box_dims']
         
-        elif self.di and model_params['model_type_settings']['model_version'] in ["13","131","20"]:
+        elif self.di and model_params['model_type_settings']['model_version'] in ["13","131","20","201"]:
             h_w_enc = h_w_dec = [ 18, 18 ]
         
         elif self.di and model_params['model_type_settings']['model_version'] in ["14"]:
