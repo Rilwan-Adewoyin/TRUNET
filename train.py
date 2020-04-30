@@ -606,15 +606,55 @@ def train_loop(train_params, model_params):
                     if( model_params['model_type_settings']['stochastic']==False):
 
                         if model_params['model_type_settings']['discrete_continuous'] == False:
+                            
+                            if train_params['downscaled_input'] == True and model_params['model_type_settings']['model_version'] == "201":
+                                x_2_output, x_3_output, x_4_output = model( tf.cast(feature, tf.float16), train_params['trainable'] ) #( bs, tar_seq_len, h, w)
+                                x_2_output = tf.squeeze( x_2_output ) #(25,35)
+                                x_3_output = tf.squeeze( x_3_output )   #(50,70)
+                                x_4_output = tf.squeeze( x_4_output )   #(100,140)
 
-                            preds = model( tf.cast(feature, tf.float16), train_params['trainable'] ) #( bs, tar_seq_len, h, w)
-                            preds = tf.squeeze( preds )
+                            else:    
+                                preds = model( tf.cast(feature, tf.float16), train_params['trainable'] ) #( bs, tar_seq_len, h, w)
+                                preds = tf.squeeze( preds )
 
                             if( model_params['model_type_settings']['location']=='region_grid' ) or ( type(model_params['model_type_settings']['location'] ) in [ list, data_structures.ListWrapper]):  #focusing on centre of square only
                                 preds = preds[:, :, 6:10, 6:10]
                                 mask = mask[:, :, 6:10, 6:10]
                                 target = target[:, :, 6:10, 6:10]
                             
+                            elif( model_params['model_type_settings']['location']=="wholeregion" and model_params['model_type_settings']['model_version'] == "201" and train_params['downscaled_input'] == True ):
+                                preds_2 = x_2_output[:, :, 2:-2, 2:-2 ]
+                                preds_3 = x_3_output[:, :, 3:-3, 3:-3]
+                                preds_4 = x_4_output[:, :, 6:-6, 6:-6]
+
+                                mask_2 = mask[:, :, ::4, ::4][:, :, 2:-2, 2:-2 ]
+                                mask_3 = mask[:, :, ::2, ::2][:, :, 3:-3, 3:-3]
+                                mask_4 = mask[:, :, : , :][:, :, 6:-6, 6:-6]
+
+                                target_2 = target[:, :, ::4, ::4][:, :, 2:-2, 2:-2 ]
+                                target_3 = target[:, :, ::2, ::2][:, :, 3:-3, 3:-3]
+                                target_4 = target[:, :, : , :][:, :, 6:-6, 6:-6]
+
+                                rand_region_mask_2 = tf.reshape( tf.random.shuffle( tf.range(start=1/tf.size(preds_2),limit=100.0, delta=100/tf.size(preds_2) ) ), preds_2.shape )
+                                rand_region_mask_3 = tf.reshape( tf.random.shuffle( tf.range(start=1/tf.size(preds_3),limit=100.0, delta=100/tf.size(preds_3) ) ), preds_3.shape )
+                                rand_region_mask_4 = tf.reshape( tf.random.shuffle( tf.range(start=1/tf.size(preds_4),limit=100.0, delta=100/tf.size(preds_4) ) ), preds_4.shape )
+
+                                rand_region_mask_2 = rand_region_mask_2 < 0.25*100
+                                rand_region_mask_3 = rand_region_mask_3 < 0.25*100
+                                rand_region_mask_3 = rand_region_mask_3 < 0.25*100
+
+                                preds_2   = tf.where( rand_region_mask_2, preds_2, 0 )      
+                                preds_3   = tf.where( rand_region_mask_3, preds_3, 0 )      
+                                preds_4   = tf.where( rand_region_mask_4, preds_4, 0 )      
+
+                                target_2  = tf.where( rand_region_mask_2, target_2, 0  )  
+                                target_3  = tf.where( rand_region_mask_3, target_2, 0  )  
+                                target_4  = tf.where( rand_region_mask_4, target_2, 0  )  
+
+                                preds = tf.concat( [ tf.reshape(preds_2, [-1] ), tf.reshape(preds_3, [-1] ), tf.reshape(preds_4, [-1] ) ], axis=0 )
+                                target = tf.concat( [ tf.reshape(target_2, [-1] ), tf.reshape(target_3, [-1] ), tf.reshape(target_4, [-1] ) ], axis=0 )
+                                mask = tf.concat( [ tf.reshape(mask_2, [-1] ), tf.reshape(mask_3, [-1] ), tf.reshape(mask_4, [-1] ) ], axis=0 )
+
                             elif( model_params['model_type_settings']['location']=="wholeregion"):
                                 preds = preds[:, :, 6:-6, 6:-6]
                                 mask = mask[:, :, 6:-6, 6:-6]
@@ -626,7 +666,7 @@ def train_loop(train_params, model_params):
                                 target  = tf.where( rand_region_mask, target, 0  )     
 
                             preds_filtrd = tf.boolean_mask( preds, mask )
-                            target_filtrd = tf.boolean_mask( target, mask )
+                            target_filtrd = tf.boolean_mask( target, mask ) 
 
                             preds_filtrd = utility.standardize_ati( preds_filtrd, train_params['normalization_shift']['rain'], train_params['normalization_scales']['rain'], reverse=True)
                         
@@ -949,9 +989,14 @@ def train_loop(train_params, model_params):
                 if model_params['model_type_settings']['stochastic'] == False:
 
                     if model_params['model_type_settings']['discrete_continuous'] == False:
-
-                        preds = model(tf.cast(feature,tf.float16), training=False )
-                        preds = tf.squeeze(preds)
+                        
+                        if model_params['model_type_settings']['model_version'] == "201" and train_params['downscaled_input'] == True :
+                            x_2_output, x_3_output, x_4_output = model( tf.cast(feature, tf.float16), training=False ) #( bs, tar_seq_len, h, w)
+                            preds = x_4_output
+                            preds = tf.squeeze(preds)
+                        else:
+                            preds = model(tf.cast(feature,tf.float16), training=False )
+                            preds = tf.squeeze(preds)
 
                         if model_params['model_type_settings']['location']=='region_grid'  or (type(model_params['model_type_settings']['location']) in [ list, data_structures.ListWrapper]) : #focusing on centre of square only
                             preds = preds[:, :, 6:10, 6:10]

@@ -234,7 +234,7 @@ class model_THST_hparameters(MParams):
         if self.di == False:
             kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )
 
-        elif self.di == True and model_type_settings['model_version'] in ["13","131","20"]:
+        elif self.di == True and model_type_settings['model_version'] in ["13","131","20","201"]:
             kernel_size_enc        = [ (3,3) ] * ( enc_layer_count )
         
         elif self.di == True and model_type_settings['model_version'] == "14":
@@ -272,7 +272,7 @@ class model_THST_hparameters(MParams):
                 key_depth = [_filter]*attn_layers_count
 
         #elif 'downscale_input_factor' in kwargs:
-        elif self.di == True and model_type_settings['model_version'] in ["13","15","16","131","161","20"]:
+        elif self.di == True and model_type_settings['model_version'] in ["13","15","16","131","161","20","201"]:
             _dims = [18 , 18 ]
             kq_downscale_stride = [1, _dims[0]//4, _dims[1]//4 ]
             kq_downscale_kernelshape = kq_downscale_stride
@@ -353,7 +353,7 @@ class model_THST_hparameters(MParams):
         if  self.di == False:
             kernel_size_dec = kernel_size_enc[ 1:1+decoder_layer_count  ]           
 
-        elif self.di == True and model_type_settings['model_version'] in ["13","131","20"]:
+        elif self.di == True and model_type_settings['model_version'] in ["13","131","20","201"]:
             kernel_size_dec         = kernel_size_enc[ 1:1+decoder_layer_count  ]   
         
         elif self.di == True and model_type_settings['model_version'] == "14":
@@ -415,7 +415,7 @@ class model_THST_hparameters(MParams):
                     for fs, ks, act in zip( output_filters, output_kernel_size, activations )
             ]
         
-        elif  model_type_settings['model_version'] in  ["131","20"]   and self.di:
+        elif  model_type_settings['model_version'] in  ["131","20","201"]   and self.di:
             #Upscaling convolution layer at the very end
 
             _upscale_target = [100,140]
