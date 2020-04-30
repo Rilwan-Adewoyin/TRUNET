@@ -1198,7 +1198,7 @@ class Stacked_Upscale(tf.keras.layers.Layer):
 		self.filters = 48
 
 		self.conv0 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( filters=self.filters, kernel_size=[3,3], padding='same', activation=None) )
-		self.blocks = [ Block(train_params, model_type_settings, filters) for idx in range(self.sublayer_count) ]
+		self.blocks = [ Block(train_params, model_type_settings, self.filters) for idx in range(self.sublayer_count) ]
 		
 		self.conv_adjust1 =  tf.keras.layers.Conv2D( filters=int(self.filters*3) , kernel_size=[3,3], padding='same', activation=None ) 
 		self.conv_adjust2 =  tf.keras.layers.Conv2D( filters=int(self.filters*3) , kernel_size=[3,3], padding='same', activation=None )  
