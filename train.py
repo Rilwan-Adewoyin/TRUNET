@@ -623,17 +623,17 @@ def train_loop(train_params, model_params):
                                 target = target[:, :, 6:10, 6:10]
                             
                             elif( model_params['model_type_settings']['location']=="wholeregion" and model_params['model_type_settings']['model_version'] == "201" and train_params['downscaled_input'] == True ):
-                                preds_2 = x_2_output[:, :, 2:-2, 2:-2 ]
-                                preds_3 = x_3_output[:, :, 3:-3, 3:-3]
+                                preds_2 = x_2_output[:, :, 2:-2, 2:-2 ] *4
+                                preds_3 = x_3_output[:, :, 3:-3, 3:-3] *2
                                 preds_4 = x_4_output[:, :, 6:-6, 6:-6]
 
                                 mask_2 = mask[:, :, ::4, ::4][:, :, 2:-2, 2:-2 ]
                                 mask_3 = mask[:, :, ::2, ::2][:, :, 3:-3, 3:-3]
                                 mask_4 = mask[:, :, : , :][:, :, 6:-6, 6:-6]
 
-                                target_2 = target[:, :, ::4, ::4][:, :, 2:-2, 2:-2 ]
-                                target_3 = target[:, :, ::2, ::2][:, :, 3:-3, 3:-3]
-                                target_4 = target[:, :, : , :][:, :, 6:-6, 6:-6]
+                                target_2 = target[:, :, ::4, ::4][:, :, 2:-2, 2:-2 ] *4
+                                target_3 = target[:, :, ::2, ::2][:, :, 3:-3, 3:-3] *2
+                                target_4 = target[:, :, : , :][:, :, 6:-6, 6:-6] 
 
                                 rand_region_mask_2 = tf.reshape( tf.random.shuffle( tf.range(start=1/tf.size(preds_2),limit=100.0, delta=100/tf.size(preds_2) ) ), preds_2.shape )
                                 rand_region_mask_3 = tf.reshape( tf.random.shuffle( tf.range(start=1/tf.size(preds_3),limit=100.0, delta=100/tf.size(preds_3) ) ), preds_3.shape )
@@ -644,8 +644,8 @@ def train_loop(train_params, model_params):
                                 rand_region_mask_4 = rand_region_mask_4 < 0.15*100
 
                                 preds_2   = tf.where( rand_region_mask_2, preds_2, 0 )      
-                                preds_3   = tf.where( rand_region_mask_3, preds_3, 0 )      
-                                preds_4   = tf.where( rand_region_mask_4, preds_4, 0 )      
+                                preds_3   = tf.where( rand_region_mask_3, preds_3, 0 )     
+                                preds_4   = tf.where( rand_region_mask_4, preds_4, 0 )  
 
                                 target_2  = tf.where( rand_region_mask_2, target_2, 0  )  
                                 target_3  = tf.where( rand_region_mask_3, target_3, 0  )  
