@@ -761,7 +761,7 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
 			if self.di ==True and self.mv == 131:				
 				#v2
-				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params ) )to 100,140
+				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params ) )	#to 100,140
 				
 				#v5 first go to 25, 35 then do convolution to add depth, then tf.nn_depth_to_channels
 				# self.conv_adjust1 =  tf.keras.layers.Conv2D( filters=(48*4) , kernel_size=[3,3], padding='same',activation='relu' ) 

@@ -195,7 +195,7 @@ class model_THST_hparameters(MParams):
         #region Key Model Size Settings
         if self.di==True and model_type_settings['model_version'] in ["14","15"]:
             seq_len_for_highest_hierachy_level = 1
-        elif self.di==True and model_type_settings['model_version'] in ["16","161","20"]:
+        elif self.di==True and model_type_settings['model_version'] in ["16","161"]:
             seq_len_for_highest_hierachy_level = 2
         else:
             seq_len_for_highest_hierachy_level = 4   # 2
