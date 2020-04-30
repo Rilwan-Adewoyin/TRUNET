@@ -931,9 +931,9 @@ class train_hparameters_ati(HParams):
 
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
         EPOCHS = 500
-        CHECKPOINTS_TO_KEEP = 3
-        CHECKPOINTS_TO_KEEP_EPOCH = 5
-        CHECKPOINTS_TO_KEEP_BATCH = 5
+        CHECKPOINTS_TO_KEEP = 10
+        CHECKPOINTS_TO_KEEP_EPOCH = 10
+        CHECKPOINTS_TO_KEEP_BATCH = 10
 
         # region ---- data information
 
