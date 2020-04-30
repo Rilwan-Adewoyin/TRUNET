@@ -1208,13 +1208,15 @@ class Stacked_Upscale(tf.keras.layers.Layer):
 
 	def call(self, _input, training=True ):
 		
-		x = self.conv0( _input )
-
+		_input = self.conv0( _input )
+		x_res = _input
 		for idx in range(self.sublayer_count):
-			x = x + self.blocks[idx]( x )
-
+			x_res = x_res + self.blocks[idx]( x_res )
+		
+		x = _input + x_res
+		
 		# Upsample Part
-		orig_shape = tf.shape(_input)
+		orig_shape = tf.shape(x)
 		new_shape = tf.concat( [ [-1], orig_shape[2:] ], 0 )
 		x = tf.reshape(x, new_shape )
 
