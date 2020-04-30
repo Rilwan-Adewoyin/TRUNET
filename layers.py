@@ -762,8 +762,8 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			if self.di ==True and self.mv == 131:				
 				#self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params ) )to 100,140
 				#first go to 25, 35 then do convolution to add depth, then tf.nn_depth_to_channels
-				self.conv_adjust1 =  tf.keras.layers.Conv2D( filters=(48*3) , kernel_size=[3,3], padding='same',activation='relu' ) 
-				self.conv_adjust2 =  tf.keras.layers.Conv2D( filters=(48*3) , kernel_size=[3,3], padding='same',activation='relu' )  
+				self.conv_adjust1 =  tf.keras.layers.Conv2D( filters=(48*4) , kernel_size=[3,3], padding='same',activation='relu' ) 
+				self.conv_adjust2 =  tf.keras.layers.Conv2D( filters=(48*4) , kernel_size=[3,3], padding='same',activation='relu' )  
 
 			if self.di ==True and self.mv == 16:
 				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params[1] ) )
@@ -1190,6 +1190,8 @@ class SpatialConcreteDropout(tf.keras.layers.Wrapper):
 
 class Stacked_Upscale(tf.keras.layers.Layer):
 	def __init__(self, train_params,model_type_settings):
+		super( Stacked_Upscale, self ).__init__()
+
 		self.trainable = train_params['trainable']
 		self.mv = int(model_type_settings['model_version'])
 		self.sublayer_count = 8
