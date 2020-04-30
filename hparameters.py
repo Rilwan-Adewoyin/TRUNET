@@ -234,8 +234,8 @@ class model_THST_hparameters(MParams):
         if self.di == False:
             kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )
 
-        elif self.di == True and model_type_settings['model_version'] in ["13","131"]:
-            kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )
+        elif self.di == True and model_type_settings['model_version'] in ["13","131","20"]:
+            kernel_size_enc        = [ (3,3) ] * ( enc_layer_count )
         
         elif self.di == True and model_type_settings['model_version'] == "14":
             kernel_size_enc         = [ (2,2) ] * ( enc_layer_count )
@@ -244,7 +244,7 @@ class model_THST_hparameters(MParams):
             kernel_size_enc         = [ (2,2) ] * ( enc_layer_count )      
         
         elif self.di == True and model_type_settings['model_version'] in ["16","161"]:
-            kernel_size_enc         = [ (4,4) ] * ( enc_layer_count )                
+            kernel_size_enc         = [ (3,3) ] * ( enc_layer_count )                
 
         recurrent_regularizers = [ None ] * (enc_layer_count) 
         kernel_regularizers    = [ None ] * (enc_layer_count)
@@ -353,7 +353,7 @@ class model_THST_hparameters(MParams):
         if  self.di == False:
             kernel_size_dec = kernel_size_enc[ 1:1+decoder_layer_count  ]           
 
-        elif self.di == True and model_type_settings['model_version'] in ["13","131"]:
+        elif self.di == True and model_type_settings['model_version'] in ["13","131","20"]:
             kernel_size_dec         = kernel_size_enc[ 1:1+decoder_layer_count  ]   
         
         elif self.di == True and model_type_settings['model_version'] == "14":
@@ -415,7 +415,7 @@ class model_THST_hparameters(MParams):
                     for fs, ks, act in zip( output_filters, output_kernel_size, activations )
             ]
         
-        elif  model_type_settings['model_version'] ==  "131"   and self.di:
+        elif  model_type_settings['model_version'] in  ["131","20"]   and self.di:
             #Upscaling convolution layer at the very end
 
             _upscale_target = [100,140]
@@ -428,7 +428,7 @@ class model_THST_hparameters(MParams):
             #Note: Stride larger than filter size may lead to middle areas being assigned a zero value
             self.params.update( { 'conv_upscale_params': conv_upscale_params } )
 
-            output_filters = [  int( _filter/4 ), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
+            output_filters = [  int( _filter/2 ), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
             output_kernel_size = [ (3,3), (3,3) ] 
             activations = ['relu','linear']
 

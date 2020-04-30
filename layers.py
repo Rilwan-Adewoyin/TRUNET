@@ -757,20 +757,19 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				self.conv_output = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
 
 			
-			if self.di ==True and self.mv == 13 :
+			if self.di ==True and self.mv == 13:
 				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
-			if self.di ==True and self.mv == 131 :				
+			if self.di ==True and self.mv == 131:				
 				#self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params ) )to 100,140
 				#first go to 25, 35 then do convolution to add depth, then tf.nn_depth_to_channels
 				self.conv_adjust1 =  tf.keras.layers.Conv2D( filters=(48*3) , kernel_size=[3,3], padding='same',activation='relu' ) 
 				self.conv_adjust2 =  tf.keras.layers.Conv2D( filters=(48*3) , kernel_size=[3,3], padding='same',activation='relu' )  
 
-			if self.di ==True and self.mv == 16 :
+			if self.di ==True and self.mv == 16:
 				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params[1] ) )
-			if self.di ==True and self.mv == 161 :
+			if self.di ==True and self.mv == 161:
 				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params[1] ) )	
-			if self.di ==True and self.mv == 161 :
-				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params[1] ) )				
+			
 			
 			if self.di ==True and self.mv == 20:
 				self.conv_upscale = Stacked_Upscale(train_params, model_type_settings)
@@ -818,10 +817,10 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 		"""
 
 		if self.dc == False:
-			if self.di ==True and self.mv == 13 :
+			if self.di == True and self.mv == 13 :
 				_inputs = self.conv_upscale( _inputs, training=training )
 
-			if self.di ==True and self.mv == 131 :
+			if self.di == True and self.mv == 131 :
 				# orig_shape = tf.shape(_inputs)
 				# new_shape = tf.concat( [ [-1], orig_shape[2:] ], 0 )
 				# _inputs = tf.reshape(_inputs, new_shape )
@@ -845,10 +844,10 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 
 				_inputs = tf.reshape( _inputs, tf.concat([orig_shape[:2],[100,140, -1] ], axis=0 )  )
 				
-			if self.di ==True and self.mv == 16 :
+			if self.di == True and self.mv == 16 :
 				_inputs = self.conv_upscale( _inputs, training=training)
 			
-			if self.di ==True and self.mv == 161 :
+			if self.di == True and self.mv == 161 :
 				orig_shape = tf.shape(_inputs)
 				new_shape = tf.concat( [ [-1],orig_shape[2:] ], 0 )
 				_inputs = tf.reshape(_inputs, new_shape )
@@ -856,15 +855,21 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[100,140, orig_shape[4]]],axis=0) )
 				_inputs = self.conv_upscale( _inputs, training=training)
 
+			if self.di ==True and self.mv == 20: 
+				#upscale_input = tf.concat( [ outp, _inputs ], axis=-1 )
+				_inputs = self.conv_upscale( _inputs ) # [bs, seq_len, 100, 140, 1]
+				outp = self.float32_custom_relu(_inputs) 
+				return outp
+
 			_inputs1 = self.conv_hidden( self.do0(_inputs,training=training),training=training ) 
 			#_inputs = self.conv_hidden1( self.do1(_inputs+_inputs1,training=training),training=training )#r2-v3
 			outp = self.conv_output( _inputs1, training=training ) #shape (bs, height, width)
 			outp = self.float32_custom_relu(outp)   
 
-			if self.di ==True and self.mv == 20: 
-				upscale_input = tf.concat( [ outp, _inputs ], axis=-1 )
-				outp_upscaled = self.conv_upscale( upscale_input ) # [bs, seq_len, 100, 140, 1]
-				return tf.tuple( [outp, outp_upscaled] )
+			# if self.di ==True and self.mv == 20: 
+			# 	upscale_input = tf.concat( [ outp, _inputs ], axis=-1 )
+			# 	outp_upscaled = self.conv_upscale( upscale_input ) # [bs, seq_len, 100, 140, 1]
+			# 	return tf.tuple( [outp, outp_upscaled] )
 
 		else:
 			
@@ -1189,13 +1194,13 @@ class Stacked_Upscale(tf.keras.layers.Layer):
 		self.mv = int(model_type_settings['model_version'])
 		self.sublayer_count = 8
 
-		self.conv0 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( filters= 48, kernel_size=[3,3], padding='same', activation=None) )
+		self.conv0 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( filters= 32, kernel_size=[3,3], padding='same', activation=None) )
 		self.blocks = [ Block(train_params, model_type_settings) for idx in range(self.sublayer_count) ]
 		
-		self.conv_adjust1 =  tf.keras.layers.Conv2D( filters=int(48*3) , kernel_size=[3,3], padding='same', activation=None ) 
-		self.conv_adjust2 =  tf.keras.layers.Conv2D( filters=int(48*3) , kernel_size=[3,3], padding='same', activation=None )  
+		self.conv_adjust1 =  tf.keras.layers.Conv2D( filters=int(32*3) , kernel_size=[3,3], padding='same', activation=None ) 
+		self.conv_adjust2 =  tf.keras.layers.Conv2D( filters=int(32*3) , kernel_size=[3,3], padding='same', activation=None )  
 
-		self.conv_final = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( filters= 48, kernel_size=[3,3], padding='same', activation=None) )
+		self.conv_final =  tf.keras.layers.Conv2D( filters= 1, kernel_size=[3,3], padding='same', activation=None)
 
 
 	def call(self, _input, training=True ):
@@ -1210,16 +1215,17 @@ class Stacked_Upscale(tf.keras.layers.Layer):
 		new_shape = tf.concat( [ [-1], orig_shape[2:] ], 0 )
 		x = tf.reshape(x, new_shape )
 
-		_inputs = tf.image.resize( x, [25,35], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR ) #(bs*seq_len, h, w, c)
+		x = tf.image.resize( x, [25,35], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR ) #(bs*seq_len, h, w, c)
 		#_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[25,35, orig_shape[4]]],axis=0 )  )
 
-		_inputs = self.conv_adjust1( _inputs, training=training)
-		_inputs = tf.nn.depth_to_space( _inputs, 2 )
+		x = self.conv_adjust1( x, training=training)
+		x = tf.nn.depth_to_space( x, 2 )
 
-		_inputs = self.conv_adjust2( _inputs, training=training)
-		_inputs = tf.nn.depth_to_space( _inputs, 2 )
+		x = self.conv_adjust2( x, training=training)
+		x = tf.nn.depth_to_space( x, 2 )
 		
 		x = self.conv_final( x )
+		x = tf.reshape( x, tf.concat([ orig_shape[:2],[100,140,1]],axis=0 ) )
 
 		return x
 
@@ -1239,7 +1245,7 @@ class Block(tf.keras.layers.Layer):
 
 		x_res = self.res_conv0(_input)
 		x_res = self.res_conv1(x_res)
-		x_res = x_res*0.125
+		x_res = x_res*0.15
 
 		return x_res
 
