@@ -420,6 +420,9 @@ def model_name_mkr(model_params, mode='Generic', load_save="load", train_params=
         
         elif model_params['model_type_settings']['model_version'] in ["20","201"]:
             model_name = model_name + "_SRCN_{}".format( str( model_params['model_type_settings'].get('ssir_layer_count', 12) ) )
+        
+        if 'activation' in model_params['model_type_settings']:
+            model_name = model_name + "_act_{}".format( str( model_params['model_type_settings'].get('activation', False) ) )
     
     if load_save == "save" and model_params['model_type_settings'].get('location_test',"London") != "London":
         model_name = model_name + model_params['model_type_settings']['location_test']

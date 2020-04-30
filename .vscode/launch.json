@@ -40,8 +40,8 @@
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
-            "args": [ "-mn","THST","-dd","Data/Rain_Data_Mar20", "-bs","2","-sdc","1" , "-do","0.0", "-ido","0.0", "-rdo","0.0", "-di","True",    
-                "-mts" ,"{'model_version':'16','mult_gpu':False,'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'wholeregion','deformable_conv':False,'twoD':True}"
+            "args": [ "-mn","THST","-dd","Data/Rain_Data_Mar20", "-bs","4","-sdc","1" , "-do","0.0", "-ido","0.0", "-rdo","0.0", "-di","True",    
+                "-mts" ,"{'model_version':'201','mult_gpu':False,'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'wholeregion','deformable_conv':False,'twoD':True}"
                 ]  
         },
         {

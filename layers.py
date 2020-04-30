@@ -1211,16 +1211,25 @@ class Stacked_Upscale(tf.keras.layers.Layer):
 		self.sublayer_count = 12
 		self.filters = 48
 		self.mult_loss = mult_loss
+		self.activation = model_type_settings.get('activation',False)
 
 		self.conv0 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( filters=self.filters, kernel_size=[3,3], padding='same', activation=None) )
 		self.blocks = [ Block(train_params, model_type_settings, self.filters) for idx in range(self.sublayer_count) ]
 		
-		self.conv_adjust1 =  tf.keras.layers.Conv2D( filters=int(self.filters*3) , kernel_size=[3,3], padding='same', activation=None ) 
-		self.conv_adjust2 =  tf.keras.layers.Conv2D( filters=int(self.filters*3) , kernel_size=[3,3], padding='same', activation=None )  
+		if self.activation == False:
+			self.conv_adjust1 =  tf.keras.layers.Conv2D( filters=int(self.filters*3) , kernel_size=[3,3], padding='same', activation=None ) 
+			self.conv_adjust2 =  tf.keras.layers.Conv2D( filters=int(self.filters*3) , kernel_size=[3,3], padding='same', activation=None )  
+		else:
+			self.conv_adjust1 =  tf.keras.layers.Conv2D( filters=int(self.filters*3) , kernel_size=[3,3], padding='same', activation='relu', bias_regularizer=tf.keras.regularizers.l2(0.2) ) 
+			self.conv_adjust2 =  tf.keras.layers.Conv2D( filters=int(self.filters*3) , kernel_size=[3,3], padding='same', activation='relu', bias_regularizer=tf.keras.regularizers.l2(0.2) )
 
 		if mult_loss == True:
-			self.conv_final1 =  tf.keras.layers.Conv2D( filters= 1, kernel_size=[3,3], padding='same', activation=None)
-			self.conv_final2 =  tf.keras.layers.Conv2D( filters= 1, kernel_size=[3,3], padding='same', activation=None)
+			if self.activation == False:
+				self.conv_final1 =  tf.keras.layers.Conv2D( filters= 1, kernel_size=[3,3], padding='same', activation=None)
+				self.conv_final2 =  tf.keras.layers.Conv2D( filters= 1, kernel_size=[3,3], padding='same', activation=None)
+			else:
+				self.conv_final1 =  tf.keras.layers.Conv2D( filters= 1, kernel_size=[3,3], padding='same', activation='relu', bias_regularizer=tf.keras.regularizers.l2(0.2) )
+				self.conv_final2 =  tf.keras.layers.Conv2D( filters= 1, kernel_size=[3,3], padding='same', activation='relu', bias_regularizer=tf.keras.regularizers.l2(0.2) )
 
 		self.conv_final3 =  tf.keras.layers.Conv2D( filters= 1, kernel_size=[3,3], padding='same', activation=None)
 
@@ -1281,7 +1290,7 @@ class Block(tf.keras.layers.Layer):
 
 		x_res = self.res_conv0(_input)
 		x_res = self.res_conv1(x_res)
-		x_res = x_res*0.15 #0.1
+		x_res = x_res*0.1
 
 		return x_res
 
