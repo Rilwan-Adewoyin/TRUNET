@@ -761,11 +761,11 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
 			if self.di ==True and self.mv == 131:				
 				#v2
-				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params ) )	#to 100,140
+				#self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params ) )	#to 100,140
 				
 				#v5 first go to 25, 35 then do convolution to add depth, then tf.nn_depth_to_channels
-				# self.conv_adjust1 =  tf.keras.layers.Conv2D( filters=(48*4) , kernel_size=[3,3], padding='same',activation='relu' ) 
-				# self.conv_adjust2 =  tf.keras.layers.Conv2D( filters=(48*4) , kernel_size=[3,3], padding='same',activation='relu' )  
+				self.conv_adjust1 =  tf.keras.layers.Conv2D( filters=(48*4) , kernel_size=[3,3], padding='same',activation='relu' ) 
+				self.conv_adjust2 =  tf.keras.layers.Conv2D( filters=(48*4) , kernel_size=[3,3], padding='same',activation='relu' )  
 
 			if self.di ==True and self.mv == 16:
 				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params[1] ) )
@@ -826,29 +826,29 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 
 			if self.di == True and self.mv == 131 :
 				#r2 - v2
-				orig_shape = tf.shape(_inputs)
-				new_shape = tf.concat( [ [-1], orig_shape[2:] ], 0 )
-				_inputs = tf.reshape(_inputs, new_shape )
-
-				_inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
-				_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[100,140, orig_shape[4]]],axis=0 )  )
-				_inputs = self.conv_upscale( _inputs, training=training)
-
-				#r2 - v5
 				# orig_shape = tf.shape(_inputs)
 				# new_shape = tf.concat( [ [-1], orig_shape[2:] ], 0 )
 				# _inputs = tf.reshape(_inputs, new_shape )
 
-				# _inputs = tf.image.resize( _inputs, [25,35], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR ) #(bs*seq_len, h, w, c)
-				# #_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[25,35, orig_shape[4]]],axis=0 )  )
+				# _inputs = tf.image.resize( _inputs, [100,140], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR )
+				# _inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[100,140, orig_shape[4]]],axis=0 )  )
+				# _inputs = self.conv_upscale( _inputs, training=training)
 
-				# _inputs = self.conv_adjust1( _inputs, training=training)
-				# _inputs = tf.nn.depth_to_space( _inputs, 2 )
+				#r2 - v5
+				orig_shape = tf.shape(_inputs)
+				new_shape = tf.concat( [ [-1], orig_shape[2:] ], 0 )
+				_inputs = tf.reshape(_inputs, new_shape )
 
-				# _inputs = self.conv_adjust2( _inputs, training=training)
-				# _inputs = tf.nn.depth_to_space( _inputs, 2 )
+				_inputs = tf.image.resize( _inputs, [25,35], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR ) #(bs*seq_len, h, w, c)
+				#_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[25,35, orig_shape[4]]],axis=0 )  )
 
-				# _inputs = tf.reshape( _inputs, tf.concat([orig_shape[:2],[100,140, -1] ], axis=0 )  )
+				_inputs = self.conv_adjust1( _inputs, training=training)
+				_inputs = tf.nn.depth_to_space( _inputs, 2 )
+
+				_inputs = self.conv_adjust2( _inputs, training=training)
+				_inputs = tf.nn.depth_to_space( _inputs, 2 )
+
+				_inputs = tf.reshape( _inputs, tf.concat([orig_shape[:2],[100,140, -1] ], axis=0 )  )
 				
 			if self.di == True and self.mv == 16 :
 				_inputs = self.conv_upscale( _inputs, training=training)

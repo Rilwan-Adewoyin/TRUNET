@@ -184,8 +184,8 @@ class model_THST_hparameters(MParams):
         
         # region learning/convergence params
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-3, "warmup_proportion":0.65,
-            "min_lr":5e-4, "beta_1":0.50 , "beta_2":0.95,
+            "learning_rate":1e-4, "warmup_proportion":0.65,
+            "min_lr":5e-5, "beta_1":0.50 , "beta_2":0.95,
             "amsgrad":True, "decay":0.007, "epsilon":0.0005 }
 
         DROPOUT = kwargs.get('dropout',0.0)
