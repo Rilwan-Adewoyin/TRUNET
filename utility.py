@@ -419,7 +419,7 @@ def model_name_mkr(model_params, mode='Generic', load_save="load", train_params=
             model_name = model_name + "_utm_{}".format( str( model_params['model_type_settings'].get('upscale_target_mid', [25,35]) ) )
         
         elif model_params['model_type_settings']['model_version'] in ["20"]:
-            model_name = model_name + "_SRCN_{}".format( str( model_params['model_type_settings'].get('ssir_layer_count', 8) ) )
+            model_name = model_name + "_SRCN_{}".format( str( model_params['model_type_settings'].get('ssir_layer_count', 12) ) )
     
     if load_save == "save" and model_params['model_type_settings'].get('location_test',"London") != "London":
         model_name = model_name + model_params['model_type_settings']['location_test']
