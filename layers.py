@@ -762,8 +762,8 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			if self.di ==True and self.mv == 131 :				
 				#self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **conv_upscale_params ) )to 100,140
 				#first go to 25, 35 then do convolution to add depth, then tf.nn_depth_to_channels
-				self.conv_adjust1 =  tf.keras.layers.Conv2D( filters=(48*3) , kernel_size=[3,3], padding='same',activation=None ) 
-				self.conv_adjust2 =  tf.keras.layers.Conv2D( filters=(48*3) , kernel_size=[3,3], padding='same',activation=None )  
+				self.conv_adjust1 =  tf.keras.layers.Conv2D( filters=(48*3) , kernel_size=[3,3], padding='same',activation='relu' ) 
+				self.conv_adjust2 =  tf.keras.layers.Conv2D( filters=(48*3) , kernel_size=[3,3], padding='same',activation='relu' )  
 
 			if self.di ==True and self.mv == 16 :
 				self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params[1] ) )
@@ -812,16 +812,12 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 			self.output_activation_val = CustomRelu_maker(train_params, dtype='float32')
 			self.output_activation_prob = tf.keras.layers.Activation('sigmoid', dtype='float32')
 
-
-	
 	def call(self, _inputs, training=True ):
 		"""
 			:param tnsr inputs: (bs, seq_len, h,w,c)
-
 		"""
 
 		if self.dc == False:
-			
 			if self.di ==True and self.mv == 13 :
 				_inputs = self.conv_upscale( _inputs, training=training )
 
@@ -1196,8 +1192,8 @@ class Stacked_Upscale(tf.keras.layers.Layer):
 		self.conv0 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( filters= 48, kernel_size=[3,3], padding='same', activation=None) )
 		self.blocks = [ Block(train_params, model_type_settings) for idx in range(self.sublayer_count) ]
 		
-		self.conv_adjust1 =  tf.keras.layers.Conv2D( filters=(32*3) , kernel_size=[3,3], padding='same', activation=None ) 
-		self.conv_adjust2 =  tf.keras.layers.Conv2D( filters=(32*3) , kernel_size=[3,3], padding='same', activation=None )  
+		self.conv_adjust1 =  tf.keras.layers.Conv2D( filters=int(48*3) , kernel_size=[3,3], padding='same', activation=None ) 
+		self.conv_adjust2 =  tf.keras.layers.Conv2D( filters=int(48*3) , kernel_size=[3,3], padding='same', activation=None )  
 
 		self.conv_final = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( filters= 48, kernel_size=[3,3], padding='same', activation=None) )
 
@@ -1207,7 +1203,7 @@ class Stacked_Upscale(tf.keras.layers.Layer):
 		x = self.conv0( _input )
 
 		for idx in range(self.sublayer_count):
-			x = self.blocks[idx]( x )
+			x = x + self.blocks[idx]( x )
 
 		# Upsample Part
 		orig_shape = tf.shape(_input)
@@ -1243,7 +1239,7 @@ class Block(tf.keras.layers.Layer):
 
 		x_res = self.res_conv0(_input)
 		x_res = self.res_conv1(x_res)
-		x_res = x_res*0.1
+		x_res = x_res*0.125
 
 		return x_res
 
