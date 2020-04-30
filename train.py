@@ -641,15 +641,15 @@ def train_loop(train_params, model_params):
 
                                 rand_region_mask_2 = rand_region_mask_2 < 0.12*100
                                 rand_region_mask_3 = rand_region_mask_3 < 0.12*100
-                                rand_region_mask_3 = rand_region_mask_3 < 0.12*100
+                                rand_region_mask_4 = rand_region_mask_4 < 0.12*100
 
                                 preds_2   = tf.where( rand_region_mask_2, preds_2, 0 )      
                                 preds_3   = tf.where( rand_region_mask_3, preds_3, 0 )      
                                 preds_4   = tf.where( rand_region_mask_4, preds_4, 0 )      
 
                                 target_2  = tf.where( rand_region_mask_2, target_2, 0  )  
-                                target_3  = tf.where( rand_region_mask_3, target_2, 0  )  
-                                target_4  = tf.where( rand_region_mask_4, target_2, 0  )  
+                                target_3  = tf.where( rand_region_mask_3, target_3, 0  )  
+                                target_4  = tf.where( rand_region_mask_4, target_4, 0  )  
 
                                 preds = tf.concat( [ tf.reshape(preds_2, [-1] ), tf.reshape(preds_3, [-1] ), tf.reshape(preds_4, [-1] ) ], axis=0 )
                                 target = tf.concat( [ tf.reshape(target_2, [-1] ), tf.reshape(target_3, [-1] ), tf.reshape(target_4, [-1] ) ], axis=0 )
