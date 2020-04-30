@@ -1233,7 +1233,7 @@ class Stacked_Upscale(tf.keras.layers.Layer):
 
 class Block(tf.keras.layers.Layer):
 	def __init__(self, train_params,model_type_settings):
-
+		super( Block, self ).__init__()
 		self.trainable = train_params['trainable']
 		self.mv = int(model_type_settings['model_version'])
 			#normal
