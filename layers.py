@@ -868,12 +868,12 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 				return outp
 			
 			if self.di ==True and self.mv == 201: 
-				x_2_output, x_3_output, x_4_output = self.conv_upscale( _inputs ) # [bs, seq_len, 100, 140, 1]
-				x_2_output = self.float32_custom_relu(x_2_output)  
+				x_1_output, x_2_output, x_3_output = self.conv_upscale( _inputs ) # [bs, seq_len, 100, 140, 1]
+				x_1_output = self.float32_custom_relu(x_1_output)  
+				x_2_output = self.float32_custom_relu(x_2_output)
 				x_3_output = self.float32_custom_relu(x_3_output)
-				x_4_output = self.float32_custom_relu(x_4_output)
 
-				return x_2_output, x_3_output, x_4_output
+				return x_1_output, x_2_output, x_3_output
 
 			_inputs1 = self.conv_hidden( self.do0(_inputs,training=training),training=training ) 
 			#_inputs = self.conv_hidden1( self.do1(_inputs+_inputs1,training=training),training=training )#r2-v3
@@ -1219,10 +1219,10 @@ class Stacked_Upscale(tf.keras.layers.Layer):
 		self.conv_adjust2 =  tf.keras.layers.Conv2D( filters=int(self.filters*3) , kernel_size=[3,3], padding='same', activation=None )  
 
 		if mult_loss == True:
+			self.conv_final1 =  tf.keras.layers.Conv2D( filters= 1, kernel_size=[3,3], padding='same', activation=None)
 			self.conv_final2 =  tf.keras.layers.Conv2D( filters= 1, kernel_size=[3,3], padding='same', activation=None)
-			self.conv_final3 =  tf.keras.layers.Conv2D( filters= 1, kernel_size=[3,3], padding='same', activation=None)
 
-		self.conv_final4 =  tf.keras.layers.Conv2D( filters= 1, kernel_size=[3,3], padding='same', activation=None)
+		self.conv_final3 =  tf.keras.layers.Conv2D( filters= 1, kernel_size=[3,3], padding='same', activation=None)
 
 
 	def call(self, _input, training=True ):
@@ -1239,29 +1239,29 @@ class Stacked_Upscale(tf.keras.layers.Layer):
 		new_shape = tf.concat( [ [-1], orig_shape[2:] ], 0 )
 		x = tf.reshape(x, new_shape )
 		
-		x_1 = tf.image.resize( x, [25,35], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR ) #(bs*seq_len, h, w, c)
+		x_1 = tf.image.resize( x, [25,35], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR ) #(bs*seq_len, 25,35, c)
 		#_inputs = tf.reshape(_inputs, tf.concat([orig_shape[:2],[25,35, orig_shape[4]]],axis=0 )  )
 
 		x_2 = self.conv_adjust1( x_1, training=training)
-		x_2 = tf.nn.depth_to_space( x_2, 2 )
+		x_2 = tf.nn.depth_to_space( x_2, 2 ) #(bs*seq_len, 50,70, c)
 
 		x_3 = self.conv_adjust2( x_2, training=training)
-		x_3 = tf.nn.depth_to_space( x_3, 2 )
+		x_3 = tf.nn.depth_to_space( x_3, 2 )  #(bs*seq_len, 100, 140, c)
 		
-		x_4 = self.conv_final4( x_3 )
-		x_4_output = tf.reshape( x_4, tf.concat([ orig_shape[:2],[100,140,1]],axis=0 ) )
+		x_3_output = self.conv_final3( x_3 ) 
+		x_3_output = tf.reshape( x_3_output, tf.concat([ orig_shape[:2],[100,140,1]],axis=0 ) )  
 		
 		if self.mult_loss == False:
-			return x_4_output
+			return x_3_output
 		
 		else:
+			x_1_output = self.conv_final1( x_1 )
+			x_1_output = tf.reshape( x_1_output, tf.concat([ orig_shape[:2],[25,35,1]],axis=0 ) )
+
 			x_2_output = self.conv_final2( x_2 )
-			x_2_output = tf.reshape( x_2_output, tf.concat([ orig_shape[:2],[25,35,1]],axis=0 ) )
+			x_2_output = tf.reshape( x_2_output, tf.concat([ orig_shape[:2],[50,70,1]],axis=0 ) )
 
-			x_3_output = self.conv_final2( x_3 )
-			x_3_output = tf.reshape( x_3_output, tf.concat([ orig_shape[:2],[50,70,1]],axis=0 ) )
-
-			return x_2_output, x_3_output, x_4_output
+			return x_1_output, x_2_output, x_3_output
 
 
 
@@ -1281,7 +1281,7 @@ class Block(tf.keras.layers.Layer):
 
 		x_res = self.res_conv0(_input)
 		x_res = self.res_conv1(x_res)
-		x_res = x_res*0.1
+		x_res = x_res*1 #0.1
 
 		return x_res
 
