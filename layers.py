@@ -1281,7 +1281,7 @@ class Block(tf.keras.layers.Layer):
 
 		x_res = self.res_conv0(_input)
 		x_res = self.res_conv1(x_res)
-		x_res = x_res*0.35 #0.1
+		x_res = x_res*0.15 #0.1
 
 		return x_res
 

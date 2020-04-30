@@ -639,9 +639,9 @@ def train_loop(train_params, model_params):
                                 rand_region_mask_3 = tf.reshape( tf.random.shuffle( tf.range(start=1/tf.size(preds_3),limit=100.0, delta=100/tf.size(preds_3) ) ), preds_3.shape )
                                 rand_region_mask_4 = tf.reshape( tf.random.shuffle( tf.range(start=1/tf.size(preds_4),limit=100.0, delta=100/tf.size(preds_4) ) ), preds_4.shape )
 
-                                rand_region_mask_2 = rand_region_mask_2 < 0.12*100
-                                rand_region_mask_3 = rand_region_mask_3 < 0.12*100
-                                rand_region_mask_4 = rand_region_mask_4 < 0.12*100
+                                rand_region_mask_2 = rand_region_mask_2 < 0.80*100
+                                rand_region_mask_3 = rand_region_mask_3 < 0.80*100
+                                rand_region_mask_4 = rand_region_mask_4 < 0.80*100
 
                                 preds_2   = tf.where( rand_region_mask_2, preds_2, 0 )      
                                 preds_3   = tf.where( rand_region_mask_3, preds_3, 0 )      
@@ -661,7 +661,7 @@ def train_loop(train_params, model_params):
                                 target = target[:, :, 6:-6, 6:-6]
                                 
                                 rand_region_mask = tf.reshape( tf.random.shuffle( tf.range(start=1/tf.size(preds),limit=100.0, delta=100/tf.size(preds) ) ), preds.shape )
-                                rand_region_mask = rand_region_mask < 0.25*100
+                                rand_region_mask = rand_region_mask < 0.80*100
                                 preds   = tf.where( rand_region_mask, preds, 0 )                                                         
                                 target  = tf.where( rand_region_mask, target, 0  )     
 
