@@ -1251,7 +1251,7 @@ class Stacked_Upscale(tf.keras.layers.Layer):
 		x_4 = self.conv_final4( x_3 )
 		x_4_output = tf.reshape( x_4, tf.concat([ orig_shape[:2],[100,140,1]],axis=0 ) )
 		
-		if self.mult_loss == True:
+		if self.mult_loss == False:
 			return x_4_output
 		
 		else:
