@@ -325,6 +325,8 @@ def parse_arguments(s_dir=None):
     parser.add_argument('-rdo','--rec_dropout',type=float, required=False, default=0.0)
 
     parser.add_argument('-di','--downscaled_input',type=bool, required=False, default=False )
+
+    parser.add_argument('-tst','--train_set_size', type=float,required=False, default=False )
     
     
     args_dict = vars(parser.parse_args() )
@@ -372,7 +374,7 @@ def default(obj):
 
 #endregion
 
-def model_name_mkr(model_params, mode='Generic', load_save="load", train_params=None ) : #change ordering of variables ehre
+def model_name_mkr(model_params, mode='Generic', load_save="load", train_params={}} ) : #change ordering of variables ehre
     if mode == "Generic":
         pass
     
@@ -411,22 +413,12 @@ def model_name_mkr(model_params, mode='Generic', load_save="load", train_params=
                         model_params['model_type_settings']['distr_type'], 
                         str(model_params['model_type_settings']['discrete_continuous']),
                         model_params['model_type_settings']['location'],model_params['model_type_settings']['model_version'] )  
-    
-    if train_params['downscaled_input'] == True:
-        model_name  =  model_name + "di_{}".format( train_params['downscaled_input'])
 
-        if model_params['model_type_settings']['model_version'] in ["16","161"]:
-            model_name = model_name + "_utm_{}".format( str( model_params['model_type_settings'].get('upscale_target_mid', [25,35]) ) )
-        
-        elif model_params['model_type_settings']['model_version'] in ["20","201"]:
-            model_name = model_name + "_SRCN_{}".format( str( model_params['model_type_settings'].get('ssir_layer_count', 12) ) )
-        
-        if 'activation' in model_params['model_type_settings']:
-            model_name = model_name + "_act_{}".format( str( model_params['model_type_settings'].get('activation', False) ) )
-    
     if load_save == "save" and model_params['model_type_settings'].get('location_test',"London") != "London":
         model_name = model_name + model_params['model_type_settings']['location_test']
-
+    
+    if train_params.get('train_set_size', 0.6) != 0.6:
+        model_name = model_name + "_trainsize_" +str( train_params['train_set_size'] )
 
     model_name = re.sub("[ '\(\[\)\]]|ListWrapper",'',model_name )
 

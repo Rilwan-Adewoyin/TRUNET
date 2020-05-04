@@ -33,11 +33,7 @@ def load_model(test_params, model_params):
         elif(model_name=="THST"):
             model = models.THST(test_params, model_params)
             
-            if test_params['downscaled_input'] == True:
-                init_inp = tf.zeros(
-                    [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 18, 18, 6], dtype=tf.float16 ) 
-
-            elif model_params['model_type_settings']['location'] == "wholeregion":
+            if model_params['model_type_settings']['location'] == "wholeregion":
                 init_inp = tf.zeros(
                     [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ], dtype=tf.float16 )
             
@@ -60,10 +56,7 @@ def load_model(test_params, model_params):
 
         elif(model_name=="SimpleConvGRU"):
             model = models.SimpleConvGRU(test_params,model_params)
-            if test_params['downscaled_input'] == True:
-                init_inp = tf.zeros(
-                    [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 18 , 18 , 6 ], dtype=tf.float16 )
-            elif model_params['model_type_settings']['location'] == "wholeregion":
+            if model_params['model_type_settings']['location'] == "wholeregion":
                 init_inp = tf.zeros(
                     [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ], dtype=tf.float16 )
             elif model_params['model_type_settings']['location'] == "region_grid":
@@ -94,11 +87,7 @@ def load_model(test_params, model_params):
 
         elif(model_name=="THST"):
             model = models.THST(test_params, model_params)
-            if test_params['downscaled_input'] == True:
-                init_inp = tf.zeros(
-                    [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 18 , 18 , 6 ], dtype=tf.float16 )
-
-            elif model_params['model_type_settings']['location'] == "wholeregion":
+            if model_params['model_type_settings']['location'] == "wholeregion":
                 init_inp = tf.zeros(
                     [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ], dtype=tf.float16 )
             else: #elif model_params['model_type_settings']['location'] == "region_grid":
@@ -119,11 +108,9 @@ def load_model(test_params, model_params):
 
         elif(model_name=="SimpleConvGRU"):
             model = models.SimpleConvGRU(test_params,model_params)
-            if test_params['downscaled_input'] == True:
-                init_inp = tf.zeros(
-                    [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 18, 18, 6 ], dtype=tf.float16 )
 
-            elif model_params['model_type_settings']['location'] == "wholeregion":
+
+            if model_params['model_type_settings']['location'] == "wholeregion":
                 init_inp = tf.zeros(
                     [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ], dtype=tf.float16 )
             else:

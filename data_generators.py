@@ -321,8 +321,11 @@ class Generator_mf(Generator):
 
         self.vars_for_feature = ['unknown_local_param_137_128', 'unknown_local_param_133_128', 'air_temperature', 'geopotential', 'x_wind', 'y_wind' ]
         self.channel_count = len(self.vars_for_feature)
-        self.data_len = 16072
         self.di = downscaled_input
+        if self.di == True:
+            self.data_len = 59900
+        else:
+            self.data_len = 16072
         
     def yield_all(self):
         raise NotImplementedError
@@ -340,10 +343,9 @@ class Generator_mf(Generator):
             stacked_masks = np.stack(_masks, axis=-1)
             
             if self.di == False:
-                yield stacked_data[ 1:-2, 2:-2, :], stacked_masks[ 1:-2 , 2:-2, :] #(h,w,6) #(h,w,6)  #this aligns it to rain 
+                yield stacked_data[ 1:-2, 2:-1, :], stacked_masks[ 1:-2 , 2:-1, :] #(h,w,6) #(h,w,6)  #this aligns it to rain 
             elif self.di == True:
-                yield stacked_data[ :-2, 2:-1, :], stacked_masks[ :-2 , 2:-1, :] #(h,w,6) #(h,w,6)  #this aligns it to rain 
-            #yield stacked_data[ 1:-2, 2:-1, :], stacked_masks[ 1:-2 , 2:-1, :] #(h,w,6) #(h,w,6)  #this aligns it to rain 
+                yield stacked_data[ 1:-2, 2:-1, :], stacked_masks[ 1:-2 , 2:-1, :] #(h,w,6) #(h,w,6)  #this aligns it to rain 
     
     def __call__(self):
         return self.yield_iter()
@@ -389,7 +391,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     ds_tar = tf.data.Dataset.from_generator( rain_data, output_types=( tf.float32, tf.bool) ) #(values, mask) 
     ds_tar = ds_tar.skip(start_idx_tar) #skipping to correct point
         
-    ds_tar = ds_tar.window(size=t_params['lookback_target'], stride=1, shift=t_params['window_shift'] , drop_remainder=True )
+    ds_tar = ds_tar.window(size =t_params['lookback_target'], stride=1, shift=t_params['window_shift'] , drop_remainder=True )
     
     ds_tar = ds_tar.flat_map( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(t_params['lookback_target']) for w in window ] ) ) ) #shape (lookback,h, w)
 
@@ -442,9 +444,8 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     # region mode of data
     model_settings = m_params['model_type_settings']
 
-    if(model_settings['location']=="wholeregion"):
+    if(model_settings['location']=="wholegrid"):
         ds = ds.batch(t_params['batch_size'], drop_remainder=True)
-        ds = ds.map( lambda mf, rain_rmask: tuple( [mf, rain_rmask[0], rain_rmask[1] ] ) , num_parallel_calls=_num_parallel_calls )  #unbatching final two elements
 
         if 'location_test' in model_settings.keys():
         
@@ -454,7 +455,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
             elif m_params['model_name'] in ["SimpleConvGRU",'THST']:
                 idxs_of_city = rain_data.find_idx_of_city( model_settings['location_test'] )
 
-                
+                ds = ds.map( lambda mf, rain_rmask : load_data_ati_select_location(mf, rain_rmask[0], rain_rmask[1], idxs ), num_parallel_calls=_num_parallel_calls )
 
             return ds, idxs_of_city
 
@@ -519,16 +520,12 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
         elif m_params['model_name'] in ["SimpleConvGRU",'THST']:
             ds = ds.map( lambda mf, rain_mask: tuple( [mf, rain_mask[0], rain_mask[1]] )  )                         #mf=(80, 100,140,6)
             
-            # region_folding_partial = partial(region_folding, **m_params['region_grid_params'], mode=4,tnsrs=None )  
-            # ds = ds.map( lambda mf,rain,rmask : tf.py_function( region_folding_partial, [mf, rain, rmask], [tf.float16, tf.float32, tf.bool] ) ) #mf = mode3(704, lookback, 16, 16, 6 )  mode1(80, 85//4, 125//4, 16, 16, 6)
             h_idxs, w_idxs = rain_data.find_idx_of_city_region( model_settings['location'], m_params['region_grid_params'] )
 
-            
             ds = ds.map( lambda mf, rain, rmask : load_data_ati_select_region_from_nonstack( mf, rain, rmask, h_idxs, w_idxs) , num_parallel_calls=_num_parallel_calls )
 
             if 'location_test' in model_settings.keys():
-                idx_city_in_region = [8,8] #for this setting the city will always be the middle icon
-                #ds = ds.map( lambda mf, rain, rmask: load_data_ati_select_region_from_stack(mf, rain, rmask, idx_region_flat, periodicy ), num_parallel_calls = _num_parallel_calls  )
+                idx_city_in_region = [8,8] #for this setting the city will always be the middle icon                
                 ds = ds.unbatch().batch( t_params['batch_size'],drop_remainder=True )
                 ds = ds.prefetch(_num_parallel_calls)
                 return ds, idx_city_in_region

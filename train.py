@@ -19,8 +19,7 @@ tf.keras.backend.set_epsilon(1e-3)
 
 
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
-#tf.config.set_soft_device_placement(True)
-#tf.debugging.set_log_device_placement(True)
+
 try:
     gpu_devices = tf.config.list_physical_devices('GPU')
 except Exception as e:
@@ -178,16 +177,13 @@ def train_loop(train_params, model_params):
         optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() )
         _optimizer = optimizer
 
-    
     train_loss_mean_groupbatch = tf.keras.metrics.Mean(name='train_loss_mse_obj')
     train_loss_mean_epoch = tf.keras.metrics.Mean(name="train_loss_obj_epoch")
     train_mse_metric_epoch = tf.keras.metrics.Mean(name='train_mse_metric')
     train_loss_var_free_nrg_mean_groupbatch = tf.keras.metrics.Mean(name='train_loss_var_free_nrg_obj')
     train_loss_var_free_nrg_mean_epoch = tf.keras.metrics.Mean(name="train_loss_var_free_nrg_obj_epoch")
     val_metric_loss = tf.keras.metrics.Mean(name='val_metric_obj')
-    val_metric_mse = tf.keras.metrics.Mean(name='val_metric_mse_obj')
-
-    
+    val_metric_mse = tf.keras.metrics.Mean(name='val_metric_mse_obj')    
     # endregion
 
     # region ----- Setting up Checkpoints 
@@ -223,7 +219,6 @@ def train_loop(train_params, model_params):
 
     # region ---- Making Datasets
     if model_params['model_name'] == "DeepSD":
-        #ds_train = data_generators.load_data_vandal( batches_to_skip*train_params['batch_size'], train_params, model_params, data_dir=train_params['data_dir'] )
         ds_val = data_generators.load_data_vandal( train_set_size_batches*train_params['batch_size'], train_params, model_params, data_dir=train_params['data_dir'] )
             #temp fix to the problem where if we init ds_train at batches_to_skip, then every time we reuse ds_train then it will inevitably start from that skipped to region on the next iteration 
         ds_train = data_generators.load_data_vandal( batches_to_skip*train_params['batch_size'], train_params, model_params, data_dir=train_params['data_dir'] )
@@ -336,7 +331,6 @@ def train_loop(train_params, model_params):
         start_epoch_val = None
         inp_time = None
         start_batch_time = time.time()
-        
         #endregion 
 
         batch=0
@@ -607,59 +601,20 @@ def train_loop(train_params, model_params):
 
                         if model_params['model_type_settings']['discrete_continuous'] == False:
                             
-                            if train_params['downscaled_input'] == True and model_params['model_type_settings']['model_version'] == "201":
-                                x_2_output, x_3_output, x_4_output = model( tf.cast(feature, tf.float16), train_params['trainable'] ) #( bs, tar_seq_len, h, w)
-                                x_2_output = tf.squeeze( x_2_output ) #(25,35)
-                                x_3_output = tf.squeeze( x_3_output )   #(50,70)
-                                x_4_output = tf.squeeze( x_4_output )   #(100,140)
-
-                            else:    
-                                preds = model( tf.cast(feature, tf.float16), train_params['trainable'] ) #( bs, tar_seq_len, h, w)
-                                preds = tf.squeeze( preds )
+                            preds = model( tf.cast(feature, tf.float16), train_params['trainable'] ) #( bs, tar_seq_len, h, w)
+                            preds = tf.squeeze( preds )
 
                             if( model_params['model_type_settings']['location']=='region_grid' ) or ( type(model_params['model_type_settings']['location'] ) in [ list, data_structures.ListWrapper]):  #focusing on centre of square only
                                 preds = preds[:, :, 6:10, 6:10]
                                 mask = mask[:, :, 6:10, 6:10]
                                 target = target[:, :, 6:10, 6:10]
                             
-                            elif( model_params['model_type_settings']['location']=="wholeregion" and model_params['model_type_settings']['model_version'] == "201" and train_params['downscaled_input'] == True ):
-                                preds_2 = x_2_output[:, :, 2:-2, 2:-2 ] *4
-                                preds_3 = x_3_output[:, :, 3:-3, 3:-3] *2
-                                preds_4 = x_4_output[:, :, 6:-6, 6:-6]
-
-                                mask_2 = mask[:, :, ::4, ::4][:, :, 2:-2, 2:-2 ]
-                                mask_3 = mask[:, :, ::2, ::2][:, :, 3:-3, 3:-3]
-                                mask_4 = mask[:, :, : , :][:, :, 6:-6, 6:-6]
-
-                                target_2 = target[:, :, ::4, ::4][:, :, 2:-2, 2:-2 ] *4
-                                target_3 = target[:, :, ::2, ::2][:, :, 3:-3, 3:-3] *2
-                                target_4 = target[:, :, : , :][:, :, 6:-6, 6:-6] 
-
-                                rand_region_mask_2 = tf.reshape( tf.random.shuffle( tf.range(start=1/tf.size(preds_2),limit=100.0, delta=100/tf.size(preds_2) ) ), preds_2.shape )
-                                rand_region_mask_3 = tf.reshape( tf.random.shuffle( tf.range(start=1/tf.size(preds_3),limit=100.0, delta=100/tf.size(preds_3) ) ), preds_3.shape )
-                                rand_region_mask_4 = tf.reshape( tf.random.shuffle( tf.range(start=1/tf.size(preds_4),limit=100.0, delta=100/tf.size(preds_4) ) ), preds_4.shape )
-
-                                rand_region_mask_2 = rand_region_mask_2 < 0.15*100
-                                rand_region_mask_3 = rand_region_mask_3 < 0.15*100
-                                rand_region_mask_4 = rand_region_mask_4 < 0.15*100
-
-                                preds_2   = tf.where( rand_region_mask_2, preds_2, 0 )      
-                                preds_3   = tf.where( rand_region_mask_3, preds_3, 0 )     
-                                preds_4   = tf.where( rand_region_mask_4, preds_4, 0 )  
-
-                                target_2  = tf.where( rand_region_mask_2, target_2, 0  )  
-                                target_3  = tf.where( rand_region_mask_3, target_3, 0  )  
-                                target_4  = tf.where( rand_region_mask_4, target_4, 0  )  
-
-                                preds = tf.concat( [ tf.reshape(preds_2, [-1] ), tf.reshape(preds_3, [-1] ), tf.reshape(preds_4, [-1] ) ], axis=0 )
-                                target = tf.concat( [ tf.reshape(target_2, [-1] ), tf.reshape(target_3, [-1] ), tf.reshape(target_4, [-1] ) ], axis=0 )
-                                mask = tf.concat( [ tf.reshape(mask_2, [-1] ), tf.reshape(mask_3, [-1] ), tf.reshape(mask_4, [-1] ) ], axis=0 )
-
                             elif( model_params['model_type_settings']['location']=="wholeregion"):
                                 preds = preds[:, :, 6:-6, 6:-6]
                                 mask = mask[:, :, 6:-6, 6:-6]
                                 target = target[:, :, 6:-6, 6:-6]
                                 
+                                #Randomly masking some of the map
                                 rand_region_mask = tf.reshape( tf.random.shuffle( tf.range(start=1/tf.size(preds),limit=100.0, delta=100/tf.size(preds) ) ), preds.shape )
                                 rand_region_mask = rand_region_mask < 0.15*100
                                 preds   = tf.where( rand_region_mask, preds, 0 )                                                         
@@ -990,13 +945,8 @@ def train_loop(train_params, model_params):
 
                     if model_params['model_type_settings']['discrete_continuous'] == False:
                         
-                        if model_params['model_type_settings']['model_version'] == "201" and train_params['downscaled_input'] == True :
-                            x_2_output, x_3_output, x_4_output = model( tf.cast(feature, tf.float16), training=False ) #( bs, tar_seq_len, h, w)
-                            preds = x_4_output
-                            preds = tf.squeeze(preds)
-                        else:
-                            preds = model(tf.cast(feature,tf.float16), training=False )
-                            preds = tf.squeeze(preds)
+                        preds = model(tf.cast(feature,tf.float16), training=False )
+                        preds = tf.squeeze(preds)
 
                         if model_params['model_type_settings']['location']=='region_grid'  or (type(model_params['model_type_settings']['location']) in [ list, data_structures.ListWrapper]) : #focusing on centre of square only
                             preds = preds[:, :, 6:10, 6:10]
@@ -1024,10 +974,10 @@ def train_loop(train_params, model_params):
                         preds, probs = tf.unstack(preds, axis=0)
 
                         if model_params['model_type_settings']['location']=='region_grid'  or (type(model_params['model_type_settings']['location']) in [ list, data_structures.ListWrapper] ) : #focusing on centre of square only
-                            preds = preds[:, :, 6:10, 6:10]
-                            probs = probs[:, :,  6:10, 6:10]
-                            mask = mask[:, :, 6:10, 6:10]
-                            target = target[:, :, 6:10, 6:10]
+                            preds   = preds[:, :, 6:10, 6:10]
+                            probs   = probs[:, :,  6:10, 6:10]
+                            mask    =  mask[:, :, 6:10, 6:10]
+                            target  = target[:, :, 6:10, 6:10]
 
                         elif( model_params['model_type_settings']['location']=="wholeregion"):
                             preds   = preds[:, :, 6:-6, 6:-6]
@@ -1049,7 +999,7 @@ def train_loop(train_params, model_params):
                         all_count = tf.size( target_filtrd, out_type=tf.float32 )
 
                         #  gather predictions which are conditional on rain
-                        bool_cond_rain = tf.where(tf.equal(labels_true,1),True,False )
+                        bool_cond_rain = tf.where(tf.equal(labels_true,1), True, False )
 
                         preds_cond_rain_mean = tf.boolean_mask( preds_filtrd, bool_cond_rain)
                         probs_cond_rain = tf.boolean_mask( probs_filtrd, bool_cond_rain)
@@ -1062,17 +1012,11 @@ def train_loop(train_params, model_params):
 
                         if model_params['model_type_settings']['distr_type'] == 'Normal': #These two below handle dc cases of normal and log_normal
                             #raise NotImplementedError
-                            #loss_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_cond_rain , preds_cond_rain_mean ) )  #NOTE: currently the val_metric_loss represents a different target for different combinations of distr_type and stochastic
-                            #loss_mse = tf.reduce_mean( probs_filtrd *tf.math.squared_difference( preds_cond_rain_mean, target_cond_rain )  )
-                            #val_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) ) 
                             val_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , custom_losses.combine_pp(preds_filtrd, probs_filtrd ) ) ) 
                             loss_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( preds_cond_rain_mean , target_cond_rain ) ) 
 
-                        elif model_params['model_type_settings']['distr_type'] == 'LogNormal':
-                            #val_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , preds_filtrd ) ) 
-                            val_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , custom_losses.combine_pp(preds_filtrd, probs_filtrd ) ) ) 
-
-                            #loss_mse = (rain_count/all_count)*tf.reduce_mean(custom_losses.lnormal_mse(target_filtrd , preds_filtrd ) ) # (rain_count/all_count) * custom_losses.lnormal_mse(target_cond_rain, preds_cond_rain_mean)
+                        elif model_params['model_type_settings']['distr_type'] == 'LogNormal':                    
+                            val_mse = (rain_count/all_count)*tf.reduce_mean(tf.keras.metrics.MSE( target_filtrd , custom_losses.combine_pp(preds_filtrd, probs_filtrd ) ) )
                             loss_mse = tf.reduce_sum( tf.math.squared_difference( tf.math.log(preds_cond_rain_mean+1), tf.math.log(target_cond_rain+1)  )  ) / all_count
 
                         if(model_params['model_type_settings']['model_version'] in ["3","4","44","46","54","55","155"] ):
@@ -1080,14 +1024,11 @@ def train_loop(train_params, model_params):
                             val_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
                             loss_mse += val_mse_cond_no_rain
                             val_mse += val_mse_cond_no_rain
-                        else:
-                            #val_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, preds_cond_no_rain_mean)
+                        else:                            
                             val_mse_cond_no_rain = ((all_count-rain_count)/all_count)*tf.keras.metrics.MSE(target_cond_no_rain, custom_losses.combine_pp( preds_cond_no_rain_mean, probs_cond_no_rain) )
                             val_mse +=val_mse_cond_no_rain
                             
                         if(model_params['model_type_settings']['model_version'] in ["3","4","44","45","145","47","48","49","50","51","52",'53','54',"56","156"] ):
-                            # log_cross_entropy_rainclassification = tf.reduce_mean( 
-                            #         tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )
                             log_cross_entropy_rainclassification = tf.reduce_mean(  tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )
                             _l3 = tf.reduce_mean(  tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )  #differentiable version     #loss3 conditional on no rain v2
 
