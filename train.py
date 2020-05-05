@@ -252,10 +252,8 @@ def train_loop(train_params, model_params):
         for idx in range(1,len(li_ds_vals ) ):
             ds_val = ds_val.concatenate( li_ds_vals[idx] )
         
-        cache_suffix = '_{}_{}'.format( model_params['model_name'] ,str(model_params['model_type_settings']['location'] ).strip('[]') )
+        cache_suffix = '_{}_bs_{}_tst_{}_{}'.format( model_params['model_name'], train_params['batch_size'], train_params.get('train_set_size', 0.6) ,str(model_params['model_type_settings']['location'] ).strip('[]') )
         
-        if train_params.get( 'downscaled_input', False) and model_params['model_type_settings']['model_version'] in ["16","161"]:
-            cache_suffix = cache_suffix+"_utm_{}".format( str( model_params['model_type_settings'].get('upscale_target_mid', [25,35]) ) )
 
         ds_train = ds_train.cache('data_cache/ds_train_cache'+cache_suffix ) 
         ds_val = ds_val.cache('data_cache/ds_val_cache'+cache_suffix )
