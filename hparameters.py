@@ -28,7 +28,7 @@ class MParams(HParams):
     def __init__(self,**kwargs):
         
         #if kwargs['model_type_settings']['location'] == "region_grid":
-        if type( kwargs['model_type_settings']['location'][:] ) in [list, data_structures.ListWrapper] and (kwargs.get('downscaled_input') == False ):
+        if type( kwargs['model_type_settings']['location'][:] ) in [list, data_structures.ListWrapper] :
             self.regiongrid_param_adjustment()
         else:
             self.params = {}
@@ -36,7 +36,7 @@ class MParams(HParams):
         self._default_params(**kwargs)
         #super(MParams, self).__init__(**kwargs)
                  
-        if type( kwargs['model_type_settings']['location'][:] ) in [list, data_structures.ListWrapper] and (kwargs.get('downscaled_input') == False ) :
+        if type( kwargs['model_type_settings']['location'][:] ) in [list, data_structures.ListWrapper]  :
             self.params['lookahead_params']['sync_period'] == int( np.prod( self.params['region_grid_params']['slides_v_h']  * min( [ self.params['lookahead_params']['sync_period'] // 2, 1] ) ) )
 
     def regiongrid_param_adjustment(self):
@@ -184,9 +184,9 @@ class model_THST_hparameters(MParams):
         
         # region learning/convergence params
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-4, "warmup_proportion":0.65,
-            "min_lr":5e-5, "beta_1":0.5 , "beta_2":0.85,
-            "amsgrad":True, "decay":0.007, "epsilon":0.1e-5 }
+            "learning_rate":1e-3,   "warmup_proportion":0.65,
+            "min_lr":1e-4,          "beta_1":0.5,               "beta_2":0.85,
+            "amsgrad":True,         "decay":0.007,              "epsilon":0.1e-5 }
 
         DROPOUT = kwargs.get('dropout',0.0)
         LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.99 }
@@ -678,10 +678,13 @@ class train_hparameters_ati(HParams):
         self.di = kwargs.get("downscaled_input")
         self.dd = kwargs.get("data_dir") 
         self.tst = kwargs.get("train_set_size",0.6)
+        self.iim = kwargs.get('input_interpolation_method',None)
+
         kwargs.pop('batch_size')
         kwargs.pop('lookback_target')
         kwargs.pop('strided_dataset_count')
         kwargs.pop('train_set_size')
+        kwargs.pop('input_interpolation_method')
         super( train_hparameters_ati, self).__init__(**kwargs)
 
     def _default_params(self):
@@ -726,6 +729,7 @@ class train_hparameters_ati(HParams):
         # region ---- data information
 
         if self.di == False:
+            
             target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
             feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
         
@@ -733,6 +737,7 @@ class train_hparameters_ati(HParams):
             feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(16072, '6h'), 'D')
         
         elif self.di == True:
+            
             target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
             feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
         
@@ -753,7 +758,7 @@ class train_hparameters_ati(HParams):
         #train_start_date = np.max(feature_start_date, target_start_date)
         #end_date = np.min( tar_end_date, feature_end_date)
         val_start_date =    np.datetime64( train_start_date + (end_date - train_start_date)*self.tst, 'D' )
-        val_end_date =      np.datetime64( train_start_date + (end_date - train_start_date)*((1-self.tst)/2), 'D' )
+        val_end_date =      np.datetime64( val_start_date + (end_date - train_start_date)*((1-self.tst)/2), 'D' )
 
         #TOTAL_DATUMS = int(end_date - start_date)//WINDOW_SHIFT - lookback  #By datums here we mean windows, for the target
         TOTAL_DATUMS_TARGET = np.timedelta64(end_date - train_start_date,'D')  / WINDOW_SHIFT   #Think of better way to get the np.product info from model_params to train params
@@ -803,7 +808,8 @@ class train_hparameters_ati(HParams):
 
             'feature_start_date':feature_start_date,
             'target_start_date':target_start_date,
-            'train_test_size':self.tst
+            'train_set_size':self.tst,
+            'input_interpolation_method':self.iim
         }
 
 class test_hparameters_ati(HParams):
@@ -815,6 +821,7 @@ class test_hparameters_ati(HParams):
         self.di = kwargs.get('downscaled_input')
         self.dd = kwargs.get('data_dir')
         self.tst = kwargs.get('train_set_size',0.6)
+        self.iim = kwargs.get('input_interpolation_method',None)
         
 
         super( test_hparameters_ati, self).__init__(**kwargs)
@@ -838,8 +845,11 @@ class test_hparameters_ati(HParams):
                                                                 5.107268,
                                                                 4.764533]) 
                                                 #- unknown_local_param_137_128
-                                                # - unknown_local_param_133_128,  # - air_temperature, # - geopotential
-                                                # - x_wind, # - y_wind
+                                                # - unknown_local_param_133_128,  
+                                                # # - air_temperature, 
+                                                # # - geopotential
+                                                # - x_wind, 
+                                                # # - y_wind
         }
         NORMALIZATION_SHIFT_v1 = {
                                     "rain":2.844,
@@ -885,7 +895,7 @@ class test_hparameters_ati(HParams):
         #train_start_date = np.max(feature_start_date, target_start_date)
         #end_date = np.min( tar_end_date, feature_end_date)
         val_start_date =    np.datetime64( train_start_date + (end_date - train_start_date)*self.tst, 'D' )
-        val_end_date =      np.datetime64( train_start_date + (end_date - train_start_date)*((1-self.tst)/2), 'D' )
+        val_end_date =      np.datetime64( val_start_date + (end_date - train_start_date)*((1-self.tst)/2), 'D' )
 
         #TOTAL_DATUMS = int(end_date - start_date)//WINDOW_SHIFT - lookback  #By datums here we mean windows, for the target
         TOTAL_DATUMS_TARGET = np.timedelta64(end_date - train_start_date,'D')   #Think of better way to get the np.product info from model_params to train params
@@ -928,6 +938,7 @@ class test_hparameters_ati(HParams):
             'feature_start_date':feature_start_date,
             'target_start_date':target_start_date,
             'feature_start_end':feature_end_date,
-            'train_test_size':self.tst
+            'train_test_size':self.tst,
+            'input_interpolation_method': self.iim
         }
 

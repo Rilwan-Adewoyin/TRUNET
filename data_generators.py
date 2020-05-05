@@ -410,7 +410,13 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     # endregion
 
     # region prepare feature model fields
-    fn_mf = data_dir + "/ana_input.nc"
+    if t_params['downscaled_input'] == True and t_params['input_interpolation_method'] == "cubic" :
+        fn_mf = data_dir + "/ana_input_intrp_cubic.nc"
+    elif t_params['downscaled_input'] == True and t_params['input_interpolation_method'] == "linear" :
+        fn_mf = data_dir + "/ana_input_intrp_linear.nc"
+    else:
+        fn_mf = data_dir + "/ana_input.nc"
+
     mf_data = Generator_mf(fn=fn_mf, all_at_once=False, downscaled_input=t_params['downscaled_input'])
     
     ds_feat = tf.data.Dataset.from_generator( mf_data , output_types=( tf.float32, tf.bool)) #(values, mask) 
@@ -503,7 +509,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
                 li_hw_idxs = [ rain_data.find_idx_of_city_region( _location, m_params['region_grid_params'] ) for _location in model_settings['location'] ] #[ (h_idx,w_idx) ]
                 li_ds = [ ds.map( lambda mf, rain, rmask : load_data_ati_select_region_from_nonstack( mf, rain, rmask, _idx[0], _idx[1]) , num_parallel_calls=_num_parallel_calls ) for _idx in li_hw_idxs ]
                 
-                for idx in range(len(li_ds ) ):
+                for idx in range( len(li_ds ) ):
                     li_ds[idx] = li_ds[idx].unbatch().batch( t_params['batch_size'],drop_remainder=True )
                     if idx==0:
                         ds = li_ds[0]

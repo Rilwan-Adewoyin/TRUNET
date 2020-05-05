@@ -76,9 +76,12 @@ class THST(tf.keras.Model):
 
         if model_params['model_type_settings']['location'] not in ["wholeregion"]:
             h_w_enc = h_w_dec = model_params['region_grid_params']['outer_box_dims']
-        
-        elif not self.di:
+
+        elif model_params['model_type_settings']['location'] in ["wholeregion"] and not self.di:
             h_w_enc = h_w_dec = [ 100, 140 ]
+        
+        elif model_params['model_type_settings']['location'] in ["wholeregion"] and  self.di:
+            raise NotImplementedError
             
 
         #TODO: in bidirectional layers explicity add the go_backwards line and second LSTM / GRU layer

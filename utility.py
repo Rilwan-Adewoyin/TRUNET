@@ -327,6 +327,8 @@ def parse_arguments(s_dir=None):
     parser.add_argument('-di','--downscaled_input',type=bool, required=False, default=False )
 
     parser.add_argument('-tst','--train_set_size', type=float,required=False, default=False )
+
+    parser.add_argument('-iim','--input_interpolation_method', type=str, required=False, default='linear' )
     
     
     args_dict = vars(parser.parse_args() )
@@ -374,7 +376,7 @@ def default(obj):
 
 #endregion
 
-def model_name_mkr(model_params, mode='Generic', load_save="load", train_params={}} ) : #change ordering of variables ehre
+def model_name_mkr(model_params, mode='Generic', load_save="load", train_params={} ) : #change ordering of variables ehre
     if mode == "Generic":
         pass
     
@@ -418,7 +420,11 @@ def model_name_mkr(model_params, mode='Generic', load_save="load", train_params=
         model_name = model_name + model_params['model_type_settings']['location_test']
     
     if train_params.get('train_set_size', 0.6) != 0.6:
-        model_name = model_name + "_trainsize_" +str( train_params['train_set_size'] )
+        model_name = model_name + "_tst_" +str( train_params['train_set_size'] )
+    
+    if train_params.get('input_interpolation_method',None) != None:
+        model_name = model_name + "_iim_" +str( train_params['input_interpolation_method'] )
+
 
     model_name = re.sub("[ '\(\[\)\]]|ListWrapper",'',model_name )
 
