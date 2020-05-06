@@ -184,9 +184,9 @@ class model_THST_hparameters(MParams):
         
         # region learning/convergence params
         REC_ADAM_PARAMS = {
-            "learning_rate":4e-3,   "warmup_proportion":0.65,
-            "min_lr":8e-4,          "beta_1":0.5,               "beta_2":0.85,
-            "amsgrad":True,         "decay":0.007,              "epsilon":1e-4 }
+            "learning_rate":8e-3,   "warmup_proportion":0.65,
+            "min_lr":8e-4,          "beta_1":0.5,               "beta_2":0.95,
+            "amsgrad":True,         "decay":0.007,              "epsilon":5e-4 }
 
         DROPOUT = kwargs.get('dropout',0.0)
         LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.99 }
@@ -775,7 +775,7 @@ class train_hparameters_ati(HParams):
         #DATA_DIR = "./Data/Rain_Data_Nov19" 
         DATA_DIR = self.dd
 
-        EARLY_STOPPING_PERIOD = 13
+        EARLY_STOPPING_PERIOD = 30
  
         self.params = {
             'batch_size':BATCH_SIZE,
