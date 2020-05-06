@@ -184,9 +184,9 @@ class model_THST_hparameters(MParams):
         
         # region learning/convergence params
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-3,   "warmup_proportion":0.65,
-            "min_lr":1e-4,          "beta_1":0.5,               "beta_2":0.85,
-            "amsgrad":True,         "decay":0.007,              "epsilon":0.1e-5 }
+            "learning_rate":4e-3,   "warmup_proportion":0.65,
+            "min_lr":8e-4,          "beta_1":0.5,               "beta_2":0.85,
+            "amsgrad":True,         "decay":0.007,              "epsilon":1e-4 }
 
         DROPOUT = kwargs.get('dropout',0.0)
         LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.99 }
@@ -240,9 +240,8 @@ class model_THST_hparameters(MParams):
                                     
             if kq_downscale_stride == [1,8,8]:
                 key_depth = [_filter]*attn_layers_count
-                #key_depth = [320]*attn_layers_count
+                
             elif kq_downscale_stride == [1,4,4]:
-                #key_depth = [128]*attn_layers_count
                 key_depth = [_filter]*attn_layers_count
                   
         else:
@@ -331,7 +330,11 @@ class model_THST_hparameters(MParams):
 
         # region --------------- OUTPUT_LAYER_PARAMS and Upscaling-----------------
 
-        output_filters = [  int(  8*(((output_filters_dec[-1]*2)/4)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
+        if self.di ==False:
+            output_filters = [  int(  8*(((output_filters_dec[-1]*2)/3)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
+        else: 
+            output_filters = [  int(  8*(((output_filters_dec[-1]*2)/4)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
+
         output_kernel_size = [ (3,3), (3,3) ] 
         activations = ['relu','linear']
 
@@ -675,7 +678,7 @@ class train_hparameters_ati(HParams):
         self.lookback_target = kwargs.get('lookback_target',None)
         self.batch_size = kwargs.get("batch_size",None)
         self.strided_dataset_count = kwargs.get("strided_dataset_count", 1)
-        self.di = kwargs.get("downscaled_input")
+        self.di = kwargs.get("downscaled_input",False)
         self.dd = kwargs.get("data_dir") 
         self.tst = kwargs.get("train_set_size",0.6)
         self.iim = kwargs.get('input_interpolation_method',None)
@@ -901,7 +904,7 @@ class test_hparameters_ati(HParams):
         TOTAL_DATUMS_TARGET = np.timedelta64(end_date - train_start_date,'D')   #Think of better way to get the np.product info from model_params to train params
         TOTAL_DATUMS_TARGET = TOTAL_DATUMS_TARGET.astype(int)
 
-        test_start_date = train_start_date + (end_date - train_start_date)*0.8
+        test_start_date = train_start_date + (end_date - train_start_date)*((1+self.tst)/2)
         test_end_date = end_date
 
         TEST_SET_SIZE_DATUMS_TARGET = int( TOTAL_DATUMS_TARGET * ((1-self.tst)/2))

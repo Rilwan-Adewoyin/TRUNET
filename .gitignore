@@ -6,5 +6,6 @@ mnt/
 checkpoints/
 Output/
 __pycache__/
+data_cache/
 model_params/
 temp.npy

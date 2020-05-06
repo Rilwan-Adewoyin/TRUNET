@@ -142,7 +142,7 @@ def train_loop(train_params, model_params):
     if type(model_params) == list:
         model_params = model_params[0]
     
-    total_steps = train_set_size_batches*45
+    total_steps = train_set_size_batches*40
     
     var_optimizer_step = lambda: tf.Variable( initial_value=int( batches_to_skip + (starting_epoch)*train_set_size_batches), trainable=False, name="iter", shape=[], dtype=tf.int64, aggregation=tf_variables.VariableAggregation.ONLY_FIRST_REPLICA )
     if tfa==None:

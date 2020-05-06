@@ -692,11 +692,10 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 		self.do0 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=dropout_rate, data_format = 'channels_last' ) )
 		self.do1 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=dropout_rate, data_format = 'channels_last' ) )
 
-		if not model_type_settings['discrete_continuous']:
+		if not self.dc:
 
 			if(model_type_settings['deformable_conv'] ==False):
 				self.conv_hidden = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
-				#self.conv_hidden1 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) ) #r2-v3
 				self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
 			
 			elif( model_type_settings['deformable_conv'] ==True ):
@@ -801,16 +800,11 @@ class THST_CGRU_Input_Layer(tf.keras.layers.Layer):
 										backward_layer=layers_ConvGRU2D.ConvGRU2D( **copy.deepcopy(self.layer_params), go_backwards=True ),
 										merge_mode=None ) 
 		
-		if self.di == True and self.mv == 14:
-			self.conv_upscale = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2DTranspose( **conv_upscale_params ) )
 		
 	def call( self, _input, training ):
 
 		hidden_states_f, hidden_states_b = self.convGRU(_input, training=training ) #(bs, seq_len_1, h, w, c)
 		hidden_states = tf.concat([hidden_states_f, hidden_states_b],axis=-1)
-
-		if self.di == True and self.mv == 14:
-			hidden_states = self.conv_upscale( hidden_states, training=training )
 			   
 		return hidden_states #(bs, seq_len_1, h, w, c*2)
 

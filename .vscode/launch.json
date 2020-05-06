@@ -40,7 +40,7 @@
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
-            "args": [ "-mn","THST","-dd","Data/Rain_Data_Mar20", "-bs","4","-sdc","1" , "-do","0.2", "-ido","0.2", "-rdo","0.3", "-di","True", "-tst", "0.7", "-iim", "linear", 
+            "args": [ "-mn","THST","-dd","Data/Rain_Data_Mar20", "-bs","8","-sdc","1" , "-do","0.2", "-ido","0.2", "-rdo","0.3", "-di","False", 
                 "-mts" ,"{'model_version':'105','mult_gpu':False,'stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'mc_dropout','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'deformable_conv':False,'twoD':True}"
                 ]  
         },

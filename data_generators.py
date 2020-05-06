@@ -343,9 +343,9 @@ class Generator_mf(Generator):
             stacked_masks = np.stack(_masks, axis=-1)
             
             if self.di == False:
-                yield stacked_data[ 1:-2, 2:-1, :], stacked_masks[ 1:-2 , 2:-1, :] #(h,w,6) #(h,w,6)  #this aligns it to rain 
+                yield stacked_data[ 1:-2, 2:-2, :], stacked_masks[ 1:-2 , 2:-2, :] #(100,140,6)  #this aligns it to rain 
             elif self.di == True:
-                yield stacked_data[ 1:-2, 2:-1, :], stacked_masks[ 1:-2 , 2:-1, :] #(h,w,6) #(h,w,6)  #this aligns it to rain 
+                yield stacked_data[ 1:-2, 2:-2, :], stacked_masks[ 1:-2 , 2:-2, :] #(100,140,6)   #this aligns it to rain 
     
     def __call__(self):
         return self.yield_iter()
