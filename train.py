@@ -156,9 +156,9 @@ def train_loop(train_params, model_params):
     #     #Trying 2 optimizers for discrete_continuious LSTM
     elif model_params['model_type_settings']['model_version'] in ["54","55","56","156","155"]:
 
-        optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":8e-3, "warmup_proportion":0.75, "min_lr":6e-3, "beta_1":0.25, "beta_2":0.5, "decay":0.004, "amsgrad":True, "epsilon":4e-3} , total_steps=total_steps//2 ) 
-        optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":8e-3, "warmup_proportion":0.75, "min_lr":6e-3, "beta_1":0.25, "beta_2":0.5, "decay":0.004, "amsgrad":True, "epsilon":4e-3} , total_steps=total_steps//2 ) 
-        optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":8e-3, "warmup_proportion":0.75, "min_lr":6e-3, "beta_1":0.25, "beta_2":0.5, "decay":0.004, "amsgrad":True, "epsilon":4e-3} , total_steps=total_steps//2 )  
+        optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":8e-3, "warmup_proportion":0.75, "min_lr":8e-4, "beta_1":0.5, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":4e-4} , total_steps=total_steps//2 ) 
+        optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":8e-3, "warmup_proportion":0.75, "min_lr":8e-4, "beta_1":0.5, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":4e-4} , total_steps=total_steps//2 ) 
+        optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":8e-3, "warmup_proportion":0.75, "min_lr":8e-4, "beta_1":0.5, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":4e-4} , total_steps=total_steps//2 )  
         
         if(model_params['model_type_settings']['model_version']) in ["54"]:
             optimizers  = [ optimizer_rain, optimizer_nonrain, optimizer_dc ]
@@ -258,7 +258,7 @@ def train_loop(train_params, model_params):
         ds_train = ds_train.cache('data_cache/ds_train_cache'+cache_suffix ) 
         ds_val = ds_val.cache('data_cache/ds_val_cache'+cache_suffix )
         
-        if psutil.virtual_memory()[0] / 1e9 <= 50.0 : 
+        if psutil.virtual_memory()[0] / 1e9 <= 30.0 : 
             #Data Loading Scheme 1 - Version that works on low memeory devices e.g. warwick desktop
             ds_train_val = ds_train.concatenate(ds_val).repeat(train_params['epochs']-starting_epoch)
             ds_train_val = ds_train_val.skip(batches_to_skip)
