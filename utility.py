@@ -304,7 +304,7 @@ def load_optimizer_state( optimizer, model_params, train_params ):
         optimizer._set_hyper('learning_rate', 8e-4 )
         optimizer._set_hyper('min_lr', 4e-4 )
         var_optimizer_step = lambda: tf.Variable( initial_value=0, trainable=False, name="iter", shape=[], dtype=tf.int64, aggregation=tf_variables.VariableAggregation.ONLY_FIRST_REPLICA )
-        optimizer.iterations(  var_optimizer_step() )
+        optimizer._iterations = var_optimizer_step() 
     
     return optimizer
 
