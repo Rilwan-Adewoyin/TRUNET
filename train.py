@@ -138,7 +138,7 @@ def train_loop(train_params, model_params):
     # endregion
 
     # region ----- Defining Model / Optimizer / Losses / Metrics / Records
-    model = models.model_loader(train_params, model_params)
+    model = models.model_loader( train_params, model_params )
     if type(model_params) == list:
         model_params = model_params[0]
     
@@ -155,7 +155,6 @@ def train_loop(train_params, model_params):
     # elif model_params['model_type_settings']['discrete_continuous'] == True:
     #     #Trying 2 optimizers for discrete_continuious LSTM
     elif model_params['model_type_settings']['model_version'] in ["54","55","56","156","155"]:
-
         optimizer_rain      = tfa.optimizers.RectifiedAdam( **{"learning_rate":8e-3, "warmup_proportion":0.75, "min_lr":8e-4, "beta_1":0.5, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":4e-4} , total_steps=total_steps//2 ) 
         optimizer_nonrain   = tfa.optimizers.RectifiedAdam( **{"learning_rate":8e-3, "warmup_proportion":0.75, "min_lr":8e-4, "beta_1":0.5, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":4e-4} , total_steps=total_steps//2 ) 
         optimizer_dc        = tfa.optimizers.RectifiedAdam( **{"learning_rate":8e-3, "warmup_proportion":0.75, "min_lr":8e-4, "beta_1":0.5, "beta_2":0.85, "decay":0.004, "amsgrad":True, "epsilon":4e-4} , total_steps=total_steps//2 )  
@@ -190,12 +189,11 @@ def train_loop(train_params, model_params):
         #  (For Epochs)
     checkpoint_path_epoch = "checkpoints/{}/epoch".format(utility.model_name_mkr(model_params,train_params=train_params ))
     os.makedirs(checkpoint_path_epoch,exist_ok=True)
-        
     ckpt_epoch = tf.train.Checkpoint(model=model)#, optimizer=optimizer)
-    ckpt_manager_epoch = tf.train.CheckpointManager(ckpt_epoch, checkpoint_path_epoch, 
-                max_to_keep=train_params['checkpoints_to_keep_epoch'], keep_checkpoint_every_n_hours=None)    
+    ckpt_manager_epoch = tf.train.CheckpointManager(ckpt_epoch, checkpoint_path_epoch, max_to_keep=train_params['checkpoints_to_keep_epoch'], keep_checkpoint_every_n_hours=None)    
      
         # (For Batches)
+    
     checkpoint_path_batch = "checkpoints/{}/batch".format(utility.model_name_mkr(model_params,train_params=train_params))
     os.makedirs(checkpoint_path_batch,exist_ok=True)
         #Create the checkpoint path and the checpoint manager. This will be used to save checkpoints every n epochs
@@ -205,6 +203,9 @@ def train_loop(train_params, model_params):
         # restoring checkpoint from last batch if it exists
     if ckpt_manager_batch.latest_checkpoint: #restoring last checkpoint if it exists
         ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint)
+        if model_params['model_type_settings']['model_version'] in ["54","55","56","156","155"]:
+            raise NotImplementedError #The optimizer state loading has not been set up
+        _optimizer = utility.load_optimizer_state(_optimizer, model_params, train_params)
         print ('Latest checkpoint restored from {}'.format(ckpt_manager_batch.latest_checkpoint  ) )
 
     else:
@@ -238,7 +239,7 @@ def train_loop(train_params, model_params):
         li_ds_vals = [ data_generators.load_data_ati( train_params, model_params, day_to_start_at=sd, data_dir=train_params['data_dir'] ) for sd in li_start_days_val ]
         
         li_ds_trains = [ _ds.take( math.ceil( train_set_size_batches/train_params['strided_dataset_count'] ) )  if idx==0 
-                            else _ds.take( train_set_size_batches//train_params['strided_dataset_count'] )  #This ensures that the for loops switch between validation and train sets at the right counts
+                            else _ds.take( train_set_size_batches//train_params['strided_dataset_count'] )  #This ensures that the for loops switchcheck between validation and train sets at the right counts
                             for idx,_ds in  enumerate(li_ds_trains) ] #Only the first ds takes the full amount
         li_ds_vals = [ _ds.take( math.ceil( val_set_size_batches/train_params['strided_dataset_count'] ) )  if idx==0 
                     else _ds.take( val_set_size_batches//train_params['strided_dataset_count'] )  #This ensures that the for loops switch between validation and train sets at the right counts
@@ -816,6 +817,13 @@ def train_loop(train_params, model_params):
                 train_mse_metric_epoch( metric_mse )
                                         
             ckpt_manager_batch.save()
+
+            #Optimizer state save
+            if( model_params['model_name'] in ["SimpleConvGRU","THST"] and model_params['model_type_settings']['model_version'] in ["54","55","56","156","155"] ): #multiple optimizers 
+                raise NotImplementedError
+            else:
+                utility.save_optimizer_state( _optimizer, model_params, train_params )
+
             if( (batch+1)%train_batch_reporting_freq==0 or batch+1 == train_set_size_batches):
                 batches_report_time =  time.time() - start_batch_time
 

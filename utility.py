@@ -10,6 +10,8 @@ import ast
 import copy
 import datetime
 import re
+import pickle
+from tensorflow.python.ops import variables as tf_variables
 
 # region Vandal
 #precip data import - use in data pipeline
@@ -84,6 +86,46 @@ def get_script_directory(_path):
     else:
         return os.path.dirname(_path)
 
+def kl_loss_weighting_scheme( max_batch, curr_batch, var_model_type="dropout" ):
+
+    if var_model_type in ["flipout"]:
+        idx = max_batch-curr_batch+1
+        weight = 1/(2**idx)
+    else:
+        weight = (1/max_batch)
+        
+    return weight*(1/10)
+
+#standardising and de-standardizing 
+def standardize( _array, reverse=False, distr_type="Normal" ):
+    if distr_type=="Normal":
+        SCALE = 2
+    elif distr_type=="LogNormal":
+        SCALE= 2
+
+    if(reverse==False):
+        _array = _array/SCALE
+    
+    else:
+        _array = _array*SCALE
+    
+    return _array
+
+#masking water
+def water_mask(array, mask, mode=0):
+    #need a mask for mse calculation, train and validation -> in this one just cast them to 0,
+    
+    if mode==0:
+        array=tf.where( mask, array, 0.0 )
+
+    #need a mask for image printing summary
+    elif mode ==1:
+        array = tf.where(mask, array, np.nan )
+    return array
+
+# endregion
+
+
 # Methods Related to Training
 def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoch, val_metric_mse_mean, ckpt_manager_epoch, train_params, model_params, train_metric_mse=None, val_metric_mse=None  ):
     """
@@ -126,46 +168,8 @@ def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoc
                                     header=True, index=False ) #saving df of scores                      
     return df_training_info
 
-def kl_loss_weighting_scheme( max_batch, curr_batch, var_model_type="dropout" ):
 
-    if var_model_type in ["flipout"]:
-        idx = max_batch-curr_batch+1
-        weight = 1/(2**idx)
-    else:
-        weight = (1/max_batch)
-        
-    return weight*(1/10)
-
-#standardising and de-standardizing 
-def standardize( _array, reverse=False, distr_type="Normal" ):
-    if distr_type=="Normal":
-        SCALE = 2
-    elif distr_type=="LogNormal":
-        SCALE= 2
-
-    if(reverse==False):
-        _array = _array/SCALE
-    
-    else:
-        _array = _array*SCALE
-    
-    return _array
-
-#masking water
-def water_mask(array, mask, mode=0):
-    #need a mask for mse calculation, train and validation -> in this one just cast them to 0,
-    
-    if mode==0:
-        array=tf.where( mask, array, 0.0 )
-
-    #need a mask for image printing summary
-    elif mode ==1:
-        array = tf.where(mask, array, np.nan )
-    return array
-
-# endregion
-
-# region passing arguments to script
+# region restarting model train/test
 def load_params_train_model(args_dict):
         
     if( args_dict['model_name'] == "DeepSD" ):
@@ -289,6 +293,27 @@ def load_params_test_model(args_dict):
     save_model_settings( model_params, train_params() )
 
     return train_params, model_params
+
+def load_optimizer_state( optimizer, model_params, train_params ):
+    fp = "checkpoints/{}/optimizer_weights.pkl".format( model_name_mkr(model_params, load_save="load",train_params=train_params ) )
+    try:
+        weights = pickle.load( open( fp, "rb") )
+        optimizer.set_weights( weights )
+
+    except (FileNotFoundError, UnicodeDecodeError) as e:
+        optimizer._set_hyper('learning_rate', 8e-4 )
+        optimizer._set_hyper('min_lr', 4e-4 )
+        var_optimizer_step = lambda: tf.Variable( initial_value=0, trainable=False, name="iter", shape=[], dtype=tf.int64, aggregation=tf_variables.VariableAggregation.ONLY_FIRST_REPLICA )
+        optimizer.iterations(  var_optimizer_step() )
+    
+    return optimizer
+
+def save_optimizer_state(optimizer, model_params, train_params):
+    weights = optimizer.get_weights()
+    fp = "checkpoints/{}/optimizer_weights.pkl".format( model_name_mkr(model_params, load_save="load",train_params=train_params ) )
+    pickle.dump( weights, open( fp , "wb")  )
+    return True
+
 
 def parse_arguments(s_dir=None):
     parser = argparse.ArgumentParser(description="Receive input params")
