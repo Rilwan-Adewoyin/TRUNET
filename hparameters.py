@@ -175,7 +175,7 @@ class model_THST_hparameters(MParams):
         self.dc = kwargs.get('model_type_settings',{}).get('discrete_continuous',False)
         self.stoc = kwargs.get('model_type_settings',{}).get('stochastic',False)
         self.di = kwargs.get('downscaled_input',False)
-        self.ep = kwargs.get('model_type_settings',{}).get('epsilon',5e-4)
+        self.ep = kwargs.get('model_type_settings',{}).get('epsilon',1e-6)
 
         super( model_THST_hparameters, self ).__init__(**kwargs)
 
