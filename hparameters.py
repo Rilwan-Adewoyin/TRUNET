@@ -176,6 +176,7 @@ class model_THST_hparameters(MParams):
         self.stoc = kwargs.get('model_type_settings',{}).get('stochastic',False)
         self.di = kwargs.get('downscaled_input',False)
         self.ep = kwargs.get('model_type_settings',{}).get('epsilon',1e-6)
+        
 
         super( model_THST_hparameters, self ).__init__(**kwargs)
 
@@ -188,7 +189,7 @@ class model_THST_hparameters(MParams):
         REC_ADAM_PARAMS = {
             "learning_rate":1e-3,   "warmup_proportion":0.65,
             "min_lr":8e-4,          "beta_1":0.5,               "beta_2":0.95,
-            "amsgrad":True,         "decay":0.005,              "epsilon":self.ep }
+            "amsgrad":True,         "decay":0.004,              "epsilon":self.ep }
 
         DROPOUT = kwargs.get('dropout',0.0)
         LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.99 }
@@ -777,7 +778,7 @@ class train_hparameters_ati(HParams):
         #DATA_DIR = "./Data/Rain_Data_Nov19" 
         DATA_DIR = self.dd
 
-        EARLY_STOPPING_PERIOD = 30
+        EARLY_STOPPING_PERIOD = 60
  
         self.params = {
             'batch_size':BATCH_SIZE,
