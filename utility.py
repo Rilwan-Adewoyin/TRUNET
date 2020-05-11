@@ -300,10 +300,11 @@ def load_optimizer_state( optimizer, model_params, train_params, model_variables
         weights = pickle.load( open( fp, "rb") )
         optimizer._optimizer._create_slots( model_variables)
 
-        lahead_weight_count = len( optimizer._optimizer._weights )
+        #lahead_weight_count = len( optimizer._optimizer._weights )
 
-        optimizer._optimizer.set_weights( weights[:lahead_weight_count ] )
-        optimizer._optimizer.set_weights( weights[ lahead_weight_count: ] )
+        # optimizer._optimizer.set_weights( weights[:lahead_weight_count ] )
+        # optimizer._optimizer.set_weights( weights[ lahead_weight_count: ] )
+        optimizer._optimizer.set_weights( weights )
 
     except (FileNotFoundError, UnicodeDecodeError) as e:
         optimizer._set_hyper('learning_rate', 8e-4 )
