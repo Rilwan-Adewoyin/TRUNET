@@ -298,7 +298,8 @@ def load_optimizer_state( optimizer, model_params, train_params ):
     fp = "checkpoints/{}/optimizer_weights.pkl".format( model_name_mkr(model_params, load_save="load",train_params=train_params ) )
     try:
         weights = pickle.load( open( fp, "rb") )
-        optimizer.set_weights( weights )
+        
+        optimizer._optimizer.set_weights( weights )
 
     except (FileNotFoundError, UnicodeDecodeError) as e:
         optimizer._set_hyper('learning_rate', 8e-4 )
