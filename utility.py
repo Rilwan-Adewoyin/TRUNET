@@ -298,12 +298,15 @@ def load_optimizer_state( optimizer, model_params, train_params, model_variables
     fp = "checkpoints/{}/optimizer_weights.pkl".format( model_name_mkr(model_params, load_save="load",train_params=train_params ) )
     try:
         weights = pickle.load( open( fp, "rb") )
+
+        optimizer._optimizer._create_hypers()
         optimizer._optimizer._create_slots( model_variables)
 
         #lahead_weight_count = len( optimizer._optimizer._weights )
 
         # optimizer._optimizer.set_weights( weights[:lahead_weight_count ] )
         # optimizer._optimizer.set_weights( weights[ lahead_weight_count: ] )
+        
         optimizer._optimizer.set_weights( weights )
 
     except (FileNotFoundError, UnicodeDecodeError) as e:
