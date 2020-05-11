@@ -197,16 +197,13 @@ def train_loop(train_params, model_params):
     checkpoint_path_batch = "checkpoints/{}/batch".format(utility.model_name_mkr(model_params,train_params=train_params))
     os.makedirs(checkpoint_path_batch,exist_ok=True)
         #Create the checkpoint path and the checpoint manager. This will be used to save checkpoints every n epochs
-    ckpt_batch = tf.train.Checkpoint(model=model)#, optimizer=optimizer)
+    ckpt_batch = tf.train.Checkpoint(model=model, optimizer=_optimizer)#, optimizer=optimizer)
     ckpt_manager_batch = tf.train.CheckpointManager(ckpt_batch, checkpoint_path_batch, max_to_keep=train_params['checkpoints_to_keep_batch'], keep_checkpoint_every_n_hours=None)
 
         # restoring checkpoint from last batch if it exists
     if ckpt_manager_batch.latest_checkpoint: #restoring last checkpoint if it exists
         ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint)
-        if model_params['model_type_settings']['model_version'] in ["54","55","56","156","155"]:
-            raise NotImplementedError #The optimizer state loading has not been set up
-        _optimizer = utility.load_optimizer_state(_optimizer, model_params, train_params, model.trainable_variables )
-        print ('Latest checkpoint restored from {}'.format(ckpt_manager_batch.latest_checkpoint  ) )
+
 
     else:
         print (' Initializing from scratch')
@@ -817,12 +814,6 @@ def train_loop(train_params, model_params):
                 train_mse_metric_epoch( metric_mse )
                                         
             ckpt_manager_batch.save()
-
-            #Optimizer state save
-            if( model_params['model_name'] in ["SimpleConvGRU","THST"] and model_params['model_type_settings']['model_version'] in ["54","55","56","156","155"] ): #multiple optimizers 
-                raise NotImplementedError
-            else:
-                utility.save_optimizer_state( _optimizer, model_params, train_params )
 
             if( (batch+1)%train_batch_reporting_freq==0 or batch+1 == train_set_size_batches):
                 batches_report_time =  time.time() - start_batch_time
