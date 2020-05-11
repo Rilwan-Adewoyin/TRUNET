@@ -205,7 +205,7 @@ def train_loop(train_params, model_params):
         ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint)
         if model_params['model_type_settings']['model_version'] in ["54","55","56","156","155"]:
             raise NotImplementedError #The optimizer state loading has not been set up
-        _optimizer = utility.load_optimizer_state(_optimizer, model_params, train_params)
+        _optimizer = utility.load_optimizer_state(_optimizer, model_params, train_params, model.trainable_variables )
         print ('Latest checkpoint restored from {}'.format(ckpt_manager_batch.latest_checkpoint  ) )
 
     else:

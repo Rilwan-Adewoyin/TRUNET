@@ -294,12 +294,12 @@ def load_params_test_model(args_dict):
 
     return train_params, model_params
 
-def load_optimizer_state( optimizer, model_params, train_params ):
+def load_optimizer_state( optimizer, model_params, train_params, model_variables ):
     fp = "checkpoints/{}/optimizer_weights.pkl".format( model_name_mkr(model_params, load_save="load",train_params=train_params ) )
     try:
         weights = pickle.load( open( fp, "rb") )
-        
-        optimizer._optimizer.set_weights( weights )
+        optimizer._create_all_weights( model_variables)
+        optimizer.set_weights( weights )
 
     except (FileNotFoundError, UnicodeDecodeError) as e:
         optimizer._set_hyper('learning_rate', 8e-4 )
