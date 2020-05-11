@@ -188,7 +188,7 @@ class model_THST_hparameters(MParams):
         REC_ADAM_PARAMS = {
             "learning_rate":1e-3,   "warmup_proportion":0.65,
             "min_lr":8e-4,          "beta_1":0.5,               "beta_2":0.95,
-            "amsgrad":True,         "decay":0.009,              "epsilon":self.ep }
+            "amsgrad":True,         "decay":0.005,              "epsilon":self.ep }
 
         DROPOUT = kwargs.get('dropout',0.0)
         LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.99 }
