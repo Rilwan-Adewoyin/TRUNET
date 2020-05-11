@@ -300,6 +300,7 @@ def load_optimizer_state( optimizer, model_params, train_params, model_variables
         weights = pickle.load( open( fp, "rb") )
 
         optimizer._optimizer._create_hypers()
+        optimizer._optimizer._optimizer._create_hypers()
         optimizer._optimizer._create_slots( model_variables)
 
         #lahead_weight_count = len( optimizer._optimizer._weights )
