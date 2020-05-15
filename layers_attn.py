@@ -210,13 +210,14 @@ class MultiHead2DAttention_v2(Layer):
         # endregion 
 
         # region reshping from 3D to 2D reshaping for attention
-        q_antecedent_flat = tf.reshape(q_antecedent, q_antecedent.shape.as_list()[:2] + [-1] ) #( batch_size, seq_len, height*width*filters_in) #NOTE shape.as_list()[:-1] may not work in graph mode
-        k_antecedent_flat = tf.reshape(k_antecedent, k_antecedent.shape.as_list()[:2] + [-1] ) #NOTE shape.as_list()[:-1] may not work in graph mode
+        # TODO:(akanni-ade) convert q_antecedent and k_antecdent to made in a similar fashion to v_antecedent and remove the pooling
+        q_antecedent_flat = tf.reshape(q_antecedent, q_antecedent.shape.as_list()[:2] + [-1] ) #( batch_size, seq_len, height*width*filters_in) 
+        k_antecedent_flat = tf.reshape(k_antecedent, k_antecedent.shape.as_list()[:2] + [-1] ) 
         
         if self.transform_value_antecedent == True:
             v_antecedent = self.conv_value( v_antecedent, training=True  )
             
-        v_antecedent_flat = tf.reshape(v_antecedent, v_antecedent.shape.as_list()[:2] + [-1] ) #NOTE shape.as_list()[:-1] may not work in graph mode
+        v_antecedent_flat = tf.reshape(v_antecedent, v_antecedent.shape.as_list()[:2] + [-1] ) 
         # endregion
 
         #region Dot-Product Attention
@@ -225,6 +226,7 @@ class MultiHead2DAttention_v2(Layer):
         k = self.dense_key(  k_antecedent_flat)
         v = v_antecedent_flat
         
+        #TODO: Consider(akanni-ade) Prior to this split heads the 1kv shold be( batch_size, seq_len*h*w, filters_in) 
         q = split_heads(q, self.num_heads)
         k = split_heads(k, self.num_heads)
         v = split_heads(v, self.num_heads)
@@ -258,7 +260,7 @@ class MultiHead2DAttention_v2(Layer):
         weights = dropout_with_broadcast_dims(
             weights, 1.0 - self.dropout_rate, broadcast_dims=self.dropout_broadcast_dims)
 
-        x = _relative_attention_inner(weights, v, relations_values, False)
+        x = _relative_attention_inner(weights, v, relations_values, False) #TODO:(akani-ade) build mechanism that adds relative height and width
 
         x = combine_heads(x)
         x.set_shape(x.shape.as_list()[:-1] + [self.total_value_depth]) #NOTE: x.shape.as_list()[:-1] may not work in graph mode

@@ -78,9 +78,19 @@ def main( test_params, model_params):
 
     model, checkpoint_code = util_predict.load_model(test_params, model_params)
 
-    predict(model, test_params, model_params ,checkpoint_code )
+    if model_params['model_type_settings']['discrete_continuous'] == False: 
+        predict(model, test_params, model_params ,checkpoint_code )
+    else:
+        if model_params['model_type_settings']['prob_rain_thresh'] == "Tune":
+            li_precip_range = np.arange(0.20, 0.60, 0.025 ).tolist()
+        
+            for precip_thrsh in li_precip_range: 
+                predict(model, test_params, model_params, checkpoint_code, precip_thrsh )
+        else:
+            predict(model, test_params, model_params, checkpoint_code, model_params['model_type_settings']['prob_rain_thresh'] )
 
-def predict( model, test_params, model_params ,checkpoint_no ):
+
+def predict( model, test_params, model_params ,checkpoint_no, precip_thrsh=0 ):
     
     # region ------ Setting up testing variables
     if model_params['model_type_settings']['location'] == 'region_grid' and 'location_test' not in model_params['model_type_settings'].keys():
@@ -171,8 +181,8 @@ def predict( model, test_params, model_params ,checkpoint_no ):
                     preds = tf.squeeze(preds,axis=-1) # (1, bs, seq_len, h, w)
                     preds, probs = tf.unstack(preds, axis=0)
                     #thresholding using probability
-                    if 'prob_rain_thresh' in model_params['model_type_settings']: 
-                        preds = tf.where( probs > model_params['model_type_settings']['prob_rain_thresh'], preds, utility.standardize_ati(0.0, test_params['normalization_shift']['rain'], test_params['normalization_scales']['rain'], reverse=False) )
+                    
+                    preds = tf.where( probs > precip_thrsh, preds, utility.standardize_ati(0.0, test_params['normalization_shift']['rain'], test_params['normalization_scales']['rain'], reverse=False) )
                     preds = tf.expand_dims(preds, axis=-1 )
 
                 if model_params['model_type_settings']['location'] == 'region_grid' or model_params['model_type_settings']['twoD']==True:
@@ -210,8 +220,8 @@ def predict( model, test_params, model_params ,checkpoint_no ):
                 if model_params['model_type_settings']['discrete_continuous'] == True:
                     preds, probs = tf.unstack( preds, axis=0)
 
-                    if 'prob_rain_thresh' in model_params['model_type_settings']: 
-                        preds = tf.where( probs>model_params['model_type_settings']['prob_rain_thresh'], preds, utility.standardize_ati(0.0, test_params['normalization_shift']['rain'], test_params['normalization_scales']['rain'], reverse=False) )
+                    
+                    preds = tf.where( probs>precip_thrsh, preds, utility.standardize_ati(0.0, test_params['normalization_shift']['rain'], test_params['normalization_scales']['rain'], reverse=False) )
 
                 if ( model_params['model_type_settings']['location']=='region_grid' ) or model_params['model_type_settings']['twoD']==True: #focusing on centre of square only
                     preds = preds[:, :, 6:10, 6:10, :]
@@ -277,13 +287,13 @@ def predict( model, test_params, model_params ,checkpoint_no ):
    
         if( len(li_predictions)>=upload_size ):
 
-            util_predict.save_preds(test_params, model_params, li_predictions, li_timestamps_chunked[:len(li_predictions)], li_true_values )
+            util_predict.save_preds(test_params, model_params, li_predictions, li_timestamps_chunked[:len(li_predictions)], li_true_values, precip_thrsh )
             li_timestamps_chunked = li_timestamps_chunked[len(li_predictions):]
             li_predictions = []
             li_true_values = []
     
     if len(li_predictions) >0:
-        util_predict.save_preds(test_params, model_params, li_predictions, li_timestamps_chunked[:len(li_predictions)], li_true_values )
+        util_predict.save_preds(test_params, model_params, li_predictions, li_timestamps_chunked[:len(li_predictions)], li_true_values, precip_thrsh )
         li_timestamps_chunked = li_timestamps_chunked[len(li_predictions):]
         li_predictions = []
         li_true_values = []

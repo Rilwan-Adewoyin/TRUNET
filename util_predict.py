@@ -133,7 +133,7 @@ def load_model(test_params, model_params):
 
     return model, checkpoint_code
 
-def save_preds( test_params, model_params, li_preds, li_timestamps, li_truevalues ):
+def save_preds( test_params, model_params, li_preds, li_timestamps, li_truevalues, precip_threshold=None ):
     """
     
     """
@@ -142,7 +142,11 @@ def save_preds( test_params, model_params, li_preds, li_timestamps, li_truevalue
 
     _path_pred = test_params['output_dir'] + "/{}/Predictions".format(utility.model_name_mkr(model_params, load_save="save", train_params=test_params))
 
-    fn = str(li_timestamps[0][0]) + "___" + str(li_timestamps[-1][-1]) + ".dat"
+    
+    if model_params['model_type_settings']['discrete_continuous'] == False:
+        fn = str(li_timestamps[0][0]) + "___" + str(li_timestamps[-1][-1]) + ".dat"
+    else:
+        fn = str(li_timestamps[0][0]) + "___" + str(li_timestamps[-1][-1]) + "pt{:.3f}.dat".format(precip_threshold)
 
     if(not os.path.exists(_path_pred) ):
         os.makedirs(_path_pred)
