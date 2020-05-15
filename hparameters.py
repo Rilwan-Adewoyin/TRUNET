@@ -175,7 +175,7 @@ class model_THST_hparameters(MParams):
         self.dc = kwargs.get('model_type_settings',{}).get('discrete_continuous',False)
         self.stoc = kwargs.get('model_type_settings',{}).get('stochastic',False)
         self.di = kwargs.get('downscaled_input',False)
-        self.ep = kwargs.get('model_type_settings',{}).get('epsilon',1e-8)
+        self.ep = kwargs.get('model_type_settings',{}).get('epsilon',5e-8)
         
 
         super( model_THST_hparameters, self ).__init__(**kwargs)
@@ -187,9 +187,9 @@ class model_THST_hparameters(MParams):
         
         # region learning/convergence params
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-3,   "warmup_proportion":0.65,
-            "min_lr":8e-4,          "beta_1":0.5,               "beta_2":0.999,
-            "amsgrad":True,         "decay":0.003,              "epsilon":self.ep }
+            "learning_rate":5e-4,   "warmup_proportion":0.65,
+            "min_lr":1e-4,          "beta_1":0.5,               "beta_2":0.99,
+            "amsgrad":True,         "decay":0.009,              "epsilon":self.ep }
 
         DROPOUT = kwargs.get('dropout',0.0)
         LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.99 }
