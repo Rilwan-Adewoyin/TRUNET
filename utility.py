@@ -324,7 +324,6 @@ def save_optimizer_state(optimizer, model_params, train_params):
     pickle.dump( weights, open( fp , "wb")  )
     return True
 
-
 def parse_arguments(s_dir=None):
     parser = argparse.ArgumentParser(description="Receive input params")
 
@@ -364,7 +363,12 @@ def parse_arguments(s_dir=None):
     parser.add_argument('-tst','--train_set_size', type=float,required=False, default=0.6 )
 
     parser.add_argument('-iim','--input_interpolation_method', type=str, required=False, default='linear' )
-    
+
+    parser.add_argument('-ctsm','--ctsm', type=str, required=False, default=None) #custom training scheme method
+
+    parser.add_argument('-fyi_train','--fyi_train',type=int, required=False, default=1 )
+
+    parser.add_argument('-fyi_test','--fyi_test',type=int, required=False, default=1 )
     
     args_dict = vars(parser.parse_args() )
 
@@ -418,8 +422,7 @@ def model_name_mkr(model_params, mode='Generic', load_save="load", train_params=
     elif mode == "mc_dropout_test":
         model_params = copy.deepcopy(model_params)
         model_params['model_type_settings']['var_model_type'] = 'Deterministic'
-        model_params['model_type_settings']['stochastic'] = False
-
+        model_params['model_type_settings']['stochastic'] = False   
     
     if  model_params['model_name'] == "THST":
         if model_params['model_type_settings']['deformable_conv'] == False:
@@ -454,13 +457,15 @@ def model_name_mkr(model_params, mode='Generic', load_save="load", train_params=
     if load_save == "save" and model_params['model_type_settings'].get('location_test',"London") != "London":
         model_name = model_name + model_params['model_type_settings']['location_test']
     
-    if train_params.get('train_set_size', 0.6) != 0.6 and train_params['downscaled_input']:
+    if train_params.get('train_set_size', 0.6) != 0.6 and train_params['downscaled_input'] and train_params.get('ctsm',None) != "Rolling_2_Year_test" :
         model_name = model_name + "_tst_" +str( train_params['train_set_size'] )
     
-    if train_params.get('input_interpolation_method',None) != None and train_params['downscaled_input'] :
+    if train_params.get('input_interpolation_method',None) != None and train_params['downscaled_input'] and train_params.get('ctsm',None) != "Rolling_2_Year_test" :
         model_name = model_name + "_iim_" +str( train_params['input_interpolation_method'] )
 
-
+    if train_params.get('ctsm') == "4ds_10years":
+        model_name = model_name + "4ds_{}".format(str( train_params['fyi_train']) )
+    
     model_name = re.sub("[ '\(\[\)\]]|ListWrapper",'',model_name )
 
     model_name = re.sub(",",'_',model_name )

@@ -35,9 +35,8 @@ def load_model(test_params, model_params):
             
             if model_params['model_type_settings']['location'] == "wholeregion":
                 init_inp = tf.zeros(
-                    [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ], dtype=tf.float16 )
-            
-            elif model_params['model_type_settings']['location'] == "region_grid":
+                    [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ], dtype=tf.float16 )           
+            else:
                 init_inp = tf.zeros(
                     [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] ,16 , 16,6 ], dtype=tf.float16 )
             
@@ -53,13 +52,12 @@ def load_model(test_params, model_params):
             init_inp = tf.zeros( [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'], 6 ], dtype=tf.float16 )
             model( init_inp, training=False )
         
-
         elif(model_name=="SimpleConvGRU"):
             model = models.SimpleConvGRU(test_params,model_params)
             if model_params['model_type_settings']['location'] == "wholeregion":
                 init_inp = tf.zeros(
                     [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ], dtype=tf.float16 )
-            elif model_params['model_type_settings']['location'] == "region_grid":
+            else:
                 init_inp = tf.zeros(
                     [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] ,16 , 16, 6 ], dtype=tf.float16 )
             model(init_inp, training=False )
@@ -105,7 +103,6 @@ def load_model(test_params, model_params):
             init_inp = tf.zeros( [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'], 6 ], dtype=tf.float16 )
             model( init_inp, training=False )
         
-
         elif(model_name=="SimpleConvGRU"):
             model = models.SimpleConvGRU(test_params,model_params)
 
@@ -120,7 +117,6 @@ def load_model(test_params, model_params):
 
             model(init_inp, training=False )
         
-
         ckpt = tf.train.Checkpoint(model=model)
 
         #We will use Optimal Checkpoint information from checkpoint_scores_model.csv
@@ -140,8 +136,14 @@ def save_preds( test_params, model_params, li_preds, li_timestamps, li_truevalue
     if type(model_params) == list:
         model_params = model_params[0]
 
-    _path_pred = test_params['output_dir'] + "/{}/Predictions".format(utility.model_name_mkr(model_params, load_save="save", train_params=test_params))
-
+    if test_params.get('ctsm',None) ==None:
+        _path_pred = test_params['output_dir'] + "/{}/Predictions".format(utility.model_name_mkr(model_params, load_save="save", train_params=test_params))
+    
+    elif test_params['ctsm'] == "Rolling_2_Year_test" :
+        _path_pred = test_params['output_dir'] + "/{}/Predictions/R2yt".format(utility.model_name_mkr(model_params, load_save="save", train_params=test_params) )
+    
+    elif test_params['ctsm'] == "4ds_10years":
+        _path_pred = test_params['output_dir'] + "/{}/Predictions/4ds_{}".format(utility.model_name_mkr(model_params, load_save="save", train_params=test_params), test_params['fyi_test'] )
     
     if model_params['model_type_settings']['discrete_continuous'] == False:
         fn = str(li_timestamps[0][0]) + "___" + str(li_timestamps[-1][-1]) + ".dat"

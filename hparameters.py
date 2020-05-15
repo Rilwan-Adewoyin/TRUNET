@@ -685,12 +685,17 @@ class train_hparameters_ati(HParams):
         self.dd = kwargs.get("data_dir") 
         self.tst = kwargs.get("train_set_size",0.6)
         self.iim = kwargs.get('input_interpolation_method',None)
+        self.custom_train_split_method = kwargs.get('ctsm', None)
+
+        if self.custom_train_split_method == "4ds_10years":
+            self.four_year_idx_train = kwargs['fyi_train'] #index for training set
 
         kwargs.pop('batch_size')
         kwargs.pop('lookback_target')
         kwargs.pop('strided_dataset_count')
         kwargs.pop('train_set_size')
         kwargs.pop('input_interpolation_method')
+        #kwargs.pop('cstm')
         super( train_hparameters_ati, self).__init__(**kwargs)
 
     def _default_params(self):
@@ -733,49 +738,62 @@ class train_hparameters_ati(HParams):
         CHECKPOINTS_TO_KEEP_BATCH = 5
 
         # region ---- data information
+        target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
+        feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
 
-        if self.di == False:
+        if self.custom_train_split_method != "4ds_10years":
+            if self.di == False:
             
-            target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
-            feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
-        
-            tar_end_date = target_start_date + np.timedelta64( 14822, 'D')
-            feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(16072, '6h'), 'D')
-        
-        elif self.di == True:
+                tar_end_date = target_start_date + np.timedelta64( 14822, 'D')
+                feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(16072, '6h'), 'D')
             
-            target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
-            feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
-        
-            tar_end_date =  target_start_date + np.timedelta64( 14822, 'D')
-            feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(59900, '6h'), 'D')
+            elif self.di == True:
+                
+                tar_end_date =  target_start_date + np.timedelta64( 14822, 'D')
+                feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(59900, '6h'), 'D')
 
+            if feature_start_date > target_start_date:
+                train_start_date = feature_start_date
+            else:
+                train_start_date = target_start_date
 
-        if feature_start_date > target_start_date :
-            train_start_date = feature_start_date
-        else:
-            train_start_date = target_start_date
+            if tar_end_date < feature_end_date :
+                end_date = tar_end_date
+            else:
+                end_date = feature_end_date
+            
+            if self.custom_train_split_method == None:
+                val_start_date =    np.datetime64( train_start_date + (end_date - train_start_date)*self.tst, 'D' )
+                val_end_date =      np.datetime64( val_start_date + (end_date - train_start_date)*((1-self.tst)/2), 'D' )
 
-        if tar_end_date < feature_end_date :
-            end_date = tar_end_date
-        else:
-            end_date = feature_end_date
+                #TOTAL_DATUMS = int(end_date - start_date)//WINDOW_SHIFT - lookback  #By datums here we mean windows, for the target
+                TOTAL_DATUMS_TARGET = np.timedelta64(end_date - train_start_date,'D')  / WINDOW_SHIFT   #Think of better way to get the np.product info from model_params to train params
+                TOTAL_DATUMS_TARGET = TOTAL_DATUMS_TARGET.astype(int)
+                
 
-        #train_start_date = np.max(feature_start_date, target_start_date)
-        #end_date = np.min( tar_end_date, feature_end_date)
-        val_start_date =    np.datetime64( train_start_date + (end_date - train_start_date)*self.tst, 'D' )
-        val_end_date =      np.datetime64( val_start_date + (end_date - train_start_date)*((1-self.tst)/2), 'D' )
+                #TODO: correct the train_set_size_elems
+                TRAIN_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS_TARGET*self.tst) 
+                VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS_TARGET*((1-self.tst)/2))
+            else:
+                raise ValueError
+                
+        elif self.custom_train_split_method == "4ds_10years":
+            li_start_dates = [ np.datetime64( '1979-01-01','D'), np.datetime64( '1989-01-01','D'), np.datetime64( '1999-01-01','D'), np.datetime64( '2009-01-01','D')   ]
+            li_end_dates = [ np.datetime64( '1988-12-31','D'), np.datetime64( '1998-12-31','D'), np.datetime64( '2008-12-31','D'), np.datetime64( '2019-07-31','D') ]
 
-        #TOTAL_DATUMS = int(end_date - start_date)//WINDOW_SHIFT - lookback  #By datums here we mean windows, for the target
-        TOTAL_DATUMS_TARGET = np.timedelta64(end_date - train_start_date,'D')  / WINDOW_SHIFT   #Think of better way to get the np.product info from model_params to train params
-        TOTAL_DATUMS_TARGET = TOTAL_DATUMS_TARGET.astype(int)
+            train_start_date = li_start_dates[ self.four_year_idx_train ]
+            end_date = li_end_dates[ self.four_year_idx_train ]
+
+            val_start_date = train_start_date + np.timedelta64(7,'Y') #7 year train set size, 3 year val set size
+            val_end_date = end_date
+
+            TOTAL_DATUMS_TARGET = np.timedelta64(end_date - train_start_date,'D')  / WINDOW_SHIFT  
+            TOTAL_DATUMS_TARGET = TOTAL_DATUMS_TARGET.astype(int)
+
+            TRAIN_SET_SIZE_ELEMENTS = int( np.timedelta64(val_start_date - train_start_date,'D')  // WINDOW_SHIFT   ) 
+            VAL_SET_SIZE_ELEMENTS = int( np.timedelta64( end_date - val_start_date,'D')  // WINDOW_SHIFT    )         
         # endregion
-
-        #TODO: correct the train_set_size_elems
-        TRAIN_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS_TARGET*self.tst) 
-        VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS_TARGET*((1-self.tst)/2))
         
-        #DATA_DIR = "./Data/Rain_Data_Nov19" 
         DATA_DIR = self.dd
 
         EARLY_STOPPING_PERIOD = 30
@@ -790,8 +808,7 @@ class train_hparameters_ati(HParams):
             'strided_dataset_count': self.strided_dataset_count,
             'train_set_size_elements_b4_sdc_multlocation': TRAIN_SET_SIZE_ELEMENTS,
             'val_set_size_elements_b4_sdc_multlocation':VAL_SET_SIZE_ELEMENTS,
-            # 'train_set_size_batches': (TRAIN_SET_SIZE_ELEMENTS//BATCH_SIZE) #*self.strided_dataset_count - ( self.strided_dataset_count - 1) ,
-            # 'val_set_size_batches':(VAL_SET_SIZE_ELEMENTS//BATCH_SIZE) #*self.strided_dataset_count - (self.strided_dataset_count - 1),
+
 
             'checkpoints_to_keep':CHECKPOINTS_TO_KEEP,
             'checkpoints_to_keep_epoch':CHECKPOINTS_TO_KEEP_EPOCH,
@@ -822,18 +839,30 @@ class test_hparameters_ati(HParams):
     def __init__(self, **kwargs):
         self.lookback_target = kwargs['lookback_target']
         self.batch_size = kwargs.get("batch_size",2)
-        kwargs.pop('batch_size')
+        
         #kwargs.pop('lookback_target')
-        self.di = kwargs.get('downscaled_input')
+        self.di = kwargs.get('downscaled_input', False)
         self.dd = kwargs.get('data_dir')
         self.tst = kwargs.get('train_set_size',0.6)
         self.iim = kwargs.get('input_interpolation_method',None)
-        
+        self.custom_train_split_method = kwargs.get('ctsm', None)
+        self.custom_train_split_method = kwargs.get('ctsm', None)
 
+        if self.custom_train_split_method == "4ds_10years":
+            self.four_year_idx_train = kwargs['fyi_train'] #index for training set
+            self.four_year_idx_test = kwargs['fyi_test']
+            assert self.four_year_idx_train != self.four_year_idx_test
+        
+        # kwargs.pop('batch_size')
+        # kwargs.pop('lookback_target')
+        # kwargs.pop('strided_dataset_count')
+        # kwargs.pop('train_set_size')
+        # kwargs.pop('input_interpolation_method')
+        #kwargs.pop('ctsm')
         super( test_hparameters_ati, self).__init__(**kwargs)
     
     def _default_params(self):
-        pass
+        
         # region -------data pipepline vars
         trainable = False
 
@@ -874,19 +903,20 @@ class test_hparameters_ati(HParams):
         MODEL_RECOVER_METHOD = 'checkpoint_epoch'
         # endregion
 
-        if self.di == False:
+        if self.di == False :
             target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
             feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
             
             tar_end_date=  target_start_date + np.timedelta64( 14822, 'D')
             feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(16072, '6h'), 'D')
         
-        elif self.di == True:
+        elif self.di == True or self.custom_train_split_method in ["Rolling_2_Year_test"] :
             target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
             feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
-        
+            
             tar_end_date =  target_start_date + np.timedelta64( 14822, 'D')
             feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(59900, '6h'), 'D')
+        
 
         if feature_start_date > target_start_date:
             train_start_date = feature_start_date
@@ -900,17 +930,44 @@ class test_hparameters_ati(HParams):
 
         #train_start_date = np.max(feature_start_date, target_start_date)
         #end_date = np.min( tar_end_date, feature_end_date)
-        val_start_date =    np.datetime64( train_start_date + (end_date - train_start_date)*self.tst, 'D' )
-        val_end_date =      np.datetime64( val_start_date + (end_date - train_start_date)*((1-self.tst)/2), 'D' )
+        if self.custom_train_split_method == None:
+            val_start_date =    np.datetime64( train_start_date + (end_date - train_start_date)*self.tst, 'D' )
+            val_end_date =      np.datetime64( val_start_date + (end_date - train_start_date)*((1-self.tst)/2), 'D' )
 
-        #TOTAL_DATUMS = int(end_date - start_date)//WINDOW_SHIFT - lookback  #By datums here we mean windows, for the target
-        TOTAL_DATUMS_TARGET = np.timedelta64(end_date - train_start_date,'D')   #Think of better way to get the np.product info from model_params to train params
-        TOTAL_DATUMS_TARGET = TOTAL_DATUMS_TARGET.astype(int)
+            #TOTAL_DATUMS = int(end_date - start_date)//WINDOW_SHIFT - lookback  #By datums here we mean windows, for the target
+            TOTAL_DATUMS_TARGET = np.timedelta64(end_date - train_start_date,'D')   
+            TOTAL_DATUMS_TARGET = TOTAL_DATUMS_TARGET.astype(int)
 
-        test_start_date = train_start_date + (end_date - train_start_date)*((1+self.tst)/2)
-        test_end_date = end_date
+            test_start_date = train_start_date + (end_date - train_start_date)*((1+self.tst)/2)
+            test_end_date = end_date
 
-        TEST_SET_SIZE_DATUMS_TARGET = int( TOTAL_DATUMS_TARGET * ((1-self.tst)/2))
+            TEST_SET_SIZE_DATUMS_TARGET = int( TOTAL_DATUMS_TARGET * ((1-self.tst)/2))
+        
+        elif self.custom_train_split_method == "Rolling_2_Year_test":
+            "In this scenario, the train set was 60% of the November data and the validation set was the next 20%. But the test set is all of the next 40 years of data"
+            val_start_date =    np.datetime64('1985-04-01')     #Monday, 1 April 1985
+            val_end_date =      np.datetime64('1987-11-01') 
+            
+            #TOTAL_DATUMS = int(end_date - start_date)//WINDOW_SHIFT - lookback  #By datums here we mean windows, for the target
+            TOTAL_DATUMS_TARGET = np.timedelta64(end_date - train_start_date,'D')   #Think of better way to get the np.product info from model_params to train params
+            TOTAL_DATUMS_TARGET = TOTAL_DATUMS_TARGET.astype(int)
+
+            test_start_date = val_end_date      #Sunday, 1 November 1987
+            test_end_date = end_date
+
+            TEST_SET_SIZE_DATUMS_TARGET = int( np.datetime64( end_date - test_start_date, 'D' ) )
+        
+        elif self.custom_train_split_method == "4ds_10years":
+
+            li_start_dates = [ np.datetime64( '1979-01-01','D'), np.datetime64( '1989-01-01','D'), np.datetime64( '1999-01-01','D'), np.datetime64( '2009-01-01','D')   ]
+            li_end_dates = [ np.datetime64( '1988-12-31','D'), np.datetime64( '1998-12-31','D'), np.datetime64( '2008-12-31','D'), np.datetime64( '2019-07-31','D') ]
+
+            test_start_date = li_start_dates[self.four_year_idx_test]
+            test_end_date = li_end_dates[self.four_year_idx_test]
+
+            TEST_SET_SIZE_DATUMS_TARGET = int( np.datetime64( test_end_date - test_start_date, 'D' ) )
+
+            
         ## endregion
 
         date_tss = pd.date_range( end=test_end_date, start=test_start_date, freq='D',normalize=True)
@@ -922,7 +979,7 @@ class test_hparameters_ati(HParams):
             'batch_size':BATCH_SIZE,
             'trainable':trainable,
             
-            'total_datums':TOTAL_DATUMS_TARGET,
+            #'total_datums':TOTAL_DATUMS_TARGET,
             'test_set_size_elements':TEST_SET_SIZE_DATUMS_TARGET,
             'num_preds':N_PREDS,
             'dataset_pred_batch_reporting_freq':0.01,
@@ -943,7 +1000,6 @@ class test_hparameters_ati(HParams):
 
             'feature_start_date':feature_start_date,
             'target_start_date':target_start_date,
-            'feature_start_end':feature_end_date,
             'train_test_size':self.tst,
             'input_interpolation_method': self.iim
         }

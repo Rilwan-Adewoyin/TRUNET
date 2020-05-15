@@ -82,7 +82,7 @@ def main( test_params, model_params):
         predict(model, test_params, model_params ,checkpoint_code )
     else:
         if model_params['model_type_settings']['prob_rain_thresh'] == "Tune":
-            li_precip_range = np.arange(0.20, 0.60, 0.025 ).tolist()
+            li_precip_range = np.arange(0.20, 0.55, 0.05 ).tolist()
         
             for precip_thrsh in li_precip_range: 
                 predict(model, test_params, model_params, checkpoint_code, precip_thrsh )
@@ -100,8 +100,8 @@ def predict( model, test_params, model_params ,checkpoint_no, precip_thrsh=0 ):
     
     test_set_size_batches = test_set_size_elements //( test_params['batch_size'] * model_params['data_pipeline_params']['lookback_target'] )
 
-    if(model_params['model_name'] in ["SimpleGRU","THST","SimpleConvLSTM", "SimpleConvGRU","SimpleDense"]):
-        upload_size = test_set_size_batches
+    if(model_params['model_name'] in ["SimpleGRU","THST", "SimpleConvGRU","SimpleDense"]):
+        upload_size = test_set_size_batches #buffer size
     elif(model_params['model_name'] in ["DeepSD"]):
         upload_size = max( int( test_set_size_batches* test_params['dataset_pred_batch_reporting_freq']), 1 )
 
@@ -130,7 +130,7 @@ def predict( model, test_params, model_params ,checkpoint_no, precip_thrsh=0 ):
                 test_params, model_params,_num_parallel_calls=test_params['num_parallel_calls'], data_dir = test_params['data_dir'], drop_remainder=True  )
         ds = ds.take( test_set_size_batches )
 
-    elif(model_params['model_name'] in [ "THST", "SimpleConvLSTM", "SimpleConvGRU"] ):
+    elif(model_params['model_name'] in [ "THST", "SimpleConvGRU"] ):
         if model_params['model_type_settings']['location'] =="whole_region" :
 
             ds, idx_city_in_whole = data_generators.load_data_ati(test_params, model_params, None, day_to_start_at=test_params['test_start_date'], data_dir=test_params['data_dir'] )
