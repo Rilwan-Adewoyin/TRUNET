@@ -189,8 +189,8 @@ class model_THST_hparameters(MParams):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
             "learning_rate":8e-4,   "warmup_proportion":0.65,
-            "min_lr":5e-4,          "beta_1":0.8,               "beta_2":0.99,
-            "amsgrad":True,         "decay":0.004,              "epsilon":self.ep }
+            "min_lr":7e-4,          "beta_1":0.8,               "beta_2":0.99,
+            "amsgrad":True,         "decay":0.002,              "epsilon":self.ep }
 
         DROPOUT = kwargs.get('dropout',0.0)
         LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.99 }
@@ -226,7 +226,7 @@ class model_THST_hparameters(MParams):
         kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )             
         recurrent_regularizers = [ None ] * (enc_layer_count) 
         kernel_regularizers    = [ None ] * (enc_layer_count)
-        bias_regularizers      = [ tf.keras.regularizers.l2(0.02) ] * (enc_layer_count) 
+        bias_regularizers      = [ None ]*(enc_layer_count) # [ tf.keras.regularizers.l2(0.02) ] * (enc_layer_count)  #changed
         recurrent_dropouts     = [ kwargs.get('rec_dropout',0.0) ]*(enc_layer_count)
         input_dropouts         = [ kwargs.get('inp_dropout',0.0) ]*(enc_layer_count)
         stateful               = True                       #True if testing on single location , false otherwise

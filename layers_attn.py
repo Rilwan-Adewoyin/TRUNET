@@ -174,7 +174,6 @@ class MultiHead2DAttention_v2(Layer):
             self.dense_key   =  tf.keras.layers.Dense( total_key_depth, use_bias=False, activation="linear", name="k")  
         
         if self.transform_value_antecedent == True:
-            #self.conv_value = tf.keras.layers.Dense( total_value_depth, use_bias=False, activation="linear", name="v" )
             self.conv_value = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **value_conv ) ) # This has been used for all other THST models
             #self.dense_value = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **value_conv ) ) # This has been used for the THST models trained on the intiial November dataset
 
