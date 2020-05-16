@@ -175,8 +175,9 @@ class MultiHead2DAttention_v2(Layer):
         
         if self.transform_value_antecedent == True:
             #self.conv_value = tf.keras.layers.Dense( total_value_depth, use_bias=False, activation="linear", name="v" )
-            self.conv_value = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **value_conv ) )
-        
+            self.conv_value = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **value_conv ) ) # This has been used for all other THST models
+            #self.dense_value = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **value_conv ) ) # This has been used for the THST models trained on the intiial November dataset
+
         if( self.max_relative_position==None ):
            self.max_relative_position =  tf.constant( int(self.attn_factor_reduc/2 - 1) , dtype=tf.int32 )
 
@@ -216,6 +217,7 @@ class MultiHead2DAttention_v2(Layer):
         
         if self.transform_value_antecedent == True:
             v_antecedent = self.conv_value( v_antecedent, training=True  )
+            #v_antecedent = self.dense_value( v_antecedent, training=True  )
             
         v_antecedent_flat = tf.reshape(v_antecedent, v_antecedent.shape.as_list()[:2] + [-1] ) 
         # endregion

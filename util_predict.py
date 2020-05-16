@@ -18,7 +18,61 @@ def load_model(test_params, model_params):
     else:
         mode = "Generic"
 
-    if(test_params['model_recover_method'] == 'checkpoint_batch'):
+    if(test_params['model_recover_method'] == 'checkpoint_epoch'):
+        
+        if(model_name=="DeepSD"):
+            #Just initliazing model so checkpoint method can work
+            model = models.SuperResolutionModel( test_params, model_params)
+            if type(model_params) == list:
+                model_params = model_params[0]
+
+            init_inp = tf.ones( [ test_params['batch_size'], model_params['input_dims'][0],
+                        model_params['input_dims'][1], model_params['conv1_inp_channels'] ] , dtype=tf.float16 )
+            model(init_inp, training=False )
+
+        elif(model_name=="THST"):
+            model = models.THST(test_params, model_params)
+            if model_params['model_type_settings']['location'] == "wholeregion":
+                init_inp = tf.zeros(
+                    [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ], dtype=tf.float16 )
+            else: 
+                init_inp = tf.zeros(
+                    [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'], 16, 16, 6 ], dtype=tf.float16 )
+            model(init_inp, training=False )
+
+        elif(model_name=="SimpleGRU"):
+            model = models.SimpleGRU(test_params, model_params)
+            init_inp = tf.zeros( [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'], 6 ], dtype=tf.float16 )
+            model( init_inp, training=False )
+        
+        elif(model_name=="SimpleDense"):
+            model = models.SimpleDense(test_params, model_params)
+            init_inp = tf.zeros( [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'], 6 ], dtype=tf.float16 )
+            model( init_inp, training=False )
+        
+        elif(model_name=="SimpleConvGRU"):
+            model = models.SimpleConvGRU(test_params,model_params)
+
+            if model_params['model_type_settings']['location'] == "wholeregion":
+                init_inp = tf.zeros(
+                    [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ], dtype=tf.float16 )
+            else:
+                    init_inp = tf.zeros(
+                        [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] ,16 , 16,6 ], dtype=tf.float16 )
+
+            model(init_inp, training=False )
+        
+        ckpt = tf.train.Checkpoint(model=model)
+
+        #We will use Optimal Checkpoint information from checkpoint_scores_model.csv
+        df_checkpoint_scores = pd.read_csv( test_params['script_dir']+'/checkpoints/{}/checkpoint_scores.csv'.format(utility.model_name_mkr(model_params,mode=mode, load_save="load", train_params=test_params )), header=0  ) #Give the load_save param a better name
+        best_checkpoint_path = df_checkpoint_scores['Checkpoint_Path'][0]
+        checkpoint_code = "E"+str(df_checkpoint_scores['Epoch'][0])
+        status = ckpt.restore( best_checkpoint_path ).assert_existing_objects_matched() #.expect_partial()
+
+        print("Are weights empty after restoring from checkpoint?", model.weights == [] )
+
+    elif(test_params['model_recover_method'] == 'checkpoint_batch'):
         
         if(model_name=="DeepSD"):
             model = models.SuperResolutionModel( test_params, model_params) 
@@ -70,62 +124,6 @@ def load_model(test_params, model_params):
 
         print("Are weights empty after restoring from checkpoint?", model.weights == [])
     
-    elif(test_params['model_recover_method'] == 'checkpoint_epoch'):
-        
-
-        if(model_name=="DeepSD"):
-            #Just initliazing model so checkpoint method can work
-            model = models.SuperResolutionModel( test_params, model_params)
-            if type(model_params) == list:
-                model_params = model_params[0]
-
-            init_inp = tf.ones( [ test_params['batch_size'], model_params['input_dims'][0],
-                        model_params['input_dims'][1], model_params['conv1_inp_channels'] ] , dtype=tf.float16 )
-            model(init_inp, training=False )
-
-        elif(model_name=="THST"):
-            model = models.THST(test_params, model_params)
-            if model_params['model_type_settings']['location'] == "wholeregion":
-                init_inp = tf.zeros(
-                    [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ], dtype=tf.float16 )
-            else: #elif model_params['model_type_settings']['location'] == "region_grid":
-                    init_inp = tf.zeros(
-                        [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] ,16 , 16,6 ], dtype=tf.float16 )
-            model(init_inp, training=False )
-
-        elif(model_name=="SimpleGRU"):
-            model = models.SimpleGRU(test_params, model_params)
-            init_inp = tf.zeros( [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'], 6 ], dtype=tf.float16 )
-            model( init_inp, training=False )
-        
-        elif(model_name=="SimpleDense"):
-            model = models.SimpleDense(test_params, model_params)
-            init_inp = tf.zeros( [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'], 6 ], dtype=tf.float16 )
-            model( init_inp, training=False )
-        
-        elif(model_name=="SimpleConvGRU"):
-            model = models.SimpleConvGRU(test_params,model_params)
-
-            if model_params['model_type_settings']['location'] == "wholeregion":
-                init_inp = tf.zeros(
-                    [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ], dtype=tf.float16 )
-            else:
-                    init_inp = tf.zeros(
-                        [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] ,16 , 16,6 ], dtype=tf.float16 )
-
-
-            model(init_inp, training=False )
-        
-        ckpt = tf.train.Checkpoint(model=model)
-
-        #We will use Optimal Checkpoint information from checkpoint_scores_model.csv
-        df_checkpoint_scores = pd.read_csv( test_params['script_dir']+'/checkpoints/{}/checkpoint_scores.csv'.format(utility.model_name_mkr(model_params,mode=mode, load_save="load", train_params=test_params )), header=0  ) #Give the load_save param a better name
-        best_checkpoint_path = df_checkpoint_scores['Checkpoint_Path'][0]
-        checkpoint_code = "E"+str(df_checkpoint_scores['Epoch'][0])
-        status = ckpt.restore( best_checkpoint_path ).expect_partial()
-
-        print("Are weights empty after restoring from checkpoint?", model.weights == [] )
-
     return model, checkpoint_code
 
 def save_preds( test_params, model_params, li_preds, li_timestamps, li_truevalues, precip_threshold=None ):
@@ -163,7 +161,7 @@ def save_preds( test_params, model_params, li_preds, li_timestamps, li_truevalue
         if "location_test" in model_params['model_type_settings'].keys():
             li_truevalues = [ tens.numpy().reshape([-1]) for tens in li_truevalues]     #list of 1D - (preds ) 
         else:
-            li_truevalues = [ tens.numpy() for tens in li_truevalues] #2D - (tss, h, w)
+            li_truevalues = [ tens.numpy() for tens in li_truevalues]                   #2D - (tss, h, w)
 
     elif( model_params['model_name'] in ["DeepSD"] ): 
         li_truevalues = [ tens.numpy() for tens in li_truevalues]

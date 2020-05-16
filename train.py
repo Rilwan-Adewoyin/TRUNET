@@ -193,7 +193,6 @@ def train_loop(train_params, model_params):
     ckpt_manager_epoch = tf.train.CheckpointManager(ckpt_epoch, checkpoint_path_epoch, max_to_keep=train_params['checkpoints_to_keep_epoch'], keep_checkpoint_every_n_hours=None)    
      
         # (For Batches)
-    
     checkpoint_path_batch = "checkpoints/{}/batch".format(utility.model_name_mkr(model_params,train_params=train_params))
     os.makedirs(checkpoint_path_batch,exist_ok=True)
         #Create the checkpoint path and the checpoint manager. This will be used to save checkpoints every n epochs
@@ -202,8 +201,7 @@ def train_loop(train_params, model_params):
 
         # restoring checkpoint from last batch if it exists
     if ckpt_manager_batch.latest_checkpoint: #restoring last checkpoint if it exists
-        ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint)
-
+        ckpt_batch.restore(ckpt_manager_epoch.latest_checkpoint).asert_consumed()
 
     else:
         print (' Initializing from scratch')

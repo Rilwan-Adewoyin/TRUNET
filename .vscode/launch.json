@@ -29,8 +29,8 @@
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
-            "args": [ "-mn","THST","-dd","Data/Rain_Data_Nov19", "-bs","2","-sdc","1" , "-do","0.0", "-ido","0.0", "-rdo","0.0",
-                "-mts" ,"{'location_test':'London','stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'Deterministic','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'deformable_conv':False,'model_version':'150','twoD':True, 'prob_rain_thresh':0.30}"
+            "args": [ "-mn","THST","-dd","Data/Rain_Data_Nov19", "-bs","5","-sdc","1" , "-do","0.2", "-ido","0.2", "-rdo","0.3",
+                "-mts" ,"{'location_test':'London','stochastic':False,'stochastc_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'deformable_conv':False,'model_version':'145','twoD':True, 'prob_rain_thresh':0.50}"
                 ]  
         },
         {
@@ -55,17 +55,7 @@
                 "-mts" ,"{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'wholeregion','deformable_conv':False,'model_version':'12','location_test':'London','twoD':True}"
                 ]
         },
-        {
-            "name": "SimpleGRU",
-            "type": "python",
-            "request": "launch",
-            "program": "${file}",
-            "console": "internalConsole",
-            "justMyCode": false,
-            "args": [ "-mn","SimpleGRU","-sdc","1",
-                        "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'mc_dropout','model_version':'100', 'twoD':False,'location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh'], 'twoD':False}",
-                "-dd","Data/Rain_Data_Nov19","-bs","10", "-od","./Output", "-do","0.3", "-ido","0.3", "-rdo","0.4" ]
-        },
+        
         {
             "name": "SimpleConvGRUTest_London",
             "type": "python",
@@ -99,16 +89,6 @@
                 "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'LogNormal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'Deterministic','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'] , 'model_version':'145','twoD':True}",
                 "-dd","Data/Rain_Data_Nov19" ]
         },
-        {
-            "name": "SimpleDense",
-            "type": "python",
-            "request": "launch",
-            "program": "${file}",
-            "console": "internalConsole",
-            "justMyCode": false,
-            "args": [ "-mn","SimpleDense",
-                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'London', 'model_version':'2'}",
-                "-dd","Data/Rain_Data_Nov19","-bs","2", "-od","./Output" ]
-        },
+
     ]
 }

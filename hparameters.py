@@ -188,9 +188,9 @@ class model_THST_hparameters(MParams):
         
         # region learning/convergence params
         REC_ADAM_PARAMS = {
-            "learning_rate":5e-4,   "warmup_proportion":0.65,
-            "min_lr":1e-4,          "beta_1":0.5,               "beta_2":0.99,
-            "amsgrad":True,         "decay":0.009,              "epsilon":self.ep }
+            "learning_rate":8e-4,   "warmup_proportion":0.65,
+            "min_lr":5e-4,          "beta_1":0.8,               "beta_2":0.99,
+            "amsgrad":True,         "decay":0.004,              "epsilon":self.ep }
 
         DROPOUT = kwargs.get('dropout',0.0)
         LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.99 }
@@ -226,7 +226,7 @@ class model_THST_hparameters(MParams):
         kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )             
         recurrent_regularizers = [ None ] * (enc_layer_count) 
         kernel_regularizers    = [ None ] * (enc_layer_count)
-        bias_regularizers      = [ tf.keras.regularizers.l2(0.2) ] * (enc_layer_count) 
+        bias_regularizers      = [ tf.keras.regularizers.l2(0.02) ] * (enc_layer_count) 
         recurrent_dropouts     = [ kwargs.get('rec_dropout',0.0) ]*(enc_layer_count)
         input_dropouts         = [ kwargs.get('inp_dropout',0.0) ]*(enc_layer_count)
         stateful               = True                       #True if testing on single location , false otherwise
@@ -343,7 +343,7 @@ class model_THST_hparameters(MParams):
         activations = ['relu','linear']
 
         OUTPUT_LAYER_PARAMS = [ 
-            { "filters":fs, "kernel_size":ks , "padding":"same", "activation":act, 'bias_regularizer':tf.keras.regularizers.l2(0.2)  } 
+            { "filters":fs, "kernel_size":ks , "padding":"same", "activation":act, 'bias_regularizer':bias_regularizers[0]  } 
                 for fs, ks, act in zip( output_filters, output_kernel_size, activations )
         ]
   
@@ -953,7 +953,7 @@ class test_hparameters_ati(HParams):
             TOTAL_DATUMS_TARGET = np.timedelta64(end_date - train_start_date,'D')   #Think of better way to get the np.product info from model_params to train params
             TOTAL_DATUMS_TARGET = TOTAL_DATUMS_TARGET.astype(int)
 
-            test_start_date = val_end_date      #Sunday, 1 November 1987
+            test_start_date = np.datetime64('1987-12-31','D')      #Sunday, 1 November 1987
             test_end_date = end_date
 
             TEST_SET_SIZE_DATUMS_TARGET = np.timedelta64( end_date - test_start_date, 'D' ).astype(int)
