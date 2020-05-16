@@ -202,7 +202,7 @@ def train_loop(train_params, model_params):
         # restoring checkpoint from last batch if it exists
     if ckpt_manager_batch.latest_checkpoint: #restoring last checkpoint if it exists
 
-        ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint).assert_consumed()
+        #ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint).assert_consumed()
         ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint).assert_existing_objects_matched()
         #ckpt_batch.restore(ckpt_manager_epoch.latest_checkpoint).assert_consumed()
 
