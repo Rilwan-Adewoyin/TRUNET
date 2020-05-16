@@ -189,7 +189,7 @@ def train_loop(train_params, model_params):
         #  (For Epochs)
     checkpoint_path_epoch = "checkpoints/{}/epoch".format(utility.model_name_mkr(model_params,train_params=train_params ))
     os.makedirs(checkpoint_path_epoch,exist_ok=True)
-    ckpt_epoch = tf.train.Checkpoint(model=model)#, optimizer=optimizer)
+    ckpt_epoch = tf.train.Checkpoint(model=model, optimizer=optimizer)
     ckpt_manager_epoch = tf.train.CheckpointManager(ckpt_epoch, checkpoint_path_epoch, max_to_keep=train_params['checkpoints_to_keep_epoch'], keep_checkpoint_every_n_hours=None)    
      
         # (For Batches)
@@ -201,7 +201,9 @@ def train_loop(train_params, model_params):
 
         # restoring checkpoint from last batch if it exists
     if ckpt_manager_batch.latest_checkpoint: #restoring last checkpoint if it exists
-        ckpt_batch.restore(ckpt_manager_epoch.latest_checkpoint).assert_consumed()
+
+        ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint).assert_consumed()
+        #ckpt_batch.restore(ckpt_manager_epoch.latest_checkpoint).assert_consumed()
 
     else:
         print (' Initializing from scratch')
