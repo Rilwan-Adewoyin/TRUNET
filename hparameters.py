@@ -176,6 +176,7 @@ class model_THST_hparameters(MParams):
         self.stoc = kwargs.get('model_type_settings',{}).get('stochastic',False)
         self.di = kwargs.get('downscaled_input',False)
         self.ep = kwargs.get('model_type_settings',{}).get('epsilon',5e-8)
+        self.ctsm = kwargs.get('ctsm', None)
         
 
         super( model_THST_hparameters, self ).__init__(**kwargs)
@@ -333,7 +334,7 @@ class model_THST_hparameters(MParams):
 
         # region --------------- OUTPUT_LAYER_PARAMS and Upscaling-----------------
 
-        if self.di ==False:
+        if self.di ==False or self.ctsm == "Rolling_2_Year_test":
             output_filters = [  int(  8*(((output_filters_dec[-1]*2)/3)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
         else: 
             output_filters = [  int(  8*(((output_filters_dec[-1]*2)/4)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
@@ -846,7 +847,7 @@ class test_hparameters_ati(HParams):
         self.tst = kwargs.get('train_set_size',0.6)
         self.iim = kwargs.get('input_interpolation_method',None)
         self.custom_train_split_method = kwargs.get('ctsm', None)
-        self.custom_train_split_method = kwargs.get('ctsm', None)
+        
 
         if self.custom_train_split_method == "4ds_10years":
             self.four_year_idx_train = kwargs['fyi_train'] #index for training set
@@ -945,8 +946,8 @@ class test_hparameters_ati(HParams):
         
         elif self.custom_train_split_method == "Rolling_2_Year_test":
             "In this scenario, the train set was 60% of the November data and the validation set was the next 20%. But the test set is all of the next 40 years of data"
-            val_start_date =    np.datetime64('1985-04-01')     #Monday, 1 April 1985
-            val_end_date =      np.datetime64('1987-11-01') 
+            val_start_date =    np.datetime64('1985-04-01','D')     #Monday, 1 April 1985
+            val_end_date =      np.datetime64('1987-11-01','D') 
             
             #TOTAL_DATUMS = int(end_date - start_date)//WINDOW_SHIFT - lookback  #By datums here we mean windows, for the target
             TOTAL_DATUMS_TARGET = np.timedelta64(end_date - train_start_date,'D')   #Think of better way to get the np.product info from model_params to train params
@@ -955,7 +956,7 @@ class test_hparameters_ati(HParams):
             test_start_date = val_end_date      #Sunday, 1 November 1987
             test_end_date = end_date
 
-            TEST_SET_SIZE_DATUMS_TARGET = int( np.datetime64( end_date - test_start_date, 'D' ) )
+            TEST_SET_SIZE_DATUMS_TARGET = np.timedelta64( end_date - test_start_date, 'D' ).astype(int)
         
         elif self.custom_train_split_method == "4ds_10years":
 
@@ -965,7 +966,7 @@ class test_hparameters_ati(HParams):
             test_start_date = li_start_dates[self.four_year_idx_test]
             test_end_date = li_end_dates[self.four_year_idx_test]
 
-            TEST_SET_SIZE_DATUMS_TARGET = int( np.datetime64( test_end_date - test_start_date, 'D' ) )
+            TEST_SET_SIZE_DATUMS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
 
             
         ## endregion

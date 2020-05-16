@@ -220,7 +220,6 @@ def predict( model, test_params, model_params ,checkpoint_no, precip_thrsh=0 ):
                 if model_params['model_type_settings']['discrete_continuous'] == True:
                     preds, probs = tf.unstack( preds, axis=0)
 
-                    
                     preds = tf.where( probs>precip_thrsh, preds, utility.standardize_ati(0.0, test_params['normalization_shift']['rain'], test_params['normalization_scales']['rain'], reverse=False) )
 
                 if ( model_params['model_type_settings']['location']=='region_grid' ) or model_params['model_type_settings']['twoD']==True: #focusing on centre of square only

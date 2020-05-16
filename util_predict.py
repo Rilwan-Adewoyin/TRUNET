@@ -106,7 +106,6 @@ def load_model(test_params, model_params):
         elif(model_name=="SimpleConvGRU"):
             model = models.SimpleConvGRU(test_params,model_params)
 
-
             if model_params['model_type_settings']['location'] == "wholeregion":
                 init_inp = tf.zeros(
                     [test_params['batch_size'], model_params['data_pipeline_params']['lookback_feature'] , 100,  140, 6 ], dtype=tf.float16 )
