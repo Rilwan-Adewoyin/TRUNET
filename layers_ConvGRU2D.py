@@ -2013,6 +2013,7 @@ class ConvGRU2D_attn(ConvRNN2D):
                  recurrent_dropout=0.,
                  trainable=True,
                  reset_after=True,
+                 compat_dict= {},
                  **kwargs):
 
         if layer_norm != None: 
@@ -2028,9 +2029,8 @@ class ConvGRU2D_attn(ConvRNN2D):
         self.attn_downscaling_params = attn_downscaling_params
         self.attn_factor_reduc = attn_factor_reduc
 
-        self.Attention2D = MultiHead2DAttention_v2( **attn_params, attention_scaling_params=attn_downscaling_params , attn_factor_reduc=attn_factor_reduc ,trainable=self.trainable,**kwargs  )
-        kwargs.pop('di')
-        kwargs.pop('ctsm')
+        self.Attention2D = MultiHead2DAttention_v2( **attn_params, attention_scaling_params=attn_downscaling_params , attn_factor_reduc=attn_factor_reduc ,trainable=self.trainable,compat_dict=compat_dict  )
+
 
         cell = ConvGRU2DCell_attn(filters=filters,
                                      kernel_size=kernel_size,

@@ -818,14 +818,14 @@ class THST_CGRU_Attention_Layer(tf.keras.layers.Layer):
 		self.trainable 					= train_params['trainable']
 		self.num_of_splits 				= num_of_splits
 		self.seq_len_factor_reduction 	= seq_len_factor_reduction
-		temp_helper = {'di':train_params['downscaled_input'] , 'ctsm':train_params['ctsm']}
-		self.convGRU_attn 				= Bidirectional( layer=layers_ConvGRU2D.ConvGRU2D_attn( **CGRU_params, **temp_helper ,
+		compat_dict = {'di':train_params['downscaled_input'] , 'ctsm':train_params['ctsm']}
+		self.convGRU_attn 				= Bidirectional( layer=layers_ConvGRU2D.ConvGRU2D_attn( **CGRU_params,
 															attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
-															attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable ),
+															attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable, compact_dict=compat_dict ),
 
-															backward_layer=layers_ConvGRU2D.ConvGRU2D_attn( go_backwards=True, **copy.deepcopy(CGRU_params), **copy.deepcopy(temp_helper),
+															backward_layer=layers_ConvGRU2D.ConvGRU2D_attn( go_backwards=True, **copy.deepcopy(CGRU_params),
 																attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
-																attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable ),
+																attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable, compat_dict=compat_dict ),
 															merge_mode=None  ) #stateful possibly set to True, return_state=True, return_sequences=True
 
 		self.shape 						= ( train_params['batch_size'], self.num_of_splits, h_w[0], h_w[1], CGRU_params['filters'] )
