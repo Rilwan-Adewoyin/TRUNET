@@ -773,7 +773,7 @@ def train_loop(train_params, model_params):
                           _optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
                     else:
-                        gradients, _ = tf.clip_by_global_norm( gradients, 2.0 )
+                        gradients, _ = tf.clip_by_global_norm( gradients, 3.5 )
                         _optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
                 gc.collect()
