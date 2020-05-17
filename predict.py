@@ -141,6 +141,9 @@ def predict( model, test_params, model_params ,checkpoint_no, precip_thrsh=0 ):
 
             ds, idx_city_in_region = data_generators.load_data_ati(test_params, model_params, None, day_to_start_at=test_params['test_start_date'], data_dir=test_params['data_dir'] )
             ds = ds.take( test_set_size_batches )
+            cache_suffix = '_{}_bs_{}_loctest_{}_{}'.format( model_params['model_name'], test_params['batch_size'],model_params['model_type_settings']['location_test'],model_params['model_type_settings']['location']  ).strip('[]') )
+            ds = ds.cache('data_cache/ds_test_cache'+cache_suffix ) 
+
     
     elif(model_params['model_name'] in ["SimpleGRU","SimpleDense"]):
         ds = data_generators.load_data_ati(test_params, model_params, None, day_to_start_at=test_params['test_start_date'], data_dir=test_params['data_dir'] )
