@@ -748,7 +748,7 @@ def train_loop(train_params, model_params):
                             scaled_loss = _optimizer.get_scaled_loss( losses[optm_idx] + sum(model.losses) )
                         else:
                             _optimizer = optimizer
-                            scaled_loss = _optimizer.get_scaled_loss(_l1 + _l2 + _l3 + sum(model.losses) )
+                            scaled_loss = _optimizer.get_scaled_loss(_l1 + _l2 + _l3 )#+ sum(model.losses) )
   
                     elif(model_params['model_type_settings']['stochastic']==True):
                         raise NotImplementedError
