@@ -823,7 +823,7 @@ class THST_CGRU_Attention_Layer(tf.keras.layers.Layer):
 															attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
 															attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable ),
 
-															backward_layer=layers_ConvGRU2D.ConvGRU2D_attn( go_backwards=True, **copy.deepcopy(CGRU_params), **temp_helper,
+															backward_layer=layers_ConvGRU2D.ConvGRU2D_attn( go_backwards=True, **copy.deepcopy(CGRU_params), **copy.deepcopy(temp_helper),
 																attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
 																attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable ),
 															merge_mode=None  ) #stateful possibly set to True, return_state=True, return_sequences=True
