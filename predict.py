@@ -304,7 +304,7 @@ def predict( model, test_params, model_params ,checkpoint_no, precip_thrsh=0 ):
 
     try:
         next(iter_test)
-    except tf.errors.OutOfRangeError as e:
+    except (tf.errors.OutOfRangeError, StopIteration, StopAsyncIteration) as e:
         pass
 
             
