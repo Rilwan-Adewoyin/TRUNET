@@ -302,6 +302,11 @@ def predict( model, test_params, model_params ,checkpoint_no, precip_thrsh=0 ):
         li_predictions = []
         li_true_values = []
 
+    try:
+        next(iter_test)
+    except tf.errors.OutOfRangeError as e:
+        pass
+
             
     # endregion
 
