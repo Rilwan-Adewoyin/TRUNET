@@ -78,7 +78,8 @@ def main( test_params, model_params):
 
     model, checkpoint_code = util_predict.load_model(test_params, model_params)
 
-    if model_params['model_type_settings']['discrete_continuous'] == False: 
+    if model_params['model_type_settings']['discrete_continuous'] == False:
+         
         predict(model, test_params, model_params ,checkpoint_code )
     else:
         if model_params['model_type_settings']['prob_rain_thresh'] == "Tune":
@@ -143,7 +144,7 @@ def predict( model, test_params, model_params ,checkpoint_no, precip_thrsh=0 ):
             ds = ds.take( test_set_size_batches )
             cache_suffix = '_{}_bs_{}_loctest_{}_{}'.format( model_params['model_name'], test_params['batch_size'],model_params['model_type_settings']['location_test'],model_params['model_type_settings']['location']  ).strip('[]') 
             
-            ds = ds.cache('data_cache/ds_test_cache'+cache_suffix ) 
+            ds = ds.cache('data_cache/ds_test_cache'+cache_suffix ).repeat(1) 
 
     
     elif(model_params['model_name'] in ["SimpleGRU","SimpleDense"]):

@@ -562,7 +562,8 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     #endregion
     
     #if len( tf.config.list_physical_devices('GPU') ) >0:
-    ds = ds.prefetch(_num_parallel_calls)
+    if _num_parallel_calls != 1:
+        ds = ds.prefetch(_num_parallel_calls)
     return ds
 
 def load_data_ati_select_location(mf, rain, rain_mask, idxs ):
