@@ -2029,7 +2029,7 @@ class ConvGRU2D_attn(ConvRNN2D):
         self.attn_downscaling_params = attn_downscaling_params
         self.attn_factor_reduc = attn_factor_reduc
 
-        self.Attention2D = MultiHead2DAttention_v2( **attn_params, attention_scaling_params=attn_downscaling_params , attn_factor_reduc=attn_factor_reduc ,trainable=self.trainable,compat_dict=compat_dict  )
+        self.Attention2D = MultiHead2DAttention_v2( **attn_params, attention_scaling_params=attn_downscaling_params , attn_factor_reduc=attn_factor_reduc ,trainable=self.trainable, compat_dict=compat_dict  )
 
 
         cell = ConvGRU2DCell_attn(filters=filters,

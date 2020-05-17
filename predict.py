@@ -139,7 +139,7 @@ def predict( model, test_params, model_params ,checkpoint_no, precip_thrsh=0 ):
 
         elif  model_params['model_type_settings']['location'] !="whole_region" and 'location_test' in model_params['model_type_settings'].keys() :
 
-            ds, idx_city_in_region = data_generators.load_data_ati(test_params, model_params, None, day_to_start_at=test_params['test_start_date'], data_dir=test_params['data_dir'] )
+            ds, idx_city_in_region = data_generators.load_data_ati(test_params, model_params, None, day_to_start_at=test_params['test_start_date'], data_dir=test_params['data_dir'], _num_parallel_calls=1 )
             ds = ds.take( test_set_size_batches )
             cache_suffix = '_{}_bs_{}_loctest_{}_{}'.format( model_params['model_name'], test_params['batch_size'],model_params['model_type_settings']['location_test'],model_params['model_type_settings']['location']  ).strip('[]') 
             
