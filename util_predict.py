@@ -139,6 +139,9 @@ def save_preds( test_params, model_params, li_preds, li_timestamps, li_truevalue
     elif test_params['ctsm'] == "Rolling_2_Year_test" :
         _path_pred = test_params['output_dir'] + "/{}/Predictions/R2yt".format(utility.model_name_mkr(model_params, load_save="save", train_params=test_params) )
     
+    elif test_params['ctsm'] == "Rolling_2_year_test_new":
+        _path_pred = test_params['output_dir'] + "/{}/Predictions/R2yt".format(utility.model_name_mkr(model_params, load_save="save", train_params=test_params) )
+
     elif test_params['ctsm'] == "4ds_10years":
         _path_pred = test_params['output_dir'] + "/{}/Predictions/4ds_{}".format(utility.model_name_mkr(model_params, load_save="save", train_params=test_params), test_params['fyi_test'] )
     

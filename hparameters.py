@@ -336,7 +336,8 @@ class model_THST_hparameters(MParams):
 
         if self.di ==False or self.ctsm == "Rolling_2_Year_test":
             output_filters = [  int(  8*(((output_filters_dec[-1]*2)/3)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
-        else: 
+        
+        else or self.ctsm == "Rolling_2_Year_test_new: 
             output_filters = [  int(  8*(((output_filters_dec[-1]*2)/4)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
 
         output_kernel_size = [ (3,3), (3,3) ] 
@@ -918,7 +919,6 @@ class test_hparameters_ati(HParams):
             tar_end_date =  target_start_date + np.timedelta64( 14822, 'D')
             feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(59900, '6h'), 'D')
         
-
         if feature_start_date > target_start_date:
             train_start_date = feature_start_date
         else:
@@ -945,19 +945,28 @@ class test_hparameters_ati(HParams):
             TEST_SET_SIZE_DATUMS_TARGET = int( TOTAL_DATUMS_TARGET * ((1-self.tst)/2))
         
         elif self.custom_train_split_method == "Rolling_2_Year_test":
-            "In this scenario, the train set was 60% of the November data and the validation set was the next 20%. But the test set is all of the next 40 years of data"
-            val_start_date =    np.datetime64('1985-04-01','D')     #Monday, 1 April 1985
+            #In this scenario, the train set was 60% of the November data and the validation set was the next 20%. But the test set is all of the next 40 years of data
+            #This assumes we are using the Models trained on teh 11 year dataset received in November, which has the validation sets as below
+            val_start_date =    np.datetime64('1985-04-01','D')  Monday, 1 April 1985,
             val_end_date =      np.datetime64('1987-11-01','D') 
             
-            #TOTAL_DATUMS = int(end_date - start_date)//WINDOW_SHIFT - lookback  #By datums here we mean windows, for the target
-            TOTAL_DATUMS_TARGET = np.timedelta64(end_date - train_start_date,'D')   #Think of better way to get the np.product info from model_params to train params
-            TOTAL_DATUMS_TARGET = TOTAL_DATUMS_TARGET.astype(int)
-
-            test_start_date = np.datetime64('1987-12-31','D')      #Sunday, 1 November 1987
+            test_start_date = np.datetime64('1989-01-01','D')      #1) Must be at least after validation set for November data, Also the IFS data only starts after 1989, So testing on final 30 years
             test_end_date = end_date
 
-            TEST_SET_SIZE_DATUMS_TARGET = np.timedelta64( end_date - test_start_date, 'D' ).astype(int)
+            #In this scenario,
+
+            TEST_SET_SIZE_DATUMS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
         
+        elif self.custom_train_split_method == "Rolling_2_Year_test_new":
+            #In the case of using models trained on larger datasets
+            years_used_for_training = int(40*self.tst)
+
+            test_start_date = np.datetime64('1979-01-01','D') + timedelta64(years_used_for_training, 'Y' )      #1) Must be at least after validation set for November data, Also the IFS data only starts after 1989, So testing on final 30 years
+            test_end_date = end_date
+
+            TEST_SET_SIZE_DATUMS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
+
+
         elif self.custom_train_split_method == "4ds_10years":
 
             li_start_dates = [ np.datetime64( '1979-01-01','D'), np.datetime64( '1989-01-01','D'), np.datetime64( '1999-01-01','D'), np.datetime64( '2009-01-01','D')   ]
@@ -967,8 +976,7 @@ class test_hparameters_ati(HParams):
             test_end_date = li_end_dates[self.four_year_idx_test]
 
             TEST_SET_SIZE_DATUMS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
-
-            
+ 
         ## endregion
 
         date_tss = pd.date_range( end=test_end_date, start=test_start_date, freq='D',normalize=True)
@@ -980,7 +988,6 @@ class test_hparameters_ati(HParams):
             'batch_size':BATCH_SIZE,
             'trainable':trainable,
             
-            #'total_datums':TOTAL_DATUMS_TARGET,
             'test_set_size_elements':TEST_SET_SIZE_DATUMS_TARGET,
             'num_preds':N_PREDS,
             'dataset_pred_batch_reporting_freq':0.01,
