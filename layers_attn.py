@@ -176,10 +176,12 @@ class MultiHead2DAttention_v2(Layer):
         
         if self.transform_value_antecedent == True:
             if compact_dict.get('di',False) ==False or compact_dict.get('ctsm',None) == 'Rolling_2_Year_test': #This is to accomodate for the chaning of model naming scheme between 10year and 40year trainign set
+                print("compact_dict1", compact_dict)
                 self.v1 = True
                 self.dense_value = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **value_conv ) ) # This has been used for the THST models trained on the intiial November dataset
             
             elif compact_dict.get('di',False) ==True or compact_dict.get('ctsm',None) == 'Rolling_2_Year_test_new':
+                print("compact_dict2", compact_dict)
                 self.v1 = False
                 self.conv_value = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **value_conv ) ) # This has been used for all other THST models
 
