@@ -337,7 +337,7 @@ class model_THST_hparameters(MParams):
         if self.di ==False or self.ctsm == "Rolling_2_Year_test":
             output_filters = [  int(  8*(((output_filters_dec[-1]*2)/3)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
         
-        elif self.di ==True or self.ctsm == "Rolling_2_Year_test_new: 
+        elif self.di ==True or self.ctsm == "Rolling_2_Year_test_new": 
             output_filters = [  int(  8*(((output_filters_dec[-1]*2)/4)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
 
         output_kernel_size = [ (3,3), (3,3) ] 
