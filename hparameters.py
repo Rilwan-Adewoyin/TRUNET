@@ -823,8 +823,8 @@ class train_hparameters_ati(HParams):
             TOTAL_DATUMS_TARGET = np.timedelta64(end_date - train_start_date,'D')  / WINDOW_SHIFT  
             TOTAL_DATUMS_TARGET = TOTAL_DATUMS_TARGET.astype(int)
 
-            TRAIN_SET_SIZE_ELEMENTS = int( np.timedelta64(val_start_date - train_start_date,'D')  // WINDOW_SHIFT   ) 
-            VAL_SET_SIZE_ELEMENTS = int( np.timedelta64( end_date - val_start_date,'D')  // WINDOW_SHIFT    )         
+            TRAIN_SET_SIZE_ELEMENTS = ( np.timedelta64(val_start_date - train_start_date,'D')  // WINDOW_SHIFT   ).astype(int) 
+            VAL_SET_SIZE_ELEMENTS = ( np.timedelta64( end_date - val_start_date,'D')  // WINDOW_SHIFT    ).astype(int)         
         
         
         # endregion
