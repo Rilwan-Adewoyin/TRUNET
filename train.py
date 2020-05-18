@@ -200,16 +200,14 @@ def train_loop(train_params, model_params):
     ckpt_manager_batch = tf.train.CheckpointManager(ckpt_batch, checkpoint_path_batch, max_to_keep=train_params['checkpoints_to_keep_batch'], keep_checkpoint_every_n_hours=None)
 
         # restoring checkpoint from last batch if it exists
-    if ckpt_manager_batch.latest_checkpoint: #restoring last checkpoint if it exists
-
+    if ckpt_manager_epoch.latest_checkpoint: #restoring last checkpoint if it exists
         #ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint).assert_consumed()
-        #ckpt_batch.restore(ckpt_manager_epoch.latest_checkpoint).assert_consumed()
-        #ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint).assert_existing_objects_matched()
-        try:
-            ckpt_batch.restore(ckpt_manager_epoch.latest_checkpoint).assert_existing_objects_matched()
-        except AssertionError as e:
-            ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint).assert_existing_objects_matched()
-        
+        ckpt_epoch.restore(ckpt_manager_epoch.latest_checkpoint).assert_existing_objects_matched()
+
+    elif ckpt_manager_batch.latest_checkpoint: #restoring last checkpoint if it exists
+        #ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint).assert_consumed()
+        ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint).assert_existing_objects_matched()
+                   
     else:
         print (' Initializing from scratch')
 
@@ -285,7 +283,7 @@ def train_loop(train_params, model_params):
     #endregion
 
     # region ---- Recurrent States Resets
-    if train_params['strided_dataset_count'] > 1:
+    if train_params['strided_dataset_count'] >= 1:
         if type( model_params['model_type_settings']['location'][:] ) == list:
             #Note: In this scenario The train dataset is
                 # 1) a series: dst1, dst2, dstN where N is the number of sdc
