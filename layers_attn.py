@@ -299,7 +299,7 @@ class MultiHead2DAttention_v2(Layer):
         
 
         if self.big == True:
-            x = tf.reshape(x, output_shape[:-1]+[34] )
+            x = tf.reshape(x, output_shape[:-1]+[26] )
             x = self.dense_output( x, training=training)
 
         elif self.transform_output == True:
