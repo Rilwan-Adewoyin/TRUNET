@@ -818,11 +818,12 @@ class THST_CGRU_Attention_Layer(tf.keras.layers.Layer):
 		self.trainable 					= train_params['trainable']
 		self.num_of_splits 				= num_of_splits
 		self.seq_len_factor_reduction 	= seq_len_factor_reduction
-		compat_dict = {'di':train_params['downscaled_input'] , 'ctsm':train_params['ctsm']}
 		
+		compat_dict = {'di':train_params['downscaled_input'] , 'ctsm':train_params['ctsm']}
+
 		self.convGRU_attn 				= Bidirectional( layer=layers_ConvGRU2D.ConvGRU2D_attn( **CGRU_params,
 															attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
-															attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable, compat_dict=compat_dict ),
+															attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable, compat_dict=copy.deepcopy(compat_dict) ),
 
 															backward_layer=layers_ConvGRU2D.ConvGRU2D_attn( go_backwards=True, **copy.deepcopy(CGRU_params),
 																attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
