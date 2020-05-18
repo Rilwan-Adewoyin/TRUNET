@@ -175,7 +175,7 @@ class MultiHead2DAttention_v2(Layer):
             self.dense_key   =  tf.keras.layers.Dense( total_key_depth, use_bias=False, activation="linear", name="k")  
         
         if self.transform_value_antecedent == True:
-            if compat_dict.get('di',False) ==False or compat_dict.get('ctsm',None) == 'Rolling_2_Year_test': #This is to accomodate for the chaning of model naming scheme between 10year and 40year trainign set
+            if compat_dict.get('di',True) ==False or compat_dict.get('ctsm',None) == 'Rolling_2_Year_test': #This is to accomodate for the chaning of model naming scheme between 10year and 40year trainign set
                 print("compat_v1:",compat_dict)
                 self.v1 = True
                 self.dense_value = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **value_conv ) ) # This has been used for the THST models trained on the intiial November dataset
