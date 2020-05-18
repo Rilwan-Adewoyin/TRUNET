@@ -175,7 +175,6 @@ class Generator():
         self.channel = channel
         self.city_location = {
             "London": [51.5074, -0.1278],
-            #+0.15,-0.1 to avoid masking a coastal city
             "Cardiff": [51.4816 + 0.15, -3.1791 -0.05], #1st Rainiest
             "Glasgow": [55.8642,  -4.2518], #3rd rainiest
             "Lancaster":[54.466, -2.8007], #2nd hieghest

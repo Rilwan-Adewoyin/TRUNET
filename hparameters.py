@@ -817,7 +817,7 @@ class train_hparameters_ati(HParams):
             train_start_date = li_start_dates[ self.four_year_idx_train ]
             end_date = li_end_dates[ self.four_year_idx_train ]
 
-            val_start_date =( pd.Timestamp(train_start_date) + pd.DateOffset( months = 8*12 ) ).to_numpy()  #7 year train set size, 3 year val set size
+            val_start_date =( pd.Timestamp(train_start_date) + pd.DateOffset( months = 7*12 ) ).to_numpy()  #7 year train set size, 3 year val set size
             val_end_date = end_date
 
             TOTAL_DATUMS_TARGET = np.timedelta64(end_date - train_start_date,'D')  / WINDOW_SHIFT  

@@ -38,7 +38,7 @@
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
-            "args": [ "-mn","THST","-dd","Data/Rain_Data_Nov19", "-bs","5","-sdc","1" , "-do","0.2", "-ido","0.2", "-rdo","0.3",
+            "args": [ "-mn","THST","-dd","Data/Rain_Data_Nov19", "-bs","5","-sdc","1", "-di" ,"True" ,"-do","0.2", "-ido","0.2", "-rdo","0.3",
                 "-mts" ,"{'location_test':'London','stochastic':False,'stochastc_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'deformable_conv':False,'model_version':'145','twoD':True, 'prob_rain_thresh':0.50}"
                 ]  
         },
@@ -49,8 +49,8 @@
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
-            "args": [ "-mn","THST","-dd","Data/Rain_Data_Mar20", "-bs","8","-sdc","1" , "-do","0.2", "-ido","0.2", "-rdo","0.3", "-di","False", 
-                "-mts" ,"{'model_version':'105','mult_gpu':False,'stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'mc_dropout','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'deformable_conv':False,'twoD':True}"
+            "args": [ "-mn","THST","-dd","Data/Rain_Data_Mar20", "-bs","8","-sdc","1" , "-do","0.2", "-ido","0.2", "-rdo","0.3", "-di","False", "-ctsm" , "4ds_10years", 
+                "-mts" ,"{'model_version':'145','mult_gpu':False,'stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout','location':['Cardiff','Liverpool','Leeds','Dublin'],'deformable_conv':False,'twoD':True}"
                 ]  
         },
         {

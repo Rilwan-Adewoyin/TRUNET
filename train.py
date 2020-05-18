@@ -258,7 +258,7 @@ def train_loop(train_params, model_params):
         if train_params['ctsm'] == None:
             cache_suffix = '_{}_bs_{}_tst_{}_{}'.format( model_params['model_name'], train_params['batch_size'], train_params.get('train_set_size', 0.6) ,str(model_params['model_type_settings']['location'] ).strip('[]') )
         elif train_params['ctsm'] == "4ds_10years":
-            cache_suffix ='_{}_bs_{}_fyitrain_{}_loc_{}'.format( model_params['model_name'], train_params['model_name'], str(train_params['fyi_train']), str(model_params['model_type_settings']['location'] ).strip('[]')  )
+            cache_suffix ='_{}_bs_{}_fyitrain_{}_loc_{}'.format( model_params['model_name'], train_params['model_name'], str(train_params['fyi_train']), str(model_params['model_type_settings']['location'] ).strip("[]\'")  )
 
         ds_train = ds_train.cache('data_cache/ds_train_cache'+cache_suffix ) 
         ds_val = ds_val.cache('data_cache/ds_val_cache'+cache_suffix )
