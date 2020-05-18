@@ -216,7 +216,6 @@ class MultiHead2DAttention_v2(Layer):
 
             :inputs: is queries
         """
-      
         # region size reduction
         output_shape = v_antecedent.shape.as_list() #NOTE shape.as_list()[:-1] may not work in graph mode
         output_shape[1] = 1 # inputs.shape[1]
@@ -272,6 +271,7 @@ class MultiHead2DAttention_v2(Layer):
         k_length = k.shape.as_list()[2]
         relations_keys = _generate_relative_positions_embeddings( q_length, k_length,
                                 self.max_relative_position, self.embeddings_table_k, self._compute_dtype )
+                                
         relations_values = _generate_relative_positions_embeddings(q_length, k_length,
                                 self.max_relative_position, self.embeddings_table_v, self._compute_dtype )
         
