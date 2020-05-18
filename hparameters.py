@@ -817,7 +817,7 @@ class train_hparameters_ati(HParams):
             train_start_date = li_start_dates[ self.four_year_idx_train ]
             end_date = li_end_dates[ self.four_year_idx_train ]
 
-            val_start_date = train_start_date + np.timedelta64(7,'Y') #7 year train set size, 3 year val set size
+            val_start_date =( pd.Timestamp(train_start_date) + pd.DateOffset( months = 8*12 ) ).to_numpy()  #7 year train set size, 3 year val set size
             val_end_date = end_date
 
             TOTAL_DATUMS_TARGET = np.timedelta64(end_date - train_start_date,'D')  / WINDOW_SHIFT  
@@ -825,6 +825,8 @@ class train_hparameters_ati(HParams):
 
             TRAIN_SET_SIZE_ELEMENTS = int( np.timedelta64(val_start_date - train_start_date,'D')  // WINDOW_SHIFT   ) 
             VAL_SET_SIZE_ELEMENTS = int( np.timedelta64( end_date - val_start_date,'D')  // WINDOW_SHIFT    )         
+        
+        
         # endregion
         
         DATA_DIR = self.dd
@@ -997,7 +999,6 @@ class test_hparameters_ati(HParams):
             test_end_date = end_date
 
             TEST_SET_SIZE_DATUMS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
-
 
         elif self.custom_train_split_method == "4ds_10years":
 
