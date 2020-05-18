@@ -189,7 +189,7 @@ class model_THST_hparameters(MParams):
         # region learning/convergence params
         REC_ADAM_PARAMS = {
             "learning_rate":7e-4,   "warmup_proportion":0.65,
-            "min_lr":6e-4,          "beta_1":0.75,               "beta_2":0.99,
+            "min_lr":6.5e-4,          "beta_1":0.80,               "beta_2":0.99,
             "amsgrad":True,         "decay":0.0002,              "epsilon":self.ep }
 
         DROPOUT = kwargs.get('dropout',0.0)
@@ -198,7 +198,7 @@ class model_THST_hparameters(MParams):
         
         #region Key Model Size Settings
         if self.big ==True:
-            seq_len_for_highest_hierachy_level = 2
+            seq_len_for_highest_hierachy_level = 4
         else:
             seq_len_for_highest_hierachy_level = 4   # 2
 
@@ -222,7 +222,7 @@ class model_THST_hparameters(MParams):
 
         # region CLSTM params
         if self.big == True:
-            _filter = 104
+            _filter = 80
         else:
             _filter = 72
             
