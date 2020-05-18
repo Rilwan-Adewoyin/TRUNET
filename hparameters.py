@@ -177,7 +177,7 @@ class model_THST_hparameters(MParams):
         self.di = kwargs.get('downscaled_input',False)
         self.ep = kwargs.get('model_type_settings',{}).get('epsilon',5e-8)
         self.ctsm = kwargs.get('ctsm', None)
-        
+        self.big = kwargs.get('model_type_settings',{}).get('big',False)
 
         super( model_THST_hparameters, self ).__init__(**kwargs)
 
@@ -197,7 +197,10 @@ class model_THST_hparameters(MParams):
         # endregion
         
         #region Key Model Size Settings
-        seq_len_for_highest_hierachy_level = 4   # 2
+        if self.big ==True:
+            seq_len_for_highest_hierachy_level = 2
+        else:
+            seq_len_for_highest_hierachy_level = 4   # 2
 
         SEQ_LEN_FACTOR_REDUCTION = [4, 7]        # [ 4, 2 ]
             #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
@@ -218,7 +221,10 @@ class model_THST_hparameters(MParams):
         enc_layer_count        = len( SEQ_LEN_FACTOR_REDUCTION ) + 1
 
         # region CLSTM params
-        _filter = 72
+        if self.big == True:
+            _filter = 102
+        else:
+            _filter = 72
             
         output_filters_enc     = [ _filter ]*(enc_layer_count-1)                     
         output_filters_enc     = output_filters_enc + output_filters_enc[-1:]   # the last two layers in the encoder must output the same number of channels
@@ -236,8 +242,13 @@ class model_THST_hparameters(MParams):
         attn_heads = [ 8 ]*attn_layers_count                #[ 8 ]*attn_layers_count        #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
         
         if 'region_grid_params' in self.params.keys():
-            kq_downscale_stride = [1, 4, 4]                 #[1, 8, 8] 
-            kq_downscale_kernelshape = kq_downscale_stride
+            if self.big == True:
+                kq_downscale_stride = [1, 4, 4]   # Uses convolution on key and query now
+                kq_downscale_kernelshape = kq_downscale_stride
+
+            else:
+                kq_downscale_stride = [1, 4, 4]                 #[1, 8, 8] 
+                kq_downscale_kernelshape = kq_downscale_stride
 
             #This keeps the hidden representations equal in size to the incoming tensors
             val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 ) for idx in range(attn_layers_count)  ]
@@ -261,17 +272,32 @@ class model_THST_hparameters(MParams):
             
         ATTN_LAYERS_NUM_OF_SPLITS = list(reversed((np.cumprod( list( reversed(SEQ_LEN_FACTOR_REDUCTION[1:] + [1] ) ) ) *seq_len_for_highest_hierachy_level ).tolist())) 
             #Each encoder layer receives a seq of 3D tensors from layer below. NUM_OF_SPLITS codes in how many chunks to devide the incoming data. NOTE: This is defined only for Encoder-Attn layers
-
-        ATTN_params_enc = [
-            {'bias':None, 'total_key_depth': kd  ,'total_value_depth':vd, 'output_depth': vd   ,
-            'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
-            "transform_value_antecedent":True,  "transform_output":True, 
-            'implementation':1,
-            "value_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':tf.keras.regularizers.l2(0.2), 'padding':'same' },
-            "output_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"outp", 'bias_regularizer':tf.keras.regularizers.l2(0.2),'padding':'same' }
-            } 
-            for kd, vd ,nh, idx in zip( key_depth, val_depth, attn_heads,range(attn_layers_count) )
-        ] 
+        if self.big == True:
+            ATTN_params_enc = [
+                {'bias':None, 'total_key_depth': kd  ,'total_value_depth':vd, 'output_depth': vd   ,
+                'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
+                "transform_value_antecedent":True,  "transform_output":True, 
+                'implementation':1,
+                "key_conv":{ "filters":int(_filter*1/2), 'kernel_size':[4,4], 'stride':[4,4] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':tf.keras.regularizers.l2(0.00002), 'padding':'same' },
+                "query_conv":{ "filters":int(_filter*1/2), 'kernel_size':[4,4], 'stride':[4,4] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':tf.keras.regularizers.l2(0.00002), 'padding':'same' },
+                "value_conv":{ "filters":int(_filter*1/2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':tf.keras.regularizers.l2(0.00002), 'padding':'same' },
+                "output_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"outp", 'bias_regularizer':tf.keras.regularizers.l2(0.00002),'padding':'same' },
+                'big':self.big
+                } 
+                for kd, vd ,nh, idx in zip( key_depth, val_depth, attn_heads,range(attn_layers_count) )
+            ] 
+            
+        else:
+            ATTN_params_enc = [
+                {'bias':None, 'total_key_depth': kd  ,'total_value_depth':vd, 'output_depth': vd   ,
+                'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
+                "transform_value_antecedent":True,  "transform_output":True, 
+                'implementation':1,
+                "value_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':tf.keras.regularizers.l2(0.00002), 'padding':'same' },
+                "output_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"outp", 'bias_regularizer':tf.keras.regularizers.l2(0.00002),'padding':'same' }
+                } 
+                for kd, vd ,nh, idx in zip( key_depth, val_depth, attn_heads,range(attn_layers_count) )
+            ] 
             #Note: bias refers to masking attention places
 
         ATTN_DOWNSCALING_params_enc = {
@@ -348,7 +374,6 @@ class model_THST_hparameters(MParams):
                 for fs, ks, act in zip( output_filters, output_kernel_size, activations )
         ]
   
-
         self.params.update( {
             'model_name':"THST",
             'model_type_settings':model_type_settings,

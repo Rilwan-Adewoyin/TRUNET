@@ -50,6 +50,9 @@ class MultiHead2DAttention_v2(Layer):
                         hard_attention_k=0,
                         training=True,
                         model_location="wholeregion",
+                        big = False,
+                        key_conv = None,
+                        query_conv = None,
                         **kwargs):
 
         """Multihead scaled-dot-product attention with input/output transformations.
@@ -146,6 +149,7 @@ class MultiHead2DAttention_v2(Layer):
         self.hard_attention_k = hard_attention_k
         self.attn_factor_reduc = attn_factor_reduc
         
+        self.compat_dict = compat_dict
         self.transform_value_antecedent = transform_value_antecedent
         self.value_conv = value_conv
         self.output_conv = output_conv
@@ -155,6 +159,7 @@ class MultiHead2DAttention_v2(Layer):
         self.max_relative_position = max_relative_position                    #TODO: add this functionality much later
         self.heads_share_relative_embedding = heads_share_relative_embedding #TODO: add this functionality much later
         
+        self.big = big
         self.dropout_broadcast_dims = dropout_broadcast_dims
 
         self.kq_downscale_kernelshape = attention_scaling_params['kq_downscale_kernelshape']
@@ -171,17 +176,22 @@ class MultiHead2DAttention_v2(Layer):
 
         #region attention layers
         with tf.control_dependencies([assert_op1, assert_op2]):
-            self.dense_query =  tf.keras.layers.Dense( total_key_depth, use_bias=False, activation="linear", name="q")
-            self.dense_key   =  tf.keras.layers.Dense( total_key_depth, use_bias=False, activation="linear", name="k")  
+            if self.big == True:
+                self.conv_query = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **query_conv ) )
+                self.conv_key =   tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **key_conv ) )
+            else:
+                self.dense_query =  tf.keras.layers.Dense( total_key_depth, use_bias=False, activation="linear", name="q")
+                self.dense_key   =  tf.keras.layers.Dense( total_key_depth, use_bias=False, activation="linear", name="k")  
         
         if self.transform_value_antecedent == True:
             #Some sort of bug here when using bidirectional layer may need to allow this class to do reflection
-            if compat_dict.get('di',True) ==False or compat_dict.get('ctsm',None) == 'Rolling_2_Year_test': #This is to accomodate for the chaning of model naming scheme between 10year and 40year trainign set
+
+            if self.compat_dict.get('di',True) ==False or self.compat_dict.get('ctsm',None) == 'Rolling_2_Year_test': #This is to accomodate for the chaning of model naming scheme between 10year and 40year trainign set
                 print("compat_v1:",compat_dict)
                 self.v1 = True
                 self.dense_value = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **value_conv ) ) # This has been used for the THST models trained on the intiial November dataset
             
-            elif compat_dict.get('di',True) ==True or compat_dict.get('ctsm',None) == 'Rolling_2_Year_test_new':
+            elif self.big ==True or self.compat_dict.get('di',True) ==True or self.compat_dict.get('ctsm',None) == 'Rolling_2_Year_test_new':
                 print("compat_v2:",compat_dict)
                 self.v1 = False
                 self.conv_value = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **value_conv ) ) # This has been used for all other THST models
@@ -211,35 +221,44 @@ class MultiHead2DAttention_v2(Layer):
         output_shape = v_antecedent.shape.as_list() #NOTE shape.as_list()[:-1] may not work in graph mode
         output_shape[1] = 1 # inputs.shape[1]
 
-        q_antecedent = tf.cast( tf.nn.avg_pool3d( tf.cast(inputs,tf.float32), strides=self.kq_downscale_stride,
+        if self.big == False:
+            q_antecedent = tf.cast( tf.nn.avg_pool3d( tf.cast(inputs,tf.float32), strides=self.kq_downscale_stride,
+                                        ksize=self.kq_downscale_kernelshape, padding="SAME"), tf.float16)
+            k_antecedent = tf.cast(tf.nn.avg_pool3d( tf.cast(k_antecedent,tf.float32), strides=self.kq_downscale_stride,
                                     ksize=self.kq_downscale_kernelshape, padding="SAME"), tf.float16)
-
-        k_antecedent = tf.cast(tf.nn.avg_pool3d( tf.cast(k_antecedent,tf.float32), strides=self.kq_downscale_stride,
-                                    ksize=self.kq_downscale_kernelshape, padding="SAME"), tf.float16)
-                                
+        else:
+            q_antecedent = inputs
+                                    
         # endregion 
 
-        # region reshping from 3D to 2D reshaping for attention
+        # region calculating q k v
+        # reshping from 3D to 2D reshaping for attention
         # TODO:(akanni-ade) convert q_antecedent and k_antecdent to made in a similar fashion to v_antecedent and remove the pooling
-        q_antecedent_flat = tf.reshape(q_antecedent, q_antecedent.shape.as_list()[:2] + [-1] ) #( batch_size, seq_len, height*width*filters_in) 
-        k_antecedent_flat = tf.reshape(k_antecedent, k_antecedent.shape.as_list()[:2] + [-1] ) 
-        
+        if self.big == False:
+            q_antecedent_flat = tf.reshape(q_antecedent, q_antecedent.shape.as_list()[:2] + [-1] ) #( batch_size, seq_len, height*width*filters_in) 
+            k_antecedent_flat = tf.reshape(k_antecedent, k_antecedent.shape.as_list()[:2] + [-1] ) 
+            q = self.dense_query(q_antecedent_flat)
+            k = self.dense_key(  k_antecedent_flat)
+        else:
+            q_antecedent = self.conv_query( q_antecedent, training=True )
+            k_antecedent = self.conv_key( k_antecedent, training=True )
+            q_antecedent_flat = tf.reshape(q_antecedent, q_antecedent.shape.as_list()[:2] + [-1] ) 
+            k_antecedent_flat = tf.reshape(k_antecedent, k_antecedent.shape.as_list()[:2] + [-1] ) 
+            q = q_antecedent_flat
+            k = k_antecedent_flat
+
         if self.transform_value_antecedent == True:
             if self.v1 == True:
                 v_antecedent = self.dense_value( v_antecedent, training=True  )
             else:
                 v_antecedent = self.conv_value( v_antecedent, training=True  )
             
-            
         v_antecedent_flat = tf.reshape(v_antecedent, v_antecedent.shape.as_list()[:2] + [-1] ) 
+        v = v_antecedent_flat
         # endregion
 
-        #region Dot-Product Attention
-        #calculating q k v
-        q = self.dense_query(q_antecedent_flat)
-        k = self.dense_key(  k_antecedent_flat)
-        v = v_antecedent_flat
         
+        #region Dot-Product Attention
         #TODO: Consider(akanni-ade) Prior to this split heads the 1kv shold be( batch_size, seq_len*h*w, filters_in) 
         q = split_heads(q, self.num_heads)
         k = split_heads(k, self.num_heads)

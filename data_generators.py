@@ -188,6 +188,10 @@ class Generator():
             "Belfast": [54.5973, -5.9301], #25
             "Dublin": [53.3498, -6.2603],
             "LakeDistrict":[54.4500,-3.100],
+            "Newry":[54.1751, -6.3402],
+            "Preston":[53.7632, -2.7031 ],
+            "Truro":[50.2632, -5.0510],
+            "Bangor":[54.2274 - 0.1, -4.1293 + 0.1]
             
             }
         self.latitude_array = np.linspace(58.95,49.05, 100)

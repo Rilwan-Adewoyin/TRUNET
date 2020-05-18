@@ -454,6 +454,9 @@ def model_name_mkr(model_params, mode='Generic', load_save="load", train_params=
                         str(model_params['model_type_settings']['discrete_continuous']),
                         model_params['model_type_settings']['location'],model_params['model_type_settings']['model_version'] )  
 
+    if model_params['model_type_settings'].get('big',False) == True:
+        model_name = model_name + "big"
+
     if load_save == "save" and model_params['model_type_settings'].get('location_test',"London") != "London":
         model_name = model_name + model_params['model_type_settings']['location_test']
     
