@@ -961,7 +961,7 @@ class test_hparameters_ati(HParams):
             #In the case of using models trained on larger datasets
             years_used_for_training = int(40*self.tst)
 
-            test_start_date = np.datetime64('1979-01-01','D') + timedelta64(years_used_for_training, 'Y' )      #1) Must be at least after validation set for November data, Also the IFS data only starts after 1989, So testing on final 30 years
+            test_start_date = np.datetime64('1979-01-01','D') + np.timedelta64(years_used_for_training, 'Y' )      #1) Must be at least after validation set for November data, Also the IFS data only starts after 1989, So testing on final 30 years
             test_end_date = end_date
 
             TEST_SET_SIZE_DATUMS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
