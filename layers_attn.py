@@ -240,9 +240,9 @@ class MultiHead2DAttention_v2(Layer):
             q = self.dense_query(q_antecedent_flat)
             k = self.dense_key(  k_antecedent_flat)
         else:
-            q_antecedent = self.conv_query( q_antecedent, training=True )
+            q_antecedent = self.conv_query( q_antecedent, training=True ) #(bs, seq_len, h, w, c)
             k_antecedent = self.conv_key( k_antecedent, training=True )
-            q_antecedent_flat = tf.reshape(q_antecedent, q_antecedent.shape.as_list()[:2] + [-1] ) 
+            q_antecedent_flat = tf.reshape(q_antecedent, q_antecedent.shape.as_list()[:2] + [-1] ) #(bs, seq_len, h*w*c)
             k_antecedent_flat = tf.reshape(k_antecedent, k_antecedent.shape.as_list()[:2] + [-1] ) 
             q = q_antecedent_flat
             k = k_antecedent_flat

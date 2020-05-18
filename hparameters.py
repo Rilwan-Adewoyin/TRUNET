@@ -278,8 +278,8 @@ class model_THST_hparameters(MParams):
                 'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
                 "transform_value_antecedent":True,  "transform_output":True, 
                 'implementation':1,
-                "key_conv":{ "filters":int(_filter*1/2), 'kernel_size':[4,4], 'strides':[4,4] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':tf.keras.regularizers.l2(0.00002), 'padding':'same' },
-                "query_conv":{ "filters":int(_filter*1/2), 'kernel_size':[4,4], 'strides':[4,4] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':tf.keras.regularizers.l2(0.00002), 'padding':'same' },
+                "key_conv":{ "filters":int(_filter*1/2), 'kernel_size':[4,4], 'strides':[4,4] ,'use_bias':True, "activation":'relu', 'name':"k", 'bias_regularizer':tf.keras.regularizers.l2(0.00002), 'padding':'same' },
+                "query_conv":{ "filters":int(_filter*1/2), 'kernel_size':[4,4], 'strides':[4,4] ,'use_bias':True, "activation":'relu', 'name':"q", 'bias_regularizer':tf.keras.regularizers.l2(0.00002), 'padding':'same' },
                 "value_conv":{ "filters":int(_filter*1/2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':tf.keras.regularizers.l2(0.00002), 'padding':'same' },
                 "output_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"outp", 'bias_regularizer':tf.keras.regularizers.l2(0.00002),'padding':'same' },
                 'big':self.big
