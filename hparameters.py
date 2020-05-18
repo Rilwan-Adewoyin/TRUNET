@@ -251,16 +251,19 @@ class model_THST_hparameters(MParams):
                 kq_downscale_kernelshape = kq_downscale_stride
 
             #This keeps the hidden representations equal in size to the incoming tensors
-            val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 ) for idx in range(attn_layers_count)  ]
+            
 
             if self.big == True:
                 key_depth = [ int( int(_filter*1/3) * 16*16*0.25*0.25 ) ]*attn_layers_count
+                val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * int(output_filters_enc[idx] / 3) ) for idx in range(attn_layers_count)  ]
 
             elif kq_downscale_stride == [1,8,8]:
                 key_depth = [_filter]*attn_layers_count
+                val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 ) for idx in range(attn_layers_count)  ]
                 
             elif kq_downscale_stride == [1,4,4]:
                 key_depth = [_filter]*attn_layers_count
+                val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 ) for idx in range(attn_layers_count)  ]
                   
         else:
             kq_downscale_stride = [1, 13, 13]
@@ -283,7 +286,7 @@ class model_THST_hparameters(MParams):
                 'implementation':1,
                 "key_conv":{ "filters":int(_filter*1/3), 'kernel_size':[4,4], 'strides':[4,4] ,'use_bias':False, "activation":'linear', 'name':"k", 'bias_regularizer':tf.keras.regularizers.l2(0.00002), 'padding':'same' },
                 "query_conv":{ "filters":int(_filter*1/3), 'kernel_size':[4,4], 'strides':[4,4] ,'use_bias':False, "activation":'linear', 'name':"q", 'bias_regularizer':tf.keras.regularizers.l2(0.00002), 'padding':'same' },
-                "value_conv":{ "filters":int(_filter*1/2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':tf.keras.regularizers.l2(0.00002), 'padding':'same' },
+                "value_conv":{ "filters":int(_filter*1/3), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':tf.keras.regularizers.l2(0.00002), 'padding':'same' },
                 "output_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"outp", 'bias_regularizer':tf.keras.regularizers.l2(0.00002),'padding':'same' },
                 'big':self.big
                 } 
