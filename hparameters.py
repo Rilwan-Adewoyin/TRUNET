@@ -947,7 +947,7 @@ class test_hparameters_ati(HParams):
         elif self.custom_train_split_method == "Rolling_2_Year_test":
             #In this scenario, the train set was 60% of the November data and the validation set was the next 20%. But the test set is all of the next 40 years of data
             #This assumes we are using the Models trained on teh 11 year dataset received in November, which has the validation sets as below
-            val_start_date =    np.datetime64('1985-04-01','D')  Monday, 1 April 1985,
+            val_start_date =    np.datetime64('1985-04-01','D')  #Monday, 1 April 1985,
             val_end_date =      np.datetime64('1987-11-01','D') 
             
             test_start_date = np.datetime64('1989-01-01','D')      #1) Must be at least after validation set for November data, Also the IFS data only starts after 1989, So testing on final 30 years
