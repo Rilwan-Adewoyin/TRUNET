@@ -38,6 +38,7 @@ class MultiHead2DAttention_v2(Layer):
                         attn_factor_reduc,
                         value_conv,
                         output_conv,
+                        compat_dict,
                         transform_value_antecedent=True,
                         transform_output=True,
                         max_relative_position=None, #TODO: add code for this much later
@@ -49,7 +50,6 @@ class MultiHead2DAttention_v2(Layer):
                         hard_attention_k=0,
                         training=True,
                         model_location="wholeregion",
-                        compat_dict={},
                         **kwargs):
 
         """Multihead scaled-dot-product attention with input/output transformations.
