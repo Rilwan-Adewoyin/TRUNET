@@ -205,7 +205,10 @@ def train_loop(train_params, model_params):
         #ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint).assert_consumed()
         #ckpt_batch.restore(ckpt_manager_epoch.latest_checkpoint).assert_consumed()
         #ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint).assert_existing_objects_matched()
-        ckpt_batch.restore(ckpt_manager_epoch.latest_checkpoint).assert_existing_objects_matched()
+        try:
+            ckpt_batch.restore(ckpt_manager_epoch.latest_checkpoint).assert_existing_objects_matched()
+        except AssertionError as e:
+            ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint).assert_existing_objects_matched()
         
     else:
         print (' Initializing from scratch')

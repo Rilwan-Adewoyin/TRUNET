@@ -23,6 +23,15 @@
                 "-mn","DeepSD"]  
         },
         {
+            "name": "IFs_rmse",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "internalConsole",
+            "justMyCode": false,
+            "args": [ "-dd", ".", "-sd", "2010-01-10", "-ed", "2010-01-15", "-lo", "London"]  
+        },
+        {
             "name": "THST_London_test",
             "type": "python",
             "request": "launch",
