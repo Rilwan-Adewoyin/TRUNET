@@ -222,7 +222,7 @@ class model_THST_hparameters(MParams):
 
         # region CLSTM params
         if self.big == True:
-            _filter = 102
+            _filter = 104
         else:
             _filter = 72
             
