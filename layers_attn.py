@@ -271,7 +271,7 @@ class MultiHead2DAttention_v2(Layer):
         k_length = k.shape.as_list()[2]
         relations_keys = _generate_relative_positions_embeddings( q_length, k_length,
                                 self.max_relative_position, self.embeddings_table_k, self._compute_dtype )
-                                
+
         relations_values = _generate_relative_positions_embeddings(q_length, k_length,
                                 self.max_relative_position, self.embeddings_table_v, self._compute_dtype )
         
@@ -297,6 +297,9 @@ class MultiHead2DAttention_v2(Layer):
 
         x = combine_heads(x)
         x.set_shape(x.shape.as_list()[:-1] + [self.total_value_depth]) #NOTE: x.shape.as_list()[:-1] may not work in graph mode
+
+        if self.big == True:
+            x = tf.reshape(x, output_shape[:-1]+[self.total_value_depth//3 ] )
 
         if self.transform_output == True:
             x = tf.reshape( x, output_shape )
