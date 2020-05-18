@@ -302,7 +302,7 @@ class MultiHead2DAttention_v2(Layer):
             x = tf.reshape(x, output_shape[:-1]+[34] )
             x = self.dense_output( x, training=training)
 
-        if self.transform_output == True:
+        elif self.transform_output == True:
             x.set_shape(x.shape.as_list()[:-1] + [self.total_value_depth]) #NOTE: x.shape.as_list()[:-1] may not work in graph mode
             x = tf.reshape( x, output_shape )
             x = self.dense_output( x, training=training)
