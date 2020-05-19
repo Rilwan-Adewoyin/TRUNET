@@ -191,8 +191,8 @@ class Generator():
             "Preston":[53.7632, -2.7031 ],
             "Truro":[50.2632, -5.0510],
             "Bangor":[54.2274 - 0.1, -4.1293 + 0.1]
-            
             }
+
         self.latitude_array = np.linspace(58.95,49.05, 100)
         self.longitude_array = np.linspace(-10.95, 2.95, 140)
         
@@ -437,9 +437,8 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
 
         """
         #TODO: Find the appropriate values for scales, by finding the reasonable max/min for each weather datum 
-        arr_data = tf.subtract( arr_data, shift)  #shift
-        arr_data = tf.divide( arr_data, scales) #divide
-
+        arr_data = tf.subtract( arr_data, shift)    #shift
+        arr_data = tf.divide( arr_data, scales)     #divide
         arr_data = tf.where( arr_mask, arr_data, fill_value )
         return arr_data # (h,w,c)
 
@@ -544,9 +543,7 @@ def load_data_ati(t_params, m_params, target_datums_to_skip=None, day_to_start_a
     elif(model_settings['location']=="region_grid"):
         
         ds = ds.map( lambda mf, rain_mask: tuple( [mf, rain_mask[0], rain_mask[1]] )  )                         #mf=(80, 100,140,6)
-        
         region_folding_partial = partial(region_folding, **m_params['region_grid_params'], mode=3,tnsrs=None )  
-
         ds = ds.map( lambda mf,rain,rmask : tf.py_function( region_folding_partial, [mf, rain, rmask], [tf.float16, tf.float32, tf.bool] ) ) #mf = mode3(704, lookback, 16, 16, 6 )  mode1(80, 85//4, 125//4, 16, 16, 6)
         
         #NOTE: the below method of finding the right image in the stacked list can be replaced by the method for location_test above
@@ -693,14 +690,15 @@ def region_folding( mf, rain, rain_mask, tnsrs=None ,mode=1,
     else:
         raise ValueError
 
+
 def load_data_ati_select_region_from_stack( mf, rain, rain_mask, idx_region_flat, periodicy):
     """
         Note: This only works following mode==3 of region folding
         
         periodicy represents how often the stacked regions represent that same regions in the first dimensions
     """
-    mf = mf[ idx_region_flat::periodicy ,: , :, :, :] #( h_strides1*w_strides1, seq_len ,h1, w1, c )
-    rain = rain[idx_region_flat::periodicy, :, :, :] #( h_strides1*w_strides1, seq_len ,h1, w1 )
+    mf = mf[ idx_region_flat::periodicy ,: , :, :, :]   #( h_strides1*w_strides1, seq_len ,h1, w1, c )
+    rain = rain[idx_region_flat::periodicy, :, :, :]    #( h_strides1*w_strides1, seq_len ,h1, w1 )
     rain_mask = rain_mask[idx_region_flat::periodicy, :, :, :]
 
     return mf, rain, rain_mask
@@ -712,7 +710,6 @@ def load_data_ati_select_region_from_nonstack(mf, rain, rain_mask, h_idxs, w_idx
     mf = mf[ :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] , : ]
     rain = rain[ :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
     rain_mask = rain_mask[ :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
-
     return tf.expand_dims(mf,axis=0), tf.expand_dims(rain,axis=0), tf.expand_dims(rain_mask,axis=0) #Note: expand_dim for unbatch/batch compatibility
 
 def load_data_ati_post_region_folding(mf, rain, mask):
@@ -720,11 +717,11 @@ def load_data_ati_post_region_folding(mf, rain, mask):
         input shape (lookback, h_slices, v_slices, h1, w1)
         return shape (region_count,lookback,h1,w1)
     """
-    mfs = mf.shape
-    rs = rain.shape
-    mf = tf.reshape( mf,[ mfs[-5],mfs[-4]*mfs[-3],mfs[-2],mfs[-1]]).transpose(1,0,2,3,4)
-    rain = tf.reshape( rain,[rs[-5],rs[-4]*rs[-3],rs[-2],rs[-1]]).transpose(1,0,2,3)
-    mask = tf.reshape( mask,[rs[-5],rs[-4]*rs[-3],rs[-2],rs[-1]]).transpose(1,0,2,3) #NOTE: not sure if this is correct
+    mfs =   mf.shape
+    rs =    rain.shape
+    mf =    tf.reshape( mf,[ mfs[-5],mfs[-4]*mfs[-3],mfs[-2],mfs[-1]]).transpose(1,0,2,3,4)
+    rain =  tf.reshape( rain,[rs[-5],rs[-4]*rs[-3],rs[-2],rs[-1]]).transpose(1,0,2,3)
+    mask =  tf.reshape( mask,[rs[-5],rs[-4]*rs[-3],rs[-2],rs[-1]]).transpose(1,0,2,3) #NOTE: not sure if this is correct
 
     return mf, (rain, mask)
 #endregion

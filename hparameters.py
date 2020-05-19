@@ -795,6 +795,7 @@ class train_hparameters_ati(HParams):
             else:
                 end_date = feature_end_date
             
+            
             if self.custom_train_split_method == None:
                 val_start_date =    np.datetime64( train_start_date + (end_date - train_start_date)*self.tst, 'D' )
                 val_end_date =      np.datetime64( val_start_date + (end_date - train_start_date)*((1-self.tst)/2), 'D' )
@@ -806,7 +807,9 @@ class train_hparameters_ati(HParams):
 
                 #TODO: correct the train_set_size_elems
                 TRAIN_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS_TARGET*self.tst) 
-                VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS_TARGET*((1-self.tst)/2))
+                VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS_TARGET*((1-self.tst)/2))               
+                
+
             else:
                 raise ValueError
                 
@@ -1009,7 +1012,13 @@ class test_hparameters_ati(HParams):
             test_end_date = li_end_dates[self.four_year_idx_test]
 
             TEST_SET_SIZE_DATUMS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
- 
+        
+        elif type(self.custom_train_split_method) == str:
+            dates_str = self.custom_train_split_method.split("_")
+            test_start_date = np.datetime64(dates_str[0],'D')
+            test_end_date = np.datetime64(dates_str[1],'D')
+            TEST_SET_SIZE_DATUMS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
+            
         ## endregion
 
         date_tss = pd.date_range( end=test_end_date, start=test_start_date, freq='D',normalize=True)
