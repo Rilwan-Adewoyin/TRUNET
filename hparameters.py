@@ -1017,8 +1017,11 @@ class test_hparameters_ati(HParams):
             dates_str = self.custom_train_split_method.split("_")
             test_start_date = np.datetime64(dates_str[0],'D')
             test_end_date = np.datetime64(dates_str[1],'D')
+            print(test_start_date)
+            print(test_end_date)
+            print(end_date)
             TEST_SET_SIZE_DATUMS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
-            
+
         ## endregion
 
         date_tss = pd.date_range( end=test_end_date, start=test_start_date, freq='D',normalize=True)
