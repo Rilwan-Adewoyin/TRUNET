@@ -145,7 +145,7 @@ def predict( model, test_params, model_params ,checkpoint_no, precip_thrsh=0 ):
             if train_params['ctsm'] != "4ds_10years":
                 cache_suffix = '_{}_bs_{}_loctest_{}_{}'.format( model_params['model_name'], test_params['batch_size'],model_params['model_type_settings']['location_test'],model_params['model_type_settings']['location']  ).strip('[]') 
             elif train_params['ctsm'] == "4ds_10years":
-                cache_suffix ='_{}_bs_{}_fyitrain_{}_fyitest{}_loctest_{}'.format( model_params['model_name'], test_params['model_name'], str(test_params['fyi_train']),str(test_params['fyi_train']), , str(model_params['model_type_settings']['location'] ).strip('[]')  )
+                cache_suffix ='_{}_bs_{}_fyitrain_{}_fyitest{}_loctest_{}'.format( model_params['model_name'], test_params['model_name'], str(test_params['fyi_train']),str(test_params['fyi_test']), str(model_params['model_type_settings']['location'] ).strip('[]')  )
             ds = ds.cache('data_cache/ds_test_cache'+cache_suffix ).repeat(1) 
 
     
