@@ -142,9 +142,9 @@ def predict( model, test_params, model_params ,checkpoint_no, precip_thrsh=0 ):
 
             ds, idx_city_in_region = data_generators.load_data_ati(test_params, model_params, None, day_to_start_at=test_params['test_start_date'], data_dir=test_params['data_dir'], _num_parallel_calls=1 )
             ds = ds.take( test_set_size_batches )
-            if train_params['ctsm'] != "4ds_10years":
+            if test_params['ctsm'] != "4ds_10years":
                 cache_suffix = '_{}_bs_{}_loctest_{}_{}'.format( model_params['model_name'], test_params['batch_size'],model_params['model_type_settings']['location_test'],model_params['model_type_settings']['location']  ).strip('[]') 
-            elif train_params['ctsm'] == "4ds_10years":
+            elif test_params['ctsm'] == "4ds_10years":
                 cache_suffix ='_{}_bs_{}_fyitrain_{}_fyitest{}_loctest_{}'.format( model_params['model_name'], test_params['model_name'], str(test_params['fyi_train']),str(test_params['fyi_test']), str(model_params['model_type_settings']['location'] ).strip('[]')  )
             ds = ds.cache('data_cache/ds_test_cache'+cache_suffix ).repeat(1) 
 
