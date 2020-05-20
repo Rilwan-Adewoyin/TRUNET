@@ -60,8 +60,8 @@
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
-            "args": [ "-mn","THST","-dd","Data/Rain_Data_Mar20", "-bs","3","-sdc","1", "-do","0.0", "-ido","0.0", "-rdo","0.0", "-di", "True",
-                "-mts" ,"{'stochastic':False,'stochastic_f_pass':1,'distr_type':'None','discrete_continuous':False,'precip_threshold':0.5,'var_model_type':'Deterministic','location':'wholeregion','deformable_conv':False,'model_version':'12','location_test':'London','twoD':True}"
+            "args": [ "-mn","THST","-dd","Data/Rain_Data_Mar20", "-bs","3","-sdc","1", "-do","0.2", "-ido","0.2", "-rdo","0.5", "-di", "True","-tst","0.5",
+                "-mts" ,"{'prob_rain_thresh':0.5,'stochastic':True,'stochastic_f_pass':5,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'London','deformable_conv':False,'model_version':'145','twoD':True}"
                 ]
         },
         

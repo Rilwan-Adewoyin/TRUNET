@@ -188,9 +188,9 @@ class model_THST_hparameters(MParams):
         
         # region learning/convergence params
         REC_ADAM_PARAMS = {
-            "learning_rate":7e-4,   "warmup_proportion":0.65,
-            "min_lr":6.5e-4,          "beta_1":0.80,               "beta_2":0.99,
-            "amsgrad":True,         "decay":0.0002,              "epsilon":self.ep }
+            "learning_rate":5e-4,   "warmup_proportion":0.65,
+            "min_lr":2.5e-4,          "beta_1":0.80,               "beta_2":0.99,
+            "amsgrad":True,         "decay":0.0008,              "epsilon":self.ep }
 
         DROPOUT = kwargs.get('dropout',0.0)
         LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.99 }
@@ -1020,6 +1020,7 @@ class test_hparameters_ati(HParams):
             print(test_start_date)
             print(test_end_date)
             print(end_date)
+            
             TEST_SET_SIZE_DATUMS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
 
         ## endregion
