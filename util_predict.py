@@ -146,7 +146,7 @@ def save_preds( test_params, model_params, li_preds, li_timestamps, li_truevalue
         _path_pred = test_params['output_dir'] + "/{}/Predictions/4ds_{}".format(utility.model_name_mkr(model_params, load_save="save", train_params=test_params), test_params['fyi_test'] )
     
     elif type( test_params['ctsm'] ) == str:
-        _path_pred = test_params['output_dir'] + "/{}/Predictions/CDates{}".format(utility.model_name_mkr(model_params, load_save="save", train_params=test_params), test_params['ctsm'] )
+        _path_pred = test_params['output_dir'] + "/{}/Predictions/CDates/{}".format(utility.model_name_mkr(model_params, load_save="save", train_params=test_params), test_params['ctsm'] )
 
     if model_params['model_type_settings']['discrete_continuous'] == False:
         fn = str(li_timestamps[0][0]) + "___" + str(li_timestamps[-1][-1]) + ".dat"
