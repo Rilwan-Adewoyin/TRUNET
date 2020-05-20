@@ -8,4 +8,5 @@ Output/
 __pycache__/
 data_cache/
 model_params/
+Images_for_latex/
 temp.npy
