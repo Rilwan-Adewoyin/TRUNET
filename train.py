@@ -195,18 +195,17 @@ def train_loop(train_params, model_params):
         # (For Batches)
     checkpoint_path_batch = "checkpoints/{}/batch".format(utility.model_name_mkr(model_params,train_params=train_params))
     os.makedirs(checkpoint_path_batch,exist_ok=True)
-        #Create the checkpoint path and the checpoint manager. This will be used to save checkpoints every n epochs
     ckpt_batch = tf.train.Checkpoint(model=model, optimizer=_optimizer)#, optimizer=optimizer)
     ckpt_manager_batch = tf.train.CheckpointManager(ckpt_batch, checkpoint_path_batch, max_to_keep=train_params['checkpoints_to_keep_batch'], keep_checkpoint_every_n_hours=None)
 
         # restoring checkpoint from last batch if it exists
     if ckpt_manager_epoch.latest_checkpoint: #restoring last checkpoint if it exists
-        #ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint).assert_consumed()
-        ckpt_epoch.restore(ckpt_manager_epoch.latest_checkpoint).assert_existing_objects_matched()
+        ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint).assert_consumed()
+        #ckpt_epoch.restore(ckpt_manager_epoch.latest_checkpoint).assert_existing_objects_matched()
 
     elif ckpt_manager_batch.latest_checkpoint: #restoring last checkpoint if it exists
-        #ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint).assert_consumed()
-        ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint).assert_existing_objects_matched()
+        ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint).assert_consumed()
+        #ckpt_batch.restore(ckpt_manager_batch.latest_checkpoint).assert_existing_objects_matched()
                    
     else:
         print (' Initializing from scratch')
