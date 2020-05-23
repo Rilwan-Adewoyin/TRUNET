@@ -469,6 +469,9 @@ def model_name_mkr(model_params, mode='Generic', load_save="load", train_params=
     if train_params.get('ctsm') == "4ds_10years":
         model_name = model_name + "4ds_{}".format(str( train_params['fyi_train']) )
     
+    if model_params['model_type_settings'].get('attn_ablation',0) != 0:
+        model_name = model_name + "_" + str(model_params['model_type_settings']['attn_ablation'])
+    
     model_name = re.sub("[ '\(\[\)\]]|ListWrapper",'',model_name )
 
     model_name = re.sub(",",'_',model_name )
