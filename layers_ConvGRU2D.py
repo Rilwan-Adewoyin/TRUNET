@@ -2031,7 +2031,7 @@ class ConvGRU2D_attn(ConvRNN2D):
         self.attn_factor_reduc = attn_factor_reduc
         self.attn_ablation = attn_ablation
 
-        if self.attn_ablation == 0:
+        if self.attn_ablation in [0,4] :
             self.Attention2D = MultiHead2DAttention_v2( **attn_params, attention_scaling_params=attn_downscaling_params , attn_factor_reduc=attn_factor_reduc ,trainable=self.trainable, compat_dict=compat_dict  )
         else:
             self.Attention2D = None
@@ -2456,18 +2456,29 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
                                             training=training ) #(bs, 1, h, w, f)
         elif self.attn_ablation == 1:
             #ablation study: Averaging
-            inputs = attn_shape_adjust( inputs, self.attn_factor_reduc, reverse=True ) #shape (bs, self.attn_factor_reduc ,h, w, c )
-
             attn_avg_inp_hid_state = tf.reduce_mean( inputs, axis=1, keepdims=True ) 
         
         elif self.attn_ablation == 2:
-            #ablation study: Concatenation
-            inputs = inputs 
+            #ablation study: Concatenation in channel
+            inputs = attn_shape_adjust( inputs, self.attn_factor_reduc, reverse=False ) #shape (bs, self.attn_factor_reduc ,h, w, c )
 
         elif self.attn_ablation == 3:
             #ablation study: Using last element
             inputs = attn_shape_adjust( inputs, self.attn_factor_reduc, reverse=True ) #shape (bs, self.attn_factor_reduc ,h, w, c )
             inputs = inputs[:, self.attn_factor_reduc-1:, :, :, :]
+        
+        elif self.attn_ablation == 4:
+            #ablation study: Self.attn
+            inputs = attn_shape_adjust( inputs, self.attn_factor_reduc, reverse=True ) #shape (bs, self.attn_factor_reduc ,h, w, c )
+            q = inputs
+            k = inputs
+            v = inputs
+            self.attn_2D( inputs=q,
+                                k_antecedent=k,
+                                v_antecedent=v,
+                                training=training ) #(bs, 1, h, w, f)
+
+
 
         inputs = tf.squeeze( attn_avg_inp_hid_state)
         # endregion
