@@ -642,7 +642,7 @@ class THST_Encoder(tf.keras.layers.Layer):
 		self.CGRU_Input_Layer = THST_CGRU_Input_Layer( train_params, encoder_params['CGRUs_params'][0], model_version, conv_upscale_params )
 
 		self.CGRU_Attn_layers = []
-		self.CGRU_Upscaling_layers = []
+		
 		for idx in range( encoder_params['attn_layers_count'] ):
 			_layer = THST_CGRU_Attention_Layer( train_params, encoder_params['CGRUs_params'][idx+1],
 						encoder_params['ATTN_params'][idx], encoder_params['ATTN_DOWNSCALING_params_enc'] ,

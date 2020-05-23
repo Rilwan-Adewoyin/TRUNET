@@ -2456,11 +2456,12 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
                                             training=training ) #(bs, 1, h, w, f)
         elif self.attn_ablation == 1:
             #ablation study: Averaging
+            inputs = attn_shape_adjust( inputs, self.attn_factor_reduc, reverse=True ) #shape (bs, self.attn_factor_reduc ,h, w, c )
             attn_avg_inp_hid_state = tf.reduce_mean( inputs, axis=1, keepdims=True ) 
         
         elif self.attn_ablation == 2:
             #ablation study: Concatenation in channel
-            inputs = attn_shape_adjust( inputs, self.attn_factor_reduc, reverse=False ) #shape (bs, self.attn_factor_reduc ,h, w, c )
+            attn_avg_inp_hid_state = inputs
 
         elif self.attn_ablation == 3:
             #ablation study: Using last element
@@ -2477,8 +2478,6 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
                                 k_antecedent=k,
                                 v_antecedent=v,
                                 training=training ) #(bs, 1, h, w, f)
-
-
 
         inputs = tf.squeeze( attn_avg_inp_hid_state)
         # endregion
