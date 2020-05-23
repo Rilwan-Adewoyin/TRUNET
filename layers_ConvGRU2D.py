@@ -2471,7 +2471,7 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
         elif self.attn_ablation == 4:
             #ablation study: Self.attn
             inputs = attn_shape_adjust( inputs, self.attn_factor_reduc, reverse=True ) #shape (bs, self.attn_factor_reduc ,h, w, c )
-            q = inputs
+            q = tf.reduce_mean(inputs, axis=1, keepdims=True)
             k = inputs
             v = inputs
             attn_avg_inp_hid_state = self.attn_2D( inputs=q,
