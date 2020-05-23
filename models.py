@@ -7,6 +7,9 @@ import layers_ConvGRU2D
 import layers_gru
 import copy
 
+from tf.keras.layers import Input, concatenate, Conv2D, MaxPooling2D, UpSampling2D, Reshape, core, Dropout, Conv2DTranspose, BatchNormalization, Activation, ConvLSTM2D
+
+from tf.keras import backend as K
 
 def model_loader(train_params,model_params ):
     
@@ -32,6 +35,60 @@ def model_loader(train_params,model_params ):
         model = SimpleConvGRU(train_params, model_params)
     
     return model
+
+class THST(tf.keras.Model):
+    """
+    Temporal Hierarchical Spatial Transformer 
+
+    """
+    def __init__(self, train_params, model_params, **kwargs):
+        super(THST, self).__init__()
+
+        self.di = train_params['downscaled_input']
+        self.mv = int(model_params['model_type_settings']['model_version'])
+        self.mg = model_params['model_type_settings'].get('mult_gpu',False)
+
+        if model_params['model_type_settings']['location'] not in ["wholeregion"]:
+            h_w_enc = h_w_dec = model_params['region_grid_params']['outer_box_dims']
+
+        elif model_params['model_type_settings']['location'] in ["wholeregion"] and not self.di:
+            h_w_enc = h_w_dec = [ 100, 140 ]
+        
+        elif model_params['model_type_settings']['location'] in ["wholeregion"] and  self.di:
+            raise NotImplementedError
+            
+
+        #TODO: in bidirectional layers explicity add the go_backwards line and second LSTM / GRU layer
+        self.encoder = layers.THST_Encoder( train_params, model_params['encoder_params'], h_w_enc, 
+            int(model_params['model_type_settings']['model_version']), model_params.get('conv_upscale_params',None), 
+            h_w_dec=h_w_dec, attn_ablation=model_params['model_type_settings'].get('attn_ablation',0) )
+
+        self.decoder = layers.THST_Decoder( train_params, model_params['decoder_params'], h_w_dec )
+        self.output_layer = layers.THST_OutputLayer( train_params, model_params['output_layer_params'], model_params['model_type_settings'], model_params['dropout'], self.di ,model_params.get('conv_upscale_params',None) )
+
+        #self.float32_custom_relu = layers.OutputReluFloat32(train_params) 
+        
+
+    @tf.function
+    def call(self, _input, tape=None, training=False):
+    
+        hs_list_enc = self.encoder(_input, training=training)
+        hs_dec = self.decoder(hs_list_enc, training=training)
+        output = self.output_layer(hs_dec, training=training)
+
+        #output = self.float32_custom_relu(output)   
+        return output
+
+
+    def predict( self, inputs, n_preds, training=True):
+        """
+            Produces N predictions for each given input
+        """
+        preds = []
+        for count in tf.range(n_preds):
+            pred = self.call( inputs, training=True ) #shape ( batch_size, output_h, output_w, 1 ) or # (pred_count, bs, seq_len, h, w)
+            preds.append( pred )
+        return preds
 
 class SuperResolutionModel( tf.keras.Model ):
     def __init__(self, train_params, model_params ):
@@ -60,60 +117,6 @@ class SuperResolutionModel( tf.keras.Model ):
             pred = self.call( inputs, training=pred ) #shape ( batch_size, output_h, output_w, 1 )
             preds.append( pred )
         
-        return preds
-
-class THST(tf.keras.Model):
-    """
-    Temporal Hierarchical Spatial Transformer 
-
-    """
-    def __init__(self, train_params, model_params, **kwargs):
-        super(THST, self).__init__()
-
-        self.di = train_params['downscaled_input']
-        self.mv = int(model_params['model_type_settings']['model_version'])
-        self.mg = model_params['model_type_settings'].get('mult_gpu',False)
-
-        if model_params['model_type_settings']['location'] not in ["wholeregion"]:
-            h_w_enc = h_w_dec = model_params['region_grid_params']['outer_box_dims']
-
-        elif model_params['model_type_settings']['location'] in ["wholeregion"] and not self.di:
-            h_w_enc = h_w_dec = [ 100, 140 ]
-        
-        elif model_params['model_type_settings']['location'] in ["wholeregion"] and  self.di:
-            raise NotImplementedError
-            
-
-        #TODO: in bidirectional layers explicity add the go_backwards line and second LSTM / GRU layer
-        self.encoder = layers.THST_Encoder( train_params, model_params['encoder_params'], h_w_enc, 
-            int(model_params['model_type_settings']['model_version']), model_params.get('conv_upscale_params',None), 
-            h_w_dec=h_w_dec )
-
-        self.decoder = layers.THST_Decoder( train_params, model_params['decoder_params'], h_w_dec )
-        self.output_layer = layers.THST_OutputLayer( train_params, model_params['output_layer_params'], model_params['model_type_settings'], model_params['dropout'], self.di ,model_params.get('conv_upscale_params',None) )
-
-        #self.float32_custom_relu = layers.OutputReluFloat32(train_params) 
-        
-
-    @tf.function
-    def call(self, _input, tape=None, training=False):
-    
-        hs_list_enc = self.encoder(_input, training=training)
-        hs_dec = self.decoder(hs_list_enc, training=training)
-        output = self.output_layer(hs_dec, training=training)
-
-        #output = self.float32_custom_relu(output)   
-        return output
-
-
-    def predict( self, inputs, n_preds, training=True):
-        """
-            Produces N predictions for each given input
-        """
-        preds = []
-        for count in tf.range(n_preds):
-            pred = self.call( inputs, training=True ) #shape ( batch_size, output_h, output_w, 1 ) or # (pred_count, bs, seq_len, h, w)
-            preds.append( pred )
         return preds
 
 class SimpleGRU(tf.keras.Model):

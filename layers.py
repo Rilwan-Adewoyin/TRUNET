@@ -631,7 +631,7 @@ def HalfCauchy_Guassian_posterior_tensor_fn(obj, dist_weights, kernel_shape, inp
 
 # region THST layers
 class THST_Encoder(tf.keras.layers.Layer):
-	def __init__(self, train_params, encoder_params, h_w, model_version=100, conv_upscale_params=None, h_w_dec=None):
+	def __init__(self, train_params, encoder_params, h_w, model_version=100, conv_upscale_params=None, h_w_dec=None, attn_ablation=0):
 		super( THST_Encoder, self ).__init__()
 		self.encoder_params = encoder_params
 		self.train_params = train_params
@@ -647,7 +647,8 @@ class THST_Encoder(tf.keras.layers.Layer):
 			_layer = THST_CGRU_Attention_Layer( train_params, encoder_params['CGRUs_params'][idx+1],
 						encoder_params['ATTN_params'][idx], encoder_params['ATTN_DOWNSCALING_params_enc'] ,
 						encoder_params['seq_len_factor_reduction'][idx], self.encoder_params['attn_layers_num_of_splits'][idx],
-						h_w )
+						h_w, attn_ablation )
+
 			self.CGRU_Attn_layers.append(_layer)
 				
 	def call(self, _input, training=True):
@@ -812,24 +813,24 @@ class THST_CGRU_Attention_Layer(tf.keras.layers.Layer):
 	"""
 		This corresponds to all layers which use attention to weight the inputs from the layer below
 	"""
-	def __init__(self, train_params, CGRU_params, attn_params, attn_downscaling_params ,seq_len_factor_reduction, num_of_splits, h_w ):
+	def __init__(self, train_params, CGRU_params, attn_params, attn_downscaling_params ,seq_len_factor_reduction, num_of_splits, h_w, attn_ablation ):
 		super( THST_CGRU_Attention_Layer, self ).__init__()
 
 		self.trainable 					= train_params['trainable']
 		self.num_of_splits 				= num_of_splits
 		self.seq_len_factor_reduction 	= seq_len_factor_reduction
+		self.attn_ablation				= attn_ablation
 		
 		compat_dict = {'di':train_params['downscaled_input'] , 'ctsm':train_params['ctsm']}
+		self.convGRU_attn		= Bidirectional( layer=layers_ConvGRU2D.ConvGRU2D_attn( **CGRU_params, compat_dict={'di':train_params['downscaled_input'] , 'ctsm':train_params['ctsm']},
+														attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
+														attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable, attn_ablation=self.attn_ablation  ),
 
-		self.convGRU_attn 				= Bidirectional( layer=layers_ConvGRU2D.ConvGRU2D_attn( **CGRU_params, compat_dict={'di':train_params['downscaled_input'] , 'ctsm':train_params['ctsm']},
+														backward_layer=layers_ConvGRU2D.ConvGRU2D_attn( go_backwards=True, **copy.deepcopy(CGRU_params),
 															attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
-															attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable  ),
-
-															backward_layer=layers_ConvGRU2D.ConvGRU2D_attn( go_backwards=True, **copy.deepcopy(CGRU_params),
-																attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
-																attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable, compat_dict={'di':train_params['downscaled_input'] , 'ctsm':train_params['ctsm']} ),
-																
-															merge_mode=None  ) #stateful possibly set to True, return_state=True, return_sequences=True
+															attn_factor_reduc=seq_len_factor_reduction ,trainable=self.trainable, compat_dict={'di':train_params['downscaled_input'] , 'ctsm':train_params['ctsm']} ),
+											
+														merge_mode=None, attn_ablation=self.attn_ablation  ) #stateful possibly set to True, return_state=True, return_sequences=True
 
 		self.shape 						= ( train_params['batch_size'], self.num_of_splits, h_w[0], h_w[1], CGRU_params['filters'] )
 

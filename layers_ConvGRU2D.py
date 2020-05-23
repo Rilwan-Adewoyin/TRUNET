@@ -2014,6 +2014,7 @@ class ConvGRU2D_attn(ConvRNN2D):
                  trainable=True,
                  reset_after=True,
                  compat_dict= {},
+                 attn_ablation = 0,
                  **kwargs):
 
         if layer_norm != None: 
@@ -2028,9 +2029,12 @@ class ConvGRU2D_attn(ConvRNN2D):
         self.attn_params = attn_params
         self.attn_downscaling_params = attn_downscaling_params
         self.attn_factor_reduc = attn_factor_reduc
+        self.attn_ablation = attn_ablation
 
-        self.Attention2D = MultiHead2DAttention_v2( **attn_params, attention_scaling_params=attn_downscaling_params , attn_factor_reduc=attn_factor_reduc ,trainable=self.trainable, compat_dict=compat_dict  )
-
+        if self.attn_ablation == 0:
+            self.Attention2D = MultiHead2DAttention_v2( **attn_params, attention_scaling_params=attn_downscaling_params , attn_factor_reduc=attn_factor_reduc ,trainable=self.trainable, compat_dict=compat_dict  )
+        else:
+            self.Attention2D = None
 
         cell = ConvGRU2DCell_attn(filters=filters,
                                      kernel_size=kernel_size,
@@ -2059,7 +2063,8 @@ class ConvGRU2D_attn(ConvRNN2D):
                                      recurrent_dropout=recurrent_dropout,
                                      implementation=implementation,
                                      reset_after=reset_after,
-                                     dtype=kwargs.get('dtype'))
+                                     dtype=kwargs.get('dtype'),
+                                     attn_ablation = self.attn_ablation)
 
         super(ConvGRU2D_attn, self).__init__(cell,
                                                 return_sequences=return_sequences,
@@ -2344,6 +2349,7 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
                 bias_constraint=None,
                 dropout=0.,
                 recurrent_dropout=0.,
+                attn_ablation = 0,
                 **kwargs):
         super(ConvGRU2DCell_attn, self).__init__(**kwargs)
         
@@ -2382,6 +2388,7 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
 
         self.attn_2D = attn_2D
         self.attn_factor_reduc = attn_factor_reduc 
+        self.attn_ablation = attn_ablation
 
     def build(self, input_shape): 
         if self.data_format == 'channels_first':
@@ -2436,16 +2443,32 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
         h_tm1 = tf.cast( states[0], dtype=inputs.dtype)  # previous memory state
         
         #region new: attn part
-        inputs = attn_shape_adjust( inputs, self.attn_factor_reduc, reverse=True ) #shape (bs, self.attn_factor_reduc ,h, w, c )
-        q = tf.expand_dims( h_tm1, axis=1)
-        k = inputs
-        v = inputs
-        
-        attn_avg_inp_hid_state = self.attn_2D( inputs=q,
+        if self.attn_ablation == 0:
+            inputs = attn_shape_adjust( inputs, self.attn_factor_reduc, reverse=True ) #shape (bs, self.attn_factor_reduc ,h, w, c )
+            q = tf.expand_dims( h_tm1, axis=1)
+            k = inputs
+            v = inputs
+            
+            
+            attn_avg_inp_hid_state = self.attn_2D( inputs=q,
                                             k_antecedent=k,
                                             v_antecedent=v,
                                             training=training ) #(bs, 1, h, w, f)
+        elif self.attn_ablation == 1:
+            #ablation study: Averaging
+            inputs = attn_shape_adjust( inputs, self.attn_factor_reduc, reverse=True ) #shape (bs, self.attn_factor_reduc ,h, w, c )
+
+            attn_avg_inp_hid_state = tf.reduce_mean( inputs, axis=1, keepdims=True ) 
         
+        elif self.attn_ablation == 2:
+            #ablation study: Concatenation
+            inputs = inputs 
+
+        elif self.attn_ablation == 3:
+            #ablation study: Using last element
+            inputs = attn_shape_adjust( inputs, self.attn_factor_reduc, reverse=True ) #shape (bs, self.attn_factor_reduc ,h, w, c )
+            inputs = inputs[:, self.attn_factor_reduc-1:, :, :, :]
+
         inputs = tf.squeeze( attn_avg_inp_hid_state)
         # endregion
 
@@ -2467,7 +2490,6 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
         else:
             bias_z, bias_r, bias_h = None, None, None
             bias_z_rcrnt, bias_r_rcrnt, bias_h_rcrnt = None, None, None
-
 
         if self.implementation==1:
 
@@ -2578,6 +2600,7 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
                 
                 'attn_2D':self.attn_2D,
                 'attn_factor_reduc':self.attn_factor_reduc,
+                'attn_ablation':self.attn_ablation,
                 
                 'implementation':self.implementation,
                 'layer_norm':self.layer_norm,
