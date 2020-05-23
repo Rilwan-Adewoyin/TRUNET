@@ -2474,7 +2474,7 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
             q = inputs
             k = inputs
             v = inputs
-            self.attn_2D( inputs=q,
+            attn_avg_inp_hid_state = self.attn_2D( inputs=q,
                                 k_antecedent=k,
                                 v_antecedent=v,
                                 training=training ) #(bs, 1, h, w, f)
