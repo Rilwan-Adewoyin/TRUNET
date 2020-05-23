@@ -2351,6 +2351,9 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
                 recurrent_dropout=0.,
                 attn_ablation = 0,
                 **kwargs):
+        
+        self.attn_ablation = attn_ablation
+        self.attn_factor_reduc = attn_factor_reduc 
         super(ConvGRU2DCell_attn, self).__init__(**kwargs)
         
         self.filters = filters
@@ -2387,8 +2390,8 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
         self.reset_after = reset_after
 
         self.attn_2D = attn_2D
-        self.attn_factor_reduc = attn_factor_reduc 
-        self.attn_ablation = attn_ablation
+        
+        
 
     def build(self, input_shape): 
         if self.data_format == 'channels_first':
@@ -2400,16 +2403,21 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
                             'should be defined. Found `None`.')
         input_dim = input_shape[channel_axis]
         
-        kernel_shape = self.kernel_size + (input_dim, self.filters * 3)
-
+        if self.attn_ablation == 2:
+            kernel_shape = self.kernel_size + (input_dim*self.attn_factor_reduc, self.filters * 3)
+        else:
+            kernel_shape = self.kernel_size + (input_dim, self.filters * 3)
+        
         self.kernel_shape = kernel_shape
-        recurrent_kernel_shape = self.kernel_size + (self.filters, self.filters * 3) 
 
+        recurrent_kernel_shape = self.kernel_size + (self.filters, self.filters * 3) 
+        
         self.kernel = self.add_weight(shape=kernel_shape,
                                     initializer=self.kernel_initializer,
                                     name='kernel',
                                     regularizer=self.kernel_regularizer,
                                     constraint=self.kernel_constraint)
+
 
         self.recurrent_kernel = self.add_weight(
             shape=recurrent_kernel_shape,
