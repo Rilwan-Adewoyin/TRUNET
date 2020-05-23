@@ -2457,6 +2457,7 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
         elif self.attn_ablation == 1:
             #ablation study: Averaging
             inputs = attn_shape_adjust( inputs, self.attn_factor_reduc, reverse=True ) #shape (bs, self.attn_factor_reduc ,h, w, c )
+
             attn_avg_inp_hid_state = tf.reduce_mean( inputs, axis=1, keepdims=True ) 
         
         elif self.attn_ablation == 2:
@@ -2466,7 +2467,7 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
         elif self.attn_ablation == 3:
             #ablation study: Using last element
             inputs = attn_shape_adjust( inputs, self.attn_factor_reduc, reverse=True ) #shape (bs, self.attn_factor_reduc ,h, w, c )
-            inputs = inputs[:, self.attn_factor_reduc-1:, :, :, :]
+            inputs = inputs[:, -1:, :, :, :]
         
         elif self.attn_ablation == 4:
             #ablation study: Self.attn
