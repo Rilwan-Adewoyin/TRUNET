@@ -7,9 +7,6 @@ import layers_ConvGRU2D
 import layers_gru
 import copy
 
-from tf.keras.layers import Input, concatenate, Conv2D, MaxPooling2D, UpSampling2D, Reshape, core, Dropout, Conv2DTranspose, BatchNormalization, Activation, ConvLSTM2D
-
-from tf.keras import backend as K
 
 def model_loader(train_params,model_params ):
     
