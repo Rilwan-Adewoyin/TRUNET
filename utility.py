@@ -13,69 +13,6 @@ import re
 import pickle
 from tensorflow.python.ops import variables as tf_variables
 
-# region Vandal
-#precip data import - use in data pipeline
-def read_prism_precip(bil_path, hdr_path=None, hdr_known=True, tensorf = True):
-    """
-        Read an array from ESRI BIL raster file using Info from the hdr file too
-        https://pymorton.wordpress.com/2016/02/26/plotting-prism-bil-arrays-without-using-gdal/
-    """
-    if( tensorf ):
-        bil_path = bil_path.numpy()
-
-    if(hdr_known):
-        NROWS = 621
-        NCOLS = 1405
-        NODATA_VAL = float(-9999)
-    else:
-        hdr_dict = read_hdr(hdr_path)
-        NROWS = int(hdr_dict['NROWS'])
-        NCOLS = int(hdr_dict['NCOLS'])
-        NODATA_VAL = hdr_dict['NODATA']
-    # For now, only use NROWS, NCOLS, and NODATA
-    # Eventually use NBANDS, BYTEORDER, LAYOUT, PIXELTYPE, NBITS
- 
-    prism_array = np.fromfile(bil_path, dtype='<f4')
-    prism_array = prism_array.astype( np.float32 )
-    prism_array = prism_array.reshape( NROWS , NCOLS )
-    prism_array[ prism_array == float(NODATA_VAL) ] = np.nan
-    return prism_array
-
-#prism data import
-def read_prism_elevation(bil_path, hdr_path=None, hdr_known=True):
-    if(hdr_known):
-        NROWS = 6000
-        NCOLS = 4800
-        NODATA_VAL = float(-9999)
-    else:
-        hdr_dict = read_hdr(hdr_path)
-        NROWS = int(hdr_dict['NROWS'])
-        NCOLS = int(hdr_dict['NCOLS'])
-        NODATA_VAL = int(hdr_dict['NODATA'])
-    # For now, only use NROWS, NCOLS, and NODATA
-    # Eventually use NBANDS, BYTEORDER, LAYOUT, PIXELTYPE, NBITS
- 
-    _array = np.fromfile(open(bil_path,"rb"), dtype='>i2')
-    _array = _array.astype(dtype=np.float32)
-    _array = _array.reshape( NROWS , NCOLS )
-    _array[ _array == NODATA_VAL ] = np.nan
-    return _array
-
-def read_hdr(hdr_path):
-    """Read an ESRI BIL HDR file"""
-    with open(hdr_path, 'r') as input_f:
-        header_list = input_f.readlines()
-    return dict(item.strip().split() for item in header_list)
-
-# Miscallaneous
-def replace_inf_nan(_tensor):
-    nan_bool_ind_tf = tf.math.is_nan( tf.dtypes.cast(_tensor,dtype=tf.float32 ) )
-    inf_bool_ind_tf = tf.math.is_inf( tf.dtypes.cast( _tensor, dtype=tf.float32 ) )
-
-    bool_ind_tf = tf.math.logical_or( nan_bool_ind_tf, inf_bool_ind_tf )
-    
-    _tensor = tf.where( bool_ind_tf, tf.constant(0.0,dtype=tf.float32), _tensor )
-    return tf.dtypes.cast(_tensor, dtype=tf.float32)
 
 def get_script_directory(_path):
     if(_path==None):
@@ -86,48 +23,9 @@ def get_script_directory(_path):
     else:
         return os.path.dirname(_path)
 
-def kl_loss_weighting_scheme( max_batch, curr_batch, var_model_type="dropout" ):
 
-    if var_model_type in ["flipout"]:
-        idx = max_batch-curr_batch+1
-        weight = 1/(2**idx)
-    else:
-        weight = (1/max_batch)
-        
-    return weight*(1/10)
-
-#standardising and de-standardizing 
-def standardize( _array, reverse=False, distr_type="Normal" ):
-    if distr_type=="Normal":
-        SCALE = 2
-    elif distr_type=="LogNormal":
-        SCALE= 2
-
-    if(reverse==False):
-        _array = _array/SCALE
-    
-    else:
-        _array = _array*SCALE
-    
-    return _array
-
-#masking water
-def water_mask(array, mask, mode=0):
-    #need a mask for mse calculation, train and validation -> in this one just cast them to 0,
-    
-    if mode==0:
-        array=tf.where( mask, array, 0.0 )
-
-    #need a mask for image printing summary
-    elif mode ==1:
-        array = tf.where(mask, array, np.nan )
-    return array
-
-# endregion
-
-
-# Methods Related to Training
-def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoch, val_metric_mse_mean, ckpt_manager_epoch, train_params, model_params, train_metric_mse=None, val_metric_mse=None  ):
+# region - Reporting
+def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoch, val_metric_mse_mean, ckpt_manager_epoch, t_params, m_params, train_metric_mse=None, val_metric_mse=None  ):
     """
         NOTE: Val_metric_mse_mean and train_metric_mse_mean_epoch; may not be mse as they are dependent on the loss function
         so for models that do not use mse, train_metric_mse, and val_metric_mse shold be passed values
@@ -142,34 +40,47 @@ def update_checkpoints_epoch(df_training_info, epoch, train_metric_mse_mean_epoc
 
         
         # Possibly removing old non top5 records from end of epoch
-        if( len(df_training_info.index) >= train_params['checkpoints_to_keep_epoch'] ):
+        if( len(df_training_info.index) >= t_params['checkpoints_to_keep_epoch'] ):
             df_training_info = df_training_info.sort_values(by=['Val_loss_MSE'], ascending=True)
             df_training_info = df_training_info.iloc[:-1]
             df_training_info.reset_index(drop=True)
 
         
         if train_metric_mse==None:
-            df_training_info = df_training_info.append( other={ 'Epoch':epoch,'Train_loss_MSE':train_metric_mse_mean_epoch.result().numpy(), 'Val_loss_MSE':val_metric_mse_mean.result().numpy(),
+            df_training_info = df_training_info.append( other={ 'Epoch':epoch,'Train_loss':train_metric_mse_mean_epoch.result().numpy(), 'Val_loss':val_metric_mse_mean.result().numpy(),
                                                             'Checkpoint_Path': ckpt_save_path, 'Last_Trained_Batch':-1}, ignore_index=True ) #A Train batch of -1 represents final batch of training step was completed
         else:
-            df_training_info = df_training_info.append( other={ 'Epoch':epoch,'Train_loss_MSE':train_metric_mse_mean_epoch.result().numpy(), 'Val_loss_MSE':val_metric_mse_mean.result().numpy(),
+            df_training_info = df_training_info.append( other={ 'Epoch':epoch,'Train_loss':train_metric_mse_mean_epoch.result().numpy(), 'Val_loss':val_metric_mse_mean.result().numpy(),
                                                             'Checkpoint_Path': ckpt_save_path, 'Last_Trained_Batch':-1,
-                                                            'Train_metric_mse':train_metric_mse.result().numpy(), 'Validation_metric_mse':val_metric_mse.result().numpy()
+                                                            'Train_mse':train_metric_mse.result().numpy(), 'Val_mse':val_metric_mse.result().numpy()
                                                             }, ignore_index=True ) #A Train batch of -1 represents final batch of training step was completed
             
 
-        print("\nTop {} Performance Scores".format(train_params['checkpoints_to_keep_epoch']))
-        df_training_info = df_training_info.sort_values(by=['Val_loss_MSE'], ascending=True)[:train_params['checkpoints_to_keep_epoch']]
+        print("\nTop {} Performance Scores".format(t_params['checkpoints_to_keep_epoch']))
+        df_training_info = df_training_info.sort_values(by=['Val_loss'], ascending=True)[:t_params['checkpoints_to_keep_epoch']]
         if train_metric_mse==None:
-            print(df_training_info[['Epoch','Val_loss_MSE']] )
+            print(df_training_info[['Epoch','Val_loss']] )
         else:
-            print(df_training_info[['Epoch','Val_loss_MSE','Validation_metric_mse','Train_metric_mse']] )
-        df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(model_name_mkr(model_params, train_params=train_params)),
+            print(df_training_info[['Epoch','Val_loss','Val_mse','Train_loss','Train_mse']] )
+        df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(model_name_mkr(m_params, t_params=t_params)),
                                     header=True, index=False ) #saving df of scores                      
     return df_training_info
 
+def tensorboard_record(writer, li_metrics, li_names, step, gradients=None, trainable_variables=None):
+    
+    #with writer.as_default():
+    with writer:
+        for name, metric in zip( li_metrics, li_names) :
+            tf.summary.scalar( name, metric , step =  step )
+        
+        if gradients != None:
+            for grad, _tensor in zip( gradients, trainable_variables):
+                if grad is not None:
+                    tf.summary.histogram( "Grad:{}".format( _tensor.name ) , grad, step = step  )
+                    tf.summary.histogram( "Weights:{}".format(_tensor.name), _tensor , step = step ) 
+# endregion
 
-# region restarting model train/test
+# region - loading params
 def load_params_train_model(args_dict):
         
     if( args_dict['model_name'] == "DeepSD" ):
@@ -180,60 +91,60 @@ def load_params_train_model(args_dict):
         init_params.update({ 'conv1_param_custom': json.loads(args_dict['conv1_param_custom']) ,
                          'conv2_param_custom': json.loads(args_dict['conv2_param_custom']) })
 
-        model_params = hparameters.model_deepsd_hparameters(**init_params)()
+        m_params = hparameters.model_deepsd_hparameters(**init_params)()
         del args_dict['model_type_settings']
-        train_params = hparameters.train_hparameters( **args_dict )
+        t_params = hparameters.train_hparameters( **args_dict )
     
     elif(args_dict['model_name'] == "THST"):
         
         init_m_params = {}
         init_m_params.update( {'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
-        model_params = hparameters.model_THST_hparameters( **init_m_params, **args_dict )()
+        m_params = hparameters.model_THST_hparameters( **init_m_params, **args_dict )()
         init_t_params = {}
-        init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
-        init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
-        train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
+        init_t_params.update( { 'lookback_target': m_params['data_pipeline_params']['lookback_target'] } )
+        init_t_params.update( { 'lookback_feature': m_params['data_pipeline_params']['lookback_feature']})
+        t_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
     
     elif(args_dict['model_name'] in ["SimpleGRU"] ):
         
         init_m_params = {}
         init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
-        model_params = hparameters.model_SimpleGRU_hparameters(**init_m_params, **args_dict)()
+        m_params = hparameters.model_SimpleGRU_hparameters(**init_m_params, **args_dict)()
         init_t_params = {}
-        init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
-        init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
+        init_t_params.update( { 'lookback_target': m_params['data_pipeline_params']['lookback_target'] } )
+        init_t_params.update( { 'lookback_feature': m_params['data_pipeline_params']['lookback_feature']})
         init_t_params.update( {'loss_scales':ast.literal_eval( args_dict['loss_scales']) } )
-        train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
+        t_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
     
     elif(args_dict['model_name'] in ["SimpleDense"] ):
         
         init_m_params = {}
         init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
-        model_params = hparameters.model_SimpleDense_hparameters(**init_m_params)()
+        m_params = hparameters.model_SimpleDense_hparameters(**init_m_params)()
         init_t_params = {}
-        init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
-        init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
+        init_t_params.update( { 'lookback_target': m_params['data_pipeline_params']['lookback_target'] } )
+        init_t_params.update( { 'lookback_feature': m_params['data_pipeline_params']['lookback_feature']})
         
-        train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
+        t_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
 
     elif(args_dict['model_name']=="SimpleConvGRU"):
         init_m_params = {}
         init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
-        model_params = hparameters.model_SimpleConvGRU_hparamaters(**init_m_params, **args_dict)()
+        m_params = hparameters.model_SimpleConvGRU_hparamaters(**init_m_params, **args_dict)()
         init_t_params = {}
-        init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
-        init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
+        init_t_params.update( { 'lookback_target': m_params['data_pipeline_params']['lookback_target'] } )
+        init_t_params.update( { 'lookback_feature': m_params['data_pipeline_params']['lookback_feature']})
         
-        train_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
+        t_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
 
     #Other Checks
     ## 1) If training and if mc_dropout, change to Deterministic since mc_dropout is not really variational inference
-    # if( model_params['model_type_settings']['var_model_type']=='mc_dropout' and model_params['model_type_settings']['stochastic']==False ):
-    #     model_params['model_type_settings']['var_model_type'] ='Deterministic'
+    # if( m_params['model_type_settings']['var_model_type']=='mc_dropout' and m_params['model_type_settings']['stochastic']==False ):
+    #     m_params['model_type_settings']['var_model_type'] ='Deterministic'
 
-    save_model_settings( model_params, train_params() )
+    save_model_settings( m_params, t_params() )
 
-    return train_params, model_params
+    return t_params(), m_params
 
 def load_params_test_model(args_dict):
     if( args_dict['model_name'] == "DeepSD" ):
@@ -244,85 +155,55 @@ def load_params_test_model(args_dict):
         init_params.update({ 'conv1_param_custom': json.loads(args_dict['conv1_param_custom']) ,
                          'conv2_param_custom': json.loads(args_dict['conv2_param_custom']) })
 
-        model_params = hparameters.model_deepsd_hparameters(**init_params)()
+        m_params = hparameters.model_deepsd_hparameters(**init_params)()
         del args_dict['model_type_settings']
-        train_params = hparameters.test_hparameters( **args_dict )
+        t_params = hparameters.test_hparameters( **args_dict )
     
     elif(args_dict['model_name'] == "THST"):
         
         init_m_params = {}
         init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
-        model_params = hparameters.model_THST_hparameters(**init_m_params, **args_dict )()
+        m_params = hparameters.model_THST_hparameters(**init_m_params, **args_dict )()
         init_t_params = {}
-        init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
-        init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
-        train_params = hparameters.test_hparameters_ati( **{ **args_dict, **init_t_params} )
+        init_t_params.update( { 'lookback_target': m_params['data_pipeline_params']['lookback_target'] } )
+        init_t_params.update( { 'lookback_feature': m_params['data_pipeline_params']['lookback_feature']})
+        t_params = hparameters.test_hparameters_ati( **{ **args_dict, **init_t_params} )
     
     elif(args_dict['model_name'] == "SimpleGRU"):
         
         init_m_params = {}
         init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
-        model_params = hparameters.model_SimpleGRU_hparameters(**init_m_params, **args_dict)()
+        m_params = hparameters.model_SimpleGRU_hparameters(**init_m_params, **args_dict)()
         init_t_params = {}
-        init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
-        init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
+        init_t_params.update( { 'lookback_target': m_params['data_pipeline_params']['lookback_target'] } )
+        init_t_params.update( { 'lookback_feature': m_params['data_pipeline_params']['lookback_feature']})
         
-        train_params = hparameters.test_hparameters_ati( **{ **args_dict, **init_t_params} )
+        t_params = hparameters.test_hparameters_ati( **{ **args_dict, **init_t_params} )
     elif(args_dict['model_name'] == "SimpleDense"):
         
         init_m_params = {}
         init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
-        model_params = hparameters.model_SimpleDense_hparameters(**init_m_params, **args_dict)()
+        m_params = hparameters.model_SimpleDense_hparameters(**init_m_params, **args_dict)()
         init_t_params = {}
-        init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
-        init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
+        init_t_params.update( { 'lookback_target': m_params['data_pipeline_params']['lookback_target'] } )
+        init_t_params.update( { 'lookback_feature': m_params['data_pipeline_params']['lookback_feature']})
         
-        train_params = hparameters.test_hparameters_ati( **{ **args_dict, **init_t_params} )
+        t_params = hparameters.test_hparameters_ati( **{ **args_dict, **init_t_params} )
     
 
     elif(args_dict['model_name']=="SimpleConvGRU"):
         init_m_params = {}
         init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
-        model_params = hparameters.model_SimpleConvGRU_hparamaters(**init_m_params, **args_dict)()
+        m_params = hparameters.model_SimpleConvGRU_hparamaters(**init_m_params, **args_dict)()
         init_t_params = {}
-        init_t_params.update( { 'lookback_target': model_params['data_pipeline_params']['lookback_target'] } )
-        init_t_params.update( { 'lookback_feature': model_params['data_pipeline_params']['lookback_feature']})
+        init_t_params.update( { 'lookback_target': m_params['data_pipeline_params']['lookback_target'] } )
+        init_t_params.update( { 'lookback_feature': m_params['data_pipeline_params']['lookback_feature']})
         
-        train_params = hparameters.test_hparameters_ati( **{ **args_dict, **init_t_params} )
+        t_params = hparameters.test_hparameters_ati( **{ **args_dict, **init_t_params} )
 
-    save_model_settings( model_params, train_params() )
+    save_model_settings( m_params, t_params() )
 
-    return train_params, model_params
-
-def load_optimizer_state( optimizer, model_params, train_params, model_variables ):
-    fp = "checkpoints/{}/optimizer_weights.pkl".format( model_name_mkr(model_params, load_save="load",train_params=train_params ) )
-    try:
-        weights = pickle.load( open( fp, "rb") )
-
-        optimizer._optimizer._create_hypers()
-        optimizer._optimizer._optimizer._create_hypers()
-        optimizer._optimizer._create_slots( model_variables)
-
-        #lahead_weight_count = len( optimizer._optimizer._weights )
-
-        # optimizer._optimizer.set_weights( weights[:lahead_weight_count ] )
-        # optimizer._optimizer.set_weights( weights[ lahead_weight_count: ] )
-        
-        optimizer._optimizer.set_weights( weights )
-
-    except (FileNotFoundError, UnicodeDecodeError) as e:
-        optimizer._set_hyper('learning_rate', 8e-4 )
-        optimizer._set_hyper('min_lr', 4e-4 )
-        var_optimizer_step = lambda: tf.Variable( initial_value=0, trainable=False, name="iter", shape=[], dtype=tf.int64, aggregation=tf_variables.VariableAggregation.ONLY_FIRST_REPLICA )
-        optimizer._iterations = var_optimizer_step() 
-    
-    return optimizer
-
-def save_optimizer_state(optimizer, model_params, train_params):
-    weights = optimizer.get_weights()
-    fp = "checkpoints/{}/optimizer_weights.pkl".format( model_name_mkr(model_params, load_save="load",train_params=train_params ) )
-    pickle.dump( weights, open( fp , "wb")  )
-    return True
+    return t_params, m_params
 
 def parse_arguments(s_dir=None):
     parser = argparse.ArgumentParser(description="Receive input params")
@@ -330,7 +211,11 @@ def parse_arguments(s_dir=None):
     parser.add_argument('-dd','--data_dir', type=str, help='the directory for the Data', required=False,
                         default='./Data')
     
-    parser.add_argument('-mts','--model_type_settings', type=str, help="dictionary Defining type of model to use", required=True)
+    parser.add_argument('-mts','--model_type_settings', type=str, help="m_params", required=True)
+
+    parser.add_argument('-mprm','--m_params', type=str, help="m_params", required=False)
+
+    parser.add_argument('-tprm','--t_params', type=str, help="t_params", required=False)
 
     parser.add_argument('-sdr','--script_dir', type=str, help="Directory for code", required=False, default=s_dir )
 
@@ -374,11 +259,14 @@ def parse_arguments(s_dir=None):
 
     return args_dict
 
-def save_model_settings(model_params,t_params):
-    
-    f_dir = "model_params/{}".format( model_name_mkr(model_params, train_params=t_params) )
+#endregion
 
-    m_path = "model_params.json"
+# region - Saving model / settings / params
+def save_model_settings(m_params,t_params):
+    
+    f_dir = "m_params/{}".format( model_name_mkr(m_params, t_params=t_params) )
+
+    m_path = "m_params.json"
     
     if t_params['trainable']==True:
         t_path = "train_params.json"
@@ -388,12 +276,12 @@ def save_model_settings(model_params,t_params):
     if not os.path.isdir(f_dir):
         os.makedirs( f_dir, exist_ok=True  )
     with open( f_dir+"/"+m_path, "w" ) as fp:
-        json.dump( model_params, fp, default=default )
+        json.dump( m_params, fp, default=default_pkl )
 
     with open( f_dir+"/"+t_path, "w" ) as fp:
-        json.dump( t_params, fp, default=default )
+        json.dump( t_params, fp, default=default_pkl )
 
-def default(obj):
+def default_pkl(obj):
     if type(obj).__module__ == np.__name__:
         if isinstance(obj, np.ndarray):
             return obj.tolist()
@@ -413,64 +301,54 @@ def default(obj):
 
     raise TypeError('Unknown type:', type(obj))
 
-#endregion
+def model_name_mkr(m_params, mode='Generic', load_save="load", t_params={}, custom_test_loc=None ) : 
+    """Creates names for vairants of models
 
-def model_name_mkr(model_params, mode='Generic', load_save="load", train_params={} ) : #change ordering of variables ehre
-    if mode == "Generic":
-        pass
-    
-    elif mode == "mc_dropout_test":
-        model_params = copy.deepcopy(model_params)
-        model_params['model_type_settings']['var_model_type'] = 'Deterministic'
-        model_params['model_type_settings']['stochastic'] = False   
-    
-    if  model_params['model_name'] == "THST":
-        if model_params['model_type_settings']['deformable_conv'] == False:
-            model_name = "{}_{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
-                                            model_params['model_type_settings']['distr_type'], 
-                                            str(model_params['model_type_settings']['discrete_continuous']),
-                                            model_params['model_type_settings']['location'], model_params['model_type_settings']['model_version']   )
-        else:
-            model_name = "{}_{}_{}_{}_{}_v{}_dc".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
-                                model_params['model_type_settings']['distr_type'], 
-                                str(model_params['model_type_settings']['discrete_continuous']),
-                                model_params['model_type_settings']['location'], model_params['model_type_settings']['model_version']  )
+    Args:
+        m_params ([type]): [description]
+        mode (str, optional): [description]. Defaults to 'Generic'.
+        load_save (str, optional): [description]. Defaults to "load".
+        t_params (dict, optional): [description]. Defaults to {}.
+        custom_test_loc ([type], optional): [description]. Defaults to None.
 
-    elif model_params['model_name'] == "DeepSD":
-        model_name =    "{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
-                                model_params['model_type_settings']['distr_type'], 
-                                str(model_params['model_type_settings']['discrete_continuous']),
-                                model_params['model_type_settings']['model_version'] )
-   
-    elif model_params['model_name'] in ["SimpleGRU","SimpleDense"]:
-        model_name =    "{}_{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
-                                model_params['model_type_settings']['distr_type'], 
-                                str(model_params['model_type_settings']['discrete_continuous']),
-                                model_params['model_type_settings']['location'],model_params['model_type_settings']['model_version'] )
-   
-    elif model_params['model_name'] == "SimpleConvGRU":
-        model_name =  "{}_{}_{}_{}_{}_v{}".format( model_params['model_name'], model_params['model_type_settings']['var_model_type'],
-                        model_params['model_type_settings']['distr_type'], 
-                        str(model_params['model_type_settings']['discrete_continuous']),
-                        model_params['model_type_settings']['location'],model_params['model_type_settings']['model_version'] )  
+    Returns:
+        [type]: [description]
+    """    
+    if  m_params['model_name'] == "THST":
+        model_name = "{}_{}_{}_{}_{}_v{}_dc".format( m_params['model_name'], m_params['model_type_settings']['var_model_type'],
+                            m_params['model_type_settings']['distr_type'], 
+                            str(m_params['model_type_settings']['discrete_continuous']),
+                            m_params['model_type_settings']['location'], m_params['model_type_settings']['model_version']  )
 
-    if model_params['model_type_settings'].get('big',False) == True:
-        model_name = model_name + "big"
+    elif m_params['model_name'] == "SimpleConvGRU":
+        model_name =  "{}_{}_{}_{}_{}_v{}".format( m_params['model_name'], m_params['model_type_settings']['var_model_type'],
+                        m_params['model_type_settings']['distr_type'], 
+                        str(m_params['model_type_settings']['discrete_continuous']),
+                        m_params['model_type_settings']['location'],m_params['model_type_settings']['model_version'] )  
 
-    if load_save == "save" and model_params['model_type_settings'].get('location_test',"London") != "London":
-        model_name = model_name + model_params['model_type_settings']['location_test']
-    
-    if train_params.get('train_set_size', 0.6) != 0.6 and train_params['downscaled_input'] and train_params.get('ctsm',None) != "Rolling_2_Year_test" :
-        model_name = model_name + "_tst_" +str( train_params['train_set_size'] )
-    
-    if train_params.get('input_interpolation_method',None) != None and train_params['downscaled_input'] and train_params.get('ctsm',None) != "Rolling_2_Year_test" :
-        model_name = model_name + "_iim_" +str( train_params['input_interpolation_method'] )
+    if m_params['model_type_settings'].get('conv_ops_qk',False) == True:
+        model_name = model_name + "convopsqk"
 
-    if train_params.get('ctsm') == "4ds_10years":
-        model_name = model_name + "4ds_{}".format(str( train_params['fyi_train']) )
+    if load_save == "save":
+        if custom_test_loc != None:
+            pass
+
+        elif m_params.get('location_test', None) != None:
+            custom_test_loc = m_params.get('location_test')
+
+        elif m_params.get('location', None) == None:
+            custom_test_loc = m_params.get('location')
+
+        model_name = model_name + "_" + custom_test_loc
     
-    if model_params['model_type_settings'].get('attn_ablation',0) != 0:
-        model_name = model_name + "_" + str(model_params['model_type_settings']['attn_ablation'])
+    if t_params.get('ctsm',None) != "Rolling_eval" :
+        model_name = model_name + "_tst_" +str( t_params['train_set_size'] )
+    
+    if t_params.get('ctsm') == "4ds_10years":
+        model_name = model_name + "4ds_{}".format(str( t_params['fyi_train']) )
+    
+    if m_params['model_type_settings'].get('attn_ablation',0) != 0:
+        model_name = model_name + "_" + str(m_params['model_type_settings']['attn_ablation'])
     
     model_name = re.sub("[ '\(\[\)\]]|ListWrapper",'',model_name )
 
@@ -478,7 +356,29 @@ def model_name_mkr(model_params, mode='Generic', load_save="load", train_params=
 
     return model_name
 
-# region ATI modules
+def cache_suffix_mkr(m_params, t_params):
+    """Creates the cache suffix for training datasets
+
+    Args:
+        m_params ([type]): [description]
+        t_params ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """    
+    if t_params['ctsm'] == None:
+        cache_suffix = '_{}_bs_{}_tst_{}_{}'.format(m_params['model_name'], t_params['batch_size'], t_params.get('train_set_size', 0.6) ,str(m_params['model_type_settings']['location'] ).strip('[]') )
+    
+    elif t_params['ctsm'] == "4ds_10years":
+        cache_suffix ='_{}_bs_{}_fyitrain_{}_loc_{}'.format( m_params['model_name'], t_params['model_name'], str(t_params['fyi_train']), str(m_params['model_type_settings']['location'] ).strip("[]\'") )
+        cache_suffix = re.sub("[ '\(\[\)\]]|ListWrapper",'',cache_suffix )
+        cache_suffix = re.sub(",",'_',cache_suffix )
+    
+    return cache_suffix
+
+#endregion
+
+# region data standardization
 def standardize_ati(_array, shift, scale, reverse):
     
     if(reverse==False):
@@ -489,3 +389,4 @@ def standardize_ati(_array, shift, scale, reverse):
     return _array
 
 # endregion
+

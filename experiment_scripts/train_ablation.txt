@@ -1,0 +1,84 @@
+---------- Ablation Study Scripts
+
+Testing on first 10 years
+
+Averaging (attn_ablation = 1)
+model_test_0 
+TRAINING
+CUDA_VISIBLE_DEVICES=0 python3 train.py -mn "THST" -mts "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'twoD':True,'deformable_conv':False, 'attn_ablation':1}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 10 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+Concatentation (attn_ablation = 2)
+model_test_1
+CUDA_VISIBLE_DEVICES=1 python3 train.py -mn "THST" -mts "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'twoD':True,'deformable_conv':False, 'attn_ablation':2}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 10 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+Using Last hidden state in chunk (attn_ablation = 3)
+model_test_2
+CUDA_VISIBLE_DEVICES=2 python3 train.py -mn "THST" -mts "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'twoD':True,'deformable_conv':False, 'attn_ablation':3}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 10 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+self attention (attn_ablation = 4)
+model_03
+CUDA_VISIBLE_DEVICES=3 python3 train.py -mn "THST" -mts "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'twoD':True,'deformable_conv':False, 'attn_ablation':4}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 10 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+
+
+
+
+
+
+
+
+
+
+--------------- TESTING ABLATION ------------- 
+
+attn_ablation = 1
+DONE
+CUDA_VISIBLE_DEVICES=0 python3 predict.py -mn "THST" -mts "{'stochastic':True,'stochastic_f_pass':50,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'London' ,'twoD':True,'deformable_conv':False, 'prob_rain_thresh':0.5, 'attn_ablation':1}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+CUDA_VISIBLE_DEVICES=1 python3 predict.py -mn "THST" -mts "{'stochastic':True,'stochastic_f_pass':50,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'Birmingham' ,'twoD':True,'deformable_conv':False, 'prob_rain_thresh':0.5, 'attn_ablation':1}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+CUDA_VISIBLE_DEVICES=2 python3 predict.py -mn "THST" -mts "{'stochastic':True,'stochastic_f_pass':50,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'Cardiff' ,'twoD':True,'deformable_conv':False, 'prob_rain_thresh':0.5, 'attn_ablation':1}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+CUDA_VISIBLE_DEVICES=3 python3 predict.py -mn "THST" -mts "{'stochastic':True,'stochastic_f_pass':50,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'Glasgow' ,'twoD':True,'deformable_conv':False, 'prob_rain_thresh':0.5, 'attn_ablation':1}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+CUDA_VISIBLE_DEVICES=0 python3 predict.py -mn "THST" -mts "{'stochastic':True,'stochastic_f_pass':50,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'Manchester' ,'twoD':True,'deformable_conv':False, 'prob_rain_thresh':0.5, 'attn_ablation':1}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+
+----------------------------------
+attn_ablation = 2
+DONE
+CUDA_VISIBLE_DEVICES=0 python3 predict.py -mn "THST" -mts "{'stochastic':True,'stochastic_f_pass':50,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'London' ,'twoD':True,'deformable_conv':False, 'prob_rain_thresh':0.5, 'attn_ablation':2}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+CUDA_VISIBLE_DEVICES=1 python3 predict.py -mn "THST" -mts "{'stochastic':True,'stochastic_f_pass':50,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'Birmingham' ,'twoD':True,'deformable_conv':False, 'prob_rain_thresh':0.5, 'attn_ablation':2}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+CUDA_VISIBLE_DEVICES=2 python3 predict.py -mn "THST" -mts "{'stochastic':True,'stochastic_f_pass':50,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'Cardiff' ,'twoD':True,'deformable_conv':False, 'prob_rain_thresh':0.5, 'attn_ablation':2}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+CUDA_VISIBLE_DEVICES=3 python3 predict.py -mn "THST" -mts "{'stochastic':True,'stochastic_f_pass':50,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'Glasgow' ,'twoD':True,'deformable_conv':False, 'prob_rain_thresh':0.5, 'attn_ablation':2}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+CUDA_VISIBLE_DEVICES=0 python3 predict.py -mn "THST" -mts "{'stochastic':True,'stochastic_f_pass':50,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'Manchester' ,'twoD':True,'deformable_conv':False, 'prob_rain_thresh':0.5, 'attn_ablation':2}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+
+attn_ablation = 3
+
+CUDA_VISIBLE_DEVICES=0 python3 predict.py -mn "THST" -mts "{'stochastic':True,'stochastic_f_pass':50,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'London' ,'twoD':True,'deformable_conv':False, 'prob_rain_thresh':0.5, 'attn_ablation':3}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+CUDA_VISIBLE_DEVICES=1 python3 predict.py -mn "THST" -mts "{'stochastic':True,'stochastic_f_pass':50,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'Birmingham' ,'twoD':True,'deformable_conv':False, 'prob_rain_thresh':0.5, 'attn_ablation':3}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+CUDA_VISIBLE_DEVICES=2 python3 predict.py -mn "THST" -mts "{'stochastic':True,'stochastic_f_pass':50,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'Cardiff' ,'twoD':True,'deformable_conv':False, 'prob_rain_thresh':0.5, 'attn_ablation':3}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+CUDA_VISIBLE_DEVICES=3 python3 predict.py -mn "THST" -mts "{'stochastic':True,'stochastic_f_pass':50,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'Glasgow' ,'twoD':True,'deformable_conv':False, 'prob_rain_thresh':0.5, 'attn_ablation':3}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+CUDA_VISIBLE_DEVICES=0 python3 predict.py -mn "THST" -mts "{'stochastic':True,'stochastic_f_pass':50,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'Manchester' ,'twoD':True,'deformable_conv':False, 'prob_rain_thresh':0.5, 'attn_ablation':3}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+
+attn_ablation = 4
+
+CUDA_VISIBLE_DEVICES=0 python3 predict.py -mn "THST" -mts "{'stochastic':True,'stochastic_f_pass':50,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'London' ,'twoD':True,'deformable_conv':False, 'prob_rain_thresh':0.5, 'attn_ablation':4}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+CUDA_VISIBLE_DEVICES=1 python3 predict.py -mn "THST" -mts "{'stochastic':True,'stochastic_f_pass':50,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'Birmingham' ,'twoD':True,'deformable_conv':False, 'prob_rain_thresh':0.5, 'attn_ablation':4}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+CUDA_VISIBLE_DEVICES=2 python3 predict.py -mn "THST" -mts "{'stochastic':True,'stochastic_f_pass':50,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'Cardiff' ,'twoD':True,'deformable_conv':False, 'prob_rain_thresh':0.5, 'attn_ablation':4}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+CUDA_VISIBLE_DEVICES=3 python3 predict.py -mn "THST" -mts "{'stochastic':True,'stochastic_f_pass':50,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'Glasgow' ,'twoD':True,'deformable_conv':False, 'prob_rain_thresh':0.5, 'attn_ablation':4}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+CUDA_VISIBLE_DEVICES=0 python3 predict.py -mn "THST" -mts "{'stochastic':True,'stochastic_f_pass':15,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'location_test':'Manchester' ,'twoD':True,'deformable_conv':False, 'prob_rain_thresh':0.5, 'attn_ablation':4}" -dd "/media/Data3/akanni/Rain_Data_Nov19" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3

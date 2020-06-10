@@ -174,7 +174,6 @@ class model_THST_hparameters(MParams):
         """
         self.dc = kwargs.get('model_type_settings',{}).get('discrete_continuous',False)
         self.stoc = kwargs.get('model_type_settings',{}).get('stochastic',False)
-        self.di = kwargs.get('downscaled_input',False)
         self.ep = kwargs.get('model_type_settings',{}).get('epsilon',5e-8)
         self.ctsm = kwargs.get('ctsm', None)
         self.big = kwargs.get('model_type_settings',{}).get('big',False)
@@ -365,12 +364,7 @@ class model_THST_hparameters(MParams):
         # endregion
 
         # region --------------- OUTPUT_LAYER_PARAMS and Upscaling-----------------
-
-        if self.di ==False or self.ctsm == "Rolling_2_Year_test":
-            output_filters = [  int(  8*(((output_filters_dec[-1]*2)/3)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
-        
-        elif self.di ==True or self.ctsm == "Rolling_2_Year_test_new": 
-            output_filters = [  int(  8*(((output_filters_dec[-1]*2)/4)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
+        output_filters = [  int(  8*(((output_filters_dec[-1]*2)/4)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
 
         output_kernel_size = [ (3,3), (3,3) ] 
         activations = ['relu','linear']
@@ -391,7 +385,8 @@ class model_THST_hparameters(MParams):
 
             'rec_adam_params':REC_ADAM_PARAMS,
             'lookahead_params':LOOKAHEAD_PARAMS,
-            'dropout':DROPOUT
+            'dropout':DROPOUT,
+            'stoch_preds_count':5
             } )
 
 class model_SimpleGRU_hparameters(MParams):
@@ -504,36 +499,17 @@ class model_SimpleConvGRU_hparamaters(MParams):
         input_dropout = [kwargs.get('inp_dropout',0.0) ]*layer_count #[0.0]*layer_count
         recurrent_dropout = [ kwargs.get('rec_dropout',0.0)]*layer_count #[0.0]*layer_count
 
-        # if self.params['model_type_settings']['location'] == "region_grid":
-        #     _st = False
-        # else:
-        #     _st = True
-        _st = True #Note; this will only work when doing 2d on a specific region
-
         ConvGRU_layer_params = [ { 'filters':fs, 'kernel_size':ks , 'padding': ps,
                                 'return_sequences':rs, "dropout": dp , "recurrent_dropout":rdp,
                                 'kernel_regularizer': None,
                                 'recurrent_regularizer': None,
                                 'bias_regularizer':tf.keras.regularizers.l2(0.2),
                                 'layer_norm': None, #tf.keras.layers.LayerNormalization(axis=[-1]),
-                                'implementation':1, 'stateful':_st  }
+                                'implementation':1, 'stateful':True  }
                                 for fs,ks,ps,rs,dp,rdp in zip(filters, kernel_sizes, paddings, return_sequences, input_dropout, recurrent_dropout)  ]
 
         conv1_layer_params = {'filters': int(  8*(((filters[0]*2)/3)//8)) , 'kernel_size':[3,3], 'activation':'relu','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2) }  
 
-        if self.di:
-            _upscale_target = [100,140]
-            _input_dims = [18, 18]
-            _strides =( np.floor_divide(_upscale_target,_input_dims).astype( np.int32) ).tolist()  #( np.ceil( np.array(_upscale_target)/np.array(_input_dims)).astype(np.int32)  ).tolist()
-            _kernel_size = (np.array(_strides)*2+1 ).tolist()
-      
-            _output_padding = np.array( [4,6] )
-            
-            conv2_layer_params = {'filters': int(  8*(((filters[-1]*2)/4)//8)), 'kernel_size':_kernel_size, 'strides':_strides, 'output_padding': _output_padding,
-                                    'activation':'relu','padding':'valid','bias_regularizer':tf.keras.regularizers.l2(0.2)  }  
-
-            #Note: Stride larger than filter size may lead to middle areas being assigned a zero value
-            self.params.update( { 'conv2_layer_params': conv2_layer_params } )
 
         outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'linear','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2) }
 
@@ -613,108 +589,12 @@ class model_SimpleDense_hparameters(MParams):
             'lookahead_params':LOOKAHEAD_PARAMS
         })
 
-class train_hparameters(HParams):
-    def __init__(self, **kwargs):
-        self.batch_size = kwargs.get("batch_size",None)
-        kwargs.pop('batch_size')
-        super( train_hparameters, self).__init__(**kwargs)
-
-    def _default_params(self):
-        # region default params 
-        NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
-        EPOCHS = 342 #equivalent to Vandal
-        CHECKPOINTS_TO_KEEP = 50
-        CHECKPOINTS_TO_KEEP_EPOCH = 5
-        CHECKPOINTS_TO_KEEP_BATCH = 5
-
-        start_date = np.datetime64('1981-01-01')
-        end_date = np.datetime64('2015-12-31')
-        TOTAL_DATUMS = np.timedelta64( end_date-start_date, 'D').astype(int)
-
-        #need to use this ration, 0.73529, for training
-        TRAIN_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS*0.53529411764)
-        VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS*0.20)
-        BATCH_SIZE = self.batch_size
-        DATA_DIR = "./Data"
-        EARLY_STOPPING_PERIOD = 30
-        BOOL_WATER_MASK = pickle.load( open( "Images/water_mask_156_352.dat","rb" ) )
-
-        #endregion
-
-        self.params = {
-            'batch_size':BATCH_SIZE,
-            'epochs':EPOCHS,
-            'total_datums':TOTAL_DATUMS,
-            'early_stopping_period':EARLY_STOPPING_PERIOD,
-            'trainable':True,
-
-            'train_set_size_elements':TRAIN_SET_SIZE_ELEMENTS,
-            'train_set_size_batches':TRAIN_SET_SIZE_ELEMENTS//BATCH_SIZE,
-            'val_set_size_elements':VAL_SET_SIZE_ELEMENTS,
-            'val_set_size_batches':VAL_SET_SIZE_ELEMENTS//BATCH_SIZE,
-
-            'checkpoints_to_keep':CHECKPOINTS_TO_KEEP,
-            'checkpoints_to_keep_epoch':CHECKPOINTS_TO_KEEP_EPOCH,
-            'checkpoints_to_keep_batch':CHECKPOINTS_TO_KEEP_BATCH,
-            
-            'dataset_trainval_batch_reporting_freq':0.10,
-            'num_parallel_calls':NUM_PARALLEL_CALLS,
-
-            'data_dir': DATA_DIR,
-
-            'bool_water_mask': BOOL_WATER_MASK
-
-        }
-        
-class test_hparameters(HParams):
-    def __init__(self, **kwargs):
-        self.batch_size = kwargs.get("batch_size",None)
-        kwargs.pop('batch_size')
-        super( test_hparameters, self).__init__(**kwargs)
-    
-    def _default_params(self):
-        NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
-        BATCH_SIZE = self.batch_size
-
-        MODEL_RECOVER_METHOD = 'checkpoint_epoch'
-    
-        trainable = False
-        start_date = np.datetime64('1981-01-01')
-        end_date = np.datetime64('2015-12-31')
-        TOTAL_DATUMS = np.timedelta64( end_date-start_date, 'D').astype(int)
-
-        TEST_SET_SIZE_ELEMENTS = int( TOTAL_DATUMS * (1-0.2-0.53529411764) )
-        STARTING_TEST_ELEMENT = TOTAL_DATUMS - TEST_SET_SIZE_ELEMENTS
-        
-        dates_tss = pd.date_range( end=datetime(2015,12,31), periods=TEST_SET_SIZE_ELEMENTS, freq='D',normalize=True)
-        EPOCHS = list ( (dates_tss - pd.Timestamp("1970-01-01") ) // pd.Timedelta('1s') )
-
-        BOOL_WATER_MASK = pickle.load( open( "Images/water_mask_156_352.dat","rb" ) )
-
-        self.params = {
-            'batch_size':BATCH_SIZE,
-            'starting_test_element':STARTING_TEST_ELEMENT,
-            'test_set_size_elements': TEST_SET_SIZE_ELEMENTS,
-
-            'dataset_pred_batch_reporting_freq':0.05,
-            'num_parallel_calls':NUM_PARALLEL_CALLS,
-
-            'model_recover_method':MODEL_RECOVER_METHOD,
-            'trainable':trainable,
-
-            'script_dir':None,
-
-            'epochs':EPOCHS,
-
-            'bool_water_mask': BOOL_WATER_MASK
-        }
-
 class train_hparameters_ati(HParams):
+    """ Parameters for testing """
     def __init__(self, **kwargs):
         self.lookback_target = kwargs.get('lookback_target',None)
         self.batch_size = kwargs.get("batch_size",None)
         self.strided_dataset_count = kwargs.get("strided_dataset_count", 1)
-        self.di = kwargs.get("downscaled_input",False)
         self.dd = kwargs.get("data_dir") 
         self.tst = kwargs.get("train_set_size",0.6)
         self.iim = kwargs.get('input_interpolation_method',None)
@@ -732,14 +612,14 @@ class train_hparameters_ati(HParams):
         super( train_hparameters_ati, self).__init__(**kwargs)
 
     def _default_params(self):
-        # region -------data pipepline vars
+        # region ------- Masking, Standardisation, temporal_data_size
         trainable = True
-        MASK_FILL_VALUE_v1 = {
+        MASK_FILL_VALUE = {
                                     "rain":0.0,
                                     "model_field":0.0 
         }
-
-        NORMALIZATION_SCALES_v1 = {
+        vars_for_feature = ['unknown_local_param_137_128', 'unknown_local_param_133_128', 'air_temperature', 'geopotential', 'x_wind', 'y_wind' ]
+        NORMALIZATION_SCALES = {
                                     "rain":4.69872+0.5,
                                     "model_fields": np.array([6.805,
                                                               0.001786,
@@ -751,7 +631,7 @@ class train_hparameters_ati(HParams):
                                                 # - unknown_local_param_133_128,  # - air_temperature, # - geopotential
                                                 # - x_wind, # - y_wind
         }
-        NORMALIZATION_SHIFT_v1 = {
+        NORMALIZATION_SHIFT = {
                                     "rain":2.844,
                                     "model_fields": np.array([15.442,
                                                                 0.003758,
@@ -767,73 +647,69 @@ class train_hparameters_ati(HParams):
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
         EPOCHS = 600
         CHECKPOINTS_TO_KEEP = 5
-        CHECKPOINTS_TO_KEEP_EPOCH = 5
-        CHECKPOINTS_TO_KEEP_BATCH = 5
 
-        # region ---- data information
+        # region ---- data formulation strategies
         target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
         feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
 
-        if self.custom_train_split_method != "4ds_10years":
-            if self.di == False:
-            
-                tar_end_date = target_start_date + np.timedelta64( 14822, 'D')
-                feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(16072, '6h'), 'D')
-            
-            elif self.di == True:
-                
-                tar_end_date =  target_start_date + np.timedelta64( 14822, 'D')
-                feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(59900, '6h'), 'D')
 
-            if feature_start_date > target_start_date:
-                train_start_date = feature_start_date
-            else:
-                train_start_date = target_start_date
-
-            if tar_end_date < feature_end_date :
-                end_date = tar_end_date
-            else:
-                end_date = feature_end_date
-            
-            
-            if self.custom_train_split_method == None:
-                val_start_date =    np.datetime64( train_start_date + (end_date - train_start_date)*self.tst, 'D' )
-                val_end_date =      np.datetime64( val_start_date + (end_date - train_start_date)*((1-self.tst)/2), 'D' )
-
-                #TOTAL_DATUMS = int(end_date - start_date)//WINDOW_SHIFT - lookback  #By datums here we mean windows, for the target
-                TOTAL_DATUMS_TARGET = np.timedelta64(end_date - train_start_date,'D')  / WINDOW_SHIFT   #Think of better way to get the np.product info from model_params to train params
-                TOTAL_DATUMS_TARGET = TOTAL_DATUMS_TARGET.astype(int)
-                
-
-                #TODO: correct the train_set_size_elems
-                TRAIN_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS_TARGET*self.tst) 
-                VAL_SET_SIZE_ELEMENTS = int(TOTAL_DATUMS_TARGET*((1-self.tst)/2))               
-                
-
-            else:
-                raise ValueError
-                
-        elif self.custom_train_split_method == "4ds_10years":
+        if self.custom_train_split_method == "4ds_10years":
+            #If user wants to divide the dataset into 4 sets of 10 years for Experiement []
             li_start_dates = [ np.datetime64( '1979-01-01','D'), np.datetime64( '1989-01-01','D'), np.datetime64( '1999-01-01','D'), np.datetime64( '2009-01-01','D')   ]
             li_end_dates = [ np.datetime64( '1988-12-31','D'), np.datetime64( '1998-12-31','D'), np.datetime64( '2008-12-31','D'), np.datetime64( '2019-07-31','D') ]
 
             train_start_date = li_start_dates[ self.four_year_idx_train ]
             end_date = li_end_dates[ self.four_year_idx_train ]
 
-            val_start_date =( pd.Timestamp(train_start_date) + pd.DateOffset( months = 7*12 ) ).to_numpy()  #7 year train set size, 3 year val set size
+            val_start_date =( pd.Timestamp(train_start_date) + pd.DateOffset( months = 8*12 ) ).to_numpy()  #8 year train set size, 2 year val set size
             val_end_date = end_date
 
-            TOTAL_DATUMS_TARGET = np.timedelta64(end_date - train_start_date,'D')  / WINDOW_SHIFT  
-            TOTAL_DATUMS_TARGET = TOTAL_DATUMS_TARGET.astype(int)
+            total_datums_target = np.timedelta64(end_date - train_start_date,'D')  / WINDOW_SHIFT  
+            total_datums_target = total_datums_target.astype(int)
 
             TRAIN_SET_SIZE_ELEMENTS = ( np.timedelta64(val_start_date - train_start_date,'D')  // WINDOW_SHIFT   ).astype(int) 
             VAL_SET_SIZE_ELEMENTS = ( np.timedelta64( end_date - val_start_date,'D')  // WINDOW_SHIFT    ).astype(int)         
         
-        
+        elif type(self.custom_train_split_method) == str:
+            # User passes a string containing for numbers seperated by underscores
+            # The numbers correspond to trainstart_trainend_valstart_valend
+
+            dates_str = self.custom_train_split_method.split("_")
+            train_start_date = np.datetime64(dates_str[0],'D')
+            train_end_date = np.datetime64(dates_str[1],'D')
+            val_start_date = np.datetime64(dates_str[2],'D')
+            val_end_date = np.datetime64(dates_str[3],'D')
+            
+            TRAIN_SET_SIZE_ELEMENTS = ( np.timedelta64(train_end_date - train_start_date,'D')  // WINDOW_SHIFT  ).astype(int) 
+            VAL_SET_SIZE_ELEMENTS   = ( np.timedelta64(val_end_date - val_start_date,'D')  // WINDOW_SHIFT  ).astype(int)     
+
+
+        elif self.custom_train_split_method == None:
+            # TODO: Eventually remove this default methodology
+            # User passes in no value for custom_train_split_method and passes in a value for train_split_size
+            # This uses the whole dataset for training and testing; 100*train_split_size is the percentage of data used for training
+            tar_end_date =  target_start_date + np.timedelta64( 14822, 'D')
+            feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(59900, '6h'), 'D')
+            
+            train_start_date = feature_start_date if (feature_start_date > target_start_date) else target_start_date
+            end_date = tar_end_date if (tar_end_date < feature_end_date) else feature_end_date            
+            
+            if self.custom_train_split_method == None:
+                val_start_date =    np.datetime64( train_start_date + (end_date - train_start_date)*self.tst, 'D' )
+                val_end_date =      np.datetime64( val_start_date + (end_date - train_start_date)*((1-self.tst)/2), 'D' )
+
+                total_datums_target = np.timedelta64(end_date - train_start_date,'D')  / WINDOW_SHIFT  
+                total_datums_target = total_datums_target.astype(int)
+                
+                TRAIN_SET_SIZE_ELEMENTS = int(total_datums_target*self.tst) 
+                VAL_SET_SIZE_ELEMENTS = int(total_datums_target*((1-self.tst)/2))               
+                
+        else:
+            raise ValueError("Invalid value passed for arg -cstm (custom_train_split_method) ")
+
         # endregion
         
         DATA_DIR = self.dd
-
         EARLY_STOPPING_PERIOD = 30
  
         self.params = {
@@ -843,24 +719,25 @@ class train_hparameters_ati(HParams):
             'trainable':trainable,
             'lookback_target':self.lookback_target,
 
-            'strided_dataset_count': self.strided_dataset_count,
-            'train_set_size_elements_b4_sdc_multlocation': TRAIN_SET_SIZE_ELEMENTS,
-            'val_set_size_elements_b4_sdc_multlocation':VAL_SET_SIZE_ELEMENTS,
+            'strided_dataset_count': self.strided_dataset_count, #Note: sdc to be removed
+            'train_batches': TRAIN_SET_SIZE_ELEMENTS//BATCH_SIZE, 
+                #Note TRAIN_SET_SIZE_ELEMENTS refers to the number of sequences of days that are passed to TRU_NET as oppose dot every single day
+            'val_batches': VAL_SET_SIZE_ELEMENTS//BATCH_SIZE,
 
 
             'checkpoints_to_keep':CHECKPOINTS_TO_KEEP,
-            'checkpoints_to_keep_epoch':CHECKPOINTS_TO_KEEP_EPOCH,
-            'checkpoints_to_keep_batch':CHECKPOINTS_TO_KEEP_BATCH,
 
-            'dataset_trainval_batch_reporting_freq':0.1,
+            'reporting_freq':0.1,
             'num_parallel_calls':NUM_PARALLEL_CALLS,
 
             'train_monte_carlo_samples':1,
             'data_dir': DATA_DIR,
+            
 
-            'mask_fill_value':MASK_FILL_VALUE_v1,
-            'normalization_scales' : NORMALIZATION_SCALES_v1,
-            'normalization_shift': NORMALIZATION_SHIFT_v1,
+            'mask_fill_value':MASK_FILL_VALUE,
+            'vars_for_feature':vars_for_feature,
+            'normalization_scales' : NORMALIZATION_SCALES,
+            'normalization_shift': NORMALIZATION_SHIFT,
             'window_shift': WINDOW_SHIFT,
 
             'train_start_date':train_start_date,
@@ -874,19 +751,17 @@ class train_hparameters_ati(HParams):
         }
 
 class test_hparameters_ati(HParams):
+    """ Parameters for testing """
     def __init__(self, **kwargs):
         self.lookback_target = kwargs['lookback_target']
         self.batch_size = kwargs.get("batch_size",2)
         
-        #kwargs.pop('lookback_target')
-        self.di = kwargs.get('downscaled_input', False)
         self.dd = kwargs.get('data_dir')
         self.tst = kwargs.get('train_set_size',0.6)
         self.iim = kwargs.get('input_interpolation_method',None)
-        self.custom_train_split_method = kwargs.get('ctsm', None)
+        self.custom_test_split_method = kwargs.get('ctsm', None)
         
-
-        if self.custom_train_split_method == "4ds_10years":
+        if self.custom_test_split_method == "4ds_10years":
             self.four_year_idx_train = kwargs['fyi_train'] #index for training set
             self.four_year_idx_test = kwargs['fyi_test']
             assert self.four_year_idx_train != self.four_year_idx_test
@@ -901,15 +776,16 @@ class test_hparameters_ati(HParams):
     
     def _default_params(self):
         
-        # region -------data pipepline vars
+        # region --- data pipepline vars
         trainable = False
 
-        MASK_FILL_VALUE_v1 = {
+        # Standardisation and masking variables
+        MASK_FILL_VALUE = {
                                     "rain":0.0,
                                     "model_field":0.0 
         }
-
-        NORMALIZATION_SCALES_v1 = {
+        vars_for_feature = ['unknown_local_param_137_128', 'unknown_local_param_133_128', 'air_temperature', 'geopotential', 'x_wind', 'y_wind' ]
+        NORMALIZATION_SCALES = {
                                     "rain":4.69872+0.5,
                                     "model_fields": np.array([6.805,
                                                               0.001786,
@@ -924,7 +800,7 @@ class test_hparameters_ati(HParams):
                                                 # - x_wind, 
                                                 # # - y_wind
         }
-        NORMALIZATION_SHIFT_v1 = {
+        NORMALIZATION_SHIFT = {
                                     "rain":2.844,
                                     "model_fields": np.array([15.442,
                                                                 0.003758,
@@ -934,76 +810,48 @@ class test_hparameters_ati(HParams):
                                                                 0.54810]) 
         }
 
-        WINDOW_SHIFT = self.lookback_target
-        NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
+        WINDOW_SHIFT = self.lookback_target # temporal shift for window to evaluate
         BATCH_SIZE = self.batch_size
-        N_PREDS = 25
-        MODEL_RECOVER_METHOD = 'checkpoint_epoch'
         # endregion
 
-        if self.di == False :
-            target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
-            feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
-            
-            tar_end_date=  target_start_date + np.timedelta64( 14822, 'D')
-            feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(16072, '6h'), 'D')
+        # region ---- Data Formaulation
+
+        target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D') #E-obs recording start from 1950
+        feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h') #ERA5 recording start from 1979
         
-        elif self.di == True or self.custom_train_split_method in ["Rolling_2_Year_test"] :
-            target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
-            feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
-            
-            tar_end_date =  target_start_date + np.timedelta64( 14822, 'D')
-            feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(59900, '6h'), 'D')
+        tar_end_date =  target_start_date + np.timedelta64( 14822, 'D')
+        feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(59900, '6h'), 'D')
         
-        if feature_start_date > target_start_date:
-            train_start_date = feature_start_date
-        else:
-            train_start_date = target_start_date
+        train_start_date = feature_start_date if (feature_start_date > target_start_date) else target_start_date
+        end_date = tar_end_date if (tar_end_date < feature_end_date) else feature_end_date     
 
-        if tar_end_date < feature_end_date :
-            end_date = tar_end_date
-        else:
-            end_date = feature_end_date
-
-        #train_start_date = np.max(feature_start_date, target_start_date)
-        #end_date = np.min( tar_end_date, feature_end_date)
-        if self.custom_train_split_method == None:
-            val_start_date =    np.datetime64( train_start_date + (end_date - train_start_date)*self.tst, 'D' )
-            val_end_date =      np.datetime64( val_start_date + (end_date - train_start_date)*((1-self.tst)/2), 'D' )
-
-            #TOTAL_DATUMS = int(end_date - start_date)//WINDOW_SHIFT - lookback  #By datums here we mean windows, for the target
-            TOTAL_DATUMS_TARGET = np.timedelta64(end_date - train_start_date,'D')   
-            TOTAL_DATUMS_TARGET = TOTAL_DATUMS_TARGET.astype(int)
+        if self.custom_test_split_method == None:
+            #If user passes no value for custom_test_split_method, then assume whole dataset is to be used 
+            #train set size is determined from self.tst (train_set_size)
+            total_datums_target = np.timedelta64(end_date - train_start_date,'D')   
+            total_datums_target = total_datums_target.astype(int)
 
             test_start_date = train_start_date + (end_date - train_start_date)*((1+self.tst)/2)
             test_end_date = end_date
 
-            TEST_SET_SIZE_DATUMS_TARGET = int( TOTAL_DATUMS_TARGET * ((1-self.tst)/2))
+            TEST_SET_SIZE_DAYS_TARGET = int( total_datums_target * ((1-self.tst)/2))
         
-        elif self.custom_train_split_method == "Rolling_2_Year_test":
-            #In this scenario, the train set was 60% of the November data and the validation set was the next 20%. But the test set is all of the next 40 years of data
-            #This assumes we are using the Models trained on teh 11 year dataset received in November, which has the validation sets as below
-            val_start_date =    np.datetime64('1985-04-01','D')  #Monday, 1 April 1985,
-            val_end_date =      np.datetime64('1987-11-01','D') 
-            
-            test_start_date = np.datetime64('1989-01-01','D')      #1) Must be at least after validation set for November data, Also the IFS data only starts after 1989, So testing on final 30 years
-            test_end_date = end_date
-
-            #In this scenario,
-
-            TEST_SET_SIZE_DATUMS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
         
-        elif self.custom_train_split_method == "Rolling_2_Year_test_new":
-            #In the case of using models trained on larger datasets
+        elif self.custom_test_split_method == "Rolling_eval":
+            #Default behaviour is to identify start testing time based on tst used previously
+            #NOTE: remove this methodology, replace with passing in years
             years_used_for_training = int(40*self.tst)
 
             data_year_start = 1979      #1) Must be at least after validation set for November data, Also the IFS data only starts after 1989, So testing on final 30 years
             test_start_date = np.datetime64('{}-01-01'.format(str(int(data_year_start+years_used_for_training))),'D')
             test_end_date = end_date
 
-            TEST_SET_SIZE_DATUMS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
+            TEST_SET_SIZE_DAYS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
 
-        elif self.custom_train_split_method == "4ds_10years":
+        elif self.custom_test_split_method == "4ds_10years":
+            # Ease helper for the 4 dataset experiement: "Varied Time Span"
+            # Allows user to pass two argumnets fyi_train and fyi_test, starting which model to use and which 
+                # 10 year chunk to test on and which mod 
 
             li_start_dates = [ np.datetime64( '1979-01-01','D'), np.datetime64( '1989-01-01','D'), np.datetime64( '1999-01-01','D'), np.datetime64( '2009-01-01','D')   ]
             li_end_dates = [ np.datetime64( '1988-12-31','D'), np.datetime64( '1998-12-31','D'), np.datetime64( '2008-12-31','D'), np.datetime64( '2019-07-31','D') ]
@@ -1011,19 +859,22 @@ class test_hparameters_ati(HParams):
             test_start_date = li_start_dates[self.four_year_idx_test]
             test_end_date = li_end_dates[self.four_year_idx_test]
 
-            TEST_SET_SIZE_DATUMS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
+            TEST_SET_SIZE_DAYS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
         
-        elif type(self.custom_train_split_method) == str:
-            dates_str = self.custom_train_split_method.split("_")
+        elif type(self.custom_test_split_method) == str:
+            # User must pass in two dates seperated by underscore such as 
+                # 1985_2005, or 1985-02-04_2005_11_20
+            dates_str = self.custom_test_split_method.split("_")
             test_start_date = np.datetime64(dates_str[0],'D')
             test_end_date = np.datetime64(dates_str[1],'D')
             
-            TEST_SET_SIZE_DATUMS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
+            TEST_SET_SIZE_DAYS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
 
-        ## endregion
+        # endregion
 
-        date_tss = pd.date_range( end=test_end_date, start=test_start_date, freq='D',normalize=True)
-        EPOCHS = list ( (date_tss - pd.Timestamp("1970-01-01") ) // pd.Timedelta('1s') )
+        # timesteps for saving predictions
+        date_tss = pd.date_range( end=test_end_date, start=test_start_date, freq='D', normalize=True)
+        timestamps = list ( (date_tss - pd.Timestamp("1970-01-01") ) // pd.Timedelta('1s') )
 
         DATA_DIR = self.dd
 
@@ -1031,19 +882,17 @@ class test_hparameters_ati(HParams):
             'batch_size':BATCH_SIZE,
             'trainable':trainable,
             
-            'test_set_size_elements':TEST_SET_SIZE_DATUMS_TARGET,
-            'num_preds':N_PREDS,
-            'dataset_pred_batch_reporting_freq':0.01,
-
-            'model_recover_method':MODEL_RECOVER_METHOD,
+            'test_batches': TEST_SET_SIZE_DAYS_TARGET//(WINDOW_SHIFT*BATCH_SIZE),
+                        
             'script_dir':None,
             'data_dir':DATA_DIR,
             
-            'epochs':EPOCHS,
+            'timestamps':timestamps,
             
-            'mask_fill_value':MASK_FILL_VALUE_v1,
-            'normalization_scales' : NORMALIZATION_SCALES_v1,
-            'normalization_shift': NORMALIZATION_SHIFT_v1,
+            'mask_fill_value':MASK_FILL_VALUE,
+            'vars_for_feature':vars_for_feature,
+            'normalization_scales' : NORMALIZATION_SCALES,
+            'normalization_shift': NORMALIZATION_SHIFT,
             'window_shift': WINDOW_SHIFT,
 
             'test_start_date':test_start_date,

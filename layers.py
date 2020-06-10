@@ -636,7 +636,7 @@ class THST_Encoder(tf.keras.layers.Layer):
 		self.encoder_params = encoder_params
 		self.train_params = train_params
 		self.layer_count = encoder_params['enc_layer_count']
-		self.di = train_params['downscaled_input']
+		self.di = train_params.get('downscaled_input',None)
 		self.mv = model_version
 		
 		self.CGRU_Input_Layer = THST_CGRU_Input_Layer( train_params, encoder_params['CGRUs_params'][0], model_version, conv_upscale_params )
@@ -677,7 +677,48 @@ class THST_Encoder(tf.keras.layers.Layer):
 			hidden_states = tf.concat( [ hidden_states, hidden_state ], axis=1 )
 					
 		return hidden_states
+
+class TRUNET_EF_Encoder(tf.keras.layers.Layer):
+	def __init__(self, train_params, encoder_params, h_w, model_version=100, conv_upscale_params=None, h_w_dec=None, attn_ablation=0):
+		super( TRUNET_EF_Encoder, self ).__init__()
+		self.encoder_params = encoder_params
+		self.train_params = train_params
+		self.layer_count = encoder_params['enc_layer_count']
+		self.seq_len_factor = encoder_params['seq_len_factor_reduction']
+		self.mv = model_version
 		
+		self.CGRU_Input_Layer = THST_CGRU_Input_Layer( train_params, encoder_params['CGRUs_params'][0], model_version, conv_upscale_params )
+
+		self.CGRU_dsample = []
+		self.CGRU_Attn_layers = []
+		
+		for idx in range( encoder_params['attn_layers_count'] ):
+			_layer_dsample = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( filters= encoder_params['CGRUs_params'][idx]['filters'] , kernel_size=(2,2)  , strides=(2,2), activation=None, padding='same'   ) )
+			_layer = THST_CGRU_Attention_Layer( train_params, encoder_params['CGRUs_params'][idx+1],
+						encoder_params['ATTN_params'][idx], encoder_params['ATTN_DOWNSCALING_params_enc'] ,
+						encoder_params['seq_len_factor_reduction'][idx], self.encoder_params['attn_layers_num_of_splits'][idx],
+						h_w, attn_ablation )
+			
+			self.CGRU_dsample.append(_layer_dsample)
+			self.CGRU_Attn_layers.append(_layer)
+				
+	def call(self, _input, training=True):
+		"""
+			_input #shape( )
+		"""
+		hidden_state =  self.CGRU_Input_Layer( _input, training ) 						#(bs, seq_len_1, h, w, c1)
+		hidden_state, last_state = self.CGRU_Attn_layers[0]( hidden_state, training=training)
+
+		last_states = tf.RaggedTensor.from_tensor( last_state ) # top2bot: ,16, 4,1
+
+		for idx in range(1, self.encoder_params['attn_layers_count']):
+			hidden_state = self.CGRU_dsample[idx]( hidden_state )
+			hidden_outp, last_state = self.CGRU_Attn_layers[idx]( hidden_state, training=training)
+
+			last_states = tf.concat( [ last_states, tf.RaggedTensor._from_tensor(last_state) ], axis=0 ) #(bs, h, w, c1)
+					
+		return last_states
+
 class THST_OutputLayer(tf.keras.layers.Layer):
 	def __init__(self, train_params,layer_params, model_type_settings, dropout_rate, di, conv_upscale_params=None):
 		"""
@@ -693,34 +734,17 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 		self.do0 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=dropout_rate, data_format = 'channels_last' ) )
 		self.do1 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=dropout_rate, data_format = 'channels_last' ) )
 
-		if not self.dc:
-
-			if(model_type_settings['deformable_conv'] ==False):
-				self.conv_hidden = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
-				self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
-			
-			elif( model_type_settings['deformable_conv'] ==True ):
-				self.conv_hidden = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[0] ) )
-				self.conv_output = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
-
+		if not self.dc:			
+			self.conv_hidden = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
+			self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
 			self.float32_custom_relu = OutputReluFloat32(train_params) 
 		
 		else:
-			if(model_type_settings['deformable_conv'] ==False):
-				self.conv_hidden_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
-				self.conv_hidden_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
-				self.conv_output_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
-				self.conv_output_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
-
-			elif( model_type_settings['deformable_conv'] ==True ):
-				self.conv_hidden_val = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[0] ) )
-				self.conv_hidden_prob = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[0] ) )
-				self.conv_output_val = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
-				self.conv_output_prob = tf.keras.layers.TimeDistributed( layers_ConvLSTM2D.DeformableConvLayer( **layer_params[1] ) )
-
-
+			self.conv_hidden_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
+			self.conv_hidden_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
+			self.conv_output_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
+			self.conv_output_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
 			self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
-
 			self.output_activation_val = CustomRelu_maker(train_params, dtype='float32')
 			self.output_activation_prob = tf.keras.layers.Activation('sigmoid', dtype='float32')
 
@@ -784,6 +808,51 @@ class THST_Decoder(tf.keras.layers.Layer):
 
 		return dec_hs_outp
 
+class TRUNET_EF_Forecaster(tf.keras.layers.Layer):
+	def __init__(self, t_params ,decoder_params, h_w):
+		"""
+		:param list decoder_params: a list of dictionaries of the contained LSTM's params
+		"""
+		super( TRUNET_EF_Forecaster, self ).__init__()
+		self.decoder_params = decoder_params
+		self.t_params = t_params
+		self.layer_count = decoder_params['decoder_layer_count']
+		self.seq_len_factor_expansion = decoder_params['seq_len_factor_expansion']
+		self.h_w = h_w
+		
+		self.CGRU_layers = []
+		self.upscale_layers = []
+		for idx in range( self.layer_count ):
+			# _layer = THST_CGRU_Decoder_Layer( t_params, self.decoder_params['CGRUs_params'][idx], 
+			# 									decoder_params['seq_len_factor_expansion'][idx],
+			# 									decoder_params['seq_len'][idx], h_w )
+			_layer = layers_ConvGRU2D.ConvGRU2D(**self.decoder_params['CGRUs_params'][idx],trainable=self.trainable )
+			_layer_upscale = tf.keras.layers.TimeDistributed( SubpixelConv2D(2) )
+			self.CGRU_layers.append(_layer)
+			self.upscale_layers.append(_layer_upscale)
+
+		self.seq_lens = self.decoder_params['attn_layer_no_splits']
+		self.shape1 = [ sum( self.seq_lens ) ] + [ self.t_params['batch_size'] ] + [h_w[0], h_w[1], self.decoder_params['CGRUs_params'][0]['filters']*2 ] 
+	
+	def call(self, last_states, training=True):
+
+		li_lss_outp = tf.split(last_states, self.seq_lens, axis=0 ) #last_states outp
+
+		dec_hs_outp = tf.RaggedTensor.to_tensor( li_lss_outp[-1] )
+		dec_hs_outp = tf.keras.backend.repeat_elements( dec_hs_outp, self.self.seq_len_factor_expansion[0] , axis=1) #(bs, seq_len1, h,w,c2)
+
+		for idx in range(2, self.layer_count+1):
+			
+			initial_state = tf.RaggedTensor.to_tensor( li_lss_outp[ self.layer_count-idx] )
+			
+			dec_hs_outp =  self.CGRU_layers[-idx]( dec_hs_outp, initial_state = initial_state )
+
+			dec_hs_outp = self.upscale_layers[idx](dec_hs_outp)
+
+			dec_hs_outp = tf.keras.backend.repeat_elements( dec_hs_outp, self.self.seq_len_factor_expansion[idx-1] , axis=1)
+
+		return dec_hs_outp
+
 class THST_CGRU_Input_Layer(tf.keras.layers.Layer):
 	"""
 		This corresponds to the lower input layer
@@ -792,9 +861,9 @@ class THST_CGRU_Input_Layer(tf.keras.layers.Layer):
 	def __init__(self, train_params, layer_params, model_version, conv_upscale_params ):
 		super( THST_CGRU_Input_Layer, self ).__init__()
 		
-		self.trainable = train_params['trainable']
+		#self.trainable = train_params['trainable']
 		self.layer_params = layer_params #list of dictionaries containing params for all layers
-		self.di = train_params['downscaled_input']
+		#self.di = train_params['downscaled_input']
 		self.mv = model_version
 
 		self.convGRU = Bidirectional( layer=layers_ConvGRU2D.ConvGRU2D( **self.layer_params ), 
@@ -857,8 +926,8 @@ class THST_CGRU_Decoder_Layer(tf.keras.layers.Layer):
 		self.shape2 = ( train_params['batch_size'], self.seq_len//self.input_2_factor_increase, h_w[0], h_w[1], layer_params['filters']*2 ) #TODO: the final dimension only works rn since all layers have same filter count. It should be equal to 2* filters of previous layer
 		self.shape1 = ( train_params['batch_size'], self.seq_len, h_w[0], h_w[1], layer_params['filters']*2 ) #same comment as above
 		self.shape3 = ( train_params['batch_size'], self.seq_len, h_w[0], h_w[1], layer_params['filters'] )
-		self.convGRU =  tf.keras.layers.Bidirectional( layer=layers_ConvGRU2D.ConvGRU2D_custom(**layer_params,trainable=self.trainable ),
-														backward_layer=layers_ConvGRU2D.ConvGRU2D_custom( **copy.deepcopy(layer_params),go_backwards=True,trainable=self.trainable ) ,
+		self.convGRU =  tf.keras.layers.Bidirectional( layer=layers_ConvGRU2D.ConvGRU2D_2cell(**layer_params,trainable=self.trainable ),
+														backward_layer=layers_ConvGRU2D.ConvGRU2D_2cell( **copy.deepcopy(layer_params),go_backwards=True,trainable=self.trainable ) ,
 														merge_mode=None)
 	
 	def call(self, input1, input2, training=True ):
@@ -1022,6 +1091,60 @@ class SpatialConcreteDropout(tf.keras.layers.Wrapper):
 		regularizer = K.sum(kernel_regularizer + dropout_regularizer)
 		self.layer.add_loss(regularizer)
 		return True
+
+class SubpixelConv2D(tf.keras.layers.Layer):
+    """ Subpixel Conv2D Layer
+    upsampling a layer from (h, w, c) to (h*r, w*r, c/(r*r)),
+    where r is the scaling factor, default to 4
+    # Arguments
+    upsampling_factor: the scaling factor
+    # Input shape
+        Arbitrary. Use the keyword argument `input_shape`
+        (tuple of integers, does not include the samples axis)
+        when using this layer as the first layer in a model.
+    # Output shape
+        the second and the third dimension increased by a factor of
+        `upsampling_factor`; the last layer decreased by a factor of
+        `upsampling_factor^2`.
+    # References
+        Real-Time Single Image and Video Super-Resolution Using an Efficient
+        Sub-Pixel Convolutional Neural Network Shi et Al. https://arxiv.org/abs/1609.05158
+    """
+
+    def __init__(self, upsampling_factor=4, **kwargs):
+        super(SubpixelConv2D, self).__init__(**kwargs)
+        self.upsampling_factor = upsampling_factor
+
+    def build(self, input_shape):
+        last_dim = input_shape[-1]
+        factor = self.upsampling_factor * self.upsampling_factor
+        if last_dim % (factor) != 0:
+            raise ValueError('Channel ' + str(last_dim) + ' should be of '
+                             'integer times of upsampling_factor^2: ' +
+                             str(factor) + '.')
+
+    def call(self, inputs, **kwargs):
+        return tf.nn.depth_to_space( inputs, self.upsampling_factor )
+
+    def get_config(self):
+        config = { 'upsampling_factor': self.upsampling_factor, }
+        base_config = super(SubpixelConv2D, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+    def compute_output_shape(self, input_shape):
+        factor = self.upsampling_factor * self.upsampling_factor
+        input_shape_1 = None
+        if input_shape[1] is not None:
+            input_shape_1 = input_shape[1] * self.upsampling_factor
+        input_shape_2 = None
+        if input_shape[2] is not None:
+            input_shape_2 = input_shape[2] * self.upsampling_factor
+        dims = [ input_shape[0],
+                 input_shape_1,
+                 input_shape_2,
+                 int(input_shape[3]/factor)
+               ]
+        return tuple( dims )
 # endregion
 
 # region general layers/functions

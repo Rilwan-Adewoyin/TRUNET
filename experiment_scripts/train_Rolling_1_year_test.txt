@@ -1,0 +1,22 @@
+------- Using Model trained on November Data and incrementally judging it's performance as the prediction horizon gets further and further away -----
+------- First we predict for the whole 40 year remaining training set
+
+
+-Using November models
+CUDA_VISIBLE_DEVICES=0 python3 predict.py -mn "THST" -di True -iim 'linear' -ctsm 'Rolling_2_Year_test' -mts "{'stochastic':True,'stochastic_f_pass':75,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'twoD':True,'deformable_conv':False, 'prob_rain_thresh':'Tune', 'location_test':'London'}" -dd "/media/Data3/akanni/Rain_Data_Mar20" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+-Using Newer models at 0.5 (0.4) :) training set
+CUDA_VISIBLE_DEVICES=0 python3 predict.py -mn "THST" -di True -iim 'linear' -tst 0.4 -ctsm 'Rolling_2_Year_test_new' -mts "{'stochastic':True,'stochastic_f_pass':25,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'twoD':True,'deformable_conv':False, 'prob_rain_thresh':'0.5', 'location_test':'London'}" -dd "/media/Data3/akanni/Rain_Data_Mar20" -bs 5 -do 0.2 -ido 0.2 -rdo 0.3
+
+
+
+
+
+
+CUDA_VISIBLE_DEVICES=0 python3 predict.py -mn "THST" -di True -iim 'linear' -ctsm 'Rolling_2_Year_test' -mts "{'stochastic':True,'stochastic_f_pass':75,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'twoD':True,'deformable_conv':False, 'prob_rain_thresh':'Tune', 'location_test':'Birmingham'}" -dd "/media/Data3/akanni/Rain_Data_Mar20" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+CUDA_VISIBLE_DEVICES=0 python3 predict.py -mn "THST" -di True -iim 'linear' -ctsm 'Rolling_2_Year_test' -mts "{'stochastic':True,'stochastic_f_pass':75,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'twoD':True,'deformable_conv':False, 'prob_rain_thresh':'Tune', 'location_test':'Cardiff'}" -dd "/media/Data3/akanni/Rain_Data_Mar20" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+CUDA_VISIBLE_DEVICES=0 python3 predict.py -mn "THST" -di True -iim 'linear' -ctsm 'Rolling_2_Year_test' -mts "{'stochastic':False,'stochastic_f_pass':75,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'twoD':True,'deformable_conv':False, 'prob_rain_thresh':'Tune', 'location_test':'Glasgow'}" -dd "/media/Data3/akanni/Rain_Data_Mar20" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
+
+CUDA_VISIBLE_DEVICES=0 python3 predict.py -mn "THST" -di True -iim 'linear' -ctsm 'Rolling_2_Year_test' -mts "{'stochastic':True,'stochastic_f_pass':75,'distr_type':'Normal','discrete_continuous':True,'precip_threshold':0.5,'var_model_type':'mc_dropout', 'model_version':'145','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin'],'twoD':True,'deformable_conv':False, 'prob_rain_thresh':'Tune', 'location_test':'Manchester'}" -dd "/media/Data3/akanni/Rain_Data_Mar20" -bs 5 -sdc 1 -do 0.2 -ido 0.2 -rdo 0.3
