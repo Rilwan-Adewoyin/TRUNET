@@ -1,15 +1,21 @@
+import os
 import data_generators
 import argparse
 import ast
 import gc
 import logging
 import math
-import os
+
 import re
 import sys
 import time
 
-#os.environ["OMP_NUM_THREADS"] = "1"
+# os.environ["OMP_NUM_THREADS"] = "1" # export OMP_NUM_THREADS=1
+# os.environ["OPENBLAS_NUM_THREADS"] = "1" # export OPENBLAS_NUM_THREADS=1
+# os.environ["MKL_NUM_THREADS"] = "1" # export MKL_NUM_THREADS=1
+# os.environ["VECLIB_MAXIMUM_THREADS"] = "1" # export VECLIB_MAXIMUM_THREADS=1
+# os.environ["NUMEXPR_NUM_THREADS"] = "1" # export NUMEXPR_NUM_THREADS=1
+
 import numpy as np
 import pandas as pd
 import psutil
@@ -69,61 +75,67 @@ def is_compatible_with(self, other):
                                 other.base_dtype.as_datatype_enum)
 tf.DType.is_compatible_with = is_compatible_with
 
-class TrainTrueNet():
+class TrainTruNet():
     """Handles the Training of the TRUNET model
+
+        Example of how to use:
+        traintrunet = TrainTruNet( t_params, m_params)
+        traintrunet.initialize_scheme_era5Eobs()    #Initializes datasets for ERA5 and Eobs
+        traintrunet.train_model()                   #Trains and saves model
+
 
     """    
     def __init__(self, t_params, m_params): 
         """Train the TRU_NET Model
-
-            Initialize_scheme_**: Handles the data specific initializations initializing 
-            train_model : Handles the iterative training
         """
         self.t_params = t_params
         self.m_params = m_params
         
     def initialize_scheme_era5Eobs(self):
-        """Initialization scheme for the ERA5 and E-OBS dataset
-
-        Args:
-
+        """Initialization scheme for the ERA5 and E-OBS datasets.
+            This method creates the datasets
         """        
-        # region ---- Variables to initialize
-        era5_eobs = data_generators.Era5_Eobs( self.t_params, self.m_params )
+        # region ---- Parameters  related to training length and training reporting frequency 
+        era5_eobs = data_generators.Era5_Eobs( self.t_params, self.m_params)
 
+        # hparameters files calculates train_batches assuing we are only evaluating one location, 
+            # therefore we must adjust got multiple locations (loc_count)
         self.t_params['train_batches'] = int(self.t_params['train_batches'] * era5_eobs.loc_count)
         self.t_params['val_batches'] = int(self.t_params['val_batches'] * era5_eobs.loc_count)
 
+        # The fequency at which we report during training and validation i.e every 10% of minibatches report training loss and training mse
         self.train_batch_report_freq = max( int(self.t_params['train_batches']*self.t_params['reporting_freq']), 1)
         self.val_batch_report_freq = max( int(self.t_params['val_batches']*self.t_params['reporting_freq']), 1)
         #endregion
 
         # region ---- Restoring/Creating New Training Records and Restoring training progress
+            #This training records keeps track of the losses on each epoch
         try:
-            df_training_info = pd.read_csv( "checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(m_params,t_params=self.t_params)), header=0, index_col=False) 
-            self.start_epoch =  int(max(df_training_info['Epoch'], default=0)) 
-            last_batch = int( df_training_info.loc[df_training_info['Epoch']==self.start_epoch,'Last_Trained_Batch'].iloc[0] )
+            self.df_training_info = pd.read_csv( "checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(m_params,t_params=self.t_params)), header=0, index_col=False) 
+            self.start_epoch =  int(max(self.df_training_info['Epoch'], default=0)) 
+            last_batch = int( self.df_training_info.loc[self.df_training_info['Epoch']==self.start_epoch,'Last_Trained_Batch'].iloc[0] )
             if(last_batch in [-1, self.t_params['train_batches']] ):
                 self.start_epoch = self.start_epoch + 1
-                batches_to_skip = 0
+                self.batches_to_skip = 0
             else:
-                batches_to_skip = last_batch
+                self.batches_to_skip = last_batch
             print("Recovered training records")
 
         except FileNotFoundError as e:
-            df_training_info = pd.DataFrame(columns=['Epoch','Train_loss','Val_loss','Checkpoint_Path', 'Last_Trained_Batch'] ) #key: epoch number #Value: the corresponding loss #TODO: Implement early stopping
-            batches_to_skip = 0
+            #If no file found, then make new training records file
+            self.df_training_info = pd.DataFrame(columns=['Epoch','Train_loss','Val_loss','Checkpoint_Path', 'Last_Trained_Batch'] ) #key: epoch number #Value: the corresponding loss #TODO: Implement early stopping
+            self.batches_to_skip = 0
             self.start_epoch = 0
             print("Did not recover training records. Starting from scratch")
         # endregion
 
         # region ---- Defining Model / Optimizer / Losses / Metrics / Records / Checkpoints / Tensorboard 
         #model
-        self.model = models.model_loader( self.t_params, m_params )
+        self.model = models.model_loader( self.t_params, self.m_params )
             
         #Optimizer
-        radam = tfa.optimizers.RectifiedAdam( **m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*40 ) 
-        self.optimizer = tfa.optimizers.Lookahead(radam, **m_params['lookahead_params'])
+        self.optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*40 ) 
+        #self.optimizer = tfa.optimizers.Lookahead(self.optimizer, **self.m_params['lookahead_params'])
         self.optimizer = mixed_precision.LossScaleOptimizer( self.optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() )
         
         #Losses and Metrics
@@ -136,18 +148,27 @@ class TrainTrueNet():
         self.mse_agg_val = tf.keras.metrics.Mean(name='mse_agg_val')    
             
         #checkpoints  (For Epochs)
+            #The CheckpointManager automatically can be called to serializae the weights within TRUNET
         checkpoint_path_epoch = "checkpoints/{}/epoch".format(utility.model_name_mkr(m_params,t_params=self.t_params ))
         os.makedirs(checkpoint_path_epoch,exist_ok=True)
         ckpt_epoch = tf.train.Checkpoint(model=self.model, optimizer=self.optimizer)
         self.ckpt_mngr_epoch = tf.train.CheckpointManager(ckpt_epoch, checkpoint_path_epoch, max_to_keep=self.t_params['checkpoints_to_keep'], keep_checkpoint_every_n_hours=None)    
         
         #checkpoints (For Batches)
+            #The CheckpointManager automatically can be called to serializae the weights within TRUNET
         checkpoint_path_batch = "checkpoints/{}/batch".format(utility.model_name_mkr(m_params,t_params=self.t_params))
         os.makedirs(checkpoint_path_batch,exist_ok=True)
         ckpt_batch = tf.train.Checkpoint(model=self.model, optimizer=self.optimizer)#, optimizer=optimizer)
         self.ckpt_mngr_batch = tf.train.CheckpointManager(ckpt_batch, checkpoint_path_batch, max_to_keep=self.t_params['checkpoints_to_keep'], keep_checkpoint_every_n_hours=None)
 
-        if self.ckpt_mngr_batch.latest_checkpoint: #restoring last checkpoint if it exists
+        #restoring last checkpoint if it exists
+        if self.ckpt_mngr_batch.latest_checkpoint: 
+            # compat: Initializing model and optimizer before restoring from checkpoint
+            inp_shape = [t_params['batch_size'], t_params['lookback_feature']] + m_params['region_grid_params']['outer_box_dims'] + [len(t_params['vars_for_feature'])]
+            _ = self.model( tf.zeros( inp_shape ,dtype=tf.float16), self.t_params['trainable'] ) #( bs, tar_seq_len, h, w)
+            gradients = [ tf.zeros_like(t_var, dtype=tf.float32 ) for t_var in self.model.trainable_variables  ]
+            self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
+
             ckpt_batch.restore(self.ckpt_mngr_batch.latest_checkpoint).assert_consumed()              
         else:
             print (' Initializing model from scratch')
@@ -158,39 +179,41 @@ class TrainTrueNet():
         # endregion
         
         # region ---- Making Datasets
-        #era5_eobs = data_generators.Era5_Eobs( self.t_params, self.m_params )
-        ds_train, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'], self.t_params['train_start_date'] )
+        ds_train, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'], self.t_params['start_date'] )
         ds_val, _ = era5_eobs.load_data_era5eobs( self.t_params['val_batches'], self.t_params['val_start_date'] )
         
-        # setting naming system for cache 
+        # caching dataset to file post pre-processing steps have been completed 
         cache_suffix = utility.cache_suffix_mkr( m_params, self.t_params )
         ds_train = ds_train.cache('Data/data_cache/train'+cache_suffix ) 
         ds_val = ds_val.cache('Data/data_cache/val'+cache_suffix )
         
+        
         # preparing iterators for train and validation
         # data loading schemes based on ram limitations
-        if psutil.virtual_memory()[0] / 1e9 <= 30.0 : 
+        if psutil.virtual_memory()[0] / 1e9 <= 40.0 : 
             #Data Loading Scheme 1 - Version that works on low memeory devices e.g. under 30 GB RAM
             ds_train_val = ds_train.concatenate(ds_val).repeat(self.t_params['epochs']-self.start_epoch)
-            self.ds_train_val = ds_train_val.skip(batches_to_skip)
+            self.ds_train_val = ds_train_val.skip(self.batches_to_skip)
             self.iter_val_train = enumerate(self.ds_train_val)
             self.iter_train = self.iter_val_train
             self.iter_val = self.iter_val_train
         else:
             #Data Loading Scheme 2 - Version that ensures validation and train set are well defined 
-            self.ds_train = self.ds_train.repeat(self.t_params['epochs']-self.start_epoch)
-            self.ds_val = self.ds_val.repeat(self.t_params['epochs']-self.start_epoch)
-            self.ds_train = self.ds_train.skip(batches_to_skip)
+            ds_train = ds_train.repeat(self.t_params['epochs']-self.start_epoch)
+            self.ds_val = ds_val.repeat(self.t_params['epochs']-self.start_epoch)
+            self.ds_train = ds_train.skip(self.batches_to_skip)
             self.iter_train = enumerate(self.ds_train)
             self.iter_val = enumerate(self.ds_val)
-
         #endregion
 
-
     def train_model(self):
-
-        bounds = cl.central_region_bounds(self.m_params['region_grid_params']) #bounds for central region which we evaluate on 
         
+        #During training we produce a prediction for a (n by n) square patch. 
+            #But we caculate losses on a central (h, w) region within the (n by n) patch
+            #This central region is defined by "bounds" below
+        bounds = cl.central_region_bounds(self.m_params['region_grid_params']) #list [ lower_h_bound[0], upper_h_bound[0], lower_w_bound[1], upper_w_bound[1] ]
+        
+        #Training for n epochs
         for epoch in range(self.start_epoch, int(self.t_params['epochs']) ):
             
             #region resetting metrics, losses and records
@@ -200,7 +223,7 @@ class TrainTrueNet():
             
             self.loss_agg_val.reset_states()
             self.mse_agg_val.reset_states()
-            df_training_info = df_training_info.append( { 'Epoch':epoch, 'Last_Trained_Batch':0 }, ignore_index=True )
+            self.df_training_info = self.df_training_info.append( { 'Epoch':epoch, 'Last_Trained_Batch':0 }, ignore_index=True )
             
             start_epoch = time.time()
             start_epoch_val = None
@@ -210,29 +233,32 @@ class TrainTrueNet():
             batch=0
             
             if( epoch!=self.start_epoch  ):
-                batches_to_skip = 0
-            print("\n\nStarting EPOCH {} Batch {}/{}".format(epoch, batches_to_skip+1, self.t_params['train_batches']))
+                self.batches_to_skip = 0
+            print("\n\nStarting EPOCH {} Batch {}/{}".format(epoch, self.batches_to_skip+1, self.t_params['train_batches']))
             #endregion 
             
             #region Training
-            for batch in range(batches_to_skip+1, self.t_params['train_batches']+1):
+            for batch in range(self.batches_to_skip+1, self.t_params['train_batches']+1):
                 
                 step = batch + (epoch)*self.t_params['train_batches']
+                
                 # get next set of training datums
                 idx, (feature, target, mask) = next(self.iter_train)
 
                 with tf.GradientTape(persistent=False) as tape:
                     
-                    #if region in datum is completely masked then skip to next training datum
+                    #if the region represented in current datum is completely masked then skip to next training datum
                     if( tf.reduce_any( cl.extract_central_region(mask, bounds) )==False ):
                         continue
-
+                    
+                    # non-stochastic training 
                     if( self.m_params['model_type_settings']['stochastic']==False):
-
+                        
+                        # non conditional continuous training
                         if self.m_params['model_type_settings']['discrete_continuous'] == False:
                             
                             #making predictions
-                            preds = self.model( tf.cast(feature, tf.float16), self.t_params['trainable'] ) #( bs, tar_seq_len, h, w)
+                            preds = self.model( feature, self.t_params['trainable'] ) #( bs, tar_seq_len, h, w)
                             preds = tf.squeeze( preds,axis=[-1] )
 
                             #Extracting central region of predictions
@@ -254,26 +280,22 @@ class TrainTrueNet():
                             # getting losses for records and/or optimizer
                             metric_mse = cl.mse(target_masked, preds_masked) 
                             loss_to_optimize = metric_mse
-                                                
+
+                        # conditional continuous training        
                         elif self.m_params['model_type_settings']['discrete_continuous'] == True:
                             
-                            # Producing predictions - rain value and prob of rain
-                            preds   = self.model( tf.cast(feature,tf.float16), self.t_params['trainable'] ) # ( bs, seq_len, h, w, 1)
+                            # Producing predictions - conditional rain value and prob of rain
+                            preds   = self.model( feature, self.t_params['trainable'] ) # ( bs, seq_len, h, w, 1)
                             preds   = tf.squeeze(preds, axis=[-1])
                             preds, probs = tf.unstack(preds, axis=0) 
 
-                            # Focusing on central region of predictions
-                            # preds   = preds[:,    :, 6:10, 6:10]
-                            # probs   = probs[:,    :, 6:10, 6:10]
-                            # mask    = mask[:,     :, 6:10, 6:10]
-                            # target  = target[:,  :, 6:10, 6:10]
-
+                            # extracting the central region of interest
                             preds   = cl.extract_central_region(preds, bounds)
                             probs   = cl.extract_central_region(probs, bounds)
                             mask    = cl.extract_central_region(mask, bounds)
                             target  = cl.extract_central_region(target, bounds)
                             
-                            # Masking out undesired areas
+                            # applying mask to predicted values
                             preds_masked    = tf.boolean_mask(preds, mask )
                             probs_masked    = tf.boolean_mask(probs, mask ) 
                             target_masked   = tf.boolean_mask(target, mask )
@@ -282,8 +304,8 @@ class TrainTrueNet():
                             preds_masked    = utility.standardize_ati( preds_masked, self.t_params['normalization_shift']['rain'], 
                                                                     self.t_params['normalization_scales']['rain'], reverse=True) 
                                                                     
-                            # Getting true and predicted labels for whether or not it rained [ 1 if if did rain, 0 if it did not rain]
-                            labels_true = tf.where( target_masked > self.m_params['model_type_settings']['precip_threshold'], 1.0, 0.0 )
+                            # Getting true labels and predicted labels for whether or not it rained [ 1 if if did rain, 0 if it did not rain]
+                            labels_true = tf.where( target_masked > 0.5, 1.0, 0.0 )
                             labels_pred = probs_masked 
 
                             all_count = tf.size( labels_true, out_type=tf.float32 )
@@ -291,8 +313,9 @@ class TrainTrueNet():
                             # Seperating predictions for the days it did rain and the days it did not rain
                             bool_rain = (labels_true==1.0) 
 
-                            probs_cond_rain         = tf.boolean_mask( probs_masked, bool_rain )                        
-                            target_cond_rain        = tf.boolean_mask( target_masked, bool_rain )                   
+                            preds_cond_rain         = tf.boolean_mask( preds_masked, bool_rain)
+                            probs_cond_rain         = tf.boolean_mask( probs_masked, bool_rain)                        
+                            target_cond_rain        = tf.boolean_mask( target_masked, bool_rain)                   
                             
                             # region Calculating Losses
                             loss_to_optimize = 0
@@ -302,43 +325,42 @@ class TrainTrueNet():
                                             tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) ) 
 
                             if self.m_params['model_type_settings']['distr_type'] == 'Normal': 
-                                # DC Normal
+                                # CC Normal
                                 loss_to_optimize += cl.mse( target_cond_rain, preds_cond_rain, all_count )
                             
                             elif self.m_params['model_type_settings']['distr_type'] == 'LogNormal':    
-                                #DC LogNormal                                                             
+                                # CC LogNormal                                                             
                                 loss_to_optimize += cl.log_mse( target_cond_rain, preds_cond_rain, all_count)                                                         
                             
-                            # Calculated mse for reporting
                             metric_mse  = cl.mse( target_masked, cl.cond_rain(preds_masked, probs_masked) )   
-                                # To calc metric_mse under DC settings we assume that pred_rain =0 if pred_prob<0.5 
+                                # To calculate metric_mse for CC model we assume that pred_rain=0 if pred_prob<0.5 
                             # endregion
 
+                    # stochastic training
                     elif(self.m_params['model_type_settings']['stochastic']==True):
                         raise NotImplementedError
 
-                    # gradient Update step - mixed precision training
+                    # Updating weights with gradients - using mixed precision schema
                     scaled_loss = self.optimizer.get_scaled_loss(loss_to_optimize)
                     scaled_gradients = tape.gradient( scaled_loss, self.model.trainable_variables )
                     gradients = self.optimizer.get_unscaled_gradients(scaled_gradients)
-                    gradients, _ = tf.clip_by_global_norm( gradients, 5.5 )
+                    gradients, _ = tf.clip_by_global_norm( gradients, 5.5 ) #gradient clipping
                     self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
                     gc.collect()
                 
                 #region training Reporting and Metrics updates
 
-                # Tensorboard          
+                # Tensorboard record          
                 li_losses = [loss_to_optimize, metric_mse]
                 li_names = ['train_loss','train_mse']
-                utility.tensorboard_record( self.writer.as_default(), li_losses, li_names, step, gradients, self.model.trainable_variables )
+                #utility.tensorboard_record( self.writer.as_default(), li_losses, li_names, step, gradients, self.model.trainable_variables )
 
                 # Metrics (batchwise, epoch)            
                 self.loss_agg_batch( loss_to_optimize )
                 self.loss_agg_epoch( loss_to_optimize )
                 self.mse_agg_epoch( metric_mse )
                                         
-                self.ckpt_mngr_batch.save()
-
+                # Printing Report
                 if( batch % self.train_batch_report_freq==0 or batch == self.t_params['train_batches']):
                     batch_group_time =  time.time() - start_batch_group_time
                     est_completion_time_seconds = (batch_group_time/self.t_params['reporting_freq']) * (1 - batch/self.t_params['train_batches'])
@@ -351,8 +373,11 @@ class TrainTrueNet():
                     start_batch_group_time = time.time()
 
                     # Updating record of the last batch to be operated on in training epoch
-                    df_training_info.loc[ ( df_training_info['Epoch']==epoch) , ['Last_Trained_Batch'] ] = batch
-                    df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(self.m_params,t_params=self.t_params)), header=True, index=False )
+                    self.df_training_info.loc[ ( self.df_training_info['Epoch']==epoch) , ['Last_Trained_Batch'] ] = batch
+                    self.df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(self.m_params,t_params=self.t_params)), header=True, index=False )
+
+                    #Saving checkpoint
+                    self.ckpt_mngr_batch.save()
                     #endregion
             #endregion
 
@@ -363,85 +388,93 @@ class TrainTrueNet():
             
             #region Validation Loops
             for batch in range(1, self.t_params['val_batches']+1):
-
+                
+                # next datum
                 idx, (feature, target, mask) = next(self.iter_val)
                 
-                #Skipping any completely masked data     
-                if tf.reduce_any( mask[:, :, 6:10, 6:10] )==False  :
+                # Skipping any completely masked data     
+                if tf.reduce_any( mask[:, :, 6:10, 6:10] )==False:
                     continue
-
+                
+                # Non stochastic training
                 if self.m_params['model_type_settings']['stochastic'] == False:
-
+                    
+                    # Non CC distribution
                     if self.m_params['model_type_settings']['discrete_continuous'] == False:
-                        #Retreive predictions
+                        
+                        # Get predictions
                         preds = self.model(tf.cast(feature,tf.float16), training=False )
                         preds = tf.squeeze(preds)
 
-                        #selecting central region for evaluation                
+                        # Extracting central region for evaluation
                         preds = preds[:, :, 6:10, 6:10]
                         mask = mask[:, :, 6:10, 6:10]
                         target = target[:, :, 6:10, 6:10]
                         
-                        #applying masks
+                        # Applying masks to predictions
                         preds_masked = tf.boolean_mask( preds, mask )
                         target_masked = tf.boolean_mask( target, mask )
                         preds_masked = utility.standardize_ati( preds_masked, self.t_params['normalization_shift']['rain'], 
                                                                 self.t_params['normalization_scales']['rain'], reverse=True)
-                        #updating losses
+                        # Updating losses
                         loss = cl.mse( target_masked , preds_masked ) 
                         self.loss_agg_val( loss )
                         self.mse_agg_val( loss )
 
+                    # CC distribution
                     elif self.m_params['model_type_settings']['discrete_continuous'] == True:
-                        # make predictions
+                        
+                        # Get predictions
                         preds = self.model(tf.cast(feature,tf.float16), training=False )
                         preds = tf.squeeze(preds)
                         preds, probs = tf.unstack(preds, axis=0)
 
-                        # selecting central region for evaluation
+                        # Extracting central region for evaluation
                         preds   = preds[:, :, 6:10, 6:10]
                         probs   = probs[:, :,  6:10, 6:10]
                         mask    =  mask[:, :, 6:10, 6:10]
                         target  = target[:, :, 6:10, 6:10]
 
-                        # applying mask
+                        # Applying masks to predictions
                         preds_masked    = tf.boolean_mask( preds, mask )
                         probs_masked    = tf.boolean_mask( probs, mask)
                         target_masked   = tf.boolean_mask( target, mask )
                         preds_masked    = utility.standardize_ati( preds_masked, self.t_params['normalization_shift']['rain'], 
                                                                 self.t_params['normalization_scales']['rain'], reverse=True)
 
-                        # getting classification labels for whether or not it rained
-                        labels_true = tf.cast( tf.greater( target_masked, self.m_params['model_type_settings']['precip_threshold'] ), tf.float32 )
+                        # Getting classification labels for whether or not it rained
+                        labels_true = tf.cast( tf.greater( target_masked, 0.5 ), tf.float32 )
                         labels_pred = probs_masked 
 
                         all_count = tf.size( labels_true, out_type=tf.float32 )
 
-                        # gather predictions which are conditional on true rain occuring
+                        # Gathering predictions which are conditional on rain actually occuring
                         bool_rain = tf.where(tf.equal(labels_true,1), True, False )
 
                         preds_cond_rain     = tf.boolean_mask( preds_masked, bool_rain)
                         probs_cond_rain     = tf.boolean_mask( probs_masked, bool_rain)
                         target_cond_rain    = tf.boolean_mask( target_masked, bool_rain )
                                             
-                        # calculating cross entropy loss                         
+                        # Calculating cross entropy loss                         
                         loss = tf.reduce_mean(  tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )
 
-                        # calculating discrete continuous loss
+                        # Calculating conditional continuous loss
                         if self.m_params['model_type_settings']['distr_type'] == 'Normal':
-                            #Normal
+                            #Conditional Normal distribution
                             loss    += cl.mse( preds_cond_rain, target_cond_rain, all_count )
 
                         elif self.m_params['model_type_settings']['distr_type'] == 'LogNormal':  
-                            #LogNormal                 
+                            #COnditional LogNormal distribution                 
                             loss    += cl.log_mse( preds_cond_rain, target_cond_rain, all_count)
 
-                        # calculating seperate mse loss for reporting
-                        mse = cl.mse( target_cond_rain, cl.cond_rain( preds_masked, probs_masked), all_count )
+                        # calculating seperate mse for reporting
+                            # This mse metric assumes that if probability of rain is predicted below 0.5, the rain value is 0
+                        mse = cl.mse( target_masked, cl.cond_rain( preds_masked, probs_masked), all_count )
                     
                         self.loss_agg_val(loss)
                         self.mse_agg_val(mse)
-
+                
+                # Stochastic Training
                 elif(self.m_params['model_type_settings']['stochastic']==True):
                     raise NotImplementedError                
                 
@@ -458,33 +491,29 @@ class TrainTrueNet():
             self.model.reset_states()
 
             # region - End of Epoch Reporting and Early iteration Callback
-            if( self.m_params['model_type_settings']['stochastic'] == False ):
-                print("\tEpoch:{}\t Train Loss:{:.8f}\tVal Loss:{:.5f}\t Train MSE:{:.5f}\t Val MSE:{:.5f}\t Time:{:.5f}".format(epoch, self.loss_agg_epoch.result(), self.loss_agg_val.result(), self.mse_agg_epoch.result(), self.mse_agg_val.result() ,time.time()-start_epoch_val  ) )
-
-            if( self.m_params['model_type_settings']['stochastic'] == True ):
-                raise NotImplementedError
+            print("\tEpoch:{}\t Train Loss:{:.8f}\t Train MSE:{:.5f}\t Val Loss:{:.5f}\t Val MSE:{:.5f}\t Time:{:.5f}".format(epoch, self.loss_agg_epoch.result(), self.mse_agg_epoch.result(), self.loss_agg_val.result(), self.mse_agg_val.result() ,time.time()-start_epoch_val  ) )
                     
             utility.tensorboard_record( self.writer.as_default(), [self.loss_agg_val.result(), self.mse_agg_val.result()], ['Validation Loss', 'Validation MSE' ], epoch  )                    
-            df_training_info = utility.update_checkpoints_epoch(df_training_info, epoch, self.loss_agg_epoch, self.loss_agg_val, self.ckpt_mngr_epoch, self.t_params, self.m_params, self.mse_agg_epoch, self.mse_agg_val )
+            self.df_training_info = utility.update_checkpoints_epoch(self.df_training_info, epoch, self.loss_agg_epoch, self.loss_agg_val, self.ckpt_mngr_epoch, self.t_params, self.m_params, self.mse_agg_epoch, self.mse_agg_val )
             
             # Early Stop Callback 
-            if epoch > ( max( df_training_info.loc[:, 'Epoch'], default=0 ) + self.t_params['early_stopping_period']) :
+            if epoch > ( max( self.df_training_info.loc[:, 'Epoch'], default=0 ) + self.t_params['early_stopping_period']) :
                 print("Model Stopping Early at EPOCH {}".format(epoch))
-                print(df_training_info)
+                print(self.df_training_info)
                 break
             # endregion
-            
-
-
-
+        
         print("Model Training Finished")
 
 if __name__ == "__main__":
     s_dir = utility.get_script_directory(sys.argv[0])
     args_dict = utility.parse_arguments(s_dir)
+
+    # get training and model params
     t_params, m_params = utility.load_params_train_model(args_dict)
     
-    train_tru_net = TrainTrueNet(t_params, m_params)
+    # Initialize and  train model
+    train_tru_net = TrainTruNet(t_params, m_params)
     train_tru_net.initialize_scheme_era5Eobs()
     train_tru_net.train_model()
     

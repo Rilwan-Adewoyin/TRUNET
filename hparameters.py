@@ -9,12 +9,15 @@ from functools import reduce
 from tensorflow.python.training.tracking import data_structures
 
 class HParams():
-    
+    """Inheritable class for the parameter classes
+        Example of how to use
+        hparams = Hparams(**kwargs)
+        params_dict = hparams() #dictionary containing parameters
+    """    
     def __init__( self ,**kwargs ):  
         
         self._default_params()
         
-        #TODO: remove this from code functionality
         if( kwargs != None):
             self.params.update( kwargs)
     
@@ -25,21 +28,20 @@ class HParams():
         self.params = {}
 
 class MParams(HParams):
+    """Class to be inherited by parameter classes which are designed to return
+        parameters for models
+    """    
     def __init__(self,**kwargs):
-        
-        #if kwargs['model_type_settings']['location'] == "region_grid":
-        if type( kwargs['model_type_settings']['location'][:] ) in [list, data_structures.ListWrapper] :
-            self.regiongrid_param_adjustment()
-        else:
-            self.params = {}
-        
-        self._default_params(**kwargs)
-        #super(MParams, self).__init__(**kwargs)
-                 
-        if type( kwargs['model_type_settings']['location'][:] ) in [list, data_structures.ListWrapper]  :
-            self.params['lookahead_params']['sync_period'] == int( np.prod( self.params['region_grid_params']['slides_v_h']  * min( [ self.params['lookahead_params']['sync_period'] // 2, 1] ) ) )
+     
+        # Parameters related the extraction of the 2D patches of data
+        self.regiongrid_param_adjustment()
 
+        super(MParams,self).__init__(**kwargs)
+                 
     def regiongrid_param_adjustment(self):
+        """Creates a 'region_grid_params' dictionary containing
+            information on the sizes and location of patches to be extracted
+        """        
         if not hasattr(self, 'params'):
             self.params = {}
 
@@ -56,324 +58,153 @@ class MParams(HParams):
         horizontal_slides = (self.params['region_grid_params']['input_image_shape'][1] - self.params['region_grid_params']['outer_box_dims'][1] +1 ) // self.params['region_grid_params']['horizontal_shift']
         self.params['region_grid_params'].update({'slides_v_h':[vertical_slides, horizontal_slides]})
 
-class model_deepsd_hparameters(MParams):
-    """
-    model version 
-    model version 5: Guassian BNN w/ 25 monte carlo forward passes /wo Discrete Continuous
-    """
-    def __init__(self, **kwargs):
-        self.input_dims = kwargs['input_dims']
-        self.output_dims = kwargs['output_dims']
-
-        if "conv1_param_custom" in kwargs:
-            self.conv1_param_custom = kwargs['conv1_param_custom']
-        else:
-            self.conv1_param_custom = None
-        
-        if "conv2_param_custom" in kwargs:
-            self.conv2_param_custom = kwargs['conv2_param_custom']
-        else:
-            self.conv2_param_custom = None
-        
-        super( model_deepsd_hparameters, self ).__init__(**kwargs)
-
-
-    def _default_params(self):
-
-        # region params
-        input_dims = self.input_dims #[39, 88]
-        output_dims = self.output_dims #[156,352]
-
-        #TODO: (change filter sizes back to the ones used in the paper)
-        if type(self.conv1_param_custom) == dict: 
-
-            CONV1_params = {    'filters':300, #512
-                                'kernel_size': [7,7] , #[7,7] #TODO:use size from paper later
-                                'activation':'relu',
-                                'padding':'same',
-                                'data_format':'channels_last',
-                                'name':"Conv1" }
-            CONV1_params.update(self.conv1_param_custom)
-        if type(self.conv2_param_custom) == dict :
-            conv2_kernel_size = np.ceil( np.ceil( np.array(output_dims)/np.array(input_dims) )*1.5 )  #This makes sure that each filter in conv2, sees at least two of the real non zero values. The zero values occur due to the upscaling
-            CONV2_params = {    'filters':300, #512
-                                'kernel_size':  conv2_kernel_size.astype(np.int32).tolist() , #TODO:use size from paper later
-                                #each kernel covers 2 non original values from the upsampled tensor
-                                'activation':'relu',
-                                'padding':'same',
-                                'data_format':'channels_last',
-                                "name":"Conv2" }
-            CONV2_params.update(self.conv2_param_custom)
-                
-        CONV3_params = {
-                            'filters':1,
-                            'kernel_size': [5,5], #[5,5] #TODO:use size from paper later
-                            'activation':'relu',
-                            'padding':'same',
-                            'data_format':'channels_last',
-                            "name":"Conv3"  }
-
-        conv1_inp_channels = 17
-        conv1_input_weights_per_filter = np.prod(CONV1_params['kernel_size']) * conv1_inp_channels
-        conv1_input_weights_count =  CONV1_params['filters'] * conv1_input_weights_per_filter
-        conv1_output_node_count = CONV1_params['filters']
-
-        conv2_inp_channels = CONV1_params['filters']
-        conv2_input_weights_per_filter = np.prod(CONV2_params['kernel_size']) * conv2_inp_channels
-        conv2_input_weights_count = CONV2_params['filters'] * conv2_input_weights_per_filter
-        conv2_output_node_count = CONV2_params['filters']
-
-        conv3_inp_channels = CONV2_params['filters']
-        conv3_input_weights_count = CONV3_params['filters'] * np.prod(CONV3_params['kernel_size'] ) * conv3_inp_channels
-        conv3_output_node_count = CONV3_params['filters']
-        #endregion params
-
-        REC_ADAM_PARAMS = {
-            "learning_rate":1e-5 , "warmup_proportion":0.5,
-            "min_lr": 1e-6, "beta_1":0.99 , "beta_2": 0.99, "decay":0.005 }
-        LOOKAHEAD_PARAMS = { "sync_period":5 , "slow_step_size":0.85}
-
-        model_type_settings = {'stochastic':False ,'stochastic_f_pass':10,
-                                'distr_type':"Normal", 'discrete_continuous':True,
-                                'precip_threshold':0.5 , 'var_model_type':"flipout",
-                                'model_version': "1" }
-        
-        self.params.update( {
-            'model_name':"DeepSD",
-            'model_type_settings':model_type_settings,
-
-            'input_dims':input_dims,
-            'output_dims':output_dims,
-
-            'conv1_params': CONV1_params,
-            'conv2_params': CONV2_params,
-            'conv3_params': CONV3_params,
-
-            'conv1_input_weights_count':conv1_input_weights_count,
-            'conv1_output_node_count':conv1_output_node_count,
-            'conv1_inp_channels':conv1_inp_channels,
-            'conv1_input_weights_per_filter': conv1_input_weights_per_filter,
-
-            'conv2_input_weights_count':conv2_input_weights_count,
-            'conv2_output_node_count':conv2_output_node_count,
-            'conv2_inp_channels': conv2_inp_channels,
-            'conv2_input_weights_per_filter':conv2_input_weights_per_filter,
-
-            'conv3_input_weights_count': conv3_input_weights_count,
-            'conv3_output_node_count':conv3_output_node_count,
-            'conv3_inp_channels':conv3_inp_channels,
-            
-            'rec_adam_params':REC_ADAM_PARAMS,
-            'lookahead_params':LOOKAHEAD_PARAMS
-        })
-
 class model_THST_hparameters(MParams):
-
+    """Parameters Class for the TRUNET Encoder-Decoder model
+    """
     def __init__(self, **kwargs):
-        """  
-        """
-        self.dc = kwargs.get('model_type_settings',{}).get('discrete_continuous',False)
-        self.stoc = kwargs.get('model_type_settings',{}).get('stochastic',False)
-        self.ep = kwargs.get('model_type_settings',{}).get('epsilon',5e-8)
-        self.ctsm = kwargs.get('ctsm', None)
-        self.big = kwargs.get('model_type_settings',{}).get('big',False)
 
+        self.conv_ops_qk = kwargs['model_type_settings'].get('conv_ops_qk',False)
+        kwargs['model_type_settings'].pop('conv_ops_qk',None)
+        
         super( model_THST_hparameters, self ).__init__(**kwargs)
 
     def _default_params( self, **kwargs ):
-
-        _mts = {  }
-        model_type_settings = kwargs.get('model_type_settings',_mts)        
         
-        # region learning/convergence params
+        model_type_settings = kwargs.get('model_type_settings',{})        
+
+        # region ---  learning/convergence/regularlisation params
         REC_ADAM_PARAMS = {
             "learning_rate":5e-4,   "warmup_proportion":0.65,
-            "min_lr":2.5e-4,          "beta_1":0.70,               "beta_2":0.99,
-            "amsgrad":True,         "decay":0.0008,              "epsilon":self.ep }
+            "min_lr":2.5e-4,         "beta_1":0.70,               "beta_2":0.99,
+            "amsgrad":True,         "decay":0.0008,              "epsilon":5e-8 } #Rectified Adam params
+        LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.9999 } #Lookahed optimizer params (sync period of 1, effectively nullifies it)
 
         DROPOUT = kwargs.get('dropout',0.0)
-        LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.99 }
+        ido = kwargs.get('inp_dropout',0.0) # Dropout for input into GRU
+        rdo = kwargs.get('rec_dropout',0.0) # Dropout for recurrent input into GRU
+        kernel_reg   = None  #regularlization for input to GRU
+        recurrent_reg = None #regularlization for recurrent input to GRU
+        bias_reg = tf.keras.regularizers.l2(0.00)
         # endregion
-        
-        #region Key Model Size Settings
-        if self.big ==True:
-            seq_len_for_highest_hierachy_level = 4
-        else:
-            seq_len_for_highest_hierachy_level = 4   # 2
 
-        SEQ_LEN_FACTOR_REDUCTION = [4, 7]        # [ 4, 2 ]
-            #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
-            # 6hrs, 1Day, 1Week, 1Month
+
+        #region --- Key Model Size Settings
+        seq_len_for_highest_hierachy_level = 4 # Seq length of GRU operations in highest level of encoder
+
+        seq_len_factor_reduction = [4, 7]    #This represents the reduction in seq_len when going from layer 1 
+                                                #to layer 2 and layer 2 to layer 3 in the encoder / decoder
+                                                    # 6hrs, 1Day, 1Week
         # endregion
-        
-        # region Model Specific Data Generator Params
-        target_to_feature_time_ratio = SEQ_LEN_FACTOR_REDUCTION[0] 
-        lookback_feature = reduce( (lambda x,y: x*y ), SEQ_LEN_FACTOR_REDUCTION ) * seq_len_for_highest_hierachy_level
+
+        # region Model Specific Data Generating Params
+        target_to_feature_time_ratio = seq_len_factor_reduction[0] 
+        lookback_feature = reduce( (lambda x,y: x*y ), seq_len_factor_reduction ) * seq_len_for_highest_hierachy_level #Temporal length of input elements
         DATA_PIPELINE_PARAMS = {
             'lookback_feature':lookback_feature,
-            'lookback_target': int(lookback_feature/target_to_feature_time_ratio),
-            'target_to_feature_time_ratio' :  target_to_feature_time_ratio
+            'lookback_target': int(lookback_feature/target_to_feature_time_ratio) #Temporal length of output elements
         }
         # endregion
-
-        # region --------------- ENCODER params -----------------
-        enc_layer_count        = len( SEQ_LEN_FACTOR_REDUCTION ) + 1
-
-        # region CLSTM params
-        if self.big == True:
-            _filter = 80
-        else:
-            _filter = 72
-            
-        output_filters_enc     = [ _filter ]*(enc_layer_count-1)                     
-        output_filters_enc     = output_filters_enc + output_filters_enc[-1:]   # the last two layers in the encoder must output the same number of channels
-        
-        kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )             
-        recurrent_regularizers = [ None ] * (enc_layer_count) 
-        kernel_regularizers    = [ None ] * (enc_layer_count)
-        bias_regularizers      = [ tf.keras.regularizers.l2(0.00) ]*(enc_layer_count) # [ tf.keras.regularizers.l2(0.02) ] * (enc_layer_count)  #changed
-        recurrent_dropouts     = [ kwargs.get('rec_dropout',0.0) ]*(enc_layer_count)
-        input_dropouts         = [ kwargs.get('inp_dropout',0.0) ]*(enc_layer_count)
-        stateful               = True                       #True if testing on single location , false otherwise
-        layer_norms            = lambda: None               #lambda: tf.keras.layers.LayerNormalization(axis=[-1], center=False, scale=False ) #lambda: None
-
+           
+        # region --- ENCODER params 
+        enc_layer_count        = len( seq_len_factor_reduction ) + 1
         attn_layers_count = enc_layer_count - 1
-        attn_heads = [ 8 ]*attn_layers_count                #[ 8 ]*attn_layers_count        #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
-        
-        if 'region_grid_params' in self.params.keys():
-            if self.big == True:
-                kq_downscale_stride = [1, 4, 4]   # Uses convolution on key and query now #this should be [4,4,1]
-                kq_downscale_kernelshape = kq_downscale_stride #this should be [4,4,1]
 
-            else:
-                kq_downscale_stride = [1, 4, 4]                 #[1, 8, 8] 
-                kq_downscale_kernelshape = kq_downscale_stride
+        # ConvGRU params
+        filters = 72 # no. of filters in all conv operations in ConvGRU units
+        kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )             
+        stateful               = True                       
 
-            #This keeps the hidden representations equal in size to the incoming tensors
-            
-
-            if self.big == True:
-                key_depth = [ int( int(_filter*1/3) * 16*16*0.25*0.25 ) ]*attn_layers_count
-                val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * int(output_filters_enc[idx] / 3) ) for idx in range(attn_layers_count)  ]
-
-            elif kq_downscale_stride == [1,8,8]:
-                key_depth = [_filter]*attn_layers_count
-                val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 ) for idx in range(attn_layers_count)  ]
-                
-            elif kq_downscale_stride == [1,4,4]:
-                key_depth = [_filter]*attn_layers_count
-                val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * output_filters_enc[idx] * 2 ) for idx in range(attn_layers_count)  ]
+        # Attention params
+        attn_heads = [ 8 ]*attn_layers_count            #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
+        kq_downscale_stride = [1, 4, 4]                 #[1, 8, 8] 
+        kq_downscale_kernelshape = kq_downscale_stride
+        key_depth = [filters]*attn_layers_count # Key vector size
+        val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * filters * 2 )] *attn_layers_count
                   
-        else:
-            kq_downscale_stride = [1, 13, 13]
-            kq_downscale_kernelshape = [1, 13, 13]
+        attn_layers_num_of_splits = list(reversed((np.cumprod( list( reversed(seq_len_factor_reduction[1:] + [1] ) ) ) *seq_len_for_highest_hierachy_level ).tolist())) 
+            #Each encoder layer receives a seq of 3D tensors from layer below. 
+            # NUM_OF_SPLITS is how many chunks the incoming tensors are split into
 
-            #This keeps the hidden representations equal in size to the incoming tensors
-            key_depth = [ _filter ]*attn_layers_count
-            val_depth = [ int(100*140*output_filters_enc[idx]*2) for idx in range(attn_layers_count)  ]
-                
-            #The keydepth for any given layer will be equal to (h*w*c/avg_pool_strideh*avg_pool_stridew)
-                # where h,w = 100,140 and c is from the output_filters_enc from the layer below
-            
-        ATTN_LAYERS_NUM_OF_SPLITS = list(reversed((np.cumprod( list( reversed(SEQ_LEN_FACTOR_REDUCTION[1:] + [1] ) ) ) *seq_len_for_highest_hierachy_level ).tolist())) 
-            #Each encoder layer receives a seq of 3D tensors from layer below. NUM_OF_SPLITS codes in how many chunks to devide the incoming data. NOTE: This is defined only for Encoder-Attn layers
-        if self.big == True:
-            ATTN_params_enc = [
-                {'bias':None, 'total_key_depth': kd  ,'total_value_depth':vd, 'output_depth': vd   ,
-                'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
-                "transform_value_antecedent":True,  "transform_output":True, 
-                'implementation':1,
-                "key_conv":{ "filters":int(_filter*1/3), 'kernel_size':[4,4], 'strides':[4,4] ,'use_bias':False, "activation":'linear', 'name':"k", 'bias_regularizer':tf.keras.regularizers.l2(0.00002), 'padding':'same' },
-                "query_conv":{ "filters":int(_filter*1/3), 'kernel_size':[4,4], 'strides':[4,4] ,'use_bias':False, "activation":'linear', 'name':"q", 'bias_regularizer':tf.keras.regularizers.l2(0.00002), 'padding':'same' },
-                "value_conv":{ "filters":int(_filter*1/3), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':tf.keras.regularizers.l2(0.00002), 'padding':'same' },
-                "output_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"outp", 'bias_regularizer':tf.keras.regularizers.l2(0.00002),'padding':'same' },
-                'big':self.big
-                } 
-                for kd, vd ,nh, idx in zip( key_depth, val_depth, attn_heads,range(attn_layers_count) )
-            ] 
-            
-        else:
-            ATTN_params_enc = [
-                {'bias':None, 'total_key_depth': kd  ,'total_value_depth':vd, 'output_depth': vd   ,
-                'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
-                "transform_value_antecedent":True,  "transform_output":True, 
-                'implementation':1,
-                "value_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':tf.keras.regularizers.l2(0.00002), 'padding':'same' },
-                "output_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"outp", 'bias_regularizer':tf.keras.regularizers.l2(0.00002),'padding':'same' }
-                } 
-                for kd, vd ,nh, idx in zip( key_depth, val_depth, attn_heads,range(attn_layers_count) )
-            ] 
-            #Note: bias refers to masking attention places
+        attn_params_enc = [
+            {'bias':None, 'total_key_depth': kd  ,'total_value_depth':vd, 'output_depth': vd   ,
+            'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
+            "transform_value_antecedent":True,  "transform_output":True, 
+            'implementation':1, 'conv_qk_ops':self.conv_ops_qk,
+            "value_conv":{ "filters":int(filters * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':bias_reg, 'padding':'same' },
+            "output_conv":{ "filters":int(filters * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"outp", 'bias_regularizer':bias_reg,'padding':'same' }
+            } 
+            for kd, vd ,nh, idx in zip( key_depth, val_depth, attn_heads,range(attn_layers_count) )
+        ] #list of param dictionaries for each Inter Layer Cross Attention unit in the encoder
+            #Note: bias refers to any attention masking, use_bias refers to bias used in convolutional ops
 
-        ATTN_DOWNSCALING_params_enc = {
+        attn_downscaling_params_enc = {
             'kq_downscale_stride': kq_downscale_stride,
             'kq_downscale_kernelshape':kq_downscale_kernelshape
-        }
+        } #List of params for 3D average pooling operations
         
         CGRUs_params_enc = [
-            {'filters':f , 'kernel_size':ks, 'padding':'same', 
-                'return_sequences':True, 'dropout':ido, 'recurrent_dropout':rd,
-                'stateful':stateful, 'recurrent_regularizer': rr, 'kernel_regularizer':kr,
-                'bias_regularizer':br, 'implementation':1 ,'layer_norm':layer_norms() }
-             for f, ks, rr, kr, br, rd, ido in zip( output_filters_enc, kernel_size_enc, recurrent_regularizers, kernel_regularizers, bias_regularizers, recurrent_dropouts, input_dropouts )
-        ]
-        # endregion
+            {'filters':filters , 'kernel_size':ks, 'padding':'same', 
+                'return_sequences':True, 'dropout':ido, 'recurrent_dropout':rdo,
+                'stateful':stateful, 'recurrent_regularizer': recurrent_reg, 'kernel_regularizer':kernel_reg,
+                'bias_regularizer':bias_reg, 'implementation':1 ,'layer_norm':None }
+             for ks in kernel_size_enc
+        ] #list of params for each ConvGRU layer in the Encoder
+      
         
         ENCODER_PARAMS = {
             'enc_layer_count': enc_layer_count,
             'attn_layers_count': attn_layers_count,
             'CGRUs_params' : CGRUs_params_enc,
-            'ATTN_params': ATTN_params_enc,
-            'ATTN_DOWNSCALING_params_enc':ATTN_DOWNSCALING_params_enc,
-            'seq_len_factor_reduction': SEQ_LEN_FACTOR_REDUCTION,
-            'attn_layers_num_of_splits': ATTN_LAYERS_NUM_OF_SPLITS,
+            'ATTN_params': attn_params_enc,
+            'ATTN_DOWNSCALING_params_enc':attn_downscaling_params_enc,
+            'seq_len_factor_reduction': seq_len_factor_reduction,
+            'attn_layers_num_of_splits': attn_layers_num_of_splits,
             'dropout':DROPOUT
         }
         #endregion
 
-        # region --------------- DECODER params -----------------
+        # region --- DECODER params 
         decoder_layer_count = enc_layer_count-2
-
-        output_filters_dec = output_filters_enc[:1] + output_filters_enc[ :decoder_layer_count ]  #The first part list needs to be changed, only works when all convlstm layers have the same number of filters
                 
         kernel_size_dec = kernel_size_enc[ 1:1+decoder_layer_count  ]           
                                               
             #Each decoder layer sends in values into the layer below. 
         CGRUs_params_dec = [
-            {'filters':f , 'kernel_size':ks, 'padding':'same', 
+            {'filters':filters , 'kernel_size':ks, 'padding':'same', 
                 'return_sequences':True, 'dropout':ido,
                 'recurrent_dropout':rdo, 
-                'kernel_regularizer':kr,
-                'recurrent_regularizer': rr,
-                'bias_regularizer':br,
+                'kernel_regularizer':kernel_reg,
+                'recurrent_regularizer': recurrent_reg,
+                'bias_regularizer':bias_reg,
                 'stateful':stateful,
-                'implementation':1 ,'layer_norm':[ layer_norms(),layer_norms() ]  }
-             for f, ks, ido, rdo, rr, kr, br  in zip( output_filters_dec, kernel_size_dec, input_dropouts, recurrent_dropouts, recurrent_regularizers, kernel_regularizers, bias_regularizers)
-        ]
-        DECODER_LAYERS_NUM_OF_SPLITS = ATTN_LAYERS_NUM_OF_SPLITS[:decoder_layer_count]
+                'implementation':1 ,'layer_norm':[ None, None ]  }
+             for ks in kernel_size_dec ] #list of dictionaries containing params for each ConvGRU layer in decoder
+
+        decoder_layers_num_of_splits = attn_layers_num_of_splits[:decoder_layer_count]
             #Each output from a decoder layer is split into n chunks the fed to n different nodes in the layer below. param above tracks teh value n for each dec layer
-        SEQ_LEN_FACTOR_EXPANSION = SEQ_LEN_FACTOR_REDUCTION[-decoder_layer_count:]
+        seq_len_factor_expansion = seq_len_factor_reduction[-decoder_layer_count:]
         DECODER_PARAMS = {
             'decoder_layer_count': decoder_layer_count,
             'CGRUs_params' : CGRUs_params_dec,
-            'seq_len_factor_expansion': SEQ_LEN_FACTOR_EXPANSION, #This is written in the correct order
-            'seq_len': DECODER_LAYERS_NUM_OF_SPLITS,
-            'attn_layer_no_splits':ATTN_LAYERS_NUM_OF_SPLITS,
+            'seq_len_factor_expansion': seq_len_factor_expansion, #This is written in the correct order
+            'seq_len': decoder_layers_num_of_splits,
+            'attn_layer_no_splits':attn_layers_num_of_splits,
             'dropout':DROPOUT
         }
         # endregion
 
-        # region --------------- OUTPUT_LAYER_PARAMS and Upscaling-----------------
-        output_filters = [  int(  8*(((output_filters_dec[-1]*2)/4)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
+        # region --- OUTPUT_LAYER_PARAMS and Upscaling
+        output_filters = [  int(  8*(((filters*2)/4)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
 
         output_kernel_size = [ (3,3), (3,3) ] 
         activations = ['relu','linear']
 
         OUTPUT_LAYER_PARAMS = [ 
-            { "filters":fs, "kernel_size":ks , "padding":"same", "activation":act, 'bias_regularizer':bias_regularizers[0]  } 
+            { "filters":fs, "kernel_size":ks , "padding":"same", "activation":act, 'bias_regularizer':bias_reg  } 
                 for fs, ks, act in zip( output_filters, output_kernel_size, activations )
         ]
-  
+        # endregion
+        
         self.params.update( {
             'model_name':"THST",
             'model_type_settings':model_type_settings,
@@ -386,157 +217,61 @@ class model_THST_hparameters(MParams):
             'rec_adam_params':REC_ADAM_PARAMS,
             'lookahead_params':LOOKAHEAD_PARAMS,
             'dropout':DROPOUT,
-            'stoch_preds_count':5
             } )
-
-class model_SimpleGRU_hparameters(MParams):
-
-    def __init__(self, **kwargs):
-        super(model_SimpleGRU_hparameters, self).__init__(**kwargs)
-    
-    def _default_params(self, **kwargs):
-        #model
-        dropout = kwargs.get('dropout',0.0)
-
-        input_dropout = kwargs.get('inp_dropout',0.0)
-        recurrent_dropout = kwargs.get('rec_dropout',0.0)
-        layer_count = 3
-
-        if dropout == 0.0:
-            units = 160
-        else:
-            #units = int(160*2.0)
-            units = int(160*1.4)
-        li_units = [units]*layer_count
-        
-        li_rs =     [True]*layer_count
-        ln = [ tf.keras.layers.LayerNormalization(axis=-1) for _idx in range(layer_count) ]
-        for _ln in ln: _ln._dtype = 'float32'
-
-        LAYER_PARAMS = [
-            {'units': un, 'dropout':input_dropout, 'recurrent_dropout':recurrent_dropout,
-                'return_sequences':rs, 'stateful':True,
-                'kernel_regularizer': None,
-                'recurrent_regularizer': None,
-                'bias_regularizer':tf.keras.regularizers.l2(0.2),
-                'layer_norm':_ln }
-                for un, rs,_ln in zip(li_units, li_rs, ln)
-        ]
-
-        # LAYER_PARAMS = [
-        #     {'units': un, 'dropout':0.2, 'recurrent_dropout':0.25,
-        #         'return_sequences':rs, 'stateful':True,
-        #         'kernel_regularizer': None,
-        #         'recurrent_regularizer': None,
-        #         'bias_regularizer':tf.keras.regularizers.l2(0.2) }
-        #         for un, rs in zip(li_units, li_rs)
-        # ]
-
-        dense1_layer_params = { 'units':80, 'activation':'relu', 'bias_regularizer':tf.keras.regularizers.l2(0.2) }
-        output_dense_layer_params = {'units':1, 'activation':'linear','bias_regularizer':tf.keras.regularizers.l2(0.2) }
-
-        #data pipeline
-        target_to_feature_time_ratio = 4
-        lookback_feature = 30*target_to_feature_time_ratio   #30     
-        DATA_PIPELINE_PARAMS = {
-            'lookback_feature':lookback_feature,
-            'lookback_target': int(lookback_feature/target_to_feature_time_ratio),
-            'target_to_feature_time_ratio' :  target_to_feature_time_ratio
-        }
-
-        #training proc
-
-        REC_ADAM_PARAMS = {
-            "learning_rate":2e-3, "warmup_proportion":0.75,
-            "min_lr":1e-3, "beta_1":0.3, "beta_2":0.95, "decay":0.005,
-            "amsgrad":True, "epsilon":5e-3
-            } #for multile optimizers asymettric 
-
-        LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }
-
-        _mts = { }
-        model_type_settings = kwargs.get('model_type_settings',_mts)
-
-        self.params.update({
-            'model_name':'SimpleGRU',
-            'layer_count': layer_count,
-            'layer_params': LAYER_PARAMS,
-            'dense1_layer_params':dense1_layer_params,
-            'output_dense_layer_params':output_dense_layer_params,
-            'dropout':dropout,
-            
-            'data_pipeline_params': DATA_PIPELINE_PARAMS,
-            'model_type_settings': model_type_settings,
-
-            'rec_adam_params':REC_ADAM_PARAMS,
-            'lookahead_params':LOOKAHEAD_PARAMS
-        })
 
 class model_SimpleConvGRU_hparamaters(MParams):
 
     def __init__(self, **kwargs):
         self.dc = kwargs.get('model_type_settings',{}).get('discrete_continuous',False)
         self.stoc = kwargs.get('model_type_settings',{}).get('stochastic',False)
-        self.di = kwargs.get('downscaled_input',False)
         super(model_SimpleConvGRU_hparamaters, self).__init__(**kwargs)
     
     def _default_params(self,**kwargs):
-        #Other
         dropout = kwargs.get('dropout',0.0)
 
-        #region ConvLayers
-        layer_count = 3 #TODO: Shi uses 2 layers
-        if dropout != 0.0 and self.stoc==True :            
-            #_filter = int(80*1.4)
-            _filter = 80
-        else:
-            _filter = 80
+        #region --- ConvLayers
+        layer_count = 3 
+        filters = 80
 
-        filters = [_filter]*layer_count #[128]*layer_count #Shi Precip nowcasting used
         kernel_sizes = [[4,4]]*layer_count
         paddings = ['same']*layer_count
         return_sequences = [True]*layer_count
         input_dropout = [kwargs.get('inp_dropout',0.0) ]*layer_count #[0.0]*layer_count
         recurrent_dropout = [ kwargs.get('rec_dropout',0.0)]*layer_count #[0.0]*layer_count
 
-        ConvGRU_layer_params = [ { 'filters':fs, 'kernel_size':ks , 'padding': ps,
+        ConvGRU_layer_params = [ { 'filters':filters, 'kernel_size':ks , 'padding': ps,
                                 'return_sequences':rs, "dropout": dp , "recurrent_dropout":rdp,
                                 'kernel_regularizer': None,
                                 'recurrent_regularizer': None,
                                 'bias_regularizer':tf.keras.regularizers.l2(0.2),
-                                'layer_norm': None, #tf.keras.layers.LayerNormalization(axis=[-1]),
+                                'layer_norm': None,
                                 'implementation':1, 'stateful':True  }
-                                for fs,ks,ps,rs,dp,rdp in zip(filters, kernel_sizes, paddings, return_sequences, input_dropout, recurrent_dropout)  ]
+                                for ks,ps,rs,dp,rdp in zip( kernel_sizes, paddings, return_sequences, input_dropout, recurrent_dropout)  ]
 
-        conv1_layer_params = {'filters': int(  8*(((filters[0]*2)/3)//8)) , 'kernel_size':[3,3], 'activation':'relu','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2) }  
-
+        conv1_layer_params = {'filters': int(  8*(((filters*2)/3)//8)) , 'kernel_size':[3,3], 'activation':'relu','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2) }  
 
         outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'linear','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2) }
-
-
         #endregion
 
-        #region data pipeline
+        #region --- Data pipeline and optimizers
         target_to_feature_time_ratio = 4
-        lookback_feature = 30*target_to_feature_time_ratio  #TODO: Try with longer sequence if it fits into memory       
+        lookback_feature = 30*target_to_feature_time_ratio  
         DATA_PIPELINE_PARAMS = {
             'lookback_feature':lookback_feature,
             'lookback_target': int(lookback_feature/target_to_feature_time_ratio),
             'target_to_feature_time_ratio' :  target_to_feature_time_ratio
         }
-        # endregion
-        #region training proc
+
         REC_ADAM_PARAMS = {
             "learning_rate":7e-3 , "warmup_proportion":0.75,
             "min_lr":1e-3, "beta_1":0.35, "beta_2":0.85, "decay":0.006, "amsgrad":True,
             'epsilon':0.005
             }
 
-        LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }
-        # endregion
-        _mts = {}
-        model_type_settings = kwargs.get('model_type_settings',_mts)
+        LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.9999 }
 
+        # endregion
+        model_type_settings = kwargs.get('model_type_settings',{})
 
         self.params.update( {
             'model_name':'SimpleConvGRU',
@@ -553,62 +288,22 @@ class model_SimpleConvGRU_hparamaters(MParams):
             'lookahead_params':LOOKAHEAD_PARAMS
         })
 
-class model_SimpleDense_hparameters(MParams):
-
-    def __init__(self, **kwargs):
-        super(model_SimpleDense_hparameters, self).__init__(**kwargs)
-    
-    def _default_params(self):
-        
-        #data pipeline
-        target_to_feature_time_ratio = 4
-        lookback_feature = 4*target_to_feature_time_ratio        
-        DATA_PIPELINE_PARAMS = {
-            'lookback_feature':lookback_feature,
-            'lookback_target': int(lookback_feature/target_to_feature_time_ratio),
-            'target_to_feature_time_ratio' :  target_to_feature_time_ratio
-        }
-
-        #training proc
-        REC_ADAM_PARAMS = {
-            "learning_rate":1e-3 , "warmup_proportion":0.6,
-            "min_lr":1e-4, "beta_1":0.99, "beta_2":0.99,"decay":0.005
-            }
-
-        LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.999 }
-
-        model_type_settings = { }
-
-        self.params.update({
-            'model_name':'SimpleDense',
-            
-            'data_pipeline_params': DATA_PIPELINE_PARAMS,
-            'model_type_settings': model_type_settings,
-
-            'rec_adam_params':REC_ADAM_PARAMS,
-            'lookahead_params':LOOKAHEAD_PARAMS
-        })
-
 class train_hparameters_ati(HParams):
     """ Parameters for testing """
     def __init__(self, **kwargs):
         self.lookback_target = kwargs.get('lookback_target',None)
         self.batch_size = kwargs.get("batch_size",None)
-        self.strided_dataset_count = kwargs.get("strided_dataset_count", 1)
         self.dd = kwargs.get("data_dir") 
-        self.tst = kwargs.get("train_set_size",0.6)
-        self.iim = kwargs.get('input_interpolation_method',None)
-        self.custom_train_split_method = kwargs.get('ctsm', None)
-
+        
+        # data formulation method
+        self.custom_train_split_method = kwargs.get('ctsm') 
+            
         if self.custom_train_split_method == "4ds_10years":
             self.four_year_idx_train = kwargs['fyi_train'] #index for training set
 
         kwargs.pop('batch_size')
         kwargs.pop('lookback_target')
-        kwargs.pop('strided_dataset_count')
-        kwargs.pop('train_set_size')
-        kwargs.pop('input_interpolation_method')
-        #kwargs.pop('cstm')
+        
         super( train_hparameters_ati, self).__init__(**kwargs)
 
     def _default_params(self):
@@ -626,11 +321,7 @@ class train_hparameters_ati(HParams):
                                                               5.458,
                                                               1678.2178,
                                                                 5.107268,
-                                                                4.764533]) 
-                                                #- unknown_local_param_137_128
-                                                # - unknown_local_param_133_128,  # - air_temperature, # - geopotential
-                                                # - x_wind, # - y_wind
-        }
+                                                                4.764533]) }
         NORMALIZATION_SHIFT = {
                                     "rain":2.844,
                                     "model_fields": np.array([15.442,
@@ -654,55 +345,34 @@ class train_hparameters_ati(HParams):
 
 
         if self.custom_train_split_method == "4ds_10years":
-            #If user wants to divide the dataset into 4 sets of 10 years for Experiement []
+            #Dividing the dataset into 4 sets of 10 years for Experiement Varied Time Span
             li_start_dates = [ np.datetime64( '1979-01-01','D'), np.datetime64( '1989-01-01','D'), np.datetime64( '1999-01-01','D'), np.datetime64( '2009-01-01','D')   ]
             li_end_dates = [ np.datetime64( '1988-12-31','D'), np.datetime64( '1998-12-31','D'), np.datetime64( '2008-12-31','D'), np.datetime64( '2019-07-31','D') ]
 
-            train_start_date = li_start_dates[ self.four_year_idx_train ]
+            start_date = li_start_dates[ self.four_year_idx_train ]
             end_date = li_end_dates[ self.four_year_idx_train ]
 
-            val_start_date =( pd.Timestamp(train_start_date) + pd.DateOffset( months = 8*12 ) ).to_numpy()  #8 year train set size, 2 year val set size
+            val_start_date =( pd.Timestamp(start_date) + pd.DateOffset( months = 8*12 ) ).to_numpy()  #8 year train set size, 2 year val set size
             val_end_date = end_date
 
-            total_datums_target = np.timedelta64(end_date - train_start_date,'D')  / WINDOW_SHIFT  
+            total_datums_target = np.timedelta64(end_date - start_date,'D')  / WINDOW_SHIFT  
             total_datums_target = total_datums_target.astype(int)
 
-            TRAIN_SET_SIZE_ELEMENTS = ( np.timedelta64(val_start_date - train_start_date,'D')  // WINDOW_SHIFT   ).astype(int) 
+            TRAIN_SET_SIZE_ELEMENTS = ( np.timedelta64(val_start_date - start_date,'D')  // WINDOW_SHIFT   ).astype(int) 
             VAL_SET_SIZE_ELEMENTS = ( np.timedelta64( end_date - val_start_date,'D')  // WINDOW_SHIFT    ).astype(int)         
         
         elif type(self.custom_train_split_method) == str:
-            # User passes a string containing for numbers seperated by underscores
+            # a string containing four dates seperated by underscores
             # The numbers correspond to trainstart_trainend_valstart_valend
 
             dates_str = self.custom_train_split_method.split("_")
-            train_start_date = np.datetime64(dates_str[0],'D')
-            train_end_date = np.datetime64(dates_str[1],'D')
+            start_date = np.datetime64(dates_str[0],'D')
+            train_end_date = (pd.Timestamp(dates_str[1]) + pd.DateOffset(months=12) ).to_numpy()
             val_start_date = np.datetime64(dates_str[2],'D')
-            val_end_date = np.datetime64(dates_str[3],'D')
+            val_end_date = (pd.Timestamp(dates_str[3]) + pd.DateOffset(months=12) ).to_numpy()
             
-            TRAIN_SET_SIZE_ELEMENTS = ( np.timedelta64(train_end_date - train_start_date,'D')  // WINDOW_SHIFT  ).astype(int) 
-            VAL_SET_SIZE_ELEMENTS   = ( np.timedelta64(val_end_date - val_start_date,'D')  // WINDOW_SHIFT  ).astype(int)     
-
-
-        elif self.custom_train_split_method == None:
-            # TODO: Eventually remove this default methodology
-            # User passes in no value for custom_train_split_method and passes in a value for train_split_size
-            # This uses the whole dataset for training and testing; 100*train_split_size is the percentage of data used for training
-            tar_end_date =  target_start_date + np.timedelta64( 14822, 'D')
-            feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(59900, '6h'), 'D')
-            
-            train_start_date = feature_start_date if (feature_start_date > target_start_date) else target_start_date
-            end_date = tar_end_date if (tar_end_date < feature_end_date) else feature_end_date            
-            
-            if self.custom_train_split_method == None:
-                val_start_date =    np.datetime64( train_start_date + (end_date - train_start_date)*self.tst, 'D' )
-                val_end_date =      np.datetime64( val_start_date + (end_date - train_start_date)*((1-self.tst)/2), 'D' )
-
-                total_datums_target = np.timedelta64(end_date - train_start_date,'D')  / WINDOW_SHIFT  
-                total_datums_target = total_datums_target.astype(int)
-                
-                TRAIN_SET_SIZE_ELEMENTS = int(total_datums_target*self.tst) 
-                VAL_SET_SIZE_ELEMENTS = int(total_datums_target*((1-self.tst)/2))               
+            TRAIN_SET_SIZE_ELEMENTS = ( np.timedelta64(train_end_date - start_date,'D')  // WINDOW_SHIFT  ).astype(int) 
+            VAL_SET_SIZE_ELEMENTS   = ( np.timedelta64(val_end_date - val_start_date,'D')  // WINDOW_SHIFT  ).astype(int)               
                 
         else:
             raise ValueError("Invalid value passed for arg -cstm (custom_train_split_method) ")
@@ -719,35 +389,30 @@ class train_hparameters_ati(HParams):
             'trainable':trainable,
             'lookback_target':self.lookback_target,
 
-            'strided_dataset_count': self.strided_dataset_count, #Note: sdc to be removed
             'train_batches': TRAIN_SET_SIZE_ELEMENTS//BATCH_SIZE, 
                 #Note TRAIN_SET_SIZE_ELEMENTS refers to the number of sequences of days that are passed to TRU_NET as oppose dot every single day
             'val_batches': VAL_SET_SIZE_ELEMENTS//BATCH_SIZE,
 
 
             'checkpoints_to_keep':CHECKPOINTS_TO_KEEP,
-
-            'reporting_freq':0.1,
+            'reporting_freq':0.25,
             'num_parallel_calls':NUM_PARALLEL_CALLS,
 
             'train_monte_carlo_samples':1,
             'data_dir': DATA_DIR,
             
-
             'mask_fill_value':MASK_FILL_VALUE,
             'vars_for_feature':vars_for_feature,
             'normalization_scales' : NORMALIZATION_SCALES,
             'normalization_shift': NORMALIZATION_SHIFT,
             'window_shift': WINDOW_SHIFT,
 
-            'train_start_date':train_start_date,
+            'start_date':start_date,
             'val_start_date':val_start_date,
             'val_end_date':val_end_date,
 
             'feature_start_date':feature_start_date,
             'target_start_date':target_start_date,
-            'train_set_size':self.tst,
-            'input_interpolation_method':self.iim
         }
 
 class test_hparameters_ati(HParams):
@@ -757,9 +422,8 @@ class test_hparameters_ati(HParams):
         self.batch_size = kwargs.get("batch_size",2)
         
         self.dd = kwargs.get('data_dir')
-        self.tst = kwargs.get('train_set_size',0.6)
-        self.iim = kwargs.get('input_interpolation_method',None)
-        self.custom_test_split_method = kwargs.get('ctsm', None)
+        
+        self.custom_test_split_method = kwargs.get('ctsm')
         
         if self.custom_test_split_method == "4ds_10years":
             self.four_year_idx_train = kwargs['fyi_train'] #index for training set
@@ -768,9 +432,6 @@ class test_hparameters_ati(HParams):
         
         # kwargs.pop('batch_size')
         # kwargs.pop('lookback_target')
-        # kwargs.pop('strided_dataset_count')
-        # kwargs.pop('train_set_size')
-        # kwargs.pop('input_interpolation_method')
         #kwargs.pop('ctsm')
         super( test_hparameters_ati, self).__init__(**kwargs)
     
@@ -822,33 +483,34 @@ class test_hparameters_ati(HParams):
         tar_end_date =  target_start_date + np.timedelta64( 14822, 'D')
         feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(59900, '6h'), 'D')
         
-        train_start_date = feature_start_date if (feature_start_date > target_start_date) else target_start_date
+        start_date = feature_start_date if (feature_start_date > target_start_date) else target_start_date
         end_date = tar_end_date if (tar_end_date < feature_end_date) else feature_end_date     
 
-        if self.custom_test_split_method == None:
-            #If user passes no value for custom_test_split_method, then assume whole dataset is to be used 
-            #train set size is determined from self.tst (train_set_size)
-            total_datums_target = np.timedelta64(end_date - train_start_date,'D')   
-            total_datums_target = total_datums_target.astype(int)
+        # if self.custom_test_split_method == None:
+        #     raise NotImplementedError("From now traint set size must never be used")
+        #     #If user passes no value for custom_test_split_method, then assume whole dataset is to be used 
+        #     #train set size is determined from self.tst (train_set_size)
+        #     total_datums_target = np.timedelta64(end_date - train_start_date,'D')   
+        #     total_datums_target = total_datums_target.astype(int)
 
-            test_start_date = train_start_date + (end_date - train_start_date)*((1+self.tst)/2)
-            test_end_date = end_date
+        #     test_start_date = train_start_date + (end_date - train_start_date)*((1+self.tst)/2)
+        #     test_end_date = end_date
 
-            TEST_SET_SIZE_DAYS_TARGET = int( total_datums_target * ((1-self.tst)/2))
+        #     TEST_SET_SIZE_DAYS_TARGET = int( total_datums_target * ((1-self.tst)/2))
         
         
-        elif self.custom_test_split_method == "Rolling_eval":
-            #Default behaviour is to identify start testing time based on tst used previously
-            #NOTE: remove this methodology, replace with passing in years
-            years_used_for_training = int(40*self.tst)
+        # if self.custom_test_split_method == "Rolling_eval":
+        #     #Default behaviour is to identify start testing time based on tst used previously
+        #     #NOTE: remove this methodology, replace with passing in years
+        #     years_used_for_training = int(40*self.tst)
+        #     years_used_for
+        #     data_year_start = 1979      #1) Must be at least after validation set for November data, Also the IFS data only starts after 1989, So testing on final 30 years
+        #     test_start_date = np.datetime64('{}-01-01'.format(str(int(data_year_start+years_used_for_training))),'D')
+        #     test_end_date = end_date
 
-            data_year_start = 1979      #1) Must be at least after validation set for November data, Also the IFS data only starts after 1989, So testing on final 30 years
-            test_start_date = np.datetime64('{}-01-01'.format(str(int(data_year_start+years_used_for_training))),'D')
-            test_end_date = end_date
+        #     TEST_SET_SIZE_DAYS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
 
-            TEST_SET_SIZE_DAYS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
-
-        elif self.custom_test_split_method == "4ds_10years":
+        if self.custom_test_split_method == "4ds_10years":
             # Ease helper for the 4 dataset experiement: "Varied Time Span"
             # Allows user to pass two argumnets fyi_train and fyi_test, starting which model to use and which 
                 # 10 year chunk to test on and which mod 
@@ -856,24 +518,24 @@ class test_hparameters_ati(HParams):
             li_start_dates = [ np.datetime64( '1979-01-01','D'), np.datetime64( '1989-01-01','D'), np.datetime64( '1999-01-01','D'), np.datetime64( '2009-01-01','D')   ]
             li_end_dates = [ np.datetime64( '1988-12-31','D'), np.datetime64( '1998-12-31','D'), np.datetime64( '2008-12-31','D'), np.datetime64( '2019-07-31','D') ]
 
-            test_start_date = li_start_dates[self.four_year_idx_test]
+            start_date = li_start_dates[self.four_year_idx_test]
             test_end_date = li_end_dates[self.four_year_idx_test]
 
-            TEST_SET_SIZE_DAYS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
+            TEST_SET_SIZE_DAYS_TARGET = np.timedelta64( test_end_date - start_date, 'D' ).astype(int)
         
         elif type(self.custom_test_split_method) == str:
             # User must pass in two dates seperated by underscore such as 
                 # 1985_2005, or 1985-02-04_2005_11_20
             dates_str = self.custom_test_split_method.split("_")
-            test_start_date = np.datetime64(dates_str[0],'D')
+            start_date = np.datetime64(dates_str[0],'D')
             test_end_date = np.datetime64(dates_str[1],'D')
             
-            TEST_SET_SIZE_DAYS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
+            TEST_SET_SIZE_DAYS_TARGET = np.timedelta64( test_end_date - start_date, 'D' ).astype(int)
 
         # endregion
 
         # timesteps for saving predictions
-        date_tss = pd.date_range( end=test_end_date, start=test_start_date, freq='D', normalize=True)
+        date_tss = pd.date_range( end=test_end_date, start=start_date, freq='D', normalize=True)
         timestamps = list ( (date_tss - pd.Timestamp("1970-01-01") ) // pd.Timedelta('1s') )
 
         DATA_DIR = self.dd
@@ -895,12 +557,11 @@ class test_hparameters_ati(HParams):
             'normalization_shift': NORMALIZATION_SHIFT,
             'window_shift': WINDOW_SHIFT,
 
-            'test_start_date':test_start_date,
+            'start_date':start_date,
             'test_end_date':test_end_date,
 
             'feature_start_date':feature_start_date,
             'target_start_date':target_start_date,
-            'train_test_size':self.tst,
-            'input_interpolation_method': self.iim
+            #'train_test_size':self.tst,
         }
 

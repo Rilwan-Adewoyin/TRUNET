@@ -27,11 +27,8 @@ from tensorflow.python.util.tf_export import keras_export
 #from tensorflow.python.keras.layers.convolutional_recurrent import ConvRNN2D
 
 from tensorflow.keras.layers import Conv2D, RNN
-
 from layers_attn import MultiHead2DAttention_v2, _generate_relative_positions_embeddings, _relative_attention_inner, attn_shape_adjust
 
-#TODO(akanni-ade) remove all bool_ln from ConvRNN2D models 
-#TODO(akanni-ade) remove all unit_forget_bias refs
 
 class ConvRNN2D(RNN):
   """Base class for convolutional-recurrent layers.
@@ -479,7 +476,7 @@ class ConvRNN2D(RNN):
         # TODO(anjalisridhar): consider batch calls to `set_value`.
         K.set_value(state, value)
 
-#Normal ConvGRU2D
+#ConvGRU2D
 class ConvGRU2D(ConvRNN2D):
     """Convolutional GRU.
 
@@ -524,7 +521,6 @@ class ConvGRU2D(ConvRNN2D):
             weights matrix,
             used for the linear transformation of the recurrent state.
             bias_initializer: Initializer for the bias vector.
-            unit_forget_bias: Boolean.
             If True, add 1 to the bias of the forget gate at initialization.
             Use in combination with `bias_initializer="zeros"`.
             This is recommended in [Jozefowicz et al.]
@@ -594,13 +590,7 @@ class ConvGRU2D(ConvRNN2D):
         Raises:
             ValueError: in case of invalid constructor arguments.
 
-        References:
-            - [Convolutional GRU Network: A Machine Learning Approach for
-            Precipitation Nowcasting](http://arxiv.org/abs/1506.04214v1)
-            The current implementation does not include the feedback loop on the
-            cells output.
     """
-
     def __init__(self,
                 filters,
                     kernel_size,
@@ -671,8 +661,6 @@ class ConvGRU2D(ConvRNN2D):
                                         **kwargs)
         self.activity_regularizer = regularizers.get(activity_regularizer)
     
-
-    #@tf.function
     def call(self, inputs, mask=None, training=None, initial_state=None):
         self._maybe_reset_cell_dropout_mask(self.cell)
         return super(ConvGRU2D, self).call(inputs,
@@ -809,7 +797,6 @@ class ConvGRU2D(ConvRNN2D):
 
     def get_initial_state(self, inputs):
         
-        #region Adapting from LSTM to GRU
         initial_state = K.zeros_like(inputs)
         # (samples, rows, cols, filters)
         initial_state = K.sum(initial_state, axis=1)
@@ -817,16 +804,11 @@ class ConvGRU2D(ConvRNN2D):
         shape_h_state = list(self.cell.kernel_shape)
         shape_h_state[-1] = self.cell.filters
 
-        #shape_c_state = list(self.cell.kernel_shape)
-        #shape_c_state[-1] = self.cell.filters*2
         
         initial_hidden_state = self.cell.input_conv(initial_state,
                                             array_ops.zeros(tuple(shape_h_state) , self._compute_dtype),
                                             padding=self.cell.padding)
         
-        # initial_carry_state = self.cell.input_conv( initial_state,
-        #                                     array_ops.zeros(tuple(shape_c_state),self._compute_dtype ),
-        #                                     padding=self.cell.padding)
 
         if hasattr(self.cell.state_size, '__len__'):
             return [initial_hidden_state ]
@@ -867,7 +849,6 @@ class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
         weights matrix,
         used for the linear transformation of the recurrent state.
         bias_initializer: Initializer for the bias vector.
-        unit_forget_bias: Boolean.
         If True, add 1 to the bias of the forget gate at initialization.
         Use in combination with `bias_initializer="zeros"`.
         This is recommended in [Jozefowicz et al.]
@@ -1140,18 +1121,11 @@ class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
         base_config = super(ConvGRU2DCell, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
-# 2 Cell Conv GRU layer
-class ConvGRU2D_2cell(ConvRNN2D):
+# region --- 2 Cell Conv GRU layer [Decoder layers]
+class ConvGRU2D_Dualcell(ConvRNN2D):
     """
-        Dual state Convolutional GRU.
+        Dual cell Convolutional GRU that allows two inputs.
 
-        My key change is that we allow input to be two tensors [ input1 and input2 so our GRU cell can operate on information from two time lengths+]
-        Init Arguments Added:
-
-        Call Arguments Added:
-
-        It is similar to an GRU layer, but the input transformations
-        and recurrent transformations are both convolutional.
         Arguments:
             filters: Integer, the dimensionality of the output space
                 (i.e. the number of output filters in the convolution).
@@ -1188,7 +1162,7 @@ class ConvGRU2D_2cell(ConvRNN2D):
                 weights matrix,
                 used for the linear transformation of the recurrent state.
             bias_initializer: Initializer for the bias vector.
-            unit_forget_bias: Boolean.
+            
                 If True, add 1 to the bias of the forget gate at initialization.
                 Use in combination with `bias_initializer="zeros"`.
                 This is recommended in [Jozefowicz et al.]
@@ -1270,7 +1244,6 @@ class ConvGRU2D_2cell(ConvRNN2D):
                     kernel_initializer='glorot_uniform',
                     recurrent_initializer='orthogonal',
                     bias_initializer='zeros',
-                    unit_forget_bias=True,
                     kernel_regularizer=None,
                     recurrent_regularizer=None,
                     bias_regularizer=None,
@@ -1285,16 +1258,12 @@ class ConvGRU2D_2cell(ConvRNN2D):
                     recurrent_dropout=0.,
                     reset_after=False,
                     **kwargs):
-        
-        if layer_norm[0] != None: 
-            layer_norm[0]._dtype =  "float32"
-            layer_norm[1]._dtype =  "float32"
-            bool_ln = True
-        else:
-            bool_ln = False
+        #layer norm
+        bool_ln = False
         self.layer_norm = layer_norm
+        self.activity_regularizer = regularizers.get(activity_regularizer)
         
-        cell = ConvGRU2DCell_2cell(filters=filters,
+        cell = ConvGRU2DCell_Dualcell(filters=filters,
                                      kernel_size=kernel_size,
                                      strides=strides,
                                      padding=padding,
@@ -1309,7 +1278,6 @@ class ConvGRU2D_2cell(ConvRNN2D):
                                      kernel_initializer=kernel_initializer,
                                      recurrent_initializer=recurrent_initializer,
                                      bias_initializer=bias_initializer,
-                                     unit_forget_bias=unit_forget_bias,
                                      kernel_regularizer=kernel_regularizer,
                                      recurrent_regularizer=recurrent_regularizer,
                                      bias_regularizer=bias_regularizer,
@@ -1321,15 +1289,12 @@ class ConvGRU2D_2cell(ConvRNN2D):
                                      reset_after=reset_after,
                                      dtype=kwargs.get('dtype'))
 
-        super(ConvGRU2D_2cell, self).__init__(cell,
+        super(ConvGRU2D_Dualcell, self).__init__(cell,
                                                 return_sequences=return_sequences,
                                                 go_backwards=go_backwards,
                                                 stateful=stateful,
                                                 **kwargs)
         
-        self.activity_regularizer = regularizers.get(activity_regularizer)
-
-    
     def call(self, inputs, mask=None, training=None, initial_state=None):
         self._maybe_reset_cell_dropout_mask(self.cell)
 
@@ -1338,15 +1303,13 @@ class ConvGRU2D_2cell(ConvRNN2D):
         elif (initial_state is not None) :
             initial_state = self.get_initial_state(inputs)
         
-        #self.states = [ tf.cast(_state, inputs.dtype ) for _state in self.states ]
-        return super(ConvGRU2D_2cell, self).call(inputs,
+        return super(ConvGRU2D_Dualcell, self).call(inputs,
                                             mask=mask,
                                             training=training,
                                             initial_state=initial_state)
 
 
-    # region pre exists properties
-
+    # region --- properties / config
     @property
     def filters(self):
         return self.cell.filters
@@ -1395,9 +1358,9 @@ class ConvGRU2D_2cell(ConvRNN2D):
     def bias_initializer(self):
         return self.cell.bias_initializer
 
-    @property
-    def unit_forget_bias(self):
-        return self.cell.unit_forget_bias
+    # @property
+    # def unit_forget_bias(self):
+    #     return self.cell.unit_forget_bias
 
     @property
     def kernel_regularizer(self):
@@ -1452,7 +1415,6 @@ class ConvGRU2D_2cell(ConvRNN2D):
                   'recurrent_initializer': initializers.serialize(
                       self.recurrent_initializer),
                   'bias_initializer': initializers.serialize(self.bias_initializer),
-                  'unit_forget_bias': self.unit_forget_bias,
                   'kernel_regularizer': regularizers.serialize(
                       self.kernel_regularizer),
                   'recurrent_regularizer': regularizers.serialize(
@@ -1469,7 +1431,7 @@ class ConvGRU2D_2cell(ConvRNN2D):
                   'recurrent_dropout': self.recurrent_dropout,
                   'implementation':self.implementation,
                   'layer_norm':self.layer_norm}
-        base_config = super(ConvGRU2D_2cell, self).get_config()
+        base_config = super(ConvGRU2D_Dualcell, self).get_config()
         del base_config['cell']
         return dict(list(base_config.items()) + list(config.items()))
     
@@ -1481,86 +1443,67 @@ class ConvGRU2D_2cell(ConvRNN2D):
 
     def get_initial_state(self, inputs):
         
-        #region Adapting for two cell state GRUs
         initial_state = K.zeros_like(inputs)
-        # (samples, rows, cols, filters)
+
         initial_state = K.sum(initial_state, axis=1)
 
         shape_h_state = list(self.cell.kernel_shape)
         shape_h_state[-1] = self.cell.filters
-
-        # shape_c_state = list(self.cell.kernel_shape)
-        # shape_c_state[-1] = self.cell.filters*2
         
         initial_hidden_state = self.cell.input_conv(initial_state,
                                             array_ops.zeros(tuple(shape_h_state) , self._compute_dtype),
                                             padding=self.cell.padding)
-        
-        # initial_carry_state = self.cell.input_conv( initial_state,
-        #                                     array_ops.zeros(tuple(shape_c_state),self._compute_dtype ),
-        #                                     padding=self.cell.padding)
 
         if hasattr(self.cell.state_size, '__len__'):
             return [initial_hidden_state ]
         else:
             return [initial_hidden_state]
-        #endregion
 
-class ConvGRU2DCell_2cell(DropoutRNNCellMixin, Layer):
+class ConvGRU2DCell_Dualcell(DropoutRNNCellMixin, Layer):
     """
         Cell class for the ConvGRU2D layer.
         Arguments:
             filters: Integer, the dimensionality of the output space
-            (i.e. the number of output filters in the convolution).
+                (i.e. the number of output filters in the convolution).
             kernel_size: An integer or tuple/list of n integers, specifying the
-            dimensions of the convolution window.
+                dimensions of the convolution window.
             strides: An integer or tuple/list of n integers,
-            specifying the strides of the convolution.
-            Specifying any stride value != 1 is incompatible with specifying
-            any `dilation_rate` value != 1.
+                specifying the strides of the convolution.
+                Specifying any stride value != 1 is incompatible with specifying
+                any `dilation_rate` value != 1.
             padding: One of `"valid"` or `"same"` (case-insensitive).
-            data_format: A string,
-            one of `channels_last` (default) or `channels_first`.
-            It defaults to the `image_data_format` value found in your
-            Keras config file at `~/.keras/keras.json`.
-            If you never set it, then it will be "channels_last".
+                data_format: A string,
+                one of `channels_last` (default) or `channels_first`.
             dilation_rate: An integer or tuple/list of n integers, specifying
-            the dilation rate to use for dilated convolution.
-            Currently, specifying any `dilation_rate` value != 1 is
-            incompatible with specifying any `strides` value != 1.
-            activation: Activation function to use.
-            If you don't specify anything, no activation is applied
-            (ie. "linear" activation: `a(x) = x`).
+                the dilation rate to use for dilated convolution.
+                Currently, specifying any `dilation_rate` value != 1 is
+                incompatible with specifying any `strides` value != 1.
+                activation: Activation function to use.
             recurrent_activation: Activation function to use
-            for the recurrent step.
+                for the recurrent step.
             use_bias: Boolean, whether the layer uses a bias vector.
             kernel_initializer: Initializer for the `kernel` weights matrix,
-            used for the linear transformation of the inputs.
-            recurrent_initializer: Initializer for the `recurrent_kernel`
-            weights matrix,
-            used for the linear transformation of the recurrent state.
-            bias_initializer: Initializer for the bias vector.
-            unit_forget_bias: Boolean.
-            If True, add 1 to the bias of the forget gate at initialization.
-            Use in combination with `bias_initializer="zeros"`.
-            This is recommended in [Jozefowicz et al.]
-            (http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
+                used for the linear transformation of the inputs.
+                recurrent_initializer: Initializer for the `recurrent_kernel`
+                weights matrix,
+                used for the linear transformation of the recurrent state.
+                bias_initializer: Initializer for the bias vector.
             kernel_regularizer: Regularizer function applied to
-            the `kernel` weights matrix.
+                the `kernel` weights matrix.
             recurrent_regularizer: Regularizer function applied to
-            the `recurrent_kernel` weights matrix.
+                the `recurrent_kernel` weights matrix.
             bias_regularizer: Regularizer function applied to the bias vector.
             kernel_constraint: Constraint function applied to
-            the `kernel` weights matrix.
+                the `kernel` weights matrix.
             recurrent_constraint: Constraint function applied to
-            the `recurrent_kernel` weights matrix.
+                the `recurrent_kernel` weights matrix.
             bias_constraint: Constraint function applied to the bias vector.
             dropout: Float between 0 and 1.
-            Fraction of the units to drop for
-            the linear transformation of the inputs.
+                Fraction of the units to drop for
+                the linear transformation of the inputs.
             recurrent_dropout: Float between 0 and 1.
-            Fraction of the units to drop for
-            the linear transformation of the recurrent state.
+                Fraction of the units to drop for
+                the linear transformation of the recurrent state.
         Call arguments:
             inputs: A 4D tensor.
             states:  List of state tensors corresponding to the previous timestep.
@@ -1586,7 +1529,7 @@ class ConvGRU2DCell_2cell(DropoutRNNCellMixin, Layer):
                     kernel_initializer='glorot_uniform',
                     recurrent_initializer='orthogonal',
                     bias_initializer='zeros',
-                    unit_forget_bias=True,
+                    
                     kernel_regularizer=None,
                     recurrent_regularizer=None,
                     bias_regularizer=None,
@@ -1596,7 +1539,7 @@ class ConvGRU2DCell_2cell(DropoutRNNCellMixin, Layer):
                     dropout=0.,
                     recurrent_dropout=0.,
                     **kwargs):
-        super(ConvGRU2DCell_2cell, self).__init__(**kwargs)
+        super(ConvGRU2DCell_Dualcell, self).__init__(**kwargs)
         self.filters = filters
         self.kernel_size = conv_utils.normalize_tuple(kernel_size, 2, 'kernel_size')
         self.strides = conv_utils.normalize_tuple(strides, 2, 'strides')
@@ -1614,7 +1557,6 @@ class ConvGRU2DCell_2cell(DropoutRNNCellMixin, Layer):
         self.kernel_initializer = initializers.get(kernel_initializer)
         self.recurrent_initializer = initializers.get(recurrent_initializer)
         self.bias_initializer = initializers.get(bias_initializer)
-        self.unit_forget_bias = unit_forget_bias
 
         self.kernel_regularizer = regularizers.get(kernel_regularizer)
         self.recurrent_regularizer = regularizers.get(recurrent_regularizer)
@@ -1632,7 +1574,7 @@ class ConvGRU2DCell_2cell(DropoutRNNCellMixin, Layer):
         self.reset_after = reset_after
 
     def build(self, input_shape):
-
+        # Intializing training weights
         if self.data_format == 'channels_first':
             channel_axis = 1
         else:
@@ -1645,7 +1587,6 @@ class ConvGRU2DCell_2cell(DropoutRNNCellMixin, Layer):
         
         kernel_shape = self.kernel_size + (input_dim, self.filters * 3) #Changed here
         self.kernel_shape = kernel_shape
-        #if self.corrected_kernel_shape == None:
         self.corrected_kernel_shape = tf.TensorShape(self.kernel_size + (input_dim//2, self.filters * 6) )
 
         recurrent_kernel_shape = self.kernel_size + (self.filters, self.filters * 3) #This stays at 3 for 2 input gru
@@ -1684,12 +1625,16 @@ class ConvGRU2DCell_2cell(DropoutRNNCellMixin, Layer):
             self.bias = None
         self.built = True
 
-    def call(self, inputs, states, training=None):#Link To Paper: Dual State ConvGRU
-                                                #The self.reset_after methodology is explained in paper
-        
-        h_tm1 = tf.cast( states[0], dtype=inputs.dtype) # previous memory state
-        
+    def call(self, inputs, states, training=None):
+        """Link To Paper: Dual State ConvGRU
+            Note: self.reset_after==False methodology is explained in paper
+
+        """
+        # inputs1 and inputs 2
         inputs1, inputs2 = tf.split( inputs, 2, axis=-1)
+
+        # previous hidden state state
+        h_tm1 = tf.cast( states[0], dtype=inputs.dtype) 
         
         #dropout masks
         dp_mask1 = self.get_dropout_mask_for_cell(inputs1, training, count=3)
@@ -1712,8 +1657,8 @@ class ConvGRU2DCell_2cell(DropoutRNNCellMixin, Layer):
 
         
         if self.implementation == 1:
+            # Applying dropout masks
             if 0 < self.dropout < 1. and training:
-                #Note (Akanni): Maybe change this to use feature map dropout and not random dropout
                 inputs_z1 = inputs1 * dp_mask1[0]
                 inputs_r1 = inputs1 * dp_mask1[1]
                 inputs_h1 = inputs1 * dp_mask1[2]
@@ -1731,19 +1676,20 @@ class ConvGRU2DCell_2cell(DropoutRNNCellMixin, Layer):
                 inputs_r2 = inputs2 
                 inputs_h2 = inputs2 
 
-            
+            # Retreiving input kernels/weight matrices
             (kernel_z1, kernel_z2, 
             kernel_r1, kernel_r2,
             kernel_h1, kernel_h2) = array_ops.split(self.kernel, 6, axis=3)
 
-            x_z1 = self.input_conv(inputs_z1, kernel_z1, bias_z1, padding=self.padding)
-            x_z2 = self.input_conv(inputs_z2, kernel_z2, bias_z2, padding=self.padding)
-            x_r1 = self.input_conv(inputs_r1, kernel_r1, bias_r1, padding=self.padding)
-            x_r2 = self.input_conv(inputs_r2, kernel_r2, bias_r2, padding=self.padding)
-            x_h1 = self.input_conv(inputs_h1, kernel_h1, bias_h1, padding=self.padding)
-            x_h2 = self.input_conv(inputs_h2, kernel_h2, bias_h2, padding=self.padding)
+            # Calculating input part of gates
+            inp_z1 = self.input_conv(inputs_z1, kernel_z1, bias_z1, padding=self.padding)
+            inp_z2 = self.input_conv(inputs_z2, kernel_z2, bias_z2, padding=self.padding)
+            inp_r1 = self.input_conv(inputs_r1, kernel_r1, bias_r1, padding=self.padding)
+            inp_r2 = self.input_conv(inputs_r2, kernel_r2, bias_r2, padding=self.padding)
+            inp_h1 = self.input_conv(inputs_h1, kernel_h1, bias_h1, padding=self.padding)
+            inp_h2 = self.input_conv(inputs_h2, kernel_h2, bias_h2, padding=self.padding)
 
-
+            # Applying recurrent dropout mask
             if 0 < self.recurrent_dropout < 1. and training:
                 h_tm1_z = h_tm1 * rec_dp_mask[0]
                 h_tm1_r = h_tm1 * rec_dp_mask[1]
@@ -1754,10 +1700,12 @@ class ConvGRU2DCell_2cell(DropoutRNNCellMixin, Layer):
                 h_tm1_r = h_tm1
                 h_tm1_h = h_tm1
             
+            # Retreiving recurrent kernels
             (recurrent_kernel_z,
                 recurrent_kernel_r,
                 recurrent_kernel_h) = array_ops.split(self.recurrent_kernel, 3, axis=3)
-
+            
+            # Calculating recurrent part of gates
             recurrent_z = self.recurrent_conv(h_tm1_z, recurrent_kernel_z)
             recurrent_r = self.recurrent_conv(h_tm1_r, recurrent_kernel_r)
 
@@ -1765,13 +1713,13 @@ class ConvGRU2DCell_2cell(DropoutRNNCellMixin, Layer):
                 recurrent_z = K.bias_add( recurrent_z, bias_z_rcrnt )
                 recurrent_r = K.bias_add( recurrent_r, bias_r_rcrnt )
 
-            #calculating gates z, r #Link To Equation
-            z1 = self.recurrent_activation(x_z1 + recurrent_z)
-            z2 = self.recurrent_activation(x_z2 + recurrent_z)
-            r1 = self.recurrent_activation(x_r1 + recurrent_r)
-            r2 = self.recurrent_activation(x_r2 + recurrent_r)
+            #calculating gates z, r 
+            z1 = self.recurrent_activation(inp_z1 + recurrent_z)
+            z2 = self.recurrent_activation(inp_z2 + recurrent_z)
+            r1 = self.recurrent_activation(inp_r1 + recurrent_r)
+            r2 = self.recurrent_activation(inp_r2 + recurrent_r)
 
-            # reset gate applied after/before matrix multiplication
+            
             # calculating gate \tilde{h} #Link To Equation(Note we)
             if self.reset_after:
                 recurrent_h = self.recurrent_conv(h_tm1_h, recurrent_kernel_h)
@@ -1779,19 +1727,18 @@ class ConvGRU2DCell_2cell(DropoutRNNCellMixin, Layer):
                     recurrent_h = K.bias_add( recurrent_h, bias_h_rcrnt)
                 recurrent_h1 = r1 * recurrent_h 
                 recurrent_h2 = r2 * recurrent_h
+
             else:
                 recurrent_h1 = self.recurrent_conv( r1*h_tm1_h, recurrent_kernel_h )
                 recurrent_h2 = self.recurrent_conv( r2*h_tm1_h, recurrent_kernel_h )
 
-            hh1 = self.activation( x_h1 + recurrent_h1 ) #two state structure will have to be added here for cell_custom
-            hh2 = self.activation( x_h2 + recurrent_h2 )
+            hh1 = self.activation( inp_h1 + recurrent_h1 ) #two state structure will have to be added here for cell_custom
+            hh2 = self.activation( inp_h2 + recurrent_h2 )
 
-        #TODO(akanni-ade) Implement the faster version of recurrent operations
         elif self.implementation ==2 :
+            #TODO(akanni-ade) Implement the faster version of recurrent operations
             raise NotImplementedError
             
-
-
         h = ((z1+z2)/2)*h_tm1 + (1-z1)*hh1 + (1-z2)*hh2
         
         return h, [h]
@@ -1828,7 +1775,6 @@ class ConvGRU2DCell_2cell(DropoutRNNCellMixin, Layer):
                 'recurrent_initializer': initializers.serialize(
                     self.recurrent_initializer),
                 'bias_initializer': initializers.serialize(self.bias_initializer),
-                'unit_forget_bias': self.unit_forget_bias,
                 'kernel_regularizer': regularizers.serialize(
                     self.kernel_regularizer),
                 'recurrent_regularizer': regularizers.serialize(
@@ -1846,41 +1792,31 @@ class ConvGRU2DCell_2cell(DropoutRNNCellMixin, Layer):
                 'bool_ln':self.bool_ln,
                 'reset_after':self.reset_after 
                  }
-        base_config = super(ConvGRU2DCell_2cell, self).get_config()
+        base_config = super(ConvGRU2DCell_Dualcell, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
+#endregion
 
-# Convolutional GRU with Inter Layer Cross Attention
+# region --- Convolutional GRU w/ Inter Layer Cross Attention [Encoder Layers]
 class ConvGRU2D_attn(ConvRNN2D):
     """
-        CUSTOM Convolutional GRU.
-
-        My key change is that I will ensure attention on the inputs
-        Init Arguments Added:
-
-        Call Arguments Added:
-
-        It is similar to an GRU layer, but the input transformations
-        and recurrent transformations are both convolutional.
+        ConvGRU2D w/ Inter Layer Cross Attention
         Arguments:
             filters: Integer, the dimensionality of the output space
                 (i.e. the number of output filters in the convolution).
             kernel_size: An integer or tuple/list of n integers, specifying the
                 dimensions of the convolution window.
+            implementation: int for version of ConvGRU to use
+            layer_norm:                 
+            attn_params: dictionary for init params for MultiHeadAttention2D
+            attn_downscaling_params: dictionary for 3D averaging pooling ops
+            attn_factor_reduc: int indicating the factor reduction in sequence
+                                length betwee value antecedents and output
             strides: An integer or tuple/list of n integers,
                 specifying the strides of the convolution.
                 Specifying any stride value != 1 is incompatible with specifying
                 any `dilation_rate` value != 1.
             padding: One of `"valid"` or `"same"` (case-insensitive).
-            data_format: A string,
-                one of `channels_last` (default) or `channels_first`.
-                The ordering of the dimensions in the inputs.
-                `channels_last` corresponds to inputs with shape
-                `(batch, time, ..., channels)`
-                while `channels_first` corresponds to
-                inputs with shape `(batch, time, channels, ...)`.
-                It defaults to the `image_data_format` value found in your
-                Keras config file at `~/.keras/keras.json`.
-                If you never set it, then it will be "channels_last".
+            data_format: A string: `channels_last` (default) or `channels_first`
             dilation_rate: An integer or tuple/list of n integers, specifying
                 the dilation rate to use for dilated convolution.
                 Currently, specifying any `dilation_rate` value != 1 is
@@ -1896,12 +1832,6 @@ class ConvGRU2D_attn(ConvRNN2D):
             recurrent_initializer: Initializer for the `recurrent_kernel`
                 weights matrix,
                 used for the linear transformation of the recurrent state.
-            bias_initializer: Initializer for the bias vector.
-            unit_forget_bias: Boolean.
-                If True, add 1 to the bias of the forget gate at initialization.
-                Use in combination with `bias_initializer="zeros"`.
-                This is recommended in [Jozefowicz et al.]
-                (http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
             kernel_regularizer: Regularizer function applied to
                 the `kernel` weights matrix.
             recurrent_regularizer: Regularizer function applied to
@@ -1962,11 +1892,6 @@ class ConvGRU2D_attn(ConvRNN2D):
                 the padding
         Raises:
             ValueError: in case of invalid constructor arguments.
-        References:
-            - [Convolutional GRU Network: A Machine Learning Approach for
-            Precipitation Nowcasting](http://arxiv.org/abs/1506.04214v1)
-            The current implementation does not include the feedback loop on the
-            cells output.
     """
 
     def __init__(
@@ -1988,7 +1913,6 @@ class ConvGRU2D_attn(ConvRNN2D):
                  kernel_initializer='glorot_uniform',
                  recurrent_initializer='orthogonal',
                  bias_initializer='zeros',
-                 unit_forget_bias=True,
                  kernel_regularizer=None,
                  recurrent_regularizer=None,
                  bias_regularizer=None,
@@ -2010,14 +1934,19 @@ class ConvGRU2D_attn(ConvRNN2D):
         bool_ln = False
         self.layer_norm = layer_norm
 
-        #Amending Initialisation -> since the init is called after the sub layer MultiHead2DAtt is made
+        
         self._trainable  = trainable
         self.attn_params = attn_params
         self.attn_downscaling_params = attn_downscaling_params
         self.attn_factor_reduc = attn_factor_reduc
         self.attn_ablation = attn_ablation
 
-        # Ablation studies
+        # Ablation Studies
+            # 0: Cross Attention (default)
+            # 1: Averaging
+            # 2: Concatenation in channel dim
+            # 3: Using last element
+            # 4: Sel Attention
         if self.attn_ablation in [0,4] :
             self.Attention2D = MultiHead2DAttention_v2( **attn_params, attention_scaling_params=attn_downscaling_params , attn_factor_reduc=attn_factor_reduc ,trainable=self.trainable, compat_dict=compat_dict  )
         else:
@@ -2040,7 +1969,6 @@ class ConvGRU2D_attn(ConvRNN2D):
                                      kernel_initializer=kernel_initializer,
                                      recurrent_initializer=recurrent_initializer,
                                      bias_initializer=bias_initializer,
-                                     unit_forget_bias=unit_forget_bias,
                                      kernel_regularizer=kernel_regularizer,
                                      recurrent_regularizer=recurrent_regularizer,
                                      bias_regularizer=bias_regularizer,
@@ -2072,15 +2000,14 @@ class ConvGRU2D_attn(ConvRNN2D):
         else:
             initial_state = self.get_initial_state(inputs) 
         
-        # temporary shape adjustment to ensure each time chunk is passed to a cell (cells do not take in a time dimension, so move time dimension to channel dimension)
         inputs = attn_shape_adjust(inputs, self.attn_factor_reduc ,reverse=False)
 
         return super(ConvGRU2D_attn, self).call(inputs,
                                             mask=mask,
                                             training=training,
                                             initial_state=initial_state) #Note: or here
-    # region pre existing properties
-
+    
+    # region properties / config
     @property
     def filters(self):
         return self.cell.filters
@@ -2129,9 +2056,6 @@ class ConvGRU2D_attn(ConvRNN2D):
     def bias_initializer(self):
         return self.cell.bias_initializer
 
-    @property
-    def unit_forget_bias(self):
-        return self.cell.unit_forget_bias
 
     @property
     def kernel_regularizer(self):
@@ -2188,7 +2112,6 @@ class ConvGRU2D_attn(ConvRNN2D):
                   'recurrent_initializer': initializers.serialize(
                       self.recurrent_initializer),
                   'bias_initializer': initializers.serialize(self.bias_initializer),
-                  'unit_forget_bias': self.unit_forget_bias,
                   'kernel_regularizer': regularizers.serialize(
                       self.kernel_regularizer),
                   'recurrent_regularizer': regularizers.serialize(
@@ -2216,16 +2139,12 @@ class ConvGRU2D_attn(ConvRNN2D):
     # endregion 
 
     def get_initial_state(self, inputs):
-        # inputs (samples, expanded_timesteps, rows, cols, filters)
-            # The expanded_timesteps relates to the fact the input has the same spatial time dimension as the lower heirachy
-            #Note: now inputs will have an extra last dimension, which represents the stacking of all the input vectors
-            #region Adapting input_shape for attention
+        """inputs (samples, expanded_timesteps, rows, cols, filters)"""
+            
         shape_pre_attention = K.zeros_like(inputs)
-        shape_post_attention = shape_pre_attention[:, ::self.attn_factor_reduc, :, :, :]
+        shape_post_attention = shape_pre_attention[:, ::self.attn_factor_reduc, :, :, :] #shape of output
         inputs = shape_post_attention
-        #endregion
-
-        #region Adapting for two cell state GRUs
+        
         initial_state = K.zeros_like(inputs)
             # (samples, rows, cols, filters)
         initial_state = K.sum(initial_state, axis=1)
@@ -2233,7 +2152,6 @@ class ConvGRU2D_attn(ConvRNN2D):
         shape_h_state = list(self.cell.kernel_shape)
         shape_h_state[-1] = self.cell.filters
 
-        
         initial_hidden_state = self.cell.input_conv(initial_state,
                                             array_ops.zeros(tuple(shape_h_state),self._compute_dtype),
                                             padding=self.cell.padding)
@@ -2243,63 +2161,51 @@ class ConvGRU2D_attn(ConvRNN2D):
             return [initial_hidden_state, initial_hidden_state ]
         else:
             return [initial_hidden_state]
-        #endregion
-
+        
 class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
     """
         Cell class for the ConvGRU2D layer.
         Arguments:
             filters: Integer, the dimensionality of the output space
-            (i.e. the number of output filters in the convolution).
+                (i.e. the number of output filters in the convolution).
             kernel_size: An integer or tuple/list of n integers, specifying the
-            dimensions of the convolution window.
+                dimensions of the convolution window.
             strides: An integer or tuple/list of n integers,
-            specifying the strides of the convolution.
-            Specifying any stride value != 1 is incompatible with specifying
-            any `dilation_rate` value != 1.
-            padding: One of `"valid"` or `"same"` (case-insensitive).
-            data_format: A string,
-            one of `channels_last` (default) or `channels_first`.
-            It defaults to the `image_data_format` value found in your
-            Keras config file at `~/.keras/keras.json`.
-            If you never set it, then it will be "channels_last".
+                specifying the strides of the convolution.
+                Specifying any stride value != 1 is incompatible with specifying
+                any `dilation_rate` value != 1.
+                padding: One of `"valid"` or `"same"` (case-insensitive).
+                data_format: A string,
+                one of `channels_last` (default) or `channels_first`.
             dilation_rate: An integer or tuple/list of n integers, specifying
-            the dilation rate to use for dilated convolution.
-            Currently, specifying any `dilation_rate` value != 1 is
-            incompatible with specifying any `strides` value != 1.
-            activation: Activation function to use.
-            If you don't specify anything, no activation is applied
-            (ie. "linear" activation: `a(x) = x`).
+                the dilation rate to use for dilated convolution.
+                Currently, specifying any `dilation_rate` value != 1 is
+                incompatible with specifying any `strides` value != 1.
+                activation: Activation function to use.
             recurrent_activation: Activation function to use
-            for the recurrent step.
+                for the recurrent step.
             use_bias: Boolean, whether the layer uses a bias vector.
             kernel_initializer: Initializer for the `kernel` weights matrix,
-            used for the linear transformation of the inputs.
+                used for the linear transformation of the inputs.
             recurrent_initializer: Initializer for the `recurrent_kernel`
-            weights matrix,
-            used for the linear transformation of the recurrent state.
+                weights matrix,
+                used for the linear transformation of the recurrent state.
             bias_initializer: Initializer for the bias vector.
-            unit_forget_bias: Boolean.
-            If True, add 1 to the bias of the forget gate at initialization.
-            Use in combination with `bias_initializer="zeros"`.
-            This is recommended in [Jozefowicz et al.]
-            (http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
             kernel_regularizer: Regularizer function applied to
-            the `kernel` weights matrix.
+                the `kernel` weights matrix.
             recurrent_regularizer: Regularizer function applied to
-            the `recurrent_kernel` weights matrix.
+                the `recurrent_kernel` weights matrix.
             bias_regularizer: Regularizer function applied to the bias vector.
             kernel_constraint: Constraint function applied to
-            the `kernel` weights matrix.
+                the `kernel` weights matrix.
             recurrent_constraint: Constraint function applied to
-            the `recurrent_kernel` weights matrix.
+                the `recurrent_kernel` weights matrix.
             bias_constraint: Constraint function applied to the bias vector.
-            dropout: Float between 0 and 1.
-            Fraction of the units to drop for
-            the linear transformation of the inputs.
+            dropout: Float between 0 and 1. Fraction of the units to drop for
+                the linear transformation of the inputs.
             recurrent_dropout: Float between 0 and 1.
-            Fraction of the units to drop for
-            the linear transformation of the recurrent state.
+                Fraction of the units to drop for
+                the linear transformation of the recurrent state.
         Call arguments:
             inputs: A 4D tensor.
             states:  List of state tensors corresponding to the previous timestep.
@@ -2328,7 +2234,6 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
                 kernel_initializer='glorot_uniform',
                 recurrent_initializer='orthogonal',
                 bias_initializer='zeros',
-                unit_forget_bias=True,
                 kernel_regularizer=None,
                 recurrent_regularizer=None,
                 bias_regularizer=None,
@@ -2360,7 +2265,6 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
         self.kernel_initializer = initializers.get(kernel_initializer)
         self.recurrent_initializer = initializers.get(recurrent_initializer)
         self.bias_initializer = initializers.get(bias_initializer)
-        self.unit_forget_bias = unit_forget_bias
 
         self.kernel_regularizer = regularizers.get(kernel_regularizer)
         self.recurrent_regularizer = regularizers.get(recurrent_regularizer)
@@ -2434,53 +2338,55 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
 
     def call(self, inputs, states, training=None): #Link To Paper, Diagram
         """ConvGRU w/ Inter Layer Cross Attention Meachanism
+            Note: self.reset_after==False methodology is explained in paper
+            Args:
+                inputs : A tensor with shape (bs, h, w, c1) #Link To Paper, Figure 1 {B_{i-1, j}}_D_{i,j}
+                states : A tensor with shape (bs, sq_s ,h, w, c2)
+                training : [description]. Defaults to None.
 
-        Args:
-            inputs : A tensor with shape (bs, h, w, c1) #Link To Paper, Figure 1 {B_{i-1, j}}_D_{i,j}
-            states : A tensor with shape (bs, sq_s ,h, w, c2)
-            training : [description]. Defaults to None.
 
-        Raises:
-            NotImplementedError: [description]
-
-        Returns:
-            [type]: A tensor with shape (bs, h, w, c3)
+            Returns:
+                [type]: A tensor with shape (bs, h, w, c3)
         """            
         
-        #region --- Inter Layer Cross Attention
+        # region --- Inter Layer Cross Attention
         h_tm1 = tf.cast( states[0], dtype=inputs.dtype)  # Link To Paper, Figure 1: B_{l, i-1}
     
-        #Different versions for ablation. Version==0 corresponds to our cross attention
+        # ablation study: Cross Attention
         if self.attn_ablation == 0:
-            #ablation study: Our Cross Attention
-            inputs = attn_shape_adjust( inputs, self.attn_factor_reduc, reverse=True ) #shape (bs, self.attn_factor_reduc ,h, w, c1/self.attn_factor_reduc )
-            q_antecedent = tf.expand_dims( h_tm1, axis=1)
+            
+            inputs = attn_shape_adjust( inputs, self.attn_factor_reduc, reverse=True ) 
+                        #shape (bs, self.attn_factor_reduc ,h, w, c1/self.attn_factor_reduc )
+            q_antecedent = tf.expand_dims( h_tm1, axis=1)  #Link To Paper, Equation (2)
             k_antecedent = inputs                          #Link To Paper, Equation (2)
             v_antecedent = inputs                          #Link To Paper, Equation (2)
-            
             
             attn_output = self.attn_2D( inputs=q_antecedent,
                                             k_antecedent=k_antecedent,
                                             v_antecedent=v_antecedent,
-                                            training=training ) #(bs, 1, h, w, f) # Link To Paper, Figure 1: \hat{A}_{l, i}
-        
+                                            training=training )
+                                    #(bs, 1, h, w, f) # Link To Paper, Figure 1: \hat{A}_{l, i}
+                                    
+        # ablation study: Averaging
         elif self.attn_ablation == 1:
-            #ablation study: Averaging
+            
             inputs = attn_shape_adjust( inputs, self.attn_factor_reduc, reverse=True ) #shape (bs, self.attn_factor_reduc ,h, w, c )
-
             attn_output = tf.reduce_mean( inputs, axis=1, keepdims=True ) 
         
+        # ablation study: Concatenation in channel
         elif self.attn_ablation == 2:
-            #ablation study: Concatenation in channel
+            
             attn_output = inputs
 
+        # ablation study: Using last element
         elif self.attn_ablation == 3:
-            #ablation study: Using last element
+            
             inputs = attn_shape_adjust( inputs, self.attn_factor_reduc, reverse=True ) #shape (bs, self.attn_factor_reduc ,h, w, c )
             attn_output = inputs[:, -1:, :, :, :]
         
+        # ablation study: self attention
         elif self.attn_ablation == 4:
-            #ablation study: Self.attn
+
             inputs = attn_shape_adjust( inputs, self.attn_factor_reduc, reverse=True ) #shape (bs, self.attn_factor_reduc ,h, w, c )
             q_antecedent = tf.reduce_mean(inputs, axis=1, keepdims=True)
             k_antecedent = inputs
@@ -2493,13 +2399,14 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
         inputs = tf.squeeze( attn_output)
         # endregion
 
-        # region --- 2D Convolutional GRU operations
-        # dropout
+        # region --- 2D Conv GRU operations
+        
+        # Retrieving input dropout masks and recurrent dropout masks
         dp_mask = self.get_dropout_mask_for_cell(inputs, training, count=3)
-        # dropout matrices for recurrent units
         rec_dp_mask = self.get_recurrent_dropout_mask_for_cell(
-            h_tm1, training, count=3)
-
+                        h_tm1, training, count=3)
+        
+        # Retreiving bias weights
         if self.use_bias:
             if not self.reset_after:
                 bias_z, bias_r, bias_h = array_ops.split(self.bias, 3)
@@ -2514,7 +2421,7 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
 
         if self.implementation==1:
             
-            # dropout
+            # Applying input dropout
             if 0 < self.dropout < 1.:
                 inputs_z = inputs * dp_mask[0]
                 inputs_r = inputs * dp_mask[1]
@@ -2524,13 +2431,15 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
                 inputs_r = inputs
                 inputs_h = inputs
 
+            # Retreiving input kernels
             (kernel_z, kernel_r, kernel_h) = array_ops.split(self.kernel, 3, axis=3)
-
+            
+            # Calculating input part of gates and hidden states
             x_z = self.input_conv(inputs_z, kernel_z, bias_z, padding=self.padding)
             x_r = self.input_conv(inputs_r, kernel_r, bias_r, padding=self.padding)
             x_h = self.input_conv(inputs_h, kernel_h, bias_h, padding=self.padding)
-                        
-
+            
+            # Applying reccurent dropout
             if 0 < self.recurrent_dropout < 1.:
                 h_tm1_z = h_tm1 * rec_dp_mask[0]
                 h_tm1_r = h_tm1 * rec_dp_mask[1]
@@ -2540,21 +2449,23 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
                 h_tm1_r = h_tm1
                 h_tm1_h = h_tm1
 
+            # Retreiving recurrent kernel
             (recurrent_kernel_z,
                 recurrent_kernel_r,
                 recurrent_kernel_h) = array_ops.split(self.recurrent_kernel, 3, axis=3)
             
+            # Calculating recurrent part of gates and hidden states
             recurrent_z = self.recurrent_conv(h_tm1_z, recurrent_kernel_z)
             recurrent_r = self.recurrent_conv(h_tm1_r, recurrent_kernel_r)
 
             if self.reset_after and self.use_bias:
                 recurrent_z = K.bias_add( recurrent_z, bias_z_rcrnt )
                 recurrent_r = K.bias_add( recurrent_r, bias_r_rcrnt )
-
+            
+            # Calculating gates z,r
             z = self.recurrent_activation(x_z + recurrent_z)
             r = self.recurrent_activation(x_r + recurrent_r)
 
-            # reset gate applied after/before matrix multiplication
             if self.reset_after:
                 recurrent_h = self.recurrent_conv(h_tm1_h, recurrent_kernel_h)
                 if self.use_bias:
@@ -2563,15 +2474,17 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
             else:
                 recurrent_h = self.recurrent_conv( r*h_tm1_h, recurrent_kernel_h )
             
-            hh = self.activation( x_h + recurrent_h ) #two state structure will have to be added here for cell_custom
+            hh = self.activation( x_h + recurrent_h )
 
-        elif self.implementation ==2 :
+        elif self.implementation ==2:
             raise NotImplementedError
         
         if self.bool_ln:
             hh = tf.cast(self.layer_norm(hh),self._compute_dtype)
         
         h = z*h_tm1 + (1-z)*hh
+        # endregion
+
         return h, [h]
 
     def input_conv(self, x, w, b=None, padding='valid'):
@@ -2606,7 +2519,6 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
                 'recurrent_initializer': initializers.serialize(
                     self.recurrent_initializer),
                 'bias_initializer': initializers.serialize(self.bias_initializer),
-                'unit_forget_bias': self.unit_forget_bias,
                 'kernel_regularizer': regularizers.serialize(
                     self.kernel_regularizer),
                 'recurrent_regularizer': regularizers.serialize(
@@ -2632,4 +2544,6 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
                 }
         base_config = super(ConvGRU2DCell_attn, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
+
+#endregion
 

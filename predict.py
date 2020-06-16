@@ -14,11 +14,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 import tensorflow_probability as tfp
-from tensorboard.plugins.hparams import api as hp
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
-from tensorflow_probability import distributions as tfd
-from tensorflow_probability import layers as tfpl
-from tqdm import tqdm
 
 import data_generators
 import hparameters
@@ -62,16 +58,18 @@ def is_compatible_with(self, other):
 
     return self._type_enum in (other.as_datatype_enum,
                                 other.base_dtype.as_datatype_enum)
-#from tensorflow.python.framework.dtypes import DType
 tf.DType.is_compatible_with = is_compatible_with
 
 try:
     import tensorflow_addons as tfa
 except Exception as e:
     tfa = None
-
+"""Example of how to use
+"""
 class TestTrueNet():
-
+    """
+        
+    """    
     def __init__(self, t_params, m_params):
         self.t_params = t_params
         self.m_params = m_params
@@ -80,49 +78,43 @@ class TestTrueNet():
         # retreiving model data
         self.model, checkpoint_code = utility_predict.load_model(t_params, m_params)
 
-        model_settings = self.m_params['model_type_settings']
-
         self.era5_eobs = data_generators.Era5_Eobs( self.t_params, self.m_params )
 
     def initialize_scheme_era5Eobs(self, location):
-        """[summary]
+        """Initialization for the era5 and eobs datasets
 
         Args:
             location (list): [description]
         """        
         self.era5_eobs.location_size_calc(location) #Update the location the dataset generator will produce outputs for
         
-        self.test_batches = self.t_params['test_batches'] * len( self.era5_eobs.loc_count )
+        self.test_batches = self.t_params['test_batches'] * self.era5_eobs.loc_count 
+        
+        self.ds, self.idxs_loc_in_region = self.era5_eobs.load_data_era5eobs(batch_count=self.test_batches, start_date=self.t_params['start_date'])
 
-        self.ds, self.idxs_loc_in_region = self.era5_eobs.load_data_era5eobs(  batch_count=self.test_batches)
-
-        # region ------ Setting up timestamps and datasets  
+        # region ------ Setting up timestamps, datasets, iterables
         self.buffer_size = self.test_batches 
 
         self.li_predictions = [] #list of list of tensors, each list contain a set of (maybe stochastic) predictions for the corresponding ts
-        li_timestamps = t_params['timestamps'] #flat list of timestamps from start of test day to end 
+        li_timestamps = self.t_params['timestamps'] #flat list of timestamps from start of test day to end 
     
         # Timestamps
         if self.era5_eobs.li_loc == ['All']:
-
             li_timestamps_chunked = [li_timestamps[i:i+self.t_params['window_shift']*self.t_params['batch_size']] for i in range(0, len(li_timestamps), self.t_params['window_shift']*self.t_params['batch_size'])]
             self.li_timestamps_chunked = list( itertools.chain.from_iterable( itertools.repeat(li_timestamps_chunked, self.era5_eobs.loc_count )) )
-
         else:
             self.li_timestamps_chunked = [li_timestamps[i:i+self.t_params['window_shift']*self.t_params['batch_size']] for i in range(0, len(li_timestamps), self.t_params['window_shift']*self.t_params['batch_size'])] 
-
         self.li_true_values = []
         
+        # Caching datasets, Creating iterable
+        li_loc = utility.location_getter(self.m_params['model_type_settings'])
+        if self.t_params['ctsm'] != "4ds_10years":
+            cache_suffix = '{}_{}_loctest_{}'.format( m_params['model_name'], self.t_params['ctsm_test'] , "_".join(utility.loc_name_shrtner(li_loc) ) )
         
-        # Caching datasets
-        if t_params['ctsm'] != "4ds_10years":
-            cache_suffix = '_{}_bs_{}_loctest_{}_{}'.format( m_params['model_name'], t_params['batch_size'],m_params['model_type_settings']['location_test'],m_params['model_type_settings']['location']  ).strip('[]') 
+        elif self.t_params['ctsm'] == "4ds_10years":
+            cache_suffix = '{}_fyitest{}_loctest{}'.format( self.m_params['model_name'], str(self.t_params['fyi_test']), "_".join(utility.loc_name_shrtner(li_loc) ) )
         
-        elif t_params['ctsm'] == "4ds_10years":
-            cache_suffix = '{}_bs_fyitest{}_loctest{}'.format( m_params ['model_name'], str(t_params['fyi_test']), str(m_params['model_type_settings']['location_test']) )
-        
-        self.ds = self.ds.cache('Data/data_cache/ds_test_cache'+cache_suffix ).repeat(1) 
-
+        self.ds = self.ds.cache('Data/data_cache/test'+cache_suffix ).repeat(1) 
         self.iter_test = enumerate(self.ds)
         #endregion
     
@@ -136,54 +128,48 @@ class TestTrueNet():
             min_prob_for_rain (float, optional): For discrete continuous, if the predicted probability of prediction is below 0, the prediction is fixed to zero. NOTE: this may be a mistake, 
         """
         
-        bounds = cl.central_region_bounds(self.m_params['region_grid_params']) #bounds for central region which we evaluate on 
+        # bounds for central region which we evaluate on 
+        bounds = cl.central_region_bounds(self.m_params['region_grid_params']) 
+                
         # region --- Generating predictions
-        
         for batch in range(1, int(1+self.test_batches) ):
             
-            # Getting next batch of data
+            # next batch of data
             idx, (feature, target, mask) = next(self.iter_test)
 
             if self.m_params['model_type_settings']['stochastic'] == False:
                     
-                preds = self.model( tf.cast(feature,tf.float16),training=False )
+                preds = self.model( feature,training=False )
                 preds = tf.squeeze(preds,axis=-1)       #(bs, seq_len, h, w)
                 
                 if self.m_params['model_type_settings']['discrete_continuous'] == True:
+                    preds, probs = tf.unstack(preds, axis=0)    #(bs, seq_len, h, w), (bs, seq_len, h, w)            
+                    preds = tf.where( probs > min_prob_for_rain, preds, utility.standardize_ati(0.0, self.t_params['normalization_shift']['rain'], self.t_params['normalization_scales']['rain'], reverse=False) )
+                                #thresholding using probability                    
 
-                    preds, probs = tf.unstack(preds, axis=0)    #(bs, seq_len, h, w), (bs, seq_len, h, w)
-                    
-                    #thresholding using probability                    
-                    preds = tf.where( probs > min_prob_for_rain, preds, utility.standardize_ati(0.0, t_params['normalization_shift']['rain'], t_params['normalization_scales']['rain'], reverse=False) )
-                
                 preds = tf.expand_dims(preds, axis=-1 )     #(bs, seq_len, h, w, 1)
 
                 #Extracting central region of interest
-
-                if self.era5_eobs.li_loc[0] in self.era5_eobs.rain_data.city_latlon.keys():
-                                        
+                if self.era5_eobs.li_loc[0] in self.era5_eobs.rain_data.city_latlon.keys():                                    
                     preds   = preds[:, :, self.idxs_loc_in_region[0], self.idxs_loc_in_region[1],: ]
                     mask    = mask[ :, :, self.idxs_loc_in_region[0], self.idxs_loc_in_region[1]]
                     target  = target[ :, :, self.idxs_loc_in_region[0], self.idxs_loc_in_region[1]]     #(bs, seq_len, 1)
                 
                 elif self.era5_eobs.li_loc == ["All"]:
-                    #For all we evaluate whole central regions not just the central location
+                    # For all we evaluate whole central regions not just the central location
                     preds   = cl.extract_central_region(preds, bounds)
                     mask    = cl.extract_central_region(mask, bounds)
                     target  = cl.extract_central_region(target, bounds)                                 #(bs, seq_len, h1, w1, 1)              
 
             elif self.m_params['model_type_settings']['stochastic'] == True:
-
-                li_preds = self.model.predict( tf.cast(feature,tf.float16), self.m_params['model_type_settings']['stochastic_f_pass'],True )
-
+                li_preds = self.model.predict( feature, self.m_params['model_type_settings']['stochastic_f_pass'], True )
                 preds = tf.concat(li_preds, axis=-1) #(bs,ts,h,w,samples) or #(2, bs,ts,h,w,samples)
                 
-                #handling dual output of discrete continuous
                 if self.m_params['model_type_settings']['discrete_continuous'] == True:
                     preds, probs = tf.unstack( preds, axis=0)
-
-                    # rain thresholding #NOTE: This need to be corrected
-                    preds = tf.where( probs>min_prob_for_rain, preds, utility.standardize_ati(0.0, t_params['normalization_shift']['rain'], t_params['normalization_scales']['rain'], reverse=False) )
+                    probs = tf.math.reduce_mean(preds, axis=-1, keepdims=True )
+                    preds = tf.where( probs>min_prob_for_rain, preds, utility.standardize_ati(0.0, self.t_params['normalization_shift']['rain'], self.t_params['normalization_scales']['rain'], reverse=False) )
+                        # rain thresholding
 
                 # cropping
                 if self.era5_eobs.li_loc[0] in self.era5_eobs.rain_data.city_latlon.keys():                                        
@@ -198,14 +184,14 @@ class TestTrueNet():
                     target  = cl.extract_central_region(target, bounds)             #(bs, seq_len, h1, w1)
 
             # standardize
-            preds_std = utility.standardize_ati(preds, t_params['normalization_shift']['rain'], t_params['normalization_scales']['rain'], reverse=True) #(bs, seq_len ,samples) or (bs, seq_len, h, w ,samples)
+            preds_std = utility.standardize_ati(preds, self.t_params['normalization_shift']['rain'], self.t_params['normalization_scales']['rain'], reverse=True) #(bs, seq_len ,samples) or (bs, seq_len, h, w ,samples)
 
             # mask
-            preds_masked = cl.water_mask( preds_std, mask  )
+            preds_masked = cl.water_mask(preds_std, tf.expand_dims(mask,-1)  )
             target_masked = cl.water_mask(target, mask ) 
 
-            #Combining the batch and seq_len dimensions to get a timesteps dimension            
-            preds_reshaped      = tf.reshape( preds_masked, [-1] + preds_masked.shape.as_list[ 2: ] )    #(timesteps, ... , samples)
+            #Combining the batch and seq_len dimensions into a timesteps dimension            
+            preds_reshaped      = tf.reshape( preds_masked,[-1] + preds_masked.shape.as_list()[ 2: ] )    #(timesteps, ... , samples)
             targets_reshaped    = tf.reshape( target_masked,[-1] + target_masked.shape.as_list()[ 2: ] ) #(timesteps, ...)
 
             self.li_predictions.append( preds_reshaped )
@@ -241,9 +227,10 @@ if __name__ == "__main__":
     #main(t_params(), m_params)
 
     test_tru_net = TestTrueNet(t_params(), m_params)
-
-    locations = m_params.get('location_test',None) if m_params.get('location_test',None) != None  else m_params.get('location') 
+    mts = m_params['model_type_settings']
+    locations = mts.get('location_test',None) if mts.get('location_test',None) != None  else mts.get('location') 
 
     for loc in locations:
-        test_tru_net.initialize_scheme_era5Eobs(location=loc)
+        test_tru_net.initialize_scheme_era5Eobs(location=[loc])
         test_tru_net.predict()
+        print(f"Completed Prediction for {loc}")

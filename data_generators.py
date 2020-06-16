@@ -1,7 +1,14 @@
+import os
+# os.environ["OMP_NUM_THREADS"] = "1" # export OMP_NUM_THREADS=1
+# os.environ["OPENBLAS_NUM_THREADS"] = "1" # export OPENBLAS_NUM_THREADS=1
+# os.environ["MKL_NUM_THREADS"] = "1" # export MKL_NUM_THREADS=1
+# os.environ["VECLIB_MAXIMUM_THREADS"] = "1" # export VECLIB_MAXIMUM_THREADS=1
+# os.environ["NUMEXPR_NUM_THREADS"] = "1" # export NUMEXPR_NUM_THREADS=1
+from netCDF4 import Dataset, num2date
+import xarray as xr
 import itertools as it
 from functools import partial
 import numpy as np
-from netCDF4 import Dataset, num2date
 import tensorflow as tf
 import pickle
 import glob
@@ -16,10 +23,17 @@ import json
     rr_ens file 
     _filename = "Data/Rain_Data/rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_djf_uk.nc"
     rain_gen = Generator_rain(_filename, all_at_once=True)
-    data = next(iter(grib_gen))
+    datum = next(iter(grib_gen))
 
 """
 class Generator():
+    """
+        Base class for Generator classes
+        Example of how to use:
+            fn = "Data/Rain_Data/rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_djf_uk.nc"
+            rain_gen = Generator_rain(fn, all_at_once=True)
+            datum = next(iter(grib_gen))
+    """
     
     def __init__(self, fp, all_at_once=False):
         """Extendable Class handling the generation of model field and rain data
@@ -56,10 +70,10 @@ class Generator():
             }
         
         #The longitude lattitude grid for the 0.1 degree E-obs and rainfall data
-        self.latitude_array = np.linspace(58.95,49.05, 100)
+        self.latitude_array = np.linspace(58.95, 49.05, 100)
         self.longitude_array = np.linspace(-10.95, 2.95, 140)
         
-        # Retrieving informaito on temporal length of dataset dataset        
+        # Retrieving information on temporal length of  dataset        
         with Dataset(self.fp, "r", format="NETCDF4") as ds:
             self.data_len = ds.dimensions['time'].size
         
@@ -76,7 +90,7 @@ class Generator():
             return self.yield_iter()
     
     def find_idxs_of_loc(self, loc="London"):
-        """Returns the indexes that on the 2D map which correspond to the location (loc)
+        """Returns the grid indexes on the 2D map of the UK which correspond to the location (loc) point
 
         Args:
             loc (str, optional): name of the location. Defaults to "London".
@@ -85,41 +99,41 @@ class Generator():
             tuple: Contains indexes (h1,w1) for the location (loc)
         """        
         coordinates = self.city_latlon[loc]
-        return self.find_nearest_latitude_longitude( coordinates)
+        indexes = self.find_nearest_latitude_longitude( coordinates)  # (1,1)
+        return indexes
 
     def find_idx_of_loc_region(self, loc, region_grid_params):
         """ Returns the the indexes defining gridded box that surrounds the location of interests
 
-        Raises:
-            ValueError: [If the location of interest is too close to the border for evaluation]
+            Raises:
+                ValueError: [If the location of interest is too close to the border for evaluation]
 
-        Returns:
-            tuple: Returns a tuple ( [upper_h, lower_h], [left_w, right_w] ), defining the grid box that 
-                surrounds the location (loc)
+            Returns:
+                tuple: Returns a tuple ( [upper_h, lower_h], [left_w, right_w] ), defining the grid box that 
+                    surrounds the location (loc)
         """
         
         city_idxs = self.find_idxs_of_loc(loc) #[h,w]
         
         # Checking that central region of interest is not too close to the border
-        bool_regioncheck1 = np.array(city_idxs) <  np.array(region_grid_params['outer_box_dims'] - region_grid_params['inner_box_dims'])
+        bool_regioncheck1 = np.array(city_idxs) <  np.array(region_grid_params['outer_box_dims']) - np.array(region_grid_params['inner_box_dims'])
         bool_regioncheck2 = np.array(region_grid_params['input_image_shape']) - np.array(city_idxs) < np.array(region_grid_params['inner_box_dims'])
         if bool_regioncheck1.any() or bool_regioncheck2.any(): raise ValueError("The specified region is too close to the border")
 
-        #Defining how far up to go from central location of grid
-            # Handling cases of outer_box_dims being odd or even
+        # Defining the span, in all directions, from the central region
         if( region_grid_params['outer_box_dims'][0]%2 == 0 ):
             h_up_span = region_grid_params['outer_box_dims'][0]//2 
-            h_down_span = region_grid_params['outer_box_dims'][0]//2 
+            h_down_span = h_up_span
         else:
             h_up_span = region_grid_params['outer_box_dims'][0]//2
             h_down_span = region_grid_params['outer_box_dims'][0]//2 + 1
 
-        if( region_grid_params['outer_box_dims'][0]%2 == 0 ):
-            w_left_span = region_grid_params['outer_box_dims'][0]//2 
-            w_right_span = region_grid_params['outer_box_dims'][0]//2 
+        if( region_grid_params['outer_box_dims'][1]%2 == 0 ):
+            w_left_span = region_grid_params['outer_box_dims'][1]//2 
+            w_right_span = w_left_span
         else:
-            w_left_span = region_grid_params['outer_box_dims'][0]//2
-            w_right_span = region_grid_params['outer_box_dims'][0]//2 + 1
+            w_left_span = region_grid_params['outer_box_dims'][1]//2
+            w_right_span = region_grid_params['outer_box_dims'][1]//2 + 1
         
         #Defining outer_boundaries
         upper_h = city_idxs[0] - h_up_span
@@ -148,7 +162,7 @@ class Generator():
     
     def get_locs_for_whole_map(self, region_grid_params):
         """This function returns a list of boundaries which can be used to extract all patches
-            from a map
+            from the 2D map
 
             Args:
                 region_grid_params (dictionary): a dictioary containing information on the sizes of 
@@ -210,7 +224,7 @@ class Generator_mf(Generator):
     """Creates a generator for the model_fields_dataset
     """
 
-    def __init__(self, vars_for_feature ,**generator_params):
+    def __init__(self, vars_for_feature, seq_len=100 ,**generator_params):
         """[summary]
 
         Args:
@@ -219,72 +233,121 @@ class Generator_mf(Generator):
         super(Generator_mf, self).__init__(**generator_params)
 
         self.vars_for_feature = vars_for_feature #['unknown_local_param_137_128', 'unknown_local_param_133_128', 'air_temperature', 'geopotential', 'x_wind', 'y_wind' ]       
-        
+        self.seq_len = seq_len*25
+        #self.ds = Dataset(self.fp, "r", format="NETCDF4")
+
+
     def yield_all(self):
         raise NotImplementedError
     
+    # def yield_iter(self):
+        #     """ Yield the data chunk by chunk
+        #     """
+        #     ds = Dataset(self.fp, "r", format="NETCDF4")
+            
+        #     for tuple_mfs in zip( *[ds.variables[var_name][:] for var_name in self.vars_for_feature] ):
+        #         # extracting masks and data for variables of interest
+        #         list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar) ) for _mar in tuple_mfs]
+        #         _data, _masks = list(zip(*list_datamask))
+        #         _masks = [ np.full(_data[0].shape, np.logical_not(_mask_val), dtype=bool) for _mask_val in _masks] 
+        #         stacked_data = np.stack(_data, axis=-1)
+        #         stacked_masks = np.stack(_masks, axis=-1)
+                
+        #         yield stacked_data[ 1:-2, 2:-2, :], stacked_masks[ 1:-2 , 2:-2, :] #(100,140,6) 
+    
+    # def yield_iter(self):
+        #     """ Yield the data chunk by chunk
+        #     """
+        #     self.ds = xr.open_dataset(self.fp, decode_times=False, autoclose=True, lock=False)
+        #     #ds = xr.open_dataset(self.fp, decode_times=False, lock=False)
+        #     #self.mf_iters = [ iter(self.ds[name]) for name in self.vars_for_feature ]
+        #     self.mf_iters = [ iter(self.ds[name].astype('float16',copy=False).to_masked_array()) for name in self.vars_for_feature ]
+        #     #self.mf_iters = [ iter(ds[name].astype('float16',copy=False).to_masked_array   ()) for name in self.vars_for_feature ]
+        #     #while True:
+        #     for idx in range(self.data_len):
+        #         #next_marray = [ next(_iter).to_masked_array() for _iter in self.mf_iters]
+        #         next_marray = [ next(_iter) for _iter in self.mf_iters]
+        #         #list_datamask = [(np.ma.getdata(_mar).astype('float16'), np.ma.getmask(_mar) ) for _mar in next_marray]
+        #         list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar) ) for _mar in next_marray]
+
+        #         _data, _masks = list(zip(*list_datamask))
+        #         _masks = [ np.logical_not(_mask_val) for _mask_val in _masks] 
+        #         #_masks = [ np.full(_data[0].shape, np.logical_not(_mask_val), dtype=bool) for _mask_val in _masks] 
+        #         stacked_data = np.stack(_data, axis=-1)
+        #         stacked_masks = np.stack(_masks, axis=-1)
+            
+    #         yield stacked_data[ 1:-2, 2:-2, :], stacked_masks[ 1:-2 , 2:-2, :] #(100,140,6) 
+    
     def yield_iter(self):
-        """ Yield the data chunk by chunk
-        """
-        ds = Dataset(self.fp, "r", format="NETCDF4")
+        xr_gn = xr.open_dataset(self.fp, cache=False, decode_times=False, decode_cf=False)
         
-        for tuple_mfs in zip( *[ds.variables[var_name][:] for var_name in self.vars_for_feature] ):
-            # extracting masks and data for variables of interest
-            list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar) ) for _mar in tuple_mfs]
+        #arr_idxs = np.arange(self.data_len)
+        idx = 0
+        
+        adj_seq_len = self.seq_len 
+        while idx + adj_seq_len < self.data_len:
+            #idxs = arr_idxs[idx:idx+self.seq_len] 
+            
+            #next_marray = [ xr_gn[name].isel(time=idxs).to_masked_array() for name in self.vars_for_feature ]
+            next_marray = [ xr_gn[name].isel(time=slice(idx, idx+adj_seq_len)).to_masked_array(copy=False) for name in self.vars_for_feature ]
+
+            
+            list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar) ) for _mar in next_marray]
+            
             _data, _masks = list(zip(*list_datamask))
-            _masks = [ np.full(_data[0].shape, np.logical_not(_mask_val), dtype=bool) for _mask_val in _masks] 
+            _masks = [ np.logical_not(_mask_val) for _mask_val in _masks] 
             stacked_data = np.stack(_data, axis=-1)
             stacked_masks = np.stack(_masks, axis=-1)
-            
-            yield stacked_data[ 1:-2, 2:-2, :], stacked_masks[ 1:-2 , 2:-2, :] #(100,140,6) 
+
+            yield stacked_data[ :, 1:-2, 2:-2, :], stacked_masks[ :, 1:-2 , 2:-2, :] #(100,140,6) 
+
+            idx += self.seq_len
+            adj_seq_len = min(self.seq_len, self.data_len - idx -1 )
 
     def __call__(self):
         return self.yield_iter()
 
 class Era5_Eobs():
-    """Produces Tensorflow Datasets for the ERA5 and E-obs dataset"""
-    def __init__(self, t_params, m_params): 
-                    # data_dir="./Data/Rain_Data_Nov19",
-                    # rain_fn="rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc",
-                    # mf_fn="ana_input_intrp_linear.nc"):
 
+    """Produces Tensorflow Datasets for the ERA5 and E-obs dataset
+    
+    """
+    def __init__(self, t_params, m_params): 
+        
         self.t_params = t_params
         self.m_params = m_params
 
         data_dir = self.t_params['data_dir']
 
+        # Create python generator for rain data
         fp_rain = data_dir+"/" + t_params.get('rain_fn',"rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc")
         self.rain_data = Generator_rain(fp=fp_rain, all_at_once=False)
 
-        mf_fp = data_dir + "/" + t_params('mf_fn', "ana_input_intrp_linear.nc")
-        self.mf_data = Generator_mf(fp=mf_fp, vars_for_feature=self.t_params['vars_for_feature'], all_at_once=False)
+        # Create python generator for model field data 
+        mf_fp = data_dir + "/" + t_params.get('mf_fn', "ana_input_intrp_linear.nc")
+        self.mf_data = Generator_mf(fp=mf_fp, vars_for_feature=self.t_params['vars_for_feature'], all_at_once=False, seq_len=self.t_params['lookback_feature'] )
 
+        # Update information on the locations of interest to extract data from
         self.location_size_calc()
 
-        
-    def location_size_calc(self, custom_location=None):
-        """[summary]
+    def location_size_calc(self, custom_location=None): 
+        """ Updates list of locations to evaluate on
 
-        Args:
-            custom_location (list optional): [description]. Defaults to None.
+            Args:
+                custom_location (list optional): A list of locations to evaluate on
         """        
         model_settings = self.m_params['model_type_settings']
+        
         if custom_location != None:
             self.li_loc = custom_location
-        elif model_settings.get('location_test', None) == None:
-            # If training use train locations
-            # If testing but no location_test passed, used training location
-            self.li_loc = model_settings['location']       
         else:
-            # Use test location specified
-            self.li_loc = model_settings.get['location_test']
+            self.li_loc = utility.location_getter(model_settings)
 
         self.loc_count = len( self.li_loc ) if \
                 self.li_loc != ["All"] else \
                     len( self.rain_data.get_locs_for_whole_map(self.m_params['region_grid_params']))
 
-
-    def load_data_era5eobs(self, batch_count, _num_parallel_calls=-1):
+    def load_data_era5eobs(self, batch_count, start_date,_num_parallel_calls=-1):
         """Produces Tensorflow Datasets for the ERA5 and E-obs dataset
 
             Args:
@@ -306,112 +369,138 @@ class Era5_Eobs():
         """    
         
         # Retreiving one index for each of the feature and target data. This index indicates the first value in the dataset to use
-        start_idx_feat, start_idx_tar = self.get_start_idx(self.t_params['test_start_date'])
+        start_idx_feat, start_idx_tar = self.get_start_idx(start_date)
         
+        # region - Preparing feature model fields        
+        ds_feat = tf.data.Dataset.from_generator( self.mf_data , output_types=(tf.float16, tf.bool)) #(values, mask) 
+        ds_feat = ds_feat.unbatch()
+        ds_feat = ds_feat.skip(start_idx_feat) # Skipping forward to the correct time
+        
+        ds_feat = ds_feat.window(size = self.t_params['lookback_feature'], stride=1, shift=self.t_params['lookback_feature'], drop_remainder=True )
+        ds_feat = ds_feat.flat_map( lambda *window: tf.data.Dataset.zip( tuple([w.batch(self.t_params['lookback_feature']) for w in window ] ) ) )  # shape (lookback,h, w, 6)
+        
+        ds_feat = ds_feat.map( lambda arr_data, arr_mask: self.mf_normalize_mask( arr_data, arr_mask), num_parallel_calls= _num_parallel_calls) 
+        # endregion
+
         # region - Preparing Eobs target_rain_data   
-        ds_tar = tf.data.Dataset.from_generator( self.rain_data, output_types=( tf.float32, tf.bool) ) #(values, mask) 
+        ds_tar = tf.data.Dataset.from_generator( self.rain_data, output_types=( tf.float32, tf.bool) ) # (values, mask) 
         ds_tar = ds_tar.skip(start_idx_tar)     #skipping to correct point
+
         ds_tar = ds_tar.window(size = self.t_params['lookback_target'], stride=1, shift=self.t_params['window_shift'] , drop_remainder=True )
-        ds_tar = ds_tar.flat_map( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(self.t_params['lookback_target']) for w in window ] ) ) ) #shape (lookback,h, w)
+        ds_tar = ds_tar.flat_map( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(self.t_params['lookback_target']) for w in window ] ) ) ) # shape (lookback,h, w)
         
         ds_tar = ds_tar.map( lambda _vals, _mask: self.mask_rain( _vals, _mask ), num_parallel_calls=_num_parallel_calls ) # (values, mask)
         # endregion
 
-        # region - Preparing feature model fields        
-        ds_feat = tf.data.Dataset.from_generator( self.mf_data , output_types=( tf.float32, tf.bool)) #(values, mask) 
-        ds_feat = ds_feat.skip(start_idx_feat) #Skipping forward to the correct time
-        
-        # creating the windows of temporal data shape 
-        ds_feat = ds_feat.window(size = self.t_params['lookback_feature'], stride=1, shift=self.t_params['lookback_feature'], drop_remainder=True )
-        ds_feat = ds_feat.flat_map( lambda *window: tf.data.Dataset.zip( tuple([w.batch(self.t_params['lookback_feature']) for w in window ] ) ) )  #shape (lookback,h, w, 6)
-        
-        ds_feat = ds_feat.map( lambda arr_data, arr_mask: self.mf_normalization_mask( arr_data, arr_mask), num_parallel_calls= _num_parallel_calls) #_num_parallel_calls  )
-        # endregion
-
+        # Combining datasets
         ds = tf.data.Dataset.zip( (ds_feat, ds_tar) ) #( model_fields, (rain, rain_mask) ) 
         
-
-
         ds, idx_loc_in_region = self.location_extractor( ds, self.li_loc)
-        
-        ds = ds.prefetch(3)
+        ds = ds.prefetch(1)
         
         return ds.take(batch_count), idx_loc_in_region
 
-    def get_start_idx( self, start_date ):
-            """
-                :param start_date: a numpy datetime object
-            """
-            feature_start_date = self.t_params['feature_start_date']
-            target_start_date = self.t_params['target_start_date']
+    def get_start_idx(self, start_date):
+        """ Returns two indexes
+                The first index is the idx at which to start extracting data from the feature dataset
+                The second index is the idx at which to start extracting data from the target dataset
+            Args:
+                start_date (np.datetime64): Start date for evaluation
+            Returns:
+                tuple (int, int): starting index for the feature, starting index for the target data
+        """        
 
-            feat_days_diff = ( np.timedelta64(start_date - feature_start_date,'6h') ).astype(int)
-            tar_days_diff = ( np.timedelta64(start_date - target_start_date, 'D') ).astype(int)
+        feature_start_date = self.t_params['feature_start_date']
+        target_start_date = self.t_params['target_start_date']
 
-            feat_start_idx = feat_days_diff #since the feature comes in four hour chunks
-            tar_start_idx = tar_days_diff 
+        feat_days_diff = np.timedelta64(start_date - feature_start_date,'6h').astype(int)
+        tar_days_diff = np.timedelta64(start_date - target_start_date, 'D').astype(int)
 
-            return feat_start_idx, tar_start_idx
+        feat_start_idx = feat_days_diff #since the feature comes in four hour chunks
+        tar_start_idx = tar_days_diff 
+
+        return feat_start_idx, tar_start_idx
     
     def mask_rain(self, arr_rain, arr_mask):
         """Mask rain by applying fill_value to masked points
 
-        Args:
-            arr_rain (tensor): rain_values
-            arr_mask (tesor): rain_mask
-            
-        Returns:
-            tuple: Tuple containing masked rain and the mask values
+            Args:
+                arr_rain (tensor): rain_values
+                arr_mask (tesor): rain_mask
+                
+            Returns:
+                tuple: Tuple containing masked rain and the mask values
         """            
     
         arr_rain = tf.where( arr_mask, arr_rain, self.t_params['mask_fill_value']['rain'] )
 
         return arr_rain, arr_mask
 
-    def mf_normalization_mask(self, arr_data, arr_mask):
-        """Normalizes and Mask the model field data
+    def mf_normalize_mask(self, arr_data, arr_mask):
+        """Normalize and Mask the model field data
 
-        Args:
-            arr_data (tensor): model field data as tensor
+            Args:
+                arr_data (tensor): model field data as tensor
+                arr_mask (tesor): rain_mask
 
-        Returns:
-            tensor: Masked and normalized model field data
+            Returns:
+                tensor: Masked and normalized model field data
         """
+
         arr_data = tf.subtract( arr_data, self.t_params['normalization_scales']['model_fields'])    #shift
         arr_data = tf.divide( arr_data, self.t_params['normalization_shift']['model_fields'])       #divide
         arr_data = tf.where( arr_mask, arr_data, self.t_params['mask_fill_value']['model_field'])
-        return arr_data # (h,w,c)
+        return arr_data #(h,w,c)
 
     def location_extractor(self, ds, locations):
-        """Returns locations 
+        """Extracts the temporal slice of patches corresponding to the locations of interest 
 
-        Args:
-            ds (tf.Data.dataset): dataset containing data for all the locs
-            locations (list): list of locations to train data on 
+                Args:
+                    ds (tf.Data.dataset): dataset containing temporal slices of the regions surrounding the locations of interest
+                    locations (list): list of locations (strings) to extract
 
-        Returns:
-            tuple: tuple containing dataset and [h,w] of indexes of the central region
+                Returns:
+                    tuple: (tf.data.Dataset, [int, int] ) tuple containing dataset and [h,w] of indexes of the central region
         """        
         
-        #Test/Train on the locations in locations
+        
         if locations == ["All"]:
             locations = self.rain_data.get_locs_for_whole_map( self.m_params['region_grid_params'] ) #[ ([upper_h, lower_h]. [left_w, right_w]), ... ]
         
-        ds = ds.map( lambda mf, rain_mask: tuple( [mf, rain_mask[0], rain_mask[1]] ) )   
-        li_hw_idxs = [ self.rain_data.find_idx_of_loc_region( _loc, self.m_params['region_grid_params'] ) for _loc in locations ] #[ (h_idx,w_idx) ]
-        li_ds = [ ds.map( lambda mf, rain, rmask : self.select_region( mf, rain, rmask, _idx[0], _idx[1]) , num_parallel_calls=-1 ) for _idx in li_hw_idxs ]
+        ds = ds.map( lambda mf, rain_mask: tuple( [mf, rain_mask[0], rain_mask[1]] ), num_parallel_calls=-1)   
         
+        # list of central h,w indexes from which to extract the region around
+        li_hw_idxs = [ self.rain_data.find_idx_of_loc_region( _loc, self.m_params['region_grid_params'] ) for _loc in locations ] #[ (h_idx,w_idx), ... ]
+        
+        # Creating seperate datasets for each location
+        li_ds = [ ds.map( lambda mf, rain, rmask : self.select_region( mf, rain, rmask, _idx[0], _idx[1]), num_parallel_calls=-1) for _idx in li_hw_idxs ]
+        
+        # Concatenating all datasets for each location
         for idx in range(len(li_ds)):
-            li_ds[idx] = li_ds[idx].unbatch().batch( self.t_params['batch_size'],drop_remainder=True )
+            li_ds[idx] = li_ds[idx].unbatch().batch( self.t_params['batch_size'], drop_remainder=True )
             if idx==0:
                 ds = li_ds[0]
             else:
                 ds = ds.concatenate( li_ds[idx] )
         
+        # pair of indexes locating the central location within the grid region extracted for any location
         idx_loc_in_region = np.floor_divide( self.m_params['region_grid_params']['outer_box_dims'], 2)  #This specifies the index of the central location of interest within the (h,w) patch    
         return ds, idx_loc_in_region
         
     def select_region(self, mf, rain, rain_mask, h_idxs, w_idxs ):
+        """ Extract the 1D specific point location relating to a [h_idxs, w_idxs] pair
+
+            Args:
+                mf : model field data
+                rain : target rain data
+                rain_mask : target rain mask
+                h_idxs : int
+                w_idxs : int
+
+            Returns:
+                tf.data.Dataset: 
+        """
+
         """
             idx_h,idx_w: refer to the top left right index for the square region of interest this includes the region which is removed after cropping to calculate the loss during train step
         """
@@ -420,4 +509,4 @@ class Era5_Eobs():
         rain_mask = rain_mask[ :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
         return tf.expand_dims(mf,axis=0), tf.expand_dims(rain,axis=0), tf.expand_dims(rain_mask,axis=0) #Note: expand_dim for unbatch/batch compatibility
 
-    #endregion
+    

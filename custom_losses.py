@@ -49,27 +49,14 @@ def cond_rain(vals, probs):
     vals = vals* round_probs
     return vals
 
-# Stochastic loss, use kl loss in later training steps
-def kl_loss_weighting_scheme( max_batch, curr_batch, var_model_type="dropout" ):
-
-    if var_model_type in ["flipout"]:
-        idx = max_batch-curr_batch+1
-        weight = 1/(2**idx)
-    else:
-        weight = (1/max_batch)
-        
-    return weight*(1/10)
-
-#TODO(akann-ade): let trainTruNet and testTruNet extend a common class, which contains this function
 def central_region_bounds(region_grid_params ):
     """Returns the indexes defining the boundaries for the central regions for evaluation
 
     Args:
-        region ([type]): [description]
-        region_grid_params ([type]): [description]
+        region_grid_params (dict): information on formualation of the patches used in this ds 
 
     Returns:
-        [type]: [description]
+        list: defines the vertices of the patch for extraction
     """    
 
     central_hw_point = np.array(region_grid_params['outer_box_dims'])//2
@@ -83,19 +70,17 @@ def central_region_bounds(region_grid_params ):
 
 def extract_central_region(tensor, bounds):
     """
-
-    Args:
-        tensor ([type]): [description]
-        bounds ([type]): [description]
+        Args:
+            tensor ([type]): 4d or 5d tensor
+            bounds ([type]): bounds defining the vertices of the patch to be extracted for evaluation
     """
-
     tensor = tensor[ :, :, bounds[0]:bounds[1],bounds[2]:bounds[3]  ]    
-    
     return tensor
 
 def water_mask( tensor, mask):
-
-    mask = tf.broadcast_to( mask, tensor.shape )
+    """Mask out values in tensor by with mask value=0.0
+    """
+    #mask = tf.broadcast_to( mask, tensor.shape )
 
     tensor = tf.where(mask, tensor, 0.0)
 
