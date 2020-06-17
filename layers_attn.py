@@ -157,8 +157,9 @@ class MultiHead2DAttention_v2(Layer):
         
         if self.transform_output == True:
             #model vairant - convolution operation of value output
-            #self.dense_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **output_conv) ) 
-            self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **output_conv) ) 
+            self.dense_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **output_conv) ) 
+            self.conv_output = self.dense_output
+            #self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **output_conv) ) 
 
         #Maximum relative attention
         if( self.max_relative_position==None ):

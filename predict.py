@@ -150,17 +150,17 @@ class TestTrueNet():
                 preds = tf.expand_dims(preds, axis=-1 )     #(bs, seq_len, h, w, 1)
 
                 #Extracting central region of interest
-                if self.era5_eobs.li_loc[0] in self.era5_eobs.rain_data.city_latlon.keys():                                    
+                if self.era5_eobs.li_loc == ["All"] or self.t_params['t_settings'].get('region_pred',False) == True :
+                    # For all we evaluate whole central regions not just the central location
+                    preds   = cl.extract_central_region(preds, bounds)
+                    mask    = cl.extract_central_region(mask, bounds)
+                    target  = cl.extract_central_region(target, bounds)      
+                                               #(bs, seq_len, h1, w1, 1)   
+                elif self.era5_eobs.li_loc[0] in self.era5_eobs.rain_data.city_latlon.keys():                                    
                     preds   = preds[:, :, self.idxs_loc_in_region[0], self.idxs_loc_in_region[1],: ]
                     mask    = mask[ :, :, self.idxs_loc_in_region[0], self.idxs_loc_in_region[1]]
                     target  = target[ :, :, self.idxs_loc_in_region[0], self.idxs_loc_in_region[1]]     #(bs, seq_len, 1)
                 
-                elif self.era5_eobs.li_loc == ["All"]:
-                    # For all we evaluate whole central regions not just the central location
-                    preds   = cl.extract_central_region(preds, bounds)
-                    mask    = cl.extract_central_region(mask, bounds)
-                    target  = cl.extract_central_region(target, bounds)                                 #(bs, seq_len, h1, w1, 1)              
-
             elif self.m_params['model_type_settings']['stochastic'] == True:
                 li_preds = self.model.predict( feature, self.m_params['model_type_settings']['stochastic_f_pass'], True )
                 preds = tf.concat(li_preds, axis=-1) #(bs,ts,h,w,samples) or #(2, bs,ts,h,w,samples)
@@ -172,17 +172,17 @@ class TestTrueNet():
                         # rain thresholding
 
                 # cropping
-                if self.era5_eobs.li_loc[0] in self.era5_eobs.rain_data.city_latlon.keys():                                        
-                    preds   = preds[:, :, self.idxs_loc_in_region[0], self.idxs_loc_in_region[1],: ]
-                    mask    = mask[ :, :, self.idxs_loc_in_region[0], self.idxs_loc_in_region[1]]
-                    target  = target[ :, :, self.idxs_loc_in_region[0], self.idxs_loc_in_region[1]]     #(bs, seq_len, sample_size)
-                
-                elif self.era5_eobs.li_loc == ["All"]:
+                if self.era5_eobs.li_loc == ["All"] or self.t_params['t_settings'].get('region_pred',False) == True :
                     #For all we evaluate whole central regions not just the central location
                     preds   = cl.extract_central_region(preds, bounds)              #(bs, seq_len, h1, w1 ,sample_size)
                     mask    = cl.extract_central_region(mask, bounds)
                     target  = cl.extract_central_region(target, bounds)             #(bs, seq_len, h1, w1)
 
+                elif self.t_params['t_settings'].get('region_pred',False) == False: #self.era5_eobs.li_loc[0] in self.era5_eobs.rain_data.city_latlon.keys():                                        
+                    preds   = preds[:, :, self.idxs_loc_in_region[0], self.idxs_loc_in_region[1],: ]
+                    mask    = mask[ :, :, self.idxs_loc_in_region[0], self.idxs_loc_in_region[1]]
+                    target  = target[ :, :, self.idxs_loc_in_region[0], self.idxs_loc_in_region[1]]     #(bs, seq_len, sample_size)
+                
             # standardize
             preds_std = utility.standardize_ati(preds, self.t_params['normalization_shift']['rain'], self.t_params['normalization_scales']['rain'], reverse=True) #(bs, seq_len ,samples) or (bs, seq_len, h, w ,samples)
 
@@ -222,11 +222,11 @@ if __name__ == "__main__":
     
     args_dict = utility.parse_arguments(s_dir)
 
-    t_params, m_params = utility.load_params_test_model(args_dict)  
+    t_params, m_params = utility.load_params(args_dict,"test")  
     
     #main(t_params(), m_params)
 
-    test_tru_net = TestTrueNet(t_params(), m_params)
+    test_tru_net = TestTrueNet(t_params, m_params)
     mts = m_params['model_type_settings']
     locations = mts.get('location_test',None) if mts.get('location_test',None) != None  else mts.get('location') 
 

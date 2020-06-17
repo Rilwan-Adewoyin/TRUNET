@@ -103,61 +103,35 @@ def get_script_directory(_path):
     else:
         return os.path.dirname(_path)
 
-def load_params_train_model(args_dict):
+def load_params(args_dict, train_test="train"):
     """Returns t_params and m_params for specific models
     
         Returns:
             [tuple(dict,dict)]: t_params and m_params
     """    
-    if(args_dict['model_name'] == "THST"):
-        
-        init_m_params = {}
-        init_m_params.update( {'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
-        m_params = hparameters.model_THST_hparameters( **init_m_params, **args_dict )()
-        init_t_params = {}
-        init_t_params.update( { 'lookback_target': m_params['data_pipeline_params']['lookback_target'] } )
-        init_t_params.update( { 'lookback_feature': m_params['data_pipeline_params']['lookback_feature']})
-        t_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
-    
-    elif(args_dict['model_name']=="SimpleConvGRU"):
-        init_m_params = {}
-        init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
-        m_params = hparameters.model_SimpleConvGRU_hparamaters(**init_m_params, **args_dict)()
-        init_t_params = {}
-        init_t_params.update( { 'lookback_target': m_params['data_pipeline_params']['lookback_target'] } )
-        init_t_params.update( { 'lookback_feature': m_params['data_pipeline_params']['lookback_feature']})
-        
-        t_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
+    init_m_params = {}
+    init_t_params = {}
 
+    init_m_params.update( {'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
+    init_t_params.update( {'t_settings': ast.literal_eval( args_dict.pop('t_settings') ) } )
+
+    if(args_dict['model_name'] == "THST"):
+        m_params = hparameters.model_THST_hparameters( **init_m_params, **args_dict )()
+    elif(args_dict['model_name']=="SimpleConvGRU"):
+        m_params = hparameters.model_SimpleConvGRU_hparamaters(**init_m_params, **args_dict)()
+
+    init_t_params.update( { 'lookback_target': m_params['data_pipeline_params']['lookback_target'] } )
+    init_t_params.update( { 'lookback_feature': m_params['data_pipeline_params']['lookback_feature']})
+    
+    if train_test == "train":
+        t_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
+    else:
+        t_params = hparameters.test_hparameters_ati( **{ **args_dict, **init_t_params} )
+        
     save_model_settings( m_params, t_params() )
 
     return t_params(), m_params
 
-def load_params_test_model(args_dict):
-
-    if(args_dict['model_name'] == "THST"):
-        
-        init_m_params = {}
-        init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
-        m_params = hparameters.model_THST_hparameters(**init_m_params, **args_dict )()
-        init_t_params = {}
-        init_t_params.update( { 'lookback_target': m_params['data_pipeline_params']['lookback_target'] } )
-        init_t_params.update( { 'lookback_feature': m_params['data_pipeline_params']['lookback_feature']})
-        t_params = hparameters.test_hparameters_ati( **{ **args_dict, **init_t_params} )  
-
-    elif(args_dict['model_name']=="SimpleConvGRU"):
-        init_m_params = {}
-        init_m_params.update({'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
-        m_params = hparameters.model_SimpleConvGRU_hparamaters(**init_m_params, **args_dict)()
-        init_t_params = {}
-        init_t_params.update( { 'lookback_target': m_params['data_pipeline_params']['lookback_target'] } )
-        init_t_params.update( { 'lookback_feature': m_params['data_pipeline_params']['lookback_feature']})
-        
-        t_params = hparameters.test_hparameters_ati( **{ **args_dict, **init_t_params} )
-
-    save_model_settings( m_params, t_params() )
-
-    return t_params, m_params
 
 def parse_arguments(s_dir=None):
     """ Set up argument parser"""
@@ -197,6 +171,12 @@ def parse_arguments(s_dir=None):
     parser.add_argument('-fyi_train','--fyi_train',type=int, required=False, default=argparse.SUPPRESS )
 
     parser.add_argument('-fyi_test','--fyi_test',type=int, required=False, default=argparse.SUPPRESS )
+
+    # parser.add_argument('-reg_', '--region_pred', type=bool, default=argparse.SUPPRESS )
+
+    # parser.add_argument('-mcp','--model_ckpt_path',type=str,  default=argparse.SUPPRESS  )
+
+    parser.add_argument('-ts','--t_settings',type=str, help="dictioary of custom settings for training/testing", required=False, default='{}')
     
     args_dict = vars(parser.parse_args() )
 

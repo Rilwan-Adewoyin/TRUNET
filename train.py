@@ -511,7 +511,7 @@ if __name__ == "__main__":
     args_dict = utility.parse_arguments(s_dir)
 
     # get training and model params
-    t_params, m_params = utility.load_params_train_model(args_dict)
+    t_params, m_params = utility.load_params(args_dict)
     
     # Initialize and  train model
     train_tru_net = TrainTruNet(t_params, m_params)

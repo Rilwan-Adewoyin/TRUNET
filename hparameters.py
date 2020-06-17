@@ -422,8 +422,7 @@ class test_hparameters_ati(HParams):
         self.batch_size = kwargs.get("batch_size",2)
         
         self.dd = kwargs.get('data_dir')
-        
-        self.custom_test_split_method = kwargs.get('ctsm')
+        self.custom_test_split_method = kwargs.get('ctsm_test')
         
         if self.custom_test_split_method == "4ds_10years":
             self.four_year_idx_train = kwargs['fyi_train'] #index for training set

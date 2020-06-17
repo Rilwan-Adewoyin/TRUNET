@@ -234,6 +234,7 @@ class Generator_mf(Generator):
 
         self.vars_for_feature = vars_for_feature #['unknown_local_param_137_128', 'unknown_local_param_133_128', 'air_temperature', 'geopotential', 'x_wind', 'y_wind' ]       
         self.seq_len = seq_len*25
+        self.start_idx = 0
         #self.ds = Dataset(self.fp, "r", format="NETCDF4")
 
 
@@ -285,11 +286,11 @@ class Generator_mf(Generator):
         idx = 0
         
         adj_seq_len = self.seq_len 
-        while idx + adj_seq_len < self.data_len:
+        while idx < self.data_len:
             #idxs = arr_idxs[idx:idx+self.seq_len] 
             
             #next_marray = [ xr_gn[name].isel(time=idxs).to_masked_array() for name in self.vars_for_feature ]
-            next_marray = [ xr_gn[name].isel(time=slice(idx, idx+adj_seq_len)).to_masked_array(copy=False) for name in self.vars_for_feature ]
+            next_marray = [ xr_gn[name].isel(time=slice(idx + self.start_idx, idx+self.start_idx+adj_seq_len)).to_masked_array(copy=False) for name in self.vars_for_feature ]
 
             
             list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar) ) for _mar in next_marray]
@@ -370,11 +371,11 @@ class Era5_Eobs():
         
         # Retreiving one index for each of the feature and target data. This index indicates the first value in the dataset to use
         start_idx_feat, start_idx_tar = self.get_start_idx(start_date)
-        
+        self.mf_data.start_idx = start_idx_feat
         # region - Preparing feature model fields        
         ds_feat = tf.data.Dataset.from_generator( self.mf_data , output_types=(tf.float16, tf.bool)) #(values, mask) 
         ds_feat = ds_feat.unbatch()
-        ds_feat = ds_feat.skip(start_idx_feat) # Skipping forward to the correct time
+        #ds_feat = ds_feat.skip(start_idx_feat) # Skipping forward to the correct time
         
         ds_feat = ds_feat.window(size = self.t_params['lookback_feature'], stride=1, shift=self.t_params['lookback_feature'], drop_remainder=True )
         ds_feat = ds_feat.flat_map( lambda *window: tf.data.Dataset.zip( tuple([w.batch(self.t_params['lookback_feature']) for w in window ] ) ) )  # shape (lookback,h, w, 6)

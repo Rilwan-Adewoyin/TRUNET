@@ -32,7 +32,11 @@ def load_model(t_params, m_params):
     ckpt = tf.train.Checkpoint(model=model)
 
     #Best checkpoint by lowest validation loss
-    df_checkpoint_scores = pd.read_csv( t_params['script_dir']+'/checkpoints/{}/checkpoint_scores.csv'.format(utility.model_name_mkr(m_params, train_test="train", t_params=t_params )), header=0 ) #Give the train_test param a better name
+    if t_params['t_settings'].get('model_ckpt_path',False) == False:
+        df_checkpoint_scores = pd.read_csv( t_params['script_dir']+'/checkpoints/{}/checkpoint_scores.csv'.format(utility.model_name_mkr(m_params, train_test="train", t_params=t_params )), header=0 ) #Give the train_test param a better name
+    else:
+        df_checkpoint_scores = pd.read_csv( t_params['t_settings']['model_ckpt_path'] + "/checkpoint_scores.csv", header=0 )
+
     best_checkpoint_path = df_checkpoint_scores['Checkpoint_Path'][0]
     checkpoint_code = "E"+str(df_checkpoint_scores['Epoch'][0])
     status = ckpt.restore( best_checkpoint_path ).assert_existing_objects_matched() #.expect_partial()
@@ -63,17 +67,19 @@ def save_preds( t_params, m_params, li_preds, li_timestamps, li_truevalues, prec
     
     elif type( t_params['ctsm_test'] ) == str:
         _path_pred = t_params['output_dir'] + "/{}/Predictions".format(utility.model_name_mkr(m_params, train_test="test", t_params=t_params, custom_test_loc=custom_test_loc))
-
     
-    fn = str(li_timestamps[0][0]) + "___" + str(li_timestamps[-1][-1]) + ".dat"
+    fn = np.datetime_as_string(np.datetime64(li_timestamps[0][0],'s'),'D') + "__" + np.datetime_as_string(np.datetime64(li_timestamps[-1][-1],'s'),'D')
+
+    if t_params['t_settings'].get('region_pred', False) == True:
+        fn += "_regional"
+    fn += ".dat"
 
     if(not os.path.exists(_path_pred) ):
         os.makedirs(_path_pred)
-    
-    
+        
     li_preds = [ tnsr.numpy() for tnsr in li_preds   ] #list of preds: (tss, samples ) or (tss, h, w, samples )
 
-    if custom_test_loc in ["All"]:
+    if custom_test_loc in ["All"] or t_params['t_settings'].get('region_pred', False)==True:
         li_truevalues = [ tens.numpy() for tens in li_truevalues]                   #2D - (tss, h, w)
     else:
         li_truevalues = [ tens.numpy().reshape([-1]) for tens in li_truevalues]     #list of 1D - (preds ) 
