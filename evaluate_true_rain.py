@@ -1,30 +1,33 @@
-import pygrib
-import numpy as np
-import netCDF4
-from netCDF4 import Dataset, num2date
 import argparse
-import pandas as pd
-import pickle
-import matplotlib.pyplot as plt
-import os
-import matplotlib.ticker as plticker
-import matplotlib.dates as mdates
+import ast
 import datetime as dt
+import os
+import pickle
 import warnings
+
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+import matplotlib.ticker as plticker
+import netCDF4
+import numpy as np
+import pandas as pd
+import pygrib
+from netCDF4 import Dataset, num2date
+
 warnings.filterwarnings("ignore")
 
 """Example of how to use
 
-For Evaluation of IFS predictive scores between the periods 1987-10-20 till 1989-11-20, for the single point representing region Cardiff:
-    python3 ifspreds_rmse.py -dd "." -sd "1987-10-20" -ed "1989-11-20" -lo "Cardiff" -mth 3
+    For Evaluation of IFS predictive scores between the periods 1987-10-20 till 1989-11-20, for the single points representing region Cardiff and London:
+        python3 ifspreds_rmse.py -dd "." -sd "1987-10-20" -ed "1989-11-20" -lo ["Cardiff","London] -mth 3
 
 
-For Evaluation of IFS predictive scores between the periods 1988-10-20 till 2000-11-20, for the whole UK:
-    python3 ifspreds_rmse.py -dd "." -sd "1988-10-20" -ed "2000-11-20" -lo "All" -mth 3
+    For Evaluation of IFS predictive scores between the periods 1988-10-20 till 2000-11-20, for the whole UK:
+        python3 ifspreds_rmse.py -dd "." -sd "1988-10-20" -ed "2000-11-20" -lo ["All"] -mth 3
 
-For infomration on the True rainfall statistics for London between the periods 2008-01-20 till 2015-11-20
-    python3 ifspreds_rmse.py -dd "." -sd "2008-01-20" -ed "2015-11-20" -lo "London" -mth 3 -rfs True
-    -This returns information such as Average Rainfall, Percentage of R10 Events and Average rainfall given an R10 event occurs.
+    For infomration on the True rainfall statistics for London between the periods 2008-01-20 till 2015-11-20
+        python3 ifspreds_rmse.py -dd "." -sd "2008-01-20" -ed "2015-11-20" -lo "London" -mth 3 -rfs True
+        -This returns information such as Average Rainfall, Percentage of R10 Events and Average rainfall given an R10 event occurs.
 
 """
 
@@ -54,9 +57,15 @@ def main(date_start_str, date_end_str, location, data_dir="./", rain_fall_stats=
     #Save the extracted IFS prediction, true rainfall for optional Visualization using Visualization.ipynb
         #Also some unecessary name variable changes - will be cleaned
     preds = ifs_preds
-    true_rain = true_rain 
+    true_rain = true_rain
+    f_dir = "./Output/ERA5/preds/"
+    fn = "{}_{}_{}_pred_true.dat".format(location, date_start_str, date_end_str)
+    fp = f_dir+fn
+    if not os.path.isdir(f_dir):
+        os.makedirs( f_dir, exist_ok=True  )
+
     pickle.dump( [np.array(timestamp_epochs), np.array(preds) , np.array(true_rain) ], 
-        open(data_dir+"/IFS_precip_preds/preds/{}_{}_pred_true.dat".format(date_start_str, date_end_str),"wb")  )
+        open(fp,"wb")  )
 
     #Create a Plot of IFS predictions against True Rain values, for a quick check if I have aligned the IFS prediction and True rain correctly
     if location != "All":
@@ -73,7 +82,12 @@ def main(date_start_str, date_end_str, location, data_dir="./", rain_fall_stats=
         r10_rmse = r10rmse_aggregate(ifs_preds, true_rain )
         _dataframe = pd.DataFrame( {'RMSE':[rmse],"R10_RMSE":[r10_rmse] } )
         #Saved scores to file in scores sub-directory
-        _dataframe.to_csv( data_dir+"/IFS_precip_preds/scores/{}till{}_scores.csv".format(date_start_str, date_end_str), index=False)
+        f_dir = "./Output/ERA5/scores/"
+        fn = "{}_{}till{}_scores.csv".format(location,date_start_str, date_end_str)
+        fp = f_dir+fn
+        if not os.path.isdir(f_dir):
+            os.makedirs( fp, exist_ok=True  )
+        _dataframe.to_csv( fp, index=False)
         print(_dataframe)
     else:
         #Rainfall statistics of an area.
@@ -86,12 +100,12 @@ def main(date_start_str, date_end_str, location, data_dir="./", rain_fall_stats=
 
     return True
     
-def ifs_pred_extractor( data_dir, target_start_date, target_end_date, location="London", method=2 ):
+def ifs_pred_extractor( data_dir, target_start_date, target_end_date, location="London", method=3 ):
     """
         This method extracts the IFS data from file. And performs any grouping/preproc neccesary. 
     """
-    ifs_fn =data_dir + "/IFS_precip_preds/ana_tp_1234.grib" 
-    
+    ifs_fn = data_dir + "/IFS_precip_preds/ana_tp_1234.grib"
+
     #Depracated: This was the method I used for the initial IFS Dataset Peter D. sent I have annotated it
     if method == 1:
         #rsCheck Date
@@ -278,8 +292,8 @@ def plot_ifs_preds( ifs_preds, true_val, date_start, date_end, data_dir,loc):
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     ax.xaxis.set_major_locator(mdates.AutoDateLocator(maxticks=20) )
             
-    img_dir = data_dir + "/IFS_precip_preds/Images"
-    fn_name = "all_predictions_{}_{}_{}.png".format(loc,ts_formated[0], ts_formated [-1])
+    img_dir = "./Output/ERA5/preds/Illustrations"
+    fn_name = "{}_{}_{}.png".format(loc,ts_formated[0], ts_formated [-1])
     if not os.path.exists(img_dir):
         os.makedirs(img_dir)
         
@@ -301,19 +315,22 @@ def r10rmse_aggregate(preds_mean ,true_vals, N=10):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Receive input params")
 
-    parser.add_argument('-dd','--data_dir', type=str, help='the directory for the Data', required=True)
+    parser.add_argument('-dd','--data_dir', type=str, help='the directory for the Data', required=False, default="./Data/")
     
     parser.add_argument('-sd','--date_start_str', type=str, required=True)
 
     parser.add_argument('-ed','--date_end_str', type=str, required=False, default='2019-07-31')
 
-    parser.add_argument('-lo','--location', type=str, required=True, default="London")
+    parser.add_argument('-lo','--location', type=str, required=True, default="[London]", help="List of locations to evaluation on")
     
     parser.add_argument('-rfs','--rain_fall_stats', type=bool, required=False, default=False, help="Pass True to return statistics on the true rainfall of an for the areas of interest")
 
-    parser.add_argument('-mth','--method', type=int,required=True, default=1)
+    parser.add_argument('-mth','--method', type=int,required=False, default=3)
 
     args_dict = vars(parser.parse_args() )
 
-    main( **args_dict )
-
+    li_loc = ast.literal_eval( args_dict.pop('location') )
+    for loc in li_loc:
+        print(f"Evaluating {loc}")
+        main( location=loc, **args_dict )
+        print("\n")
