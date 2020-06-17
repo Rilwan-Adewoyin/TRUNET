@@ -184,6 +184,7 @@ class TrainTruNet():
         
         # caching dataset to file post pre-processing steps have been completed 
         cache_suffix = utility.cache_suffix_mkr( m_params, self.t_params )
+        os.makedirs( './Data/data_cache/', exist_ok=True  )
         ds_train = ds_train.cache('Data/data_cache/train'+cache_suffix ) 
         ds_val = ds_val.cache('Data/data_cache/val'+cache_suffix )
         
