@@ -367,9 +367,9 @@ class train_hparameters_ati(HParams):
 
             dates_str = self.custom_train_split_method.split("_")
             start_date = np.datetime64(dates_str[0],'D')
-            train_end_date = (pd.Timestamp(dates_str[1]) + pd.DateOffset(seconds=-1) ).to_numpy()
+            train_end_date = (pd.Timestamp(dates_str[1]) - pd.DateOffset(seconds=1) ).to_numpy()
             val_start_date = np.datetime64(dates_str[2],'D')
-            val_end_date = (pd.Timestamp(dates_str[3]) + pd.DateOffset(seconds=-1) ).to_numpy()
+            val_end_date = (pd.Timestamp(dates_str[3]) - pd.DateOffset(seconds=1) ).to_numpy()
             
             TRAIN_SET_SIZE_ELEMENTS = ( np.timedelta64(train_end_date - start_date,'D')  // WINDOW_SHIFT  ).astype(int) 
             VAL_SET_SIZE_ELEMENTS   = ( np.timedelta64(val_end_date - val_start_date,'D')  // WINDOW_SHIFT  ).astype(int)               
@@ -528,7 +528,7 @@ class test_hparameters_ati(HParams):
                 # 1985_2005, or 1985-02-04_2005_11_20
             dates_str = self.custom_test_split_method.split("_")
             start_date = np.datetime64(dates_str[0],'D')
-            test_end_date = (pd.Timestamp(dates_str[1]) + pd.DateOffset(seconds=-1) ).to_numpy()
+            test_end_date = (pd.Timestamp(dates_str[1]) - pd.DateOffset(seconds=1) ).to_numpy()
             
             TEST_SET_SIZE_DAYS_TARGET = np.timedelta64( test_end_date - start_date, 'D' ).astype(int)
 
