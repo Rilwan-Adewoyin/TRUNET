@@ -21,8 +21,8 @@ def load_model(t_params, m_params):
     model = None
     model_name = m_params['model_name']
 
-    if(model_name=="THST"):
-        model = models.THST(t_params, m_params)
+    if(model_name=="TRUNET"):
+        model = models.TRUNET(t_params, m_params)
     elif(model_name=="SimpleConvGRU"):
         model = models.SimpleConvGRU(t_params,m_params)
     inp_shape = [t_params['batch_size'], t_params['lookback_feature']] + m_params['region_grid_params']['outer_box_dims'] + [len(t_params['vars_for_feature'])]

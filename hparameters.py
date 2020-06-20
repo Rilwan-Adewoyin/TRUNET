@@ -58,7 +58,7 @@ class MParams(HParams):
         horizontal_slides = (self.params['region_grid_params']['input_image_shape'][1] - self.params['region_grid_params']['outer_box_dims'][1] +1 ) // self.params['region_grid_params']['horizontal_shift']
         self.params['region_grid_params'].update({'slides_v_h':[vertical_slides, horizontal_slides]})
 
-class model_THST_hparameters(MParams):
+class model_TRUNET_hparameters(MParams):
     """Parameters Class for the TRUNET Encoder-Decoder model
     """
     def __init__(self, **kwargs):
@@ -66,7 +66,7 @@ class model_THST_hparameters(MParams):
         self.conv_ops_qk = kwargs['model_type_settings'].get('conv_ops_qk',False)
         kwargs['model_type_settings'].pop('conv_ops_qk',None)
         
-        super( model_THST_hparameters, self ).__init__(**kwargs)
+        super( model_TRUNET_hparameters, self ).__init__(**kwargs)
 
     def _default_params( self, **kwargs ):
         
@@ -207,7 +207,7 @@ class model_THST_hparameters(MParams):
         # endregion
         
         self.params.update( {
-            'model_name':"THST",
+            'model_name':"TRUNET",
             'model_type_settings':model_type_settings,
     
             'encoder_params':ENCODER_PARAMS,

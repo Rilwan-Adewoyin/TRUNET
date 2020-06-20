@@ -10,8 +10,8 @@ def model_loader(t_params,m_params ):
     
     model_name = m_params['model_name']
     
-    if(model_name=="THST"):
-        model = THST(t_params, m_params)
+    if(model_name=="TRUNET"):
+        model = TRUNET(t_params, m_params)
     
     elif(model_name=="SimpleConvGRU"):
         model = SimpleConvGRU(t_params, m_params)
@@ -41,10 +41,10 @@ class TRUNET_EF(tf.keras.Model):
 
         self.decoder = layers.TRUNET_EF_Forecaster( t_params, m_params['decoder_params'], h_w_dec )
 
-        self.output_layer_z = layers.THST_OutputLayer( t_params, m_params['output_layer_params'], m_params['model_type_settings'],
+        self.output_layer_z = layers.TRUNET_OutputLayer( t_params, m_params['output_layer_params'], m_params['model_type_settings'],
             m_params['dropout'] )
 
-        self.output_layer_t = layers.THST_OutputLayer( t_params, m_params['output_layer_params'], m_params['model_type_settings'],
+        self.output_layer_t = layers.TRUNET_OutputLayer( t_params, m_params['output_layer_params'], m_params['model_type_settings'],
             m_params['dropout']  )
         #self.float32_custom_relu = layers.OutputReluFloat32(t_params) 
         
@@ -192,7 +192,7 @@ class SimpleConvGRU(tf.keras.Model):
         
         return preds    
 
-class THST(tf.keras.Model):
+class TRUNET(tf.keras.Model):
     """
         TRU-NET Encoder Decoder Model
 
@@ -203,19 +203,19 @@ class THST(tf.keras.Model):
             t_params (dict): params related to training/testing
             m_params ([type]): params related to model
         """        
-        super(THST, self).__init__()
+        super(TRUNET, self).__init__()
 
         h_w_enc = h_w_dec = m_params['region_grid_params']['outer_box_dims']
         
         # Encoder
-        self.encoder = layers.THST_Encoder( t_params, m_params['encoder_params'], h_w_enc,  
+        self.encoder = layers.TRUNET_Encoder( t_params, m_params['encoder_params'], h_w_enc,  
             attn_ablation=m_params['model_type_settings'].get('attn_ablation',0) )
 
         #Decoder
-        self.decoder = layers.THST_Decoder( t_params, m_params['decoder_params'], h_w_dec )
+        self.decoder = layers.TRUNET_Decoder( t_params, m_params['decoder_params'], h_w_dec )
         
         #Output Layer
-        self.output_layer = layers.THST_OutputLayer( t_params, m_params['output_layer_params'], 
+        self.output_layer = layers.TRUNET_OutputLayer( t_params, m_params['output_layer_params'], 
                                 m_params['model_type_settings'], m_params['dropout'])
 
     @tf.function

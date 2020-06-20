@@ -115,8 +115,8 @@ def load_params(args_dict, train_test="train"):
     init_m_params.update( {'model_type_settings': ast.literal_eval( args_dict.pop('model_type_settings') ) } )
     init_t_params.update( {'t_settings': ast.literal_eval( args_dict.pop('t_settings') ) } )
 
-    if(args_dict['model_name'] == "THST"):
-        m_params = hparameters.model_THST_hparameters( **init_m_params, **args_dict )()
+    if(args_dict['model_name'] == "TRUNET"):
+        m_params = hparameters.model_TRUNET_hparameters( **init_m_params, **args_dict )()
     elif(args_dict['model_name']=="SimpleConvGRU"):
         m_params = hparameters.model_SimpleConvGRU_hparamaters(**init_m_params, **args_dict)()
 
@@ -148,7 +148,7 @@ def parse_arguments(s_dir=None):
 
     parser.add_argument('-sdr','--script_dir', type=str, help="Directory for code", required=False, default=s_dir )
 
-    parser.add_argument('-mn','--model_name', type=str, help='Name of model to use', required=False, default="THST")                                      
+    parser.add_argument('-mn','--model_name', type=str, help='Name of model to use', required=False, default="TRUNET")                                      
         
     parser.add_argument('-ds','--distribution_strategy', type=str, help='The distribution strategy to be used by tensorflow', required=False, default=argparse.SUPPRESS  ) #TODO: Implement ability to train on multiple cores tensorflow
 

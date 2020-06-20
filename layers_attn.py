@@ -153,7 +153,7 @@ class MultiHead2DAttention_v2(Layer):
         
         if self.transform_value_antecedent == True:
             #model variant - convolution operation on value antecedent
-            self.conv_value = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **self.value_conv ) ) # This has been used for all other THST models
+            self.conv_value = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **self.value_conv ) ) # This has been used for all other TRUNET models
         
         if self.transform_output == True:
             #model vairant - convolution operation of value output
