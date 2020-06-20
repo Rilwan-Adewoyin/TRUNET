@@ -204,11 +204,11 @@ class TrainTruNet():
         ds_train, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'], self.t_params['start_date'] )
         ds_val, _ = era5_eobs.load_data_era5eobs( self.t_params['val_batches'], self.t_params['val_start_date'] )
         
-        # caching dataset to file post pre-processing steps have been completed 
-        # cache_suffix = utility.cache_suffix_mkr( m_params, self.t_params )
-        # os.makedirs( './Data/data_cache/', exist_ok=True  )
-        # ds_train = ds_train.cache('Data/data_cache/train'+cache_suffix ) 
-        # ds_val = ds_val.cache('Data/data_cache/val'+cache_suffix )
+        caching dataset to file post pre-processing steps have been completed 
+        cache_suffix = utility.cache_suffix_mkr( m_params, self.t_params )
+        os.makedirs( './Data/data_cache/', exist_ok=True  )
+        ds_train = ds_train.cache('Data/data_cache/train'+cache_suffix ) 
+        ds_val = ds_val.cache('Data/data_cache/val'+cache_suffix )
         
         
         # preparing iterators for train and validation
