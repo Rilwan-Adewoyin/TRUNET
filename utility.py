@@ -117,6 +117,7 @@ def load_params(args_dict, train_test="train"):
 
     if(args_dict['model_name'] == "TRUNET"):
         m_params = hparameters.model_TRUNET_hparameters( **init_m_params, **args_dict )()
+        
     elif(args_dict['model_name']=="SimpleConvGRU"):
         m_params = hparameters.model_SimpleConvGRU_hparamaters(**init_m_params, **args_dict)()
 
