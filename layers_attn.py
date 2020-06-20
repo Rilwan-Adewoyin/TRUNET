@@ -166,6 +166,7 @@ class MultiHead2DAttention_v2(Layer):
            self.max_relative_position =  tf.constant( int(self.attn_factor_reduc/2 - 1) , dtype=tf.int32 )
 
         embding_size = int( self.attn_factor_reduc ) #int(self.max_relative_position * 2 + 1)
+        #embding_size = int(self.max_relative_position * 2 + 1)
         self.embeddings_table_k = tf.Variable( tf.keras.initializers.glorot_uniform()(shape=[embding_size, total_key_depth//num_heads],   dtype=self._dtype ), name="embedding_table_k" )
         self.embeddings_table_v = tf.Variable( tf.keras.initializers.glorot_uniform()(shape=[embding_size, total_value_depth//num_heads], dtype=self._dtype ), name="embedding_table_v" ) 
 
@@ -219,12 +220,13 @@ class MultiHead2DAttention_v2(Layer):
 
         # convolution operation on value antecedent
         if self.transform_value_antecedent == True:
-            v_antecedent = self.conv_value( v_antecedent, training=True  )
+            v = self.conv_value( v_antecedent, training=True  )
+        else:
+            v = v_antecedent
         # endregion
 
         # flattening value antecedent for compatibility reasons   
-        v_antecedent_flat = tf.reshape(v_antecedent, v_antecedent.shape.as_list()[:2] + [-1] ) 
-        v = v_antecedent_flat
+        v = tf.reshape(v, v.shape.as_list()[:2] + [-1] ) 
         
         #region Scaled --- Relative Multi-Head Dot-Product Attention
         
@@ -232,7 +234,6 @@ class MultiHead2DAttention_v2(Layer):
         q = split_heads(q, self.num_heads)
         k = split_heads(k, self.num_heads)
         v = split_heads(v, self.num_heads)
-
         
         q *= tf.cast(self.key_depth_per_head,dtype=q.dtype)**-0.5      
 
@@ -272,7 +273,9 @@ class MultiHead2DAttention_v2(Layer):
             # convolution ops on output precedent \hat{A}
             outp.set_shape(outp.shape.as_list()[:-1] + [self.total_value_depth]) 
             outp = tf.reshape( outp, output_shape )
-            outp = self.conv_output( outp, training=training)
+            #outp = self.conv_output( outp, training=training)
+            outp = self.dense_output( outp, training=training)
+            
         else:
             outp = tf.reshape( outp, output_shape ) 
         

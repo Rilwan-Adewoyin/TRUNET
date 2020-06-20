@@ -148,11 +148,11 @@ class THST_OutputLayer(tf.keras.layers.Layer):
 		"""
 
 		if self.dc == False:
-			_inputs1 = self.conv_hidden( self.do0(_inputs,training=training),training=training ) 	
-			outp = self.conv_output( _inputs1, training=training ) #shape (bs, height, width)
+			x = self.conv_hidden( self.do0(_inputs,training=training),training=training ) 	
+			outp = self.conv_output( x, training=training ) #shape (bs, height, width)
 			outp = self.float32_custom_relu(outp)   
+		
 		else:
-			
 			x_val = self.conv_hidden_val( self.do0(_inputs,training=training),training=training )
 			x_prob = self.conv_hidden_prob( self.do0(_inputs,training=training),training=training )
 			
@@ -210,14 +210,10 @@ class THST_CGRU_Attention_Layer(tf.keras.layers.Layer):
 													attn_ablation=self.attn_ablation ),
 															merge_mode=None  ) 
 
-		self.shape = ( train_params['batch_size'], self.num_of_splits, h_w[0], h_w[1], CGRU_params['filters'] )
-
 	def call(self, input_hidden_states, training=True):
 		
 		hidden_states_f, hidden_states_b = self.convGRU_attn(input_hidden_states, training=training)
-		hidden_states_f.set_shape( self.shape )
-		hidden_states_b.set_shape( self.shape )
-		hidden_states = tf.concat( [hidden_states_f,hidden_states_b], axis=-1 )
+		hidden_states = tf.concat( [hidden_states_f, hidden_states_b], axis=-1 )
 
 		return hidden_states #shape(bs, seq_len, h, w, 2*c2)
 
@@ -231,9 +227,6 @@ class THST_CGRU_Decoder_Layer(tf.keras.layers.Layer):
 		self.seq_len = seq_len
 		
 		# Shapes to facilitate tensorflow graph operations
-		self.shape2 = ( train_params['batch_size'], self.seq_len//self.input_2_factor_increase, h_w[0], h_w[1], layer_params['filters']*2 ) #TODO: the final dimension only works rn since all layers have same filter count. It should be equal to 2* filters of previous layer
-		self.shape1 = ( train_params['batch_size'], self.seq_len, h_w[0], h_w[1], layer_params['filters']*2 ) #same comment as above
-		self.shape3 = ( train_params['batch_size'], self.seq_len, h_w[0], h_w[1], layer_params['filters'] )
 		self.convGRU =  tf.keras.layers.Bidirectional( layer=layers_convgru2D.ConvGRU2D_Dualcell(**layer_params,trainable=self.trainable ),
 														backward_layer=layers_convgru2D.ConvGRU2D_Dualcell( **copy.deepcopy(layer_params),go_backwards=True,trainable=self.trainable ),
 														merge_mode=None)
@@ -252,14 +245,12 @@ class THST_CGRU_Decoder_Layer(tf.keras.layers.Layer):
 			[type]: tensor wth shape #(bs, seq_len1, h,w,c3)
 		"""		
 
-		input1.set_shape(self.shape1)
-		input2.set_shape(self.shape2)
+		# input1.set_shape(self.shape1)
+		# input2.set_shape(self.shape2)
 		input2 = tf.keras.backend.repeat_elements( input2, self.input_2_factor_increase, axis=1) #(bs, seq_len1, h,w,c2)
 		
 		inputs = tf.concat( [input1, input2], axis=-1 ) 
 		hidden_states_f, hidden_states_b = self.convGRU( inputs, training=training )
-		hidden_states_f.set_shape( self.shape3 )
-		hidden_states_b.set_shape( self.shape3 )
 		hidden_states = tf.concat( [hidden_states_f,hidden_states_b], axis=-1 ) 
 		return hidden_states
 

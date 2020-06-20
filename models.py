@@ -11,7 +11,7 @@ def model_loader(t_params,m_params ):
     model_name = m_params['model_name']
     
     if(model_name=="THST"):
-        model =THST(t_params, m_params)
+        model = THST(t_params, m_params)
     
     elif(model_name=="SimpleConvGRU"):
         model = SimpleConvGRU(t_params, m_params)
@@ -205,8 +205,6 @@ class THST(tf.keras.Model):
         """        
         super(THST, self).__init__()
 
-        
-        self.mg = m_params['model_type_settings'].get('mult_gpu',False)
         h_w_enc = h_w_dec = m_params['region_grid_params']['outer_box_dims']
         
         # Encoder

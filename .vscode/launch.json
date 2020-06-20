@@ -28,8 +28,8 @@
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
-            "args": [ "-mn","THST","-dd","Data/Rain_Data_Mar20", "-bs","5","-do","0.2", "-ido","0.2", "-rdo","0.3", "-ctsm" ,"1979_1981_1982_1983",                
-"-mts" ,"{'stochastic':False,'stochastc_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout','location':['Cardiff','London','Glasgow']}"
+            "args": [ "-mn","THST","-dd","Data/Rain_Data_Mar20", "-bs","4","-do","0.2", "-ido","0.2", "-rdo","0.3", "-ctsm" ,"1979_1982_1982_1983",                
+"-mts" ,"{'stochastic':False,'stochastc_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout','location':['Cardiff','London']}"
                 ]  
         },
         {
@@ -39,9 +39,21 @@
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
-            "args": [ "-mn","THST","-dd","Data/Rain_Data_Mar20", "-bs","5", "-do","0.2", "-ido","0.2", "-rdo","0.5", "-ctsm", "1979_1981_1982_1983", "-ctsm_test","2014_2019-07-02",
-"-mts" ,"{'stochastic':True,'stochastic_f_pass':5,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout','location':[],'location_test':['Cardiff','London','Glasgow','Birmingham']}",
-"-ts", "{'region_pred':True, 'model_ckpt_path':'./checkpoints/THST_mc_dropout_Normal_True_Cardiff_London_Glasgow_Birmingham_Lancaster_Manchester_Liverpool_Bradford_Edinburgh_Leeds_Dublin_v145_tst_0.7_iim_linear'}"
+            "args": [ "-mn","THST","-dd","Data/Rain_Data_Mar20", "-bs","5", "-do","0.2", "-ido","0.2", "-rdo","0.3", "-ctsm", "1979_2007_2007_2013", "-ctsm_test","2014_2019-07-02",
+"-mts" ,"{'stochastic':True,'stochastic_f_pass':25,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout','location':[],'location_test':['Leeds']}",
+"-ts", "{'region_pred':False, 'model_ckpt_path':'./checkpoints/THST_mc_dropout_Normal_True_Cardiff_London_Glasgow_Birmingham_Lancaster_Manchester_Liverpool_Bradford_Edinburgh_Leeds_Dublin_v145_tst_0.7_iim_linear'}"
+                ]
+        },
+        {
+            "name": "TRU_NET_test1",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "internalConsole",
+            "justMyCode": false,
+            "args": [ "-mn","THST","-dd","Data/Rain_Data_Mar20", "-bs","5", "-do","0.2", "-ido","0.2", "-rdo","0.3", "-ctsm", "1979_1995_1995_2000", "-ctsm_test","2000_2019-07-02",
+"-mts" ,"{'stochastic':True,'stochastic_f_pass':10,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout','location':[],'location_test':['Cardiff','London','Glasgow','Manchester','Birmingham']}",
+"-ts", "{'region_pred':True, 'model_ckpt_path':'./checkpoints/THST_mc_dropout_Normal_True_Cardiff_London_Glasgow_Birmingham_Lancaster_Manchester_Liverpool_Bradford_Edinburgh_Leeds_Dublin_v145_tst_0.5_iim_linear'}"
                 ]
         }
     ]

@@ -112,7 +112,8 @@ class model_THST_hparameters(MParams):
         # ConvGRU params
         filters = 72 # no. of filters in all conv operations in ConvGRU units
         kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )             
-        stateful               = True                       
+        print("Check appropriate stateful is being used for multi gpu status")
+        stateful = False                       
 
         # Attention params
         attn_heads = [ 8 ]*attn_layers_count            #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
@@ -232,7 +233,8 @@ class model_SimpleConvGRU_hparamaters(MParams):
         #region --- ConvLayers
         layer_count = 3 
         filters = 80
-
+        print("Check appropriate stateful is being used for multi gpu status")
+        stateful = False
         kernel_sizes = [[4,4]]*layer_count
         paddings = ['same']*layer_count
         return_sequences = [True]*layer_count
@@ -245,7 +247,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
                                 'recurrent_regularizer': None,
                                 'bias_regularizer':tf.keras.regularizers.l2(0.2),
                                 'layer_norm': None,
-                                'implementation':1, 'stateful':True  }
+                                'implementation':1, 'stateful':stateful  }
                                 for ks,ps,rs,dp,rdp in zip( kernel_sizes, paddings, return_sequences, input_dropout, recurrent_dropout)  ]
 
         conv1_layer_params = {'filters': int(  8*(((filters*2)/3)//8)) , 'kernel_size':[3,3], 'activation':'relu','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2) }  
@@ -470,6 +472,7 @@ class test_hparameters_ati(HParams):
                                                                 0.54810]) 
         }
 
+        
         WINDOW_SHIFT = self.lookback_target # temporal shift for window to evaluate
         BATCH_SIZE = self.batch_size
         # endregion

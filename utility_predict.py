@@ -39,10 +39,10 @@ def load_model(t_params, m_params):
 
     best_checkpoint_path = df_checkpoint_scores['Checkpoint_Path'][0]
     checkpoint_code = "E"+str(df_checkpoint_scores['Epoch'][0])
-    status = ckpt.restore( best_checkpoint_path ).assert_existing_objects_matched() #.expect_partial()
+    #status = ckpt.restore( best_checkpoint_path ).assert_existing_objects_matched() #.expect_partial()
+    status = ckpt.restore( best_checkpoint_path ).assert_consumed() #.assert_existing_objects_matched() #.expect_partial()
     print("Are weights empty after restoring from checkpoint?", model.weights == [] )
 
-    
     return model, checkpoint_code
 
 def save_preds( t_params, m_params, li_preds, li_timestamps, li_truevalues, precip_threshold=None, custom_test_loc=None ):
@@ -61,22 +61,24 @@ def save_preds( t_params, m_params, li_preds, li_timestamps, li_truevalues, prec
             bool
     """ 
 
-
     if t_params['ctsm'] == "4ds_10years":
         _path_pred = t_params['output_dir'] + "/{}/Predictions/4ds_{}".format(utility.model_name_mkr(m_params, train_test="test", t_params=t_params,custom_test_loc=custom_test_loc ), t_params['fyi_test'])
     
     elif type( t_params['ctsm_test'] ) == str:
         _path_pred = t_params['output_dir'] + "/{}/Predictions".format(utility.model_name_mkr(m_params, train_test="test", t_params=t_params, custom_test_loc=custom_test_loc))
     
-    fn = np.datetime_as_string(np.datetime64(li_timestamps[0][0],'s'),'D') + "__" + np.datetime_as_string(np.datetime64(li_timestamps[-1][-1],'s'),'D')
+    #fn = np.datetime_as_string(np.datetime64(li_timestamps[0][0],'s'),'D') + "__" + np.datetime_as_string(np.datetime64(li_timestamps[-1][-1],'s'),'D')
 
     if t_params['t_settings'].get('region_pred', False) == True:
-        fn += "_regional"
+        fn = "_regional"
+    else:
+        fn = "local"
     fn += ".dat"
 
     if(not os.path.exists(_path_pred) ):
         os.makedirs(_path_pred)
-        
+
+    li_preds = [ tf.where(tnsr<0, 0.0, tnsr) for tnsr in li_preds ]        
     li_preds = [ tnsr.numpy() for tnsr in li_preds   ] #list of preds: (tss, samples ) or (tss, h, w, samples )
 
     if custom_test_loc in ["All"] or t_params['t_settings'].get('region_pred', False)==True:

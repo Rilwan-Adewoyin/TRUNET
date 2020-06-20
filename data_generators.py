@@ -175,7 +175,7 @@ class Generator():
 
         input_image_shape = region_grid_params['input_image_shape']
         vertical_shift = region_grid_params['vertical_shift']
-        horizontal_shift = region_grid_params['horizontal_shit']
+        horizontal_shift = region_grid_params['horizontal_shift']
 
         #list of values for upper_h and lower_h
         range_h = np.arange(0, input_image_shape[0], step=vertical_shift, dtype=np.int32 ) 
@@ -282,7 +282,6 @@ class Generator_mf(Generator):
     def yield_iter(self):
         xr_gn = xr.open_dataset(self.fp, cache=False, decode_times=False, decode_cf=False)
         
-        #arr_idxs = np.arange(self.data_len)
         idx = 0
         
         adj_seq_len = self.seq_len 
@@ -290,10 +289,10 @@ class Generator_mf(Generator):
             #idxs = arr_idxs[idx:idx+self.seq_len] 
             
             #next_marray = [ xr_gn[name].isel(time=idxs).to_masked_array() for name in self.vars_for_feature ]
-            next_marray = [ xr_gn[name].isel(time=slice(idx + self.start_idx, idx+self.start_idx+adj_seq_len)).to_masked_array(copy=False) for name in self.vars_for_feature ]
-
+            _slice = slice(idx + self.start_idx, idx + self.start_idx + adj_seq_len)
+            next_marray = [ xr_gn[name].isel(time=_slice).to_masked_array(copy=False) for name in self.vars_for_feature ]
             
-            list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar) ) for _mar in next_marray]
+            list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar)) for _mar in next_marray]
             
             _data, _masks = list(zip(*list_datamask))
             _masks = [ np.logical_not(_mask_val) for _mask_val in _masks] 
@@ -373,7 +372,7 @@ class Era5_Eobs():
         start_idx_feat, start_idx_tar = self.get_start_idx(start_date)
         self.mf_data.start_idx = start_idx_feat
         # region - Preparing feature model fields        
-        ds_feat = tf.data.Dataset.from_generator( self.mf_data , output_types=(tf.float16, tf.bool)) #(values, mask) 
+        ds_feat = tf.data.Dataset.from_generator( self.mf_data , output_types=(tf.float16, tf.bool), output_shapes=( tf.TensorShape([None, None, None, None]),tf.TensorShape([None, None, None, None])) ) #(values, mask) 
         ds_feat = ds_feat.unbatch()
         #ds_feat = ds_feat.skip(start_idx_feat) # Skipping forward to the correct time
         
@@ -384,7 +383,7 @@ class Era5_Eobs():
         # endregion
 
         # region - Preparing Eobs target_rain_data   
-        ds_tar = tf.data.Dataset.from_generator( self.rain_data, output_types=( tf.float32, tf.bool) ) # (values, mask) 
+        ds_tar = tf.data.Dataset.from_generator( self.rain_data, output_types=(tf.float32, tf.bool), output_shapes=( tf.TensorShape([None, None]), tf.TensorShape([ None, None])) ) # (values, mask) 
         ds_tar = ds_tar.skip(start_idx_tar)     #skipping to correct point
 
         ds_tar = ds_tar.window(size = self.t_params['lookback_target'], stride=1, shift=self.t_params['window_shift'] , drop_remainder=True )
@@ -448,8 +447,9 @@ class Era5_Eobs():
                 tensor: Masked and normalized model field data
         """
 
-        arr_data = tf.subtract( arr_data, self.t_params['normalization_scales']['model_fields'])    #shift
-        arr_data = tf.divide( arr_data, self.t_params['normalization_shift']['model_fields'])       #divide
+        arr_data = tf.subtract( arr_data, self.t_params['normalization_shift']['model_fields'])    #shift
+        arr_data = tf.divide( arr_data, self.t_params['normalization_scales']['model_fields'])       #divide
+        
         arr_data = tf.where( arr_mask, arr_data, self.t_params['mask_fill_value']['model_field'])
         return arr_data #(h,w,c)
 
@@ -463,7 +463,6 @@ class Era5_Eobs():
                 Returns:
                     tuple: (tf.data.Dataset, [int, int] ) tuple containing dataset and [h,w] of indexes of the central region
         """        
-        
         
         if locations == ["All"]:
             locations = self.rain_data.get_locs_for_whole_map( self.m_params['region_grid_params'] ) #[ ([upper_h, lower_h]. [left_w, right_w]), ... ]
@@ -485,7 +484,7 @@ class Era5_Eobs():
                 ds = ds.concatenate( li_ds[idx] )
         
         # pair of indexes locating the central location within the grid region extracted for any location
-        idx_loc_in_region = np.floor_divide( self.m_params['region_grid_params']['outer_box_dims'], 2)  #This specifies the index of the central location of interest within the (h,w) patch    
+        idx_loc_in_region = np.floor_divide( self.m_params['region_grid_params']['outer_box_dims'], 2) #This specifies the index of the central location of interest within the (h,w) patch    
         return ds, idx_loc_in_region
         
     def select_region(self, mf, rain, rain_mask, h_idxs, w_idxs ):

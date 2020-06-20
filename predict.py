@@ -107,12 +107,11 @@ class TestTrueNet():
         self.li_true_values = []
         
         # Caching datasets, Creating iterable
-        li_loc = utility.location_getter(self.m_params['model_type_settings'])
         if self.t_params['ctsm'] != "4ds_10years":
-            cache_suffix = '{}_{}_loctest_{}'.format( m_params['model_name'], self.t_params['ctsm_test'] , "_".join(utility.loc_name_shrtner(li_loc) ) )
+            cache_suffix = '{}_{}_loctest_{}'.format( m_params['model_name'], self.t_params['ctsm_test'] , "_".join(utility.loc_name_shrtner(self.era5_eobs.li_loc) ) )
         
         elif self.t_params['ctsm'] == "4ds_10years":
-            cache_suffix = '{}_fyitest{}_loctest{}'.format( self.m_params['model_name'], str(self.t_params['fyi_test']), "_".join(utility.loc_name_shrtner(li_loc) ) )
+            cache_suffix = '{}_fyitest{}_loctest{}'.format( self.m_params['model_name'], str(self.t_params['fyi_test']), "_".join(utility.loc_name_shrtner(self.era5_eobs.li_loc) ) )
         
         self.ds = self.ds.cache('Data/data_cache/test'+cache_suffix ).repeat(1) 
         self.iter_test = enumerate(self.ds)
@@ -139,7 +138,7 @@ class TestTrueNet():
 
             if self.m_params['model_type_settings']['stochastic'] == False:
                     
-                preds = self.model( feature,training=False )
+                preds = self.model(feature,training=False )
                 preds = tf.squeeze(preds,axis=-1)       #(bs, seq_len, h, w)
                 
                 if self.m_params['model_type_settings']['discrete_continuous'] == True:
@@ -167,7 +166,7 @@ class TestTrueNet():
                 
                 if self.m_params['model_type_settings']['discrete_continuous'] == True:
                     preds, probs = tf.unstack( preds, axis=0)
-                    probs = tf.math.reduce_mean(preds, axis=-1, keepdims=True )
+                    #probs = tf.math.reduce_mean(preds, axis=-1, keepdims=True )
                     preds = tf.where( probs>min_prob_for_rain, preds, utility.standardize_ati(0.0, self.t_params['normalization_shift']['rain'], self.t_params['normalization_scales']['rain'], reverse=False) )
                         # rain thresholding
 

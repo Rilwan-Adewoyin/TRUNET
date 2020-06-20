@@ -258,7 +258,7 @@ def model_name_mkr(m_params, train_test="train", t_params={}, custom_test_loc=No
         elif m_params.get('location', None) == None:
             custom_test_loc = m_params.get('location')
 
-        model_name = model_name + "_" +"_" + '_'.join(custom_test_loc)
+        model_name = model_name +"_" + '_'.join(custom_test_loc)
     
 
     if t_params['ctsm'] == "4ds_10years":
@@ -268,7 +268,7 @@ def model_name_mkr(m_params, train_test="train", t_params={}, custom_test_loc=No
         model_name = model_name + "_" + str( t_params['ctsm'] )
 
     elif t_params['ctsm'] != "4ds_10years" and train_test=="test": 
-        model_name = model_name + "_" + str( t_params['ctsm_test'] )
+        model_name = model_name + "_train" + str( t_params['ctsm'] ) +"_test" + str( t_params['ctsm_test'] )
 
     
     if m_params['model_type_settings'].get('attn_ablation',0) != 0:
@@ -317,6 +317,7 @@ def location_getter(model_settings):
 #endregion
 
 # region data standardization
+
 def standardize_ati(_array, shift, scale, reverse):
     
     if(reverse==False):
