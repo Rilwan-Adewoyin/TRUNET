@@ -70,15 +70,14 @@ class model_TRUNET_hparameters(MParams):
 
     def _default_params( self, **kwargs ):
         
-        model_type_settings = kwargs.get('model_type_settings',{})        
+        model_type_settings = kwargs.get('model_type_settings', {})        
 
         # region ---  learning/convergence/regularlisation params
         REC_ADAM_PARAMS = {
-            "learning_rate":5e-4,   "warmup_proportion":0.65,
+            "learning_rate":8e-4,   "warmup_proportion":0.65,
             "min_lr":2.5e-4,         "beta_1":0.70,               "beta_2":0.99,
-            "amsgrad":True,         "decay":0.0008,              "epsilon":5e-8 } #Rectified Adam params
-        LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.9999 } #Lookahed optimizer params (sync period of 1, effectively nullifies it)
-
+            "amsgrad":True,         "decay":0.0004,              "epsilon":5e-8 } #Rectified Adam params
+        
         DROPOUT = kwargs.get('dropout',0.0)
         ido = kwargs.get('inp_dropout',0.0) # Dropout for input into GRU
         rdo = kwargs.get('rec_dropout',0.0) # Dropout for recurrent input into GRU
@@ -86,7 +85,6 @@ class model_TRUNET_hparameters(MParams):
         recurrent_reg = None #regularlization for recurrent input to GRU
         bias_reg = tf.keras.regularizers.l2(0.00)
         # endregion
-
 
         #region --- Key Model Size Settings
         seq_len_for_highest_hierachy_level = 4 # Seq length of GRU operations in highest level of encoder
@@ -110,7 +108,11 @@ class model_TRUNET_hparameters(MParams):
         attn_layers_count = enc_layer_count - 1
 
         # ConvGRU params
-        filters = 72 # no. of filters in all conv operations in ConvGRU units
+        if model_type_settings.get('large_model',False) == False:
+            filters = 72 # no. of filters in all conv operations in ConvGRU units
+        else:
+            filters = 120
+
         kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )             
         print("Check appropriate stateful is being used for multi gpu status")
         stateful = False                       
@@ -216,7 +218,6 @@ class model_TRUNET_hparameters(MParams):
             'data_pipeline_params':DATA_PIPELINE_PARAMS,
 
             'rec_adam_params':REC_ADAM_PARAMS,
-            'lookahead_params':LOOKAHEAD_PARAMS,
             'dropout':DROPOUT,
             } )
 

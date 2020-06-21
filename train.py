@@ -213,7 +213,7 @@ class TrainTruNet():
         
         # preparing iterators for train and validation
         # data loading schemes based on ram limitations
-        if psutil.virtual_memory()[0] / 1e9 <= 40.0 : 
+        if psutil.virtual_memory()[0] / 1e9 <= 38.0 : 
             #Data Loading Scheme 1 - Version that works on low memeory devices e.g. under 30 GB RAM
             ds_train_val = ds_train.concatenate(ds_val).repeat(self.t_params['epochs']-self.start_epoch)
             ds_train_val = ds_train_val.skip(self.batches_to_skip)
@@ -223,8 +223,8 @@ class TrainTruNet():
             self.iter_val = self.iter_val_train
         else:
             #Data Loading Scheme 2 - Version that ensures validation and train set are well defined 
-            ds_train = ds_train.repeat(self.t_params['epochs']-self.start_epoch)
-            ds_val = ds_val.repeat(self.t_params['epochs']-self.start_epoch)
+            ds_train = ds_train.unbatch().shuffle( self.t_params['batch_size']*12, reshuffle_each_iteration=True).repeat(self.t_params['epochs']-self.start_epoch)
+            ds_val = ds_val. repeat(self.t_params['epochs']-self.start_epoch)
             ds_train = ds_train.skip(self.batches_to_skip)
             self.ds_train = self.strategy.experimental_distribute_dataset(dataset=ds_train)
             self.ds_val = self.strategy.experimental_distribute_dataset(dataset=ds_val)
