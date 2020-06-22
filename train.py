@@ -298,8 +298,7 @@ class TrainTruNet():
 
             print("\tStarting Validation")
             start_batch_group_time = time.time()
-            self.model.reset_states()
-            
+                        
             # --- Validation Loops
             for batch in range(1, self.t_params['val_batches']+1):
                 
@@ -318,8 +317,6 @@ class TrainTruNet():
                                                 
                     start_batch_group_time = time.time()
                     
-            self.model.reset_states()
-
             # region - End of Epoch Reporting and Early iteration Callback
             print("\tEpoch:{}\t Train Loss:{:.8f}\t Train MSE:{:.5f}\t Val Loss:{:.5f}\t Val MSE:{:.5f}\t Time:{:.5f}".format(epoch, self.loss_agg_epoch.result(), self.mse_agg_epoch.result(), 
                         self.loss_agg_val.result(), self.mse_agg_val.result() ,time.time()-start_epoch_train  ) )
