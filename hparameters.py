@@ -24,7 +24,7 @@ class HParams():
     def __call__(self):
         return self.params
     
-    def _default_params(self):
+    def _default_params(self,**kwargs):
         self.params = {}
 
 class MParams(HParams):
@@ -78,9 +78,9 @@ class model_TRUNET_hparameters(MParams):
             "min_lr":2.5e-4,         "beta_1":0.70,               "beta_2":0.99,
             "amsgrad":True,         "decay":0.0004,              "epsilon":5e-8 } #Rectified Adam params
         
-        DROPOUT = kwargs.get('dropout',0.0)
-        ido = kwargs.get('inp_dropout',0.0) # Dropout for input into GRU
-        rdo = kwargs.get('rec_dropout',0.0) # Dropout for recurrent input into GRU
+        DROPOUT =   model_type_settings.get('do',0.0)
+        ido =       model_type_settings.get('ido',0.0) # Dropout for input into GRU
+        rdo =       model_type_settings.get('rdo',0.0) # Dropout for recurrent input into GRU
         kernel_reg   = None  #regularlization for input to GRU
         recurrent_reg = None #regularlization for recurrent input to GRU
         bias_reg = tf.keras.regularizers.l2(0.00)
@@ -309,7 +309,7 @@ class train_hparameters_ati(HParams):
         
         super( train_hparameters_ati, self).__init__(**kwargs)
 
-    def _default_params(self):
+    def _default_params(self, **kwargs):
         # region ------- Masking, Standardisation, temporal_data_size
         trainable = True
         MASK_FILL_VALUE = {
@@ -437,7 +437,7 @@ class test_hparameters_ati(HParams):
         #kwargs.pop('ctsm')
         super( test_hparameters_ati, self).__init__(**kwargs)
     
-    def _default_params(self):
+    def _default_params(self, **kwargs):
         
         # region --- data pipepline vars
         trainable = False

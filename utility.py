@@ -160,11 +160,11 @@ def parse_arguments(s_dir=None):
 
     parser.add_argument('-od','--output_dir', type=str, required=False, default="./Output")
     
-    parser.add_argument('-do','--dropout',type=float, required=False, default=0.0)
+    # parser.add_argument('-do','--dropout',type=float, required=False, default=0.0)
 
-    parser.add_argument('-ido','--inp_dropout',type=float, required=False, default=0.0)
+    # parser.add_argument('-ido','--inp_dropout',type=float, required=False, default=0.0)
 
-    parser.add_argument('-rdo','--rec_dropout',type=float, required=False, default=0.0)
+    # parser.add_argument('-rdo','--rec_dropout',type=float, required=False, default=0.0)
 
     parser.add_argument('-ctsm','--ctsm', type=str, required=True, default="1979_1982_1983_1984", help="how to split dataset for training and validation") 
 
