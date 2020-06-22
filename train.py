@@ -138,11 +138,11 @@ class TrainTruNet():
             #Model
             self.model = models.model_loader( self.t_params, self.m_params )
             #Optimizer
-            self.optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*40 ) 
+            self.optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*30 ) 
             self.optimizer = mixed_precision.LossScaleOptimizer( self.optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) 
             self.strategy_gpu_count = self.strategy.num_replicas_in_sync    
 
-        #mult-gpu
+        
         with self.strategy.scope():
             # These objects will aggregate losses and metrics across batches and epochs
             self.loss_agg_batch = tf.keras.metrics.Mean(name='loss_agg_batch')
@@ -411,7 +411,7 @@ class TrainTruNet():
                 # endregion
 
 
-            # Averagin losses across GPUS
+            # Averaging losses across GPUS
             f = loss_to_optimize/self.strategy_gpu_count
             loss_to_optimize_agg =  loss_to_optimize + tf.stop_gradient( f - loss_to_optimize  )
             # Updating weights with gradients - using mixed precision schema
