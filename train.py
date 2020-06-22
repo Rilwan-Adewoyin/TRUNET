@@ -514,7 +514,7 @@ class TrainTruNet():
         bool_completed = self.strategy.run( self.step_train, args=(feature, target, mask, bounds))
         return bool_completed
     
-    #@tf.function
+    @tf.function
     def distributed_val_step(self, feature, target, mask, bounds):
         bool_completed = self.strategy.run( self.step_val, args=(feature, target, mask, bounds))
         return bool_completed
