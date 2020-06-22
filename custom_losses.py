@@ -46,7 +46,7 @@ def cond_rain(vals, probs):
         If it is below 0.5, then return 0
     """
     #round_probs = tf.math.round( probs)
-    round_probs = tf.where(probs<=0.5,0,vals)
+    round_probs = tf.where(probs<=0.5,0.0,vals)
     vals = vals* round_probs
     return vals
 
