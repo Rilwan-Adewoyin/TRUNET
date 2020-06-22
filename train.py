@@ -331,7 +331,7 @@ class TrainTruNet():
 
     def step_train(self, feature, target, mask,bounds):
         
-        with tf.GradientTape(persistent=True) as tape:
+        with tf.GradientTape(persistent=False) as tape:
                                    
             # non conditional continuous training
             if self.m_params['model_type_settings']['discrete_continuous'] == False:
@@ -412,9 +412,11 @@ class TrainTruNet():
 
 
             # Averagin losses across GPUS
-            loss_to_optimize_agg = loss_to_optimize/self.strategy_gpu_count
+            f = loss_to_optimize/self.strategy_gpu_count
+            loss_to_optimize_agg =  loss_to_optimize + tf.stop_gradient( f - loss_to_optimize  )
             # Updating weights with gradients - using mixed precision schema
-            scaled_loss = self.optimizer.get_scaled_loss(loss_to_optimize_agg)
+            f = self.optimizer.get_scaled_loss(loss_to_optimize_agg)
+            scaled_loss = loss_to_optimize_agg + tf.stop_gradient(f - loss_to_optimize_agg)
 
         scaled_gradients = tape.gradient( scaled_loss, self.model.trainable_variables )
         unscaled_gradients = self.optimizer.get_unscaled_gradients(scaled_gradients)
