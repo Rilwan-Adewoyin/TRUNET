@@ -223,7 +223,7 @@ class TrainTruNet():
             self.iter_val = self.iter_val_train
         else:
             #Data Loading Scheme 2 - Version that ensures validation and train set are well defined 
-            ds_train = ds_train.unbatch().shuffle( self.t_params['batch_size']*12, reshuffle_each_iteration=True).repeat(self.t_params['epochs']-self.start_epoch)
+            ds_train = ds_train.unbatch().shuffle( self.t_params['batch_size']*12, reshuffle_each_iteration=True).batch(self.t_params['batch_size']).repeat(self.t_params['epochs']-self.start_epoch)
             ds_val = ds_val. repeat(self.t_params['epochs']-self.start_epoch)
             ds_train = ds_train.skip(self.batches_to_skip)
             self.ds_train = self.strategy.experimental_distribute_dataset(dataset=ds_train)
@@ -298,7 +298,7 @@ class TrainTruNet():
 
             print("\tStarting Validation")
             start_batch_group_time = time.time()
-                        
+
             # --- Validation Loops
             for batch in range(1, self.t_params['val_batches']+1):
                 
