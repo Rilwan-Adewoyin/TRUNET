@@ -1,12 +1,11 @@
+from netCDF4 import Dataset, num2date
 import os
-import data_generators
 import argparse
 import ast
 import gc
 import logging
 import math
 
-import re
 import sys
 import time
 
@@ -14,19 +13,15 @@ import numpy as np
 import pandas as pd
 import psutil
 import tensorflow as tf
-import tensorflow_probability as tfp
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
-from tensorflow.python.ops import variables as tf_variables
-from tensorflow.python.training.tracking import data_structures
-from tensorflow_probability import distributions as tfd
-from tensorflow_probability import layers as tfpl
+
 try:
     import tensorflow_addons as tfa
 except Exception as e:
     tfa = None
 
+import data_generators
 import custom_losses as cl
-
 import hparameters
 import models
 import utility
@@ -41,21 +36,19 @@ try:
 except Exception as e:
     gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 
+print("GPU Available: {}\n GPU Devices:{} ".format(tf.test.is_gpu_available(), gpu_devices) )
+for idx, gpu_name in enumerate(gpu_devices):
+    tf.config.experimental.set_memory_growth(gpu_name, True)
 
 # try:
 #     tf.config.set_logical_device_configuration(
 #         gpu_devices[0], 
-#         [tf.config.LogicalDeviceConfiguration(memory_limit=3600),
+#         [tf.config.LogicalDeviceConfiguration(memory_limit=4000),
 #             tf.config.LogicalDeviceConfiguration(memory_limit=3600)] )
 #     gpu_devices = tf.config.list_logical_devices('GPU')
 
 # except:
 #     pass
-
-print("GPU Available: {}\n GPU Devices:{} ".format(tf.test.is_gpu_available(), gpu_devices) )
-for idx, gpu_name in enumerate(gpu_devices):
-    tf.config.experimental.set_memory_growth(gpu_name, True)
-
 
 policy = mixed_precision.Policy('mixed_float16')
 mixed_precision.set_policy(policy)
@@ -216,6 +209,7 @@ class TrainTruNet():
         if psutil.virtual_memory()[0] / 1e9 <= 38.0 : 
             #Data Loading Scheme 1 - Version that works on low memeory devices e.g. under 30 GB RAM
             ds_train_val = ds_train.concatenate(ds_val).repeat(self.t_params['epochs']-self.start_epoch)
+            #ds_train_val = ds_train.unbatch().shuffle( self.t_params['batch_size']*2, reshuffle_each_iteration=True).batch(self.t_params['batch_size']).concatenate(ds_val).repeat(self.t_params['epochs']-self.start_epoch)
             ds_train_val = ds_train_val.skip(self.batches_to_skip)
             self.ds_train_val = self.strategy.experimental_distribute_dataset(dataset=ds_train_val)
             self.iter_val_train = enumerate(self.ds_train_val)
@@ -223,7 +217,9 @@ class TrainTruNet():
             self.iter_val = self.iter_val_train
         else:
             #Data Loading Scheme 2 - Version that ensures validation and train set are well defined 
+            #ds_train = ds_train.repeat(self.t_params['epochs']-self.start_epoch)
             ds_train = ds_train.unbatch().shuffle( self.t_params['batch_size']*12, reshuffle_each_iteration=True).batch(self.t_params['batch_size']).repeat(self.t_params['epochs']-self.start_epoch)
+
             ds_val = ds_val. repeat(self.t_params['epochs']-self.start_epoch)
             ds_train = ds_train.skip(self.batches_to_skip)
             self.ds_train = self.strategy.experimental_distribute_dataset(dataset=ds_train)
@@ -294,8 +290,7 @@ class TrainTruNet():
             step = batch + (epoch)*self.t_params['train_batches']
             #utility.tensorboard_record( self.writer.as_default(), li_losses, li_names, step, gradients, self.model.trainable_variables )
             
-            #endregion
-
+            
             print("\tStarting Validation")
             start_batch_group_time = time.time()
 
@@ -319,7 +314,7 @@ class TrainTruNet():
                     
             # region - End of Epoch Reporting and Early iteration Callback
             print("\tEpoch:{}\t Train Loss:{:.8f}\t Train MSE:{:.5f}\t Val Loss:{:.5f}\t Val MSE:{:.5f}\t Time:{:.5f}".format(epoch, self.loss_agg_epoch.result(), self.mse_agg_epoch.result(), 
-                        self.loss_agg_val.result(), self.mse_agg_val.result() ,time.time()-start_epoch_train  ) )
+                        self.loss_agg_val.result(), self.mse_agg_val.result(), time.time()-start_epoch_train  ) )
                     
             utility.tensorboard_record( self.writer.as_default(), [self.loss_agg_val.result(), self.mse_agg_val.result()], ['Validation Loss', 'Validation MSE' ], epoch  )                    
             self.df_training_info = utility.update_checkpoints_epoch(self.df_training_info, epoch, self.loss_agg_epoch, self.loss_agg_val, self.ckpt_mngr_epoch, self.t_params, 
@@ -337,90 +332,84 @@ class TrainTruNet():
     def step_train(self, feature, target, mask,bounds):
         
         with tf.GradientTape(persistent=True) as tape:
-                        
-            # non-stochastic training 
-            if( self.m_params['model_type_settings']['stochastic']==False):
+                                   
+            # non conditional continuous training
+            if self.m_params['model_type_settings']['discrete_continuous'] == False:
                 
-                # non conditional continuous training
-                if self.m_params['model_type_settings']['discrete_continuous'] == False:
-                    
-                    #making predictions
-                    preds = self.model( feature, self.t_params['trainable'] ) #( bs, tar_seq_len, h, w)
-                    preds = tf.squeeze( preds,axis=[-1] )
+                #making predictions
+                preds = self.model( feature, self.t_params['trainable'] ) #( bs, tar_seq_len, h, w)
+                preds = tf.squeeze( preds,axis=[-1] )
 
-                    preds   = cl.extract_central_region(preds, bounds)
-                    mask    = cl.extract_central_region(mask, bounds)
-                    target  = cl.extract_central_region(target, bounds)
+                preds   = cl.extract_central_region(preds, bounds)
+                mask    = cl.extract_central_region(mask, bounds)
+                target  = cl.extract_central_region(target, bounds)
 
-                    #Applying mask
-                    preds_masked = tf.boolean_mask( preds, mask )
-                    target_masked = tf.boolean_mask( target, mask ) 
+                #Applying mask
+                preds_masked = tf.boolean_mask( preds, mask )
+                target_masked = tf.boolean_mask( target, mask ) 
 
-                    # reversing standardization
-                    preds_masked = utility.standardize_ati( preds_masked, self.t_params['normalization_shift']['rain'], self.t_params['normalization_scales']['rain'], reverse=True)
+                # reversing standardization
+                preds_masked = utility.standardize_ati( preds_masked, self.t_params['normalization_shift']['rain'], self.t_params['normalization_scales']['rain'], reverse=True)
 
-                    # getting losses for records and/or optimizer
-                    metric_mse = cl.mse(target_masked, preds_masked) 
-                    loss_to_optimize = metric_mse
+                # getting losses for records and/or optimizer
+                metric_mse = cl.mse(target_masked, preds_masked) 
+                loss_to_optimize = metric_mse
 
-                # conditional continuous training        
-                elif self.m_params['model_type_settings']['discrete_continuous'] == True:
-                    
-                    # Producing predictions - conditional rain value and prob of rain
-                    preds   = self.model( feature, self.t_params['trainable'] ) # ( bs, seq_len, h, w, 1)
-                    preds   = tf.squeeze(preds, axis=[-1])
-                    preds, probs = tf.unstack(preds, axis=0) 
+            # conditional continuous training        
+            elif self.m_params['model_type_settings']['discrete_continuous'] == True:
+                
+                # Producing predictions - conditional rain value and prob of rain
+                preds   = self.model( feature, self.t_params['trainable'] ) # ( bs, seq_len, h, w, 1)
+                preds   = tf.squeeze(preds, axis=[-1])
+                preds, probs = tf.unstack(preds, axis=0) 
 
-                    # extracting the central region of interest
-                    preds   = cl.extract_central_region(preds, bounds)
-                    probs   = cl.extract_central_region(probs, bounds)
-                    mask    = cl.extract_central_region(mask, bounds)
-                    target  = cl.extract_central_region(target, bounds)
-                    
-                    # applying mask to predicted values
-                    preds_masked    = tf.boolean_mask(preds, mask )
-                    probs_masked    = tf.boolean_mask(probs, mask ) 
-                    target_masked   = tf.boolean_mask(target, mask )
-                    
-                    # Reverising standardization of predictions 
-                    preds_masked    = utility.standardize_ati( preds_masked, self.t_params['normalization_shift']['rain'], 
-                                                            self.t_params['normalization_scales']['rain'], reverse=True) 
-                                                            
-                    # Getting true labels and predicted labels for whether or not it rained [ 1 if if did rain, 0 if it did not rain]
-                    labels_true = tf.where( target_masked > 0.5, 1.0, 0.0 )
-                    labels_pred = probs_masked 
+                # extracting the central region of interest
+                preds   = cl.extract_central_region(preds, bounds)
+                probs   = cl.extract_central_region(probs, bounds)
+                mask    = cl.extract_central_region(mask, bounds)
+                target  = cl.extract_central_region(target, bounds)
+                
+                # applying mask to predicted values
+                preds_masked    = tf.boolean_mask(preds, mask )
+                probs_masked    = tf.boolean_mask(probs, mask ) 
+                target_masked   = tf.boolean_mask(target, mask )
+                
+                # Reverising standardization of predictions 
+                preds_masked    = utility.standardize_ati( preds_masked, self.t_params['normalization_shift']['rain'], 
+                                                        self.t_params['normalization_scales']['rain'], reverse=True) 
+                                                        
+                # Getting true labels and predicted labels for whether or not it rained [ 1 if if did rain, 0 if it did not rain]
+                labels_true = tf.where( target_masked > 0.5, 1.0, 0.0 )
+                labels_pred = probs_masked 
 
-                    all_count = tf.cast(tf.size( labels_true, out_type=tf.int32 ),tf.float32)
+                all_count = tf.cast(tf.size( labels_true, out_type=tf.int32 ),tf.float32)
 
-                    # Seperating predictions for the days it did rain and the days it did not rain
-                    bool_rain = (labels_true==1.0) 
+                # Seperating predictions for the days it did rain and the days it did not rain
+                bool_rain = (labels_true==1.0) 
 
-                    preds_cond_rain         = tf.boolean_mask( preds_masked, bool_rain)
-                    #probs_cond_rain         = tf.boolean_mask( probs_masked, bool_rain)                        
-                    target_cond_rain        = tf.boolean_mask( target_masked, bool_rain)                   
-                    
-                    # region Calculating Losses
-                    loss_to_optimize = 0
+                preds_cond_rain         = tf.boolean_mask( preds_masked, bool_rain)
+                #probs_cond_rain         = tf.boolean_mask( probs_masked, bool_rain)                        
+                target_cond_rain        = tf.boolean_mask( target_masked, bool_rain)                   
+                
+                # region Calculating Losses
+                loss_to_optimize = 0
 
-                    #NOTE: Error on vandal equation 14 last line, he forgets to put the logs and forgets the negative symbol so correct in yours
-                    loss_to_optimize += tf.reduce_mean( 
-                                    tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) ) 
+                #NOTE: Error on vandal equation 14 last line, he forgets to put the logs and forgets the negative symbol so correct in yours
+                loss_to_optimize += tf.reduce_mean( 
+                                tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) ) 
 
-                    if self.m_params['model_type_settings']['distr_type'] == 'Normal': 
-                        # CC Normal
-                        loss_to_optimize += cl.mse( target_cond_rain, preds_cond_rain, all_count )
-                    
-                    elif self.m_params['model_type_settings']['distr_type'] == 'LogNormal':    
-                        # CC LogNormal                                                             
-                        loss_to_optimize += cl.log_mse( target_cond_rain, preds_cond_rain, all_count)                                                         
-                    
-                    metric_mse  = cl.mse( target_masked, cl.cond_rain(preds_masked, probs_masked) )   
-                        # To calculate metric_mse for CC model we assume that pred_rain=0 if pred_prob<0.5 
-                    # endregion
+                if self.m_params['model_type_settings']['distr_type'] == 'Normal': 
+                    # CC Normal
+                    loss_to_optimize += cl.mse( target_cond_rain, preds_cond_rain, all_count )
+                
+                elif self.m_params['model_type_settings']['distr_type'] == 'LogNormal':    
+                    # CC LogNormal                                                             
+                    loss_to_optimize += cl.log_mse( target_cond_rain, preds_cond_rain, all_count)                                                         
+                
+                metric_mse  = cl.mse( target_masked, cl.cond_rain(preds_masked, probs_masked) )   
+                    # To calculate metric_mse for CC model we assume that pred_rain=0 if pred_prob<0.5 
+                # endregion
 
-            # stochastic training
-            elif(self.m_params['model_type_settings']['stochastic']==True):
-                raise NotImplementedError
 
             # Averagin losses across GPUS
             loss_to_optimize_agg = loss_to_optimize/self.strategy_gpu_count
@@ -441,87 +430,80 @@ class TrainTruNet():
         self.mse_agg_epoch( metric_mse )
         return True
                 
-    #still editing this, from start
+    
     def step_val(self, feature, target, mask, bounds):
-        
-        # Non stochastic training
-        if self.m_params['model_type_settings']['stochastic'] == False:
+                    
+        # Non CC distribution
+        if self.m_params['model_type_settings']['discrete_continuous'] == False:
             
-            # Non CC distribution
-            if self.m_params['model_type_settings']['discrete_continuous'] == False:
-                
-                # Get predictions
-                preds = self.model(tf.cast(feature,tf.float16), training=False )
-                preds = tf.squeeze(preds)
+            # Get predictions
+            preds = self.model(feature, training=False )
+            preds = tf.squeeze(preds)
 
-                # Extracting central region for evaluation
-                preds   = cl.extract_central_region(preds, bounds)
-                mask    = cl.extract_central_region(mask, bounds)
-                target  = cl.extract_central_region(target, bounds)
-                
-                # Applying masks to predictions
-                preds_masked = tf.boolean_mask( preds, mask )
-                target_masked = tf.boolean_mask( target, mask )
-                preds_masked = utility.standardize_ati( preds_masked, self.t_params['normalization_shift']['rain'], 
-                                                        self.t_params['normalization_scales']['rain'], reverse=True)
-                # Updating losses
-                mse = cl.mse( target_masked , preds_masked ) 
-                loss = mse                
-
-            # CC distribution
-            elif self.m_params['model_type_settings']['discrete_continuous'] == True:
-                
-                # Get predictions
-                preds = self.model(tf.cast(feature,tf.float16), training=False )
-                preds = tf.squeeze(preds)
-                preds, probs = tf.unstack(preds, axis=0)
-
-                # Extracting central region for evaluation
-                preds   = cl.extract_central_region(preds, bounds)
-                probs   = cl.extract_central_region(probs, bounds)
-                mask    = cl.extract_central_region(mask, bounds)
-                target  = cl.extract_central_region(target, bounds)
-
-                # Applying masks to predictions
-                preds_masked    = tf.boolean_mask( preds, mask )
-                probs_masked    = tf.boolean_mask( probs, mask)
-                target_masked   = tf.boolean_mask( target, mask )
-                preds_masked    = utility.standardize_ati( preds_masked, self.t_params['normalization_shift']['rain'], 
-                                                        self.t_params['normalization_scales']['rain'], reverse=True)
-
-                # Getting classification labels for whether or not it rained
-                labels_true = tf.cast( tf.greater( target_masked, 0.5 ), tf.float32 )
-                labels_pred = probs_masked 
-
-                all_count = tf.cast(tf.size( labels_true, out_type=tf.int32 ),tf.float32)
-
-                # Gathering predictions which are conditional on rain actually occuring
-                bool_rain = tf.where(tf.equal(labels_true,1), True, False )
-
-                preds_cond_rain     = tf.boolean_mask( preds_masked, bool_rain)
-                target_cond_rain    = tf.boolean_mask( target_masked, bool_rain )
-                                    
-                # Calculating cross entropy loss                         
-                loss = tf.reduce_mean(  tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )
-
-                # Calculating conditional continuous loss
-                if self.m_params['model_type_settings']['distr_type'] == 'Normal':
-                    #Conditional Normal distribution
-                    loss    += cl.mse( preds_cond_rain, target_cond_rain, all_count )
-
-                elif self.m_params['model_type_settings']['distr_type'] == 'LogNormal':  
-                    #COnditional LogNormal distribution                 
-                    loss    += cl.log_mse( preds_cond_rain, target_cond_rain, all_count)
-
-                # calculating seperate mse for reporting
-                    # This mse metric assumes that if probability of rain is predicted below 0.5, the rain value is 0
-                mse = cl.mse( target_masked, cl.cond_rain( preds_masked, probs_masked), all_count )
+            # Extracting central region for evaluation
+            preds   = cl.extract_central_region(preds, bounds)
+            mask    = cl.extract_central_region(mask, bounds)
+            target  = cl.extract_central_region(target, bounds)
             
+            # Applying masks to predictions
+            preds_masked = tf.boolean_mask( preds, mask )
+            target_masked = tf.boolean_mask( target, mask )
+            preds_masked = utility.standardize_ati( preds_masked, self.t_params['normalization_shift']['rain'], 
+                                                    self.t_params['normalization_scales']['rain'], reverse=True)
+            # Updating losses
+            mse = cl.mse( target_masked , preds_masked ) 
+            loss = mse                
+
+        # CC distribution
+        elif self.m_params['model_type_settings']['discrete_continuous'] == True:
+            
+            # Get predictions
+            preds = self.model(feature, training=False )
+            preds = tf.squeeze(preds)
+            preds, probs = tf.unstack(preds, axis=0)
+
+            # Extracting central region for evaluation
+            preds   = cl.extract_central_region(preds, bounds)
+            probs   = cl.extract_central_region(probs, bounds)
+            mask    = cl.extract_central_region(mask, bounds)
+            target  = cl.extract_central_region(target, bounds)
+
+            # Applying masks to predictions
+            preds_masked    = tf.boolean_mask( preds, mask )
+            probs_masked    = tf.boolean_mask( probs, mask)
+            target_masked   = tf.boolean_mask( target, mask )
+            preds_masked    = utility.standardize_ati( preds_masked, self.t_params['normalization_shift']['rain'], 
+                                                    self.t_params['normalization_scales']['rain'], reverse=True)
+
+            # Getting classification labels for whether or not it rained
+            #labels_true = tf.cast( tf.greater( target_masked, 0.5 ), tf.float32 )
+            labels_true = tf.where( target_masked > 0.5, 1.0, 0.0 )
+            labels_pred = probs_masked 
+
+            all_count = tf.cast(tf.size( labels_true, out_type=tf.int32 ),tf.float32)
+
+            # Gathering predictions which are conditional on rain actually occuring
+            bool_rain = (labels_true==1.0) 
+
+            preds_cond_rain     = tf.boolean_mask( preds_masked, bool_rain)
+            target_cond_rain    = tf.boolean_mask( target_masked, bool_rain )
+                                
+            # Calculating cross entropy loss                         
+            loss = tf.reduce_mean(  tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )
+
+            # Calculating conditional continuous loss
+            if self.m_params['model_type_settings']['distr_type'] == 'Normal':
+                #Conditional Normal distribution
+                loss    += cl.mse( preds_cond_rain, target_cond_rain, all_count )
+
+            elif self.m_params['model_type_settings']['distr_type'] == 'LogNormal':  
+                #COnditional LogNormal distribution                 
+                loss    += cl.log_mse( preds_cond_rain, target_cond_rain, all_count)
+
+            # calculating seperate mse for reporting
+                # This mse metric assumes that if probability of rain is predicted below 0.5, the rain value is 0
+            mse = cl.mse( target_masked, cl.cond_rain( preds_masked, probs_masked) )
         
-        # Stochastic Training
-        elif(self.m_params['model_type_settings']['stochastic']==True):
-            raise NotImplementedError                
-                
         self.loss_agg_val(loss)
         self.mse_agg_val(mse)
 
@@ -530,12 +512,12 @@ class TrainTruNet():
     @tf.function
     def distributed_train_step(self, feature, target, mask, bounds):
         bool_completed = self.strategy.run( self.step_train, args=(feature, target, mask, bounds))
-        
         return bool_completed
     
-    @tf.function
+    #@tf.function
     def distributed_val_step(self, feature, target, mask, bounds):
-        return self.strategy.run( self.step_val, args=(feature, target, mask, bounds))
+        bool_completed = self.strategy.run( self.step_val, args=(feature, target, mask, bounds))
+        return bool_completed
 
 
 if __name__ == "__main__":

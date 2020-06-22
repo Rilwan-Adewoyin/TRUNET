@@ -1,3 +1,5 @@
+import netCDF4
+from netCDF4 import Dataset, num2date
 import argparse
 import ast
 import datetime as dt
@@ -8,11 +10,10 @@ import warnings
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
-import netCDF4
 import numpy as np
 import pandas as pd
 import pygrib
-from netCDF4 import Dataset, num2date
+
 
 warnings.filterwarnings("ignore")
 

@@ -16,7 +16,7 @@ class HParams():
     """    
     def __init__( self ,**kwargs ):  
         
-        self._default_params()
+        self._default_params(**kwargs)
         
         if( kwargs != None):
             self.params.update( kwargs)

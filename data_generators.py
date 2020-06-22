@@ -1,19 +1,16 @@
-import os
-# os.environ["OMP_NUM_THREADS"] = "1" # export OMP_NUM_THREADS=1
-# os.environ["OPENBLAS_NUM_THREADS"] = "1" # export OPENBLAS_NUM_THREADS=1
-# os.environ["MKL_NUM_THREADS"] = "1" # export MKL_NUM_THREADS=1
-# os.environ["VECLIB_MAXIMUM_THREADS"] = "1" # export VECLIB_MAXIMUM_THREADS=1
-# os.environ["NUMEXPR_NUM_THREADS"] = "1" # export NUMEXPR_NUM_THREADS=1
-from netCDF4 import Dataset, num2date
-import xarray as xr
+import glob
 import itertools as it
+import json
+import os
+import pickle
 from functools import partial
+
 import numpy as np
 import tensorflow as tf
-import pickle
-import glob
+import xarray as xr
+from netCDF4 import Dataset, num2date
+
 import utility
-import json
 
 
 """
@@ -74,8 +71,9 @@ class Generator():
         self.longitude_array = np.linspace(-10.95, 2.95, 140)
         
         # Retrieving information on temporal length of  dataset        
-        with Dataset(self.fp, "r", format="NETCDF4") as ds:
+        with Dataset(self.fp, "r+", format="NETCDF4") as ds:
             self.data_len = ds.dimensions['time'].size
+        #self.data_len = Dataset(self.fp, "r+", format="NETCDF4").dimensions['time'].size
         
     def yield_all(self):
         pass
@@ -172,7 +170,6 @@ class Generator():
                 list : return a list of of tuples defining the boundaries of the region
                         of the form [ ([upper_h, lower_h]. [left_w, right_w]), ... ]
         """       
-
         input_image_shape = region_grid_params['input_image_shape']
         vertical_shift = region_grid_params['vertical_shift']
         horizontal_shift = region_grid_params['horizontal_shift']
@@ -189,7 +186,6 @@ class Generator():
 
         li_boundaries = list( it.product( li_range_h_pairs, li_range_w_pairs ) )
 
-        
         return li_boundaries 
 
 class Generator_rain(Generator):
@@ -320,11 +316,11 @@ class Era5_Eobs():
         data_dir = self.t_params['data_dir']
 
         # Create python generator for rain data
-        fp_rain = data_dir+"/" + t_params.get('rain_fn',"rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc")
+        fp_rain = data_dir+"/" + self.t_params.get('rain_fn',"rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc")
         self.rain_data = Generator_rain(fp=fp_rain, all_at_once=False)
 
         # Create python generator for model field data 
-        mf_fp = data_dir + "/" + t_params.get('mf_fn', "ana_input_intrp_linear.nc")
+        mf_fp = data_dir + "/" + self.t_params.get('mf_fn', "ana_input_intrp_linear.nc")
         self.mf_data = Generator_mf(fp=mf_fp, vars_for_feature=self.t_params['vars_for_feature'], all_at_once=False, seq_len=self.t_params['lookback_feature'] )
 
         # Update information on the locations of interest to extract data from
@@ -508,5 +504,3 @@ class Era5_Eobs():
         rain = rain[ :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
         rain_mask = rain_mask[ :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
         return tf.expand_dims(mf,axis=0), tf.expand_dims(rain,axis=0), tf.expand_dims(rain_mask,axis=0) #Note: expand_dim for unbatch/batch compatibility
-
-    
