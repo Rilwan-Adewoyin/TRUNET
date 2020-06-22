@@ -215,8 +215,6 @@ class TestTrueNet():
         self.li_predictions = []
         self.li_true_values = []
 
-    def evaluate_preds(self):
-        pass
 
 if __name__ == "__main__":
     s_dir = utility.get_script_directory(sys.argv[0])

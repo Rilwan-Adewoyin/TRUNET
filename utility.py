@@ -142,6 +142,8 @@ def parse_arguments(s_dir=None):
     
     parser.add_argument('-mts','--model_type_settings', type=str, help="m_params", required=True, default={})
 
+    parser.add_argument('-ts','--t_settings',type=str, help="dictioary of custom settings for training/testing", required=False, default='{}')
+
     parser.add_argument('-mprm','--m_params', type=str, help="m_params", required=False, default=argparse.SUPPRESS )
 
     parser.add_argument('-tprm','--t_params', type=str, help="t_params", required=False, default=argparse.SUPPRESS )
@@ -175,9 +177,7 @@ def parse_arguments(s_dir=None):
     # parser.add_argument('-reg_', '--region_pred', type=bool, default=argparse.SUPPRESS )
 
     # parser.add_argument('-mcp','--model_ckpt_path',type=str,  default=argparse.SUPPRESS  )
-
-    parser.add_argument('-ts','--t_settings',type=str, help="dictioary of custom settings for training/testing", required=False, default='{}')
-    
+       
     args_dict = vars(parser.parse_args() )
 
     return args_dict
