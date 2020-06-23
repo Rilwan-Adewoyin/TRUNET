@@ -75,7 +75,7 @@ class model_TRUNET_hparameters(MParams):
         # region ---  learning/convergence/regularlisation params
         REC_ADAM_PARAMS = {
             "learning_rate":8e-4,   "warmup_proportion":0.65,
-            "min_lr":2.5e-4,         "beta_1":0.70,               "beta_2":0.99,
+            "min_lr":5e-4,         "beta_1":0.70,               "beta_2":0.99,
             "amsgrad":True,         "decay":0.0004,              "epsilon":5e-8 } #Rectified Adam params
         
         DROPOUT =   model_type_settings.get('do',0.0)
@@ -84,6 +84,7 @@ class model_TRUNET_hparameters(MParams):
         kernel_reg   = None  #regularlization for input to GRU
         recurrent_reg = None #regularlization for recurrent input to GRU
         bias_reg = tf.keras.regularizers.l2(0.00)
+        #bias_reg_attn = tf.keras.regularizers.l2(0.00002)
         # endregion
 
         #region --- Key Model Size Settings
@@ -383,7 +384,7 @@ class train_hparameters_ati(HParams):
         # endregion
         
         DATA_DIR = self.dd
-        EARLY_STOPPING_PERIOD = 30
+        EARLY_STOPPING_PERIOD = 45
  
         self.params = {
             'batch_size':BATCH_SIZE,
