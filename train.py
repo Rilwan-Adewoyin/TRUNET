@@ -36,9 +36,9 @@ try:
 except Exception as e:
     gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 
-print("GPU Available: {}\n GPU Devices:{} ".format(tf.test.is_gpu_available(), gpu_devices) )
-for idx, gpu_name in enumerate(gpu_devices):
-    tf.config.experimental.set_memory_growth(gpu_name, True)
+# print("GPU Available: {}\n GPU Devices:{} ".format(tf.test.is_gpu_available(), gpu_devices) )
+# for idx, gpu_name in enumerate(gpu_devices):
+#     tf.config.experimental.set_memory_growth(gpu_name, True)
 
 # try:
 #     tf.config.set_logical_device_configuration(
@@ -189,21 +189,21 @@ class TrainTruNet():
         # endregion
         
         # region ---- Making Datasets
-        ds_train, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'], self.t_params['start_date'] )
-        ds_val, _ = era5_eobs.load_data_era5eobs( self.t_params['val_batches'], self.t_params['val_start_date'] )
+        self.ds_train, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'], self.t_params['start_date'] )
+        self.ds_val, _ = era5_eobs.load_data_era5eobs( self.t_params['val_batches'], self.t_params['val_start_date'] )
         
         #caching dataset to file post pre-processing steps have been completed 
         cache_suffix = utility.cache_suffix_mkr( m_params, self.t_params )
         os.makedirs( './Data/data_cache/', exist_ok=True  )
-        ds_train = ds_train.cache('Data/data_cache/train'+cache_suffix ) 
-        ds_val = ds_val.cache('Data/data_cache/val'+cache_suffix )
+        self.ds_train = self.ds_train.cache('Data/data_cache/train'+cache_suffix ) 
+        self.ds_val = self.ds_val.cache('Data/data_cache/val'+cache_suffix )
         
         
         # preparing iterators for train and validation
         # data loading schemes based on ram limitations
         if psutil.virtual_memory()[0] / 1e9 <= 30.0 : 
             #Data Loading Scheme 1 - Version that works on low memeory devices e.g. under 30 GB RAM
-            ds_train_val = ds_train.concatenate(ds_val).repeat(self.t_params['epochs']-self.start_epoch)
+            ds_train_val = self.ds_train.concatenate(self.ds_val).repeat(self.t_params['epochs']-self.start_epoch)
             #ds_train_val = ds_train.unbatch().shuffle( self.t_params['batch_size']*2, reshuffle_each_iteration=True).batch(self.t_params['batch_size']).concatenate(ds_val).repeat(self.t_params['epochs']-self.start_epoch)
             ds_train_val = ds_train_val.skip(self.batches_to_skip)
             self.ds_train_val = self.strategy.experimental_distribute_dataset(dataset=ds_train_val)
@@ -212,13 +212,13 @@ class TrainTruNet():
             self.iter_val = self.iter_val_train
         else:
             #Data Loading Scheme 2 - Version that ensures validation and train set are well defined 
-            ds_train = ds_train.repeat(self.t_params['epochs']-self.start_epoch)
+            self.ds_train = self.ds_train.repeat(self.t_params['epochs']-self.start_epoch)
             #ds_train = ds_train.unbatch().shuffle( self.t_params['batch_size']*12, reshuffle_each_iteration=True).batch(self.t_params['batch_size']).repeat(self.t_params['epochs']-self.start_epoch)
 
-            ds_val = ds_val. repeat(self.t_params['epochs']-self.start_epoch)
-            ds_train = ds_train.skip(self.batches_to_skip)
-            self.ds_train = self.strategy.experimental_distribute_dataset(dataset=ds_train)
-            self.ds_val = self.strategy.experimental_distribute_dataset(dataset=ds_val)
+            self.ds_val = self.ds_val. repeat(self.t_params['epochs']-self.start_epoch)
+            self.ds_train = self.ds_train.skip(self.batches_to_skip)
+            self.ds_train = self.strategy.experimental_distribute_dataset(dataset=self.ds_train)
+            self.ds_val = self.strategy.experimental_distribute_dataset(dataset=self.ds_val)
             self.iter_train = enumerate(self.ds_train)
             self.iter_val = enumerate(self.ds_val)
         #endregion
