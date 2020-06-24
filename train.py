@@ -162,15 +162,9 @@ class TrainTruNet():
             ckpt_epoch = tf.train.Checkpoint(model=self.model, optimizer=self.optimizer)
             self.ckpt_mngr_epoch = tf.train.CheckpointManager(ckpt_epoch, checkpoint_path_epoch, max_to_keep=self.t_params['checkpoints_to_keep'], keep_checkpoint_every_n_hours=None)    
         
-        #checkpoints (For Batches)
-        checkpoint_path_batch = "checkpoints/{}/batch".format(utility.model_name_mkr(m_params,t_params=self.t_params))
-        os.makedirs(checkpoint_path_batch,exist_ok=True)
-        with self.strategy.scope():
-            ckpt_batch = tf.train.Checkpoint(model=self.model, optimizer=self.optimizer)#, optimizer=optimizer)
-            self.ckpt_mngr_batch = tf.train.CheckpointManager(ckpt_batch, checkpoint_path_batch, max_to_keep=self.t_params['checkpoints_to_keep'], keep_checkpoint_every_n_hours=None)
 
             #restoring last checkpoint if it exists
-        if self.ckpt_mngr_batch.latest_checkpoint: 
+        if self.ckpt_mngr_epoch.latest_checkpoint: 
             # compat: Initializing model and optimizer before restoring from checkpoint
             inp_shape = [t_params['batch_size'], t_params['lookback_feature']] + m_params['region_grid_params']['outer_box_dims'] + [len(t_params['vars_for_feature'])]
             inp_shape1 = [t_params['batch_size'], t_params['lookback_target']] + m_params['region_grid_params']['outer_box_dims'] 
@@ -185,7 +179,7 @@ class TrainTruNet():
             _b = cl.central_region_bounds(self.m_params['region_grid_params']) 
             bool_cmpltd = self.distributed_train_step( _f, _t, _m, _b )
 
-            ckpt_batch.restore(self.ckpt_mngr_batch.latest_checkpoint).assert_consumed()              
+            ckpt_epoch.restore(self.ckpt_mngr_epoch.latest_checkpoint).assert_consumed()              
         else:
             print (' Initializing model from scratch')
         
@@ -207,7 +201,7 @@ class TrainTruNet():
         
         # preparing iterators for train and validation
         # data loading schemes based on ram limitations
-        if psutil.virtual_memory()[0] / 1e9 <= 38.0 : 
+        if psutil.virtual_memory()[0] / 1e9 <= 30.0 : 
             #Data Loading Scheme 1 - Version that works on low memeory devices e.g. under 30 GB RAM
             ds_train_val = ds_train.concatenate(ds_val).repeat(self.t_params['epochs']-self.start_epoch)
             #ds_train_val = ds_train.unbatch().shuffle( self.t_params['batch_size']*2, reshuffle_each_iteration=True).batch(self.t_params['batch_size']).concatenate(ds_val).repeat(self.t_params['epochs']-self.start_epoch)
@@ -218,8 +212,8 @@ class TrainTruNet():
             self.iter_val = self.iter_val_train
         else:
             #Data Loading Scheme 2 - Version that ensures validation and train set are well defined 
-            #ds_train = ds_train.repeat(self.t_params['epochs']-self.start_epoch)
-            ds_train = ds_train.unbatch().shuffle( self.t_params['batch_size']*12, reshuffle_each_iteration=True).batch(self.t_params['batch_size']).repeat(self.t_params['epochs']-self.start_epoch)
+            ds_train = ds_train.repeat(self.t_params['epochs']-self.start_epoch)
+            #ds_train = ds_train.unbatch().shuffle( self.t_params['batch_size']*12, reshuffle_each_iteration=True).batch(self.t_params['batch_size']).repeat(self.t_params['epochs']-self.start_epoch)
 
             ds_val = ds_val. repeat(self.t_params['epochs']-self.start_epoch)
             ds_train = ds_train.skip(self.batches_to_skip)
@@ -282,8 +276,6 @@ class TrainTruNet():
                     self.df_training_info.loc[ ( self.df_training_info['Epoch']==epoch) , ['Last_Trained_Batch'] ] = batch
                     self.df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(self.m_params,t_params=self.t_params)), header=True, index=False )
 
-                    #Saving checkpoint
-                    self.ckpt_mngr_batch.save()
                     
             # --- Tensorboard record          
             li_losses = [self.loss_agg_epoch.result(), self.mse_agg_epoch.result()]
@@ -415,7 +407,7 @@ class TrainTruNet():
             scaled_loss = self.optimizer.get_scaled_loss( loss_to_optimize_agg )
             scaled_gradients = tape.gradient( scaled_loss, self.model.trainable_variables )
             unscaled_gradients = self.optimizer.get_unscaled_gradients(scaled_gradients)
-            gradients, _ = tf.clip_by_global_norm( unscaled_gradients, clip_norm=1 ) #gradient clipping
+            gradients, _ = tf.clip_by_global_norm( unscaled_gradients, clip_norm=4 ) #gradient clipping
             self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
         
         # Metrics (batchwise, epoch)  

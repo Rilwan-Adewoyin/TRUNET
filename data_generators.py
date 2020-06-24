@@ -1,3 +1,4 @@
+from netCDF4 import Dataset, num2date
 import glob
 import itertools as it
 import json
@@ -8,7 +9,7 @@ from functools import partial
 import numpy as np
 import tensorflow as tf
 import xarray as xr
-from netCDF4 import Dataset, num2date
+
 
 import utility
 
@@ -237,69 +238,48 @@ class Generator_mf(Generator):
     def yield_all(self):
         raise NotImplementedError
     
-    # def yield_iter(self):
-        #         """ Yield the data chunk by chunk
-        #         """
-        #         ds = Dataset(self.fp, "r", format="NETCDF4")
-                
-        #         for tuple_mfs in zip( *[ds.variables[var_name][:] for var_name in self.vars_for_feature] ):
-        #             # extracting masks and data for variables of interest
-        #             list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar) ) for _mar in tuple_mfs]
-        #             _data, _masks = list(zip(*list_datamask))
-        #             _masks = [ np.full(_data[0].shape, np.logical_not(_mask_val), dtype=bool) for _mask_val in _masks] 
-        #             stacked_data = np.stack(_data, axis=-1)
-        #             stacked_masks = np.stack(_masks, axis=-1)
-                    
-        #             yield np.expand_dims(stacked_data[ 1:-2, 2:-2, :],axis=0), np.expand_dims( stacked_masks[ 1:-2 , 2:-2, :], axis=0) #(100,140,6) 
-    
-    # def yield_iter(self):
-        #     """ Yield the data chunk by chunk
-        #     """
-        #     self.ds = xr.open_dataset(self.fp, decode_times=False, autoclose=True, lock=False)
-        #     #ds = xr.open_dataset(self.fp, decode_times=False, lock=False)
-        #     #self.mf_iters = [ iter(self.ds[name]) for name in self.vars_for_feature ]
-        #     self.mf_iters = [ iter(self.ds[name].astype('float16',copy=False).to_masked_array()) for name in self.vars_for_feature ]
-        #     #self.mf_iters = [ iter(ds[name].astype('float16',copy=False).to_masked_array   ()) for name in self.vars_for_feature ]
-        #     #while True:
-        #     for idx in range(self.data_len):
-        #         #next_marray = [ next(_iter).to_masked_array() for _iter in self.mf_iters]
-        #         next_marray = [ next(_iter) for _iter in self.mf_iters]
-        #         #list_datamask = [(np.ma.getdata(_mar).astype('float16'), np.ma.getmask(_mar) ) for _mar in next_marray]
-        #         list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar) ) for _mar in next_marray]
-
-        #         _data, _masks = list(zip(*list_datamask))
-        #         _masks = [ np.logical_not(_mask_val) for _mask_val in _masks] 
-        #         #_masks = [ np.full(_data[0].shape, np.logical_not(_mask_val), dtype=bool) for _mask_val in _masks] 
-        #         stacked_data = np.stack(_data, axis=-1)
-        #         stacked_masks = np.stack(_masks, axis=-1)
-            
-    #         yield stacked_data[ 1:-2, 2:-2, :], stacked_masks[ 1:-2 , 2:-2, :] #(100,140,6) 
-    
     def yield_iter(self):
-        xr_gn = xr.open_dataset(self.fp, cache=False, decode_times=False, decode_cf=False)
+        """ Yield the data chunk by chunk
+        """
+        ds = Dataset(self.fp, "r", format="NETCDF4")
         
-        idx = 0
-        
-        adj_seq_len = self.seq_len 
-        while idx < self.data_len:
-            #idxs = arr_idxs[idx:idx+self.seq_len] 
-            
-            #next_marray = [ xr_gn[name].isel(time=idxs).to_masked_array() for name in self.vars_for_feature ]
-            _slice = slice(idx + self.start_idx, idx + self.start_idx + adj_seq_len)
-            next_marray = [ xr_gn[name].isel(time=_slice).to_masked_array(copy=False) for name in self.vars_for_feature ]
-            
-            list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar)) for _mar in next_marray]
-            
+        for tuple_mfs in zip( *[ds.variables[var_name][:] for var_name in self.vars_for_feature] ):
+            # extracting masks and data for variables of interest
+            list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar) ) for _mar in tuple_mfs]
             _data, _masks = list(zip(*list_datamask))
-            _masks = [ np.logical_not(_mask_val) for _mask_val in _masks] 
+            _masks = [ np.full(_data[0].shape, np.logical_not(_mask_val), dtype=bool) for _mask_val in _masks] 
             stacked_data = np.stack(_data, axis=-1)
             stacked_masks = np.stack(_masks, axis=-1)
+            
+            yield np.expand_dims(stacked_data[ 1:-2, 2:-2, :],axis=0), np.expand_dims( stacked_masks[ 1:-2 , 2:-2, :], axis=0) #(100,140,6) 
+    
 
-            yield stacked_data[ :, 1:-2, 2:-2, :], stacked_masks[ :, 1:-2 , 2:-2, :] #(100,140,6) 
+    # def yield_iter(self):
+    #     xr_gn = xr.open_dataset(self.fp, cache=False, decode_times=False, decode_cf=False)
+        
+    #     idx = self.start_idx
+        
+    #     while idx < self.data_len:
+    #         #idxs = arr_idxs[idx:idx+self.seq_len] 
+            
+    #         #next_marray = [ xr_gn[name].isel(time=idxs).to_masked_array() for name in self.vars_for_feature ]
+    #         adj_seq_len = min(self.seq_len, self.data_len - idx )
 
-            idx += self.seq_len
-            adj_seq_len = min(self.seq_len, self.data_len - idx -1 )
+    #         _slice = slice( idx , idx  + adj_seq_len)
+    #         next_marray = [ xr_gn[name].isel(time=_slice).to_masked_array(copy=True) for name in self.vars_for_feature ]
+            
+    #         list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar)) for _mar in next_marray]
+            
+    #         _data, _masks = list(zip(*list_datamask))
+    #         _masks = [ np.logical_not(_mask_val) for _mask_val in _masks] 
+    #         stacked_data = np.stack(_data, axis=-1)
+    #         stacked_masks = np.stack(_masks, axis=-1)
 
+    #         idx += adj_seq_len
+
+    #         yield stacked_data[ :, 1:-2, 2:-2, :], stacked_masks[ :, 1:-2 , 2:-2, :] #(100,140,6) 
+
+            
     def __call__(self):
         return self.yield_iter()
 
@@ -368,7 +348,7 @@ class Era5_Eobs():
         start_idx_feat, start_idx_tar = self.get_start_idx(start_date)
         self.mf_data.start_idx = start_idx_feat
         # region - Preparing feature model fields        
-        ds_feat = tf.data.Dataset.from_generator( self.mf_data , output_types=(tf.float16, tf.bool), output_shapes=( tf.TensorShape([None, None, None, None]),tf.TensorShape([None, None, None, None])) ) #(values, mask) 
+        ds_feat = tf.data.Dataset.from_generator( self.mf_data , output_types=(tf.float32, tf.bool), output_shapes=( tf.TensorShape([None, None, None, None]),tf.TensorShape([None, None, None, None])) ) #(values, mask) 
         ds_feat = ds_feat.unbatch()
         #ds_feat = ds_feat.skip(start_idx_feat) # Skipping forward to the correct time
         
@@ -376,6 +356,8 @@ class Era5_Eobs():
         ds_feat = ds_feat.flat_map( lambda *window: tf.data.Dataset.zip( tuple([w.batch(self.t_params['lookback_feature']) for w in window ] ) ) )  # shape (lookback,h, w, 6)
         
         ds_feat = ds_feat.map( lambda arr_data, arr_mask: self.mf_normalize_mask( arr_data, arr_mask), num_parallel_calls= _num_parallel_calls) 
+
+        ds_feat = ds_feat.map(lambda arr_data : tf.cast(arr_data, tf.float16), num_parallel_calls = _num_parallel_calls )
         # endregion
 
         # region - Preparing Eobs target_rain_data   

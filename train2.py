@@ -329,7 +329,7 @@ class TrainTrueNet():
                     scaled_loss = self.optimizer.get_scaled_loss(loss_to_optimize+tf.math.add_n(self.model.losses) )
                     scaled_gradients = tape.gradient( scaled_loss, self.model.trainable_variables )
                     gradients = self.optimizer.get_unscaled_gradients(scaled_gradients)
-                    gradients, _ = tf.clip_by_global_norm( gradients, 1 )
+                    gradients, _ = tf.clip_by_global_norm( gradients, 4 )
                     
                     self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
                     gc.collect()

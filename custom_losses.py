@@ -35,9 +35,11 @@ def mse( obs, preds, count=None):
     if count == None:
         mse = tf.keras.metrics.MSE( obs, preds)
     else:
-        mse = tf.math.squared_difference( obs, preds)
-        mse = mse / count
-        mse = tf.math.reduce_sum( mse )
+        size = tf.size(obs)
+        mse = tf.keras.metrics.MSE( obs, preds) * size/count
+        # mse = tf.math.squared_difference( obs, preds)
+        # mse = tf.math.reduce_sum( mse )
+        # mse = mse / count
     return mse
 
 def cond_rain(vals, probs):
