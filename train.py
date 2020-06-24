@@ -1,5 +1,7 @@
 from netCDF4 import Dataset, num2date
 import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 import argparse
 import ast
 import gc
@@ -12,6 +14,7 @@ import time
 import numpy as np
 import pandas as pd
 import psutil
+
 import tensorflow as tf
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
 
@@ -26,8 +29,8 @@ import hparameters
 import models
 import utility
 
-os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
-logging.getLogger("tensorflow").setLevel(logging.ERROR)
+
+#logging.getLogger("tensorflow").setLevel(logging.ERROR)
 tf.keras.backend.set_floatx('float16')
 tf.keras.backend.set_epsilon(1e-3)
 
