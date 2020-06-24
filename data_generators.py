@@ -238,48 +238,48 @@ class Generator_mf(Generator):
     def yield_all(self):
         raise NotImplementedError
     
-    def yield_iter(self):
-        """ Yield the data chunk by chunk
-        """
-        ds = Dataset(self.fp, "r", format="NETCDF4")
-        
-        for tuple_mfs in zip( *[ds.variables[var_name][:] for var_name in self.vars_for_feature] ):
-            # extracting masks and data for variables of interest
-            list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar) ) for _mar in tuple_mfs]
-            _data, _masks = list(zip(*list_datamask))
-            _masks = [ np.full(_data[0].shape, np.logical_not(_mask_val), dtype=bool) for _mask_val in _masks] 
-            stacked_data = np.stack(_data, axis=-1)
-            stacked_masks = np.stack(_masks, axis=-1)
-            
-            yield np.expand_dims(stacked_data[ 1:-2, 2:-2, :], axis=0), np.expand_dims( stacked_masks[ 1:-2 , 2:-2, :], axis=0) #(100,140,6) 
-    
-
     # def yield_iter(self):
-    #     xr_gn = xr.open_dataset(self.fp, cache=False, decode_times=False, decode_cf=False)
+    #     """ Yield the data chunk by chunk
+    #     """
+    #     ds = Dataset(self.fp, "r", format="NETCDF4")
         
-    #     idx = self.start_idx
-        
-    #     #while idx < self.data_len:
-    #      while _bool == True:
-    #         #idxs = arr_idxs[idx:idx+self.seq_len] 
-            
-    #         #next_marray = [ xr_gn[name].isel(time=idxs).to_masked_array() for name in self.vars_for_feature ]
-    #         adj_seq_len = min(self.seq_len, self.data_len - idx )
-
-    #         _slice = slice( idx , idx  + adj_seq_len)
-    #         next_marray = [ xr_gn[name].isel(time=_slice).to_masked_array(copy=True) for name in self.vars_for_feature ]
-            
-    #         list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar)) for _mar in next_marray]
-            
+    #     for tuple_mfs in zip( *[ds.variables[var_name][:] for var_name in self.vars_for_feature] ):
+    #         # extracting masks and data for variables of interest
+    #         list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar) ) for _mar in tuple_mfs]
     #         _data, _masks = list(zip(*list_datamask))
-    #         _masks = [ np.logical_not(_mask_val) for _mask_val in _masks] 
+    #         _masks = [ np.full(_data[0].shape, np.logical_not(_mask_val), dtype=bool) for _mask_val in _masks] 
     #         stacked_data = np.stack(_data, axis=-1)
     #         stacked_masks = np.stack(_masks, axis=-1)
+            
+    #         yield np.expand_dims(stacked_data[ 1:-2, 2:-2, :], axis=0), np.expand_dims( stacked_masks[ 1:-2 , 2:-2, :], axis=0) #(100,140,6) 
+    
 
-    #         idx += adj_seq_len
-            # if idx>self.data_len: _bool=False
+    def yield_iter(self):
+        xr_gn = xr.open_dataset(self.fp, cache=False, decode_times=False, decode_cf=False)
+        
+        idx = self.start_idx
+        
+        while idx < self.data_len:
+        #while _bool == True:
+            #idxs = arr_idxs[idx:idx+self.seq_len] 
+            
+            #next_marray = [ xr_gn[name].isel(time=idxs).to_masked_array() for name in self.vars_for_feature ]
+            adj_seq_len = min(self.seq_len, self.data_len - idx )
 
-    #         yield stacked_data[ :, 1:-2, 2:-2, :], stacked_masks[ :, 1:-2 , 2:-2, :] #(100,140,6) 
+            _slice = slice( idx , idx  + adj_seq_len)
+            next_marray = [ xr_gn[name].isel(time=_slice).to_masked_array(copy=True) for name in self.vars_for_feature ]
+            
+            list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar)) for _mar in next_marray]
+            
+            _data, _masks = list(zip(*list_datamask))
+            _masks = [ np.logical_not(_mask_val) for _mask_val in _masks] 
+            stacked_data = np.stack(_data, axis=-1)
+            stacked_masks = np.stack(_masks, axis=-1)
+
+            idx += adj_seq_len
+            #if idx>self.data_len: _bool=False
+
+            yield stacked_data[ :, 1:-2, 2:-2, :], stacked_masks[ :, 1:-2 , 2:-2, :] #(100,140,6) 
 
             
     def __call__(self):
@@ -375,10 +375,11 @@ class Era5_Eobs():
         # Combining datasets
         ds = tf.data.Dataset.zip( (ds_feat, ds_tar) ) #( model_fields, (rain, rain_mask) ) 
         
-        ds, idx_loc_in_region = self.location_extractor( ds, self.li_loc)
+        ds, idx_loc_in_region = self.location_extractor( ds, self.li_loc, batch_count)
         ds = ds.prefetch(2)
         
-        return ds.take(batch_count), idx_loc_in_region
+        return ds, idx_loc_in_region
+        #return ds.take(batch_count), idx_loc_in_region
 
     def get_start_idx(self, start_date):
         """ Returns two indexes
@@ -433,7 +434,7 @@ class Era5_Eobs():
         arr_data = tf.where( arr_mask, arr_data, self.t_params['mask_fill_value']['model_field'])
         return arr_data #(h,w,c)
 
-    def location_extractor(self, ds, locations):
+    def location_extractor(self, ds, locations, batch_count):
         """Extracts the temporal slice of patches corresponding to the locations of interest 
 
                 Args:
@@ -456,8 +457,9 @@ class Era5_Eobs():
         li_ds = [ ds.map( lambda mf, rain, rmask : self.select_region( mf, rain, rmask, _idx[0], _idx[1]), num_parallel_calls=-1) for _idx in li_hw_idxs ]
         
         # Concatenating all datasets for each location
+        batches_per_loc = int(batch_count/len(locations))
         for idx in range(len(li_ds)):
-            li_ds[idx] = li_ds[idx].unbatch().batch( self.t_params['batch_size'], drop_remainder=True )
+            li_ds[idx] = li_ds[idx].unbatch().batch( self.t_params['batch_size'], drop_remainder=True ).take(batches_per_loc)
             if idx==0:
                 ds = li_ds[0]
             else:

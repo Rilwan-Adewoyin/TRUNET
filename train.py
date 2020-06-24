@@ -113,7 +113,7 @@ class TrainTruNet():
             #This training records keeps track of the losses on each epoch
         try:
             self.df_training_info = pd.read_csv( "checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(m_params,t_params=self.t_params)), header=0, index_col=False) 
-            self.start_epoch =  int(max(self.df_training_info['Epoch'], default=0)) 
+            self.start_epoch =  int(self.df_training_info['Epoch'][0], default=0)
             last_batch = int( self.df_training_info.loc[self.df_training_info['Epoch']==self.start_epoch,'Last_Trained_Batch'].iloc[0] )
             if(last_batch in [-1, self.t_params['train_batches']] ):
                 self.start_epoch = self.start_epoch + 1
@@ -439,7 +439,7 @@ class TrainTruNet():
         if self.m_params['model_type_settings']['discrete_continuous'] == False:
             
             # Get predictions
-            preds = self.model(feature, training=False )
+            preds = self.model(feature, False )
             preds = tf.squeeze(preds)
 
             # Extracting central region for evaluation
@@ -461,14 +461,14 @@ class TrainTruNet():
             
             # Get predictions
             preds = self.model(feature, training=False )
-            preds = tf.squeeze(preds)
+            preds = tf.squeeze(preds,axis=[-1])
             preds, probs = tf.unstack(preds, axis=0)
 
             # Extracting central region for evaluation
             preds   = cl.extract_central_region(preds, bounds)
             probs   = cl.extract_central_region(probs, bounds)
-            mask    = cl.extract_central_region(mask, bounds)
-            target  = cl.extract_central_region(target, bounds)
+            mask    = cl.extract_central_region(mask,  bounds)
+            target  = cl.extract_central_region(target,bounds)
 
             # Applying masks to predictions
             preds_masked    = tf.boolean_mask( preds, mask )
