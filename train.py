@@ -111,12 +111,14 @@ class TrainTruNet():
         try:
             self.df_training_info = pd.read_csv( "checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(m_params,t_params=self.t_params)), header=0, index_col=False) 
             self.start_epoch =  int(max(self.df_training_info['Epoch'], default=0)) 
-            last_batch = int( self.df_training_info.loc[self.df_training_info['Epoch']==self.start_epoch,'Last_Trained_Batch'].iloc[0] )
+            #last_batch = int( self.df_training_info.loc[self.df_training_info['Epoch']==self.start_epoch,'Last_Trained_Batch'].iloc[0] )
             if(last_batch in [-1, self.t_params['train_batches']] ):
                 self.start_epoch = self.start_epoch + 1
-                self.batches_to_skip = 0
+                #self.batches_to_skip = 0
             else:
-                self.batches_to_skip = last_batch
+                #self.batches_to_skip = last_batch
+                pass
+            self.batches_to_skip = 0
             print("Recovered training records")
 
         except FileNotFoundError as e:
@@ -205,7 +207,7 @@ class TrainTruNet():
             #Data Loading Scheme 1 - Version that works on low memeory devices e.g. under 30 GB RAM
             ds_train_val = self.ds_train.concatenate(self.ds_val).repeat(self.t_params['epochs']-self.start_epoch)
             #ds_train_val = ds_train.unbatch().shuffle( self.t_params['batch_size']*2, reshuffle_each_iteration=True).batch(self.t_params['batch_size']).concatenate(ds_val).repeat(self.t_params['epochs']-self.start_epoch)
-            ds_train_val = ds_train_val.skip(self.batches_to_skip)
+            #ds_train_val = ds_train_val.skip(self.batches_to_skip)
             self.ds_train_val = self.strategy.experimental_distribute_dataset(dataset=ds_train_val)
             self.iter_val_train = enumerate(self.ds_train_val)
             self.iter_train = self.iter_val_train
@@ -215,8 +217,8 @@ class TrainTruNet():
             self.ds_train = self.ds_train.repeat(self.t_params['epochs']-self.start_epoch)
             #ds_train = ds_train.unbatch().shuffle( self.t_params['batch_size']*12, reshuffle_each_iteration=True).batch(self.t_params['batch_size']).repeat(self.t_params['epochs']-self.start_epoch)
 
-            self.ds_val = self.ds_val. repeat(self.t_params['epochs']-self.start_epoch)
-            self.ds_train = self.ds_train.skip(self.batches_to_skip)
+            self.ds_val = self.ds_val.repeat(self.t_params['epochs']-self.start_epoch)
+            #self.ds_train = self.ds_train.skip(self.batches_to_skip)
             self.ds_train = self.strategy.experimental_distribute_dataset(dataset=self.ds_train)
             self.ds_val = self.strategy.experimental_distribute_dataset(dataset=self.ds_val)
             self.iter_train = enumerate(self.ds_train)
@@ -247,9 +249,10 @@ class TrainTruNet():
             start_batch_group_time = time.time()
             batch=0           
             
-            if( epoch!=self.start_epoch  ):
-                self.batches_to_skip = 0
-            print("\n\nStarting EPOCH {} Batch {}/{}".format(epoch, self.batches_to_skip+1, self.t_params['train_batches']))
+            # if( epoch!=self.start_epoch  ):
+            #     self.batches_to_skip = 0
+            #print("\n\nStarting EPOCH {} Batch {}/{}".format(epoch, self.batches_to_skip+1, self.t_params['train_batches']))
+            print("\n\nStarting EPOCH {} Batch {}/{}".format(epoch, 1, self.t_params['train_batches'] ))
             #endregion 
             
             # --- Training Loops
