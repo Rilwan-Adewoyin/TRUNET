@@ -26,7 +26,7 @@ import hparameters
 import models
 import utility
 
-#os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
+os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 logging.getLogger("tensorflow").setLevel(logging.ERROR)
 tf.keras.backend.set_floatx('float16')
 tf.keras.backend.set_epsilon(1e-3)
@@ -36,9 +36,9 @@ try:
 except Exception as e:
     gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 
-# print("GPU Available: {}\n GPU Devices:{} ".format(tf.test.is_gpu_available(), gpu_devices) )
-# for idx, gpu_name in enumerate(gpu_devices):
-#     tf.config.experimental.set_memory_growth(gpu_name, True)
+print("GPU Available: {}\n GPU Devices:{} ".format(tf.test.is_gpu_available(), gpu_devices) )
+for idx, gpu_name in enumerate(gpu_devices):
+    tf.config.experimental.set_memory_growth(gpu_name, True)
 
 # try:
 #     tf.config.set_logical_device_configuration(
