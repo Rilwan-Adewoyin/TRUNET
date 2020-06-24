@@ -121,7 +121,7 @@ class TrainTrueNet():
         #Optimizer
         optimizer = tfa.optimizers.RectifiedAdam( **m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*40 ) 
         
-        optimizer = tfa.optimizers.Lookahead(optimizer, sync_period=1, slow_step_size=0.99 )
+        #optimizer = tfa.optimizers.Lookahead(optimizer, sync_period=1, slow_step_size=0.99 )
         self.optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() )
         
         #Losses and Metrics
@@ -326,7 +326,7 @@ class TrainTrueNet():
                         raise NotImplementedError
 
                     # gradient Update step - mixed precision training
-                    scaled_loss = self.optimizer.get_scaled_loss(loss_to_optimize)
+                    scaled_loss = self.optimizer.get_scaled_loss(loss_to_optimize+tf.math.add_n(self.model.losses) )
                     scaled_gradients = tape.gradient( scaled_loss, self.model.trainable_variables )
                     gradients = self.optimizer.get_unscaled_gradients(scaled_gradients)
                     gradients, _ = tf.clip_by_global_norm( gradients, 1 )
