@@ -217,8 +217,8 @@ class TrainTruNet():
             self.iter_val = self.iter_val_train
         else:
             #Data Loading Scheme 2 - Version that ensures validation and train set are well defined 
-            self.ds_train = self.ds_train.repeat(self.t_params['epochs']-self.start_epoch)
-            #ds_train = ds_train.unbatch().shuffle( self.t_params['batch_size']*12, reshuffle_each_iteration=True).batch(self.t_params['batch_size']).repeat(self.t_params['epochs']-self.start_epoch)
+            #self.ds_train = self.ds_train.repeat(self.t_params['epochs']-self.start_epoch)
+            self.ds_train = self.ds_train.unbatch().shuffle( self.t_params['batch_size']*6, reshuffle_each_iteration=True).batch(self.t_params['batch_size']).repeat(self.t_params['epochs']-self.start_epoch)
 
             self.ds_val = self.ds_val.repeat(self.t_params['epochs']-self.start_epoch)
             #self.ds_train = self.ds_train.skip(self.batches_to_skip)
