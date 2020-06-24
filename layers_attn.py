@@ -280,45 +280,45 @@ class MultiHead2DAttention_v2(Layer):
 
         return outp    #( batch_size, seq_len, height, width, filters_in)
 
-    # def get_config(self):
-    #     config = {
-    #         'trainable':
-    #             self.trainable,
-    #         'bias':
-    #             self.bias,
-    #         'total_key_depth':
-    #             self.total_key_depth,
-    #         'total_value_depth':
-    #             self.total_value_depth,
-    #         'output_depth':
-    #         self.output_depth,
-    #         'num_heads':
-    #             self.num_heads,
-    #         'key_depth_per_head':
-    #             self.key_depth_per_head,
-    #         'dropout_rate':
-    #             self.dropout_rate,
-    #         'hard_attention_k':
-    #             self.hard_attention_k,
-    #         'attn_factor_reduc':
-    #             self.attn_factor_reduc,
-    #         'trainsform_value_antecedent':
-    #             self.transform_value_antecedent,
-    #         'value_conv':
-    #             self.value_conv,
-    #         'output_conv':
-    #             self.output_conv,
-    #         'transoform_output':
-    #             self.transform_output,
-    #         'add_relative_to_values':
-    #             self.add_relative_to_values,
-    #         'max_relative_position':
-    #             self.max_relative_position,
-    #         'heads_share_relative_embedding':
-    #             self.heads_share_relative_embedding    
-    #     }
+    def get_config(self):
+        config = {
+            'trainable':
+                self.trainable,
+            'bias':
+                self.bias,
+            'total_key_depth':
+                self.total_key_depth,
+            'total_value_depth':
+                self.total_value_depth,
+            'output_depth':
+            self.output_depth,
+            'num_heads':
+                self.num_heads,
+            'key_depth_per_head':
+                self.key_depth_per_head,
+            'dropout_rate':
+                self.dropout_rate,
+            'hard_attention_k':
+                self.hard_attention_k,
+            'attn_factor_reduc':
+                self.attn_factor_reduc,
+            'trainsform_value_antecedent':
+                self.transform_value_antecedent,
+            'value_conv':
+                self.value_conv,
+            'output_conv':
+                self.output_conv,
+            'transoform_output':
+                self.transform_output,
+            'add_relative_to_values':
+                self.add_relative_to_values,
+            'max_relative_position':
+                self.max_relative_position,
+            'heads_share_relative_embedding':
+                self.heads_share_relative_embedding    
+        }
 
-    #     return config
+        return config
 
 def _generate_relative_positions_embeddings( length_q, length_k,
                                         max_relative_position, embeddings_table, dtype):
