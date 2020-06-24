@@ -178,11 +178,11 @@ class TrainTruNet():
             # gradients = [ tf.zeros_like(t_var, dtype=tf.float32 ) for t_var in self.model.trainable_variables  ]
             # self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
 
-            _f = tf.zeros( inp_shape ,dtype=tf.float16)
-            _t = tf.zeros(inp_shape1, dtype=tf.float32)
-            _m = _t == 0.0
-            _b = cl.central_region_bounds(self.m_params['region_grid_params']) 
-            bool_cmpltd = self.distributed_train_step( _f, _t, _m, _b )
+            # _f = tf.zeros( inp_shape ,dtype=tf.float16)
+            # _t = tf.zeros(inp_shape1, dtype=tf.float32)
+            # _m = _t == 0.0
+            # _b = cl.central_region_bounds(self.m_params['region_grid_params']) 
+            bool_cmpltd = self.distributed_train_step( 0.0, 0.0, 0.0, 0.0, True )
 
             ckpt_epoch.restore(self.ckpt_mngr_epoch.latest_checkpoint).assert_consumed()              
         else:
@@ -328,8 +328,17 @@ class TrainTruNet():
         
         print("Model Training Finished")
 
-    def step_train(self, feature, target, mask,bounds):
+    def step_train(self, feature, target, mask, bounds, _init=False):
         
+        if _init==True:
+            inp_shape = [self.t_params['batch_size'], self.t_params['lookback_feature']] + self.m_params['region_grid_params']['outer_box_dims'] + [len(self.t_params['vars_for_feature'])]
+            inp_shape1 = [self.t_params['batch_size'], self.t_params['lookback_target']] + self.m_params['region_grid_params']['outer_box_dims'] 
+
+            _ = self.model( tf.zeros( inp_shape ,dtype=tf.float16), self.t_params['trainable'] ) #( bs, tar_seq_len, h, w)
+            gradients = [ tf.zeros_like(t_var, dtype=tf.float32 ) for t_var in self.model.trainable_variables  ]
+            self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
+            return True
+
         with tf.GradientTape(persistent=False) as tape:
                                    
             # non conditional continuous training
@@ -503,8 +512,8 @@ class TrainTruNet():
         return True
     
     @tf.function
-    def distributed_train_step(self, feature, target, mask, bounds):
-        bool_completed = self.strategy.run( self.step_train, args=(feature, target, mask, bounds))
+    def distributed_train_step(self, feature, target, mask, bounds, _init=False):
+        bool_completed = self.strategy.run( self.step_train, args=(feature, target, mask, bounds, _init))
         return bool_completed
     
     @tf.function
