@@ -26,7 +26,7 @@ import hparameters
 import models
 import utility
 
-os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
+#os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 logging.getLogger("tensorflow").setLevel(logging.ERROR)
 tf.keras.backend.set_floatx('float16')
 tf.keras.backend.set_epsilon(1e-3)
@@ -197,8 +197,8 @@ class TrainTruNet():
         #caching dataset to file post pre-processing steps have been completed 
         cache_suffix = utility.cache_suffix_mkr( m_params, self.t_params )
         os.makedirs( './Data/data_cache/', exist_ok=True  )
-        # self.ds_train = self.ds_train.cache('Data/data_cache/train'+cache_suffix ) 
-        # self.ds_val = self.ds_val.cache('Data/data_cache/val'+cache_suffix )
+        self.ds_train = self.ds_train.cache('Data/data_cache/train'+cache_suffix ) 
+        self.ds_val = self.ds_val.cache('Data/data_cache/val'+cache_suffix )
         
         
         # preparing iterators for train and validation
