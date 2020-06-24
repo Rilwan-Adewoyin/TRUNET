@@ -251,7 +251,7 @@ class Generator_mf(Generator):
             stacked_data = np.stack(_data, axis=-1)
             stacked_masks = np.stack(_masks, axis=-1)
             
-            yield np.expand_dims(stacked_data[ 1:-2, 2:-2, :],axis=0), np.expand_dims( stacked_masks[ 1:-2 , 2:-2, :], axis=0) #(100,140,6) 
+            yield np.expand_dims(stacked_data[ 1:-2, 2:-2, :], axis=0), np.expand_dims( stacked_masks[ 1:-2 , 2:-2, :], axis=0) #(100,140,6) 
     
 
     # def yield_iter(self):
@@ -259,7 +259,8 @@ class Generator_mf(Generator):
         
     #     idx = self.start_idx
         
-    #     while idx < self.data_len:
+    #     #while idx < self.data_len:
+    #      while _bool == True:
     #         #idxs = arr_idxs[idx:idx+self.seq_len] 
             
     #         #next_marray = [ xr_gn[name].isel(time=idxs).to_masked_array() for name in self.vars_for_feature ]
@@ -276,6 +277,7 @@ class Generator_mf(Generator):
     #         stacked_masks = np.stack(_masks, axis=-1)
 
     #         idx += adj_seq_len
+            # if idx>self.data_len: _bool=False
 
     #         yield stacked_data[ :, 1:-2, 2:-2, :], stacked_masks[ :, 1:-2 , 2:-2, :] #(100,140,6) 
 
@@ -348,7 +350,7 @@ class Era5_Eobs():
         start_idx_feat, start_idx_tar = self.get_start_idx(start_date)
         self.mf_data.start_idx = start_idx_feat
         # region - Preparing feature model fields        
-        ds_feat = tf.data.Dataset.from_generator( self.mf_data , output_types=(tf.float32, tf.bool), output_shapes=( tf.TensorShape([None, None, None, None]),tf.TensorShape([None, None, None, None])) ) #(values, mask) 
+        ds_feat = tf.data.Dataset.from_generator( self.mf_data , output_types=(tf.float16, tf.bool), output_shapes=( tf.TensorShape([None, None, None, None]),tf.TensorShape([None, None, None, None])) ) #(values, mask) 
         ds_feat = ds_feat.unbatch()
         #ds_feat = ds_feat.skip(start_idx_feat) # Skipping forward to the correct time
         
@@ -357,7 +359,7 @@ class Era5_Eobs():
         
         ds_feat = ds_feat.map( lambda arr_data, arr_mask: self.mf_normalize_mask( arr_data, arr_mask), num_parallel_calls= _num_parallel_calls) 
 
-        ds_feat = ds_feat.map(lambda arr_data : tf.cast(arr_data, tf.float16), num_parallel_calls = _num_parallel_calls )
+        #ds_feat = ds_feat.map(lambda arr_data : tf.cast(arr_data, tf.float16), num_parallel_calls = _num_parallel_calls )
         # endregion
 
         # region - Preparing Eobs target_rain_data   
