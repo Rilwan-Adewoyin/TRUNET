@@ -28,7 +28,7 @@ except:
 	tfa=None
 
 
-# region TRU-NET Encoder Decoder Net sublayers
+# region --- TRU-NET Encoder Decoder Net sublayers
 class TRUNET_Encoder(tf.keras.layers.Layer):
 	"""TRU-NET Encoder-Decoder Encoder
 	"""	
@@ -89,7 +89,7 @@ class TRUNET_Decoder(tf.keras.layers.Layer):
 		self.decoder_params = decoder_params
 		self.train_params = train_params
 		self.layer_count = decoder_params['decoder_layer_count']
-		self.h_w = h_w
+		#self.h_w = h_w
 		#self.encoder_hidden_state_count = self.layer_count + 1
 		
 		self.CGRU_2cell_layers = []
@@ -100,7 +100,7 @@ class TRUNET_Decoder(tf.keras.layers.Layer):
 			self.CGRU_2cell_layers.append(_layer)
 
 		self.seq_lens = self.decoder_params['attn_layer_no_splits']
-		self.shape1 = [ sum( self.seq_lens ) ] + [ self.train_params['batch_size'] ] + [h_w[0], h_w[1], self.decoder_params['CGRUs_params'][0]['filters']*2 ] 
+		#self.shape1 = [ sum( self.seq_lens ) ] + [ self.train_params['batch_size'] ] + [h_w[0], h_w[1], self.decoder_params['CGRUs_params'][0]['filters']*2 ] 
 	
 	def call(self, hidden_states, training=True):
 
@@ -148,13 +148,13 @@ class TRUNET_OutputLayer(tf.keras.layers.Layer):
 		"""
 
 		if self.dc == False:
-			x = self.conv_hidden( self.do0(_inputs,training=training),training=training ) 	
+			x = self.conv_hidden( self.do0(_inputs,training=training) ) 	
 			outp = self.conv_output( x, training=training ) #shape (bs, height, width)
 			outp = self.float32_custom_relu(outp)   
 		
 		else:
 			x_val = self.conv_hidden_val( self.do0(_inputs,training=training),training=training )
-			x_prob = self.conv_hidden_prob( self.do0(_inputs,training=training),training=training )
+			x_prob = self.conv_hidden_prob( self.do1(_inputs,training=training),training=training )
 			
 			x_val = self.conv_output_val( x_val, training=training)
 			x_prob = self.conv_output_prob( x_prob, training=training)
@@ -165,7 +165,7 @@ class TRUNET_OutputLayer(tf.keras.layers.Layer):
 			outp_val = self.output_activation_val(outp_val)
 			outp_prob = self.output_activation_prob(outp_prob)
 
-			outp = tf.stack([outp_val, outp_prob],axis=0)
+			outp = tf.stack([outp_val, outp_prob], axis=0)
 
 		return outp
 
@@ -199,14 +199,13 @@ class TRUNET_CGRU_Attention_Layer(tf.keras.layers.Layer):
 		self.slfr 						= seq_len_factor_reduction
 		self.attn_ablation				= attn_ablation
 		
-		self.convGRU_attn		= Bidirectional( layer=layers_convgru2D.ConvGRU2D_attn( **CGRU_params, compat_dict={'ctsm':train_params['ctsm']},
+		self.convGRU_attn		= Bidirectional( layer=layers_convgru2D.ConvGRU2D_attn( **CGRU_params,
 													attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
 													attn_factor_reduc=self.slfr ,trainable=self.trainable, attn_ablation=self.attn_ablation  ),
 
 												 backward_layer=layers_convgru2D.ConvGRU2D_attn( go_backwards=True, **copy.deepcopy(CGRU_params),
 													attn_params=attn_params , attn_downscaling_params=attn_downscaling_params ,
 													attn_factor_reduc=self.slfr ,trainable=self.trainable,
-													compat_dict={'ctsm':train_params['ctsm']},
 													attn_ablation=self.attn_ablation ),
 															merge_mode=None  ) 
 
@@ -234,19 +233,17 @@ class TRUNET_CGRU_Decoder_Layer(tf.keras.layers.Layer):
 	def call(self, input1, input2, training=True ):
 		"""[summary]
 
-		Args:
-			input1 : hidden representations from the corresponding layer 
-						in the encoder #(bs, seq_len1, h,w,c1)
-			input2 : hidden repr from the previous decoder layer 
-						#(bs, seq_len2, h,w,c2)
-			training (bool, optional): [description]. Defaults to True.
+			Args:
+				input1 : hidden representations from the corresponding layer 
+							in the encoder #(bs, seq_len1, h,w,c1)
+				input2 : hidden repr from the previous decoder layer 
+							#(bs, seq_len2, h,w,c2)
+				training (bool, optional): [description]. Defaults to True.
 
-		Returns:
-			[type]: tensor wth shape #(bs, seq_len1, h,w,c3)
+			Returns:
+				[type]: tensor wth shape #(bs, seq_len1, h,w,c3)
 		"""		
 
-		# input1.set_shape(self.shape1)
-		# input2.set_shape(self.shape2)
 		input2 = tf.keras.backend.repeat_elements( input2, self.input_2_factor_increase, axis=1) #(bs, seq_len1, h,w,c2)
 		
 		inputs = tf.concat( [input1, input2], axis=-1 ) 
@@ -256,7 +253,7 @@ class TRUNET_CGRU_Decoder_Layer(tf.keras.layers.Layer):
 
 # endregion
 
-# region --- TRU-NET Encoder-Decoder
+# region --- TRU-NET Encoder-Forecaster
 class TRUNET_EF_Encoder(tf.keras.layers.Layer):
 	def __init__(self, train_params, encoder_params, h_w):
 		super( TRUNET_EF_Encoder, self ).__init__()
@@ -328,7 +325,7 @@ class TRUNET_EF_Forecaster(tf.keras.layers.Layer):
 		li_lss_outp = tf.split(last_states, self.seq_lens, axis=0 ) #last_states outp
 
 		dec_hs_outp = tf.RaggedTensor.to_tensor( li_lss_outp[-1] )
-		dec_hs_outp = tf.keras.backend.repeat_elements( dec_hs_outp, self.self.seq_len_factor_expansion[0] , axis=1) #(bs, seq_len1, h,w,c2)
+		dec_hs_outp = tf.keras.backend.repeat_elements( dec_hs_outp, self.seq_len_factor_expansion[0] , axis=1) #(bs, seq_len1, h,w,c2)
 
 		for idx in range(2, self.layer_count+1):
 			
@@ -338,7 +335,7 @@ class TRUNET_EF_Forecaster(tf.keras.layers.Layer):
 
 			dec_hs_outp = self.upscale_layers[idx](dec_hs_outp)
 
-			dec_hs_outp = tf.keras.backend.repeat_elements( dec_hs_outp, self.self.seq_len_factor_expansion[idx-1] , axis=1)
+			dec_hs_outp = tf.keras.backend.repeat_elements( dec_hs_outp,self.seq_len_factor_expansion[idx-1] , axis=1)
 
 		return dec_hs_outp
 

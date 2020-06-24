@@ -45,7 +45,6 @@ class MultiHead2DAttention_v2(Layer):
                         the value precendent       
             output_conv: dictionary containing params for the convolution operation on
                         the output precedent                                                    
-            compat_dict: dictionary to assist backwards compatibility
             transform_value_antecedent: whether or not to include conv op on value
                         antecedent
             transform_output: whether or not to include conv op on output
@@ -89,7 +88,6 @@ class MultiHead2DAttention_v2(Layer):
                         attn_factor_reduc,
                         value_conv,
                         output_conv,
-                        compat_dict,
                         transform_value_antecedent=True,
                         transform_output=True,
                         max_relative_position=None, 
@@ -117,7 +115,6 @@ class MultiHead2DAttention_v2(Layer):
         self.hard_attention_k = hard_attention_k
         self.attn_factor_reduc = attn_factor_reduc
         
-        self.compat_dict = compat_dict
         self.transform_value_antecedent = transform_value_antecedent
         self.value_conv = value_conv
         self.output_conv = output_conv
@@ -157,9 +154,9 @@ class MultiHead2DAttention_v2(Layer):
         
         if self.transform_output == True:
             #model vairant - convolution operation of value output
-            self.dense_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **output_conv) ) 
-            self.conv_output = self.dense_output
-            #self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **output_conv) ) 
+            # self.dense_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **output_conv) ) 
+            # self.conv_output = self.dense_output
+            self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D(  **output_conv) ) 
 
         #Maximum relative attention
         if( self.max_relative_position==None ):
@@ -273,8 +270,8 @@ class MultiHead2DAttention_v2(Layer):
             # convolution ops on output precedent \hat{A}
             outp.set_shape(outp.shape.as_list()[:-1] + [self.total_value_depth]) 
             outp = tf.reshape( outp, output_shape )
-            #outp = self.conv_output( outp, training=training)
-            outp = self.dense_output( outp, training=training)
+            outp = self.conv_output( outp, training=training)
+            #outp = self.dense_output( outp, training=training)
             
         else:
             outp = tf.reshape( outp, output_shape ) 
@@ -283,48 +280,45 @@ class MultiHead2DAttention_v2(Layer):
 
         return outp    #( batch_size, seq_len, height, width, filters_in)
 
-    def get_config(self):
-        config = {
-            'trainable':
-                self.trainable,
-            'bias':
-                self.bias,
-            'total_key_depth':
-                self.total_key_depth,
-            'total_value_depth':
-                self.total_value_depth,
-            'output_depth':
-            self.output_depth,
-            'num_heads':
-                self.num_heads,
-            'key_depth_per_head':
-                self.key_depth_per_head,
-            'dropout_rate':
-                self.dropout_rate,
-            'hard_attention_k':
-                self.hard_attention_k,
-            'attn_factor_reduc':
-                self.attn_factor_reduc,
-            'compat_dict':
-                self.compat_dict,
-            'trainsform_value_antecedent':
-                self.transform_value_antecedent,
-            'value_conv':
-                self.value_conv,
-            'output_conv':
-                self.output_conv,
-            'transoform_output':
-                self.transform_output,
-            'add_relative_to_values':
-                self.add_relative_to_values,
-            'max_relative_position':
-                self.max_relative_position,
-            'heads_share_relative_embedding':
-                self.heads_share_relative_embedding
-                
-        }
+    # def get_config(self):
+    #     config = {
+    #         'trainable':
+    #             self.trainable,
+    #         'bias':
+    #             self.bias,
+    #         'total_key_depth':
+    #             self.total_key_depth,
+    #         'total_value_depth':
+    #             self.total_value_depth,
+    #         'output_depth':
+    #         self.output_depth,
+    #         'num_heads':
+    #             self.num_heads,
+    #         'key_depth_per_head':
+    #             self.key_depth_per_head,
+    #         'dropout_rate':
+    #             self.dropout_rate,
+    #         'hard_attention_k':
+    #             self.hard_attention_k,
+    #         'attn_factor_reduc':
+    #             self.attn_factor_reduc,
+    #         'trainsform_value_antecedent':
+    #             self.transform_value_antecedent,
+    #         'value_conv':
+    #             self.value_conv,
+    #         'output_conv':
+    #             self.output_conv,
+    #         'transoform_output':
+    #             self.transform_output,
+    #         'add_relative_to_values':
+    #             self.add_relative_to_values,
+    #         'max_relative_position':
+    #             self.max_relative_position,
+    #         'heads_share_relative_embedding':
+    #             self.heads_share_relative_embedding    
+    #     }
 
-        return config
+    #     return config
 
 def _generate_relative_positions_embeddings( length_q, length_k,
                                         max_relative_position, embeddings_table, dtype):

@@ -73,17 +73,22 @@ class model_TRUNET_hparameters(MParams):
         model_type_settings = kwargs.get('model_type_settings', {})        
 
         # region ---  learning/convergence/regularlisation params
+        # REC_ADAM_PARAMS = {
+        #     "learning_rate":5e-4,   "warmup_proportion":0.65,
+        #     "min_lr":2.5e-4,         "beta_1":0.70,               "beta_2":0.99,
+        #     "amsgrad":True,         "decay":0.0004,              "epsilon":1e-6 } #Rectified Adam params
+        
         REC_ADAM_PARAMS = {
-            "learning_rate":8e-4,   "warmup_proportion":0.65,
-            "min_lr":5e-4,         "beta_1":0.70,               "beta_2":0.99,
-            "amsgrad":True,         "decay":0.0004,              "epsilon":5e-8 } #Rectified Adam params
+            "learning_rate":5e-4,   "warmup_proportion":0.65,
+            "min_lr":1e-4,         "beta_1":0.90,               "beta_2":0.999,
+            "amsgrad":False,         "decay":0.0004,              "epsilon":5e-8 } #Rectified Adam params
         
         DROPOUT =   model_type_settings.get('do',0.0)
         ido =       model_type_settings.get('ido',0.0) # Dropout for input into GRU
         rdo =       model_type_settings.get('rdo',0.0) # Dropout for recurrent input into GRU
         kernel_reg   = None  #regularlization for input to GRU
         recurrent_reg = None #regularlization for recurrent input to GRU
-        bias_reg = tf.keras.regularizers.l2(0.00)
+        bias_reg = tf.keras.regularizers.l2(0.2)
         #bias_reg_attn = tf.keras.regularizers.l2(0.00002)
         # endregion
 
@@ -154,7 +159,6 @@ class model_TRUNET_hparameters(MParams):
              for ks in kernel_size_enc
         ] #list of params for each ConvGRU layer in the Encoder
       
-        
         ENCODER_PARAMS = {
             'enc_layer_count': enc_layer_count,
             'attn_layers_count': attn_layers_count,
@@ -198,7 +202,7 @@ class model_TRUNET_hparameters(MParams):
         # endregion
 
         # region --- OUTPUT_LAYER_PARAMS and Upscaling
-        output_filters = [  int(  8*(((filters*2)/4)//8)), 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
+        output_filters = [  int(  8*(((filters*2)/4)//8)), 1 ] 
 
         output_kernel_size = [ (3,3), (3,3) ] 
         activations = ['relu','linear']
@@ -267,12 +271,12 @@ class model_SimpleConvGRU_hparamaters(MParams):
         }
 
         REC_ADAM_PARAMS = {
-            "learning_rate":7e-3 , "warmup_proportion":0.75,
-            "min_lr":1e-3, "beta_1":0.35, "beta_2":0.85, "decay":0.006, "amsgrad":True,
-            'epsilon':0.005
+            "learning_rate":7e-4 , "warmup_proportion":0.75,
+            "min_lr":1e-4, "beta_1":0.90, "beta_2":0.999, "decay":0.004, "amsgrad":True,
+            'epsilon':1e-5
             }
 
-        LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.9999 }
+        LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }
 
         # endregion
         model_type_settings = kwargs.get('model_type_settings',{})
@@ -347,7 +351,6 @@ class train_hparameters_ati(HParams):
         target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
         feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
 
-
         if self.custom_train_split_method == "4ds_10years":
             #Dividing the dataset into 4 sets of 10 years for Experiement Varied Time Span
             li_start_dates = [ np.datetime64( '1979-01-01','D'), np.datetime64( '1989-01-01','D'), np.datetime64( '1999-01-01','D'), np.datetime64( '2009-01-01','D')   ]
@@ -384,7 +387,7 @@ class train_hparameters_ati(HParams):
         # endregion
         
         DATA_DIR = self.dd
-        EARLY_STOPPING_PERIOD = 45
+        EARLY_STOPPING_PERIOD = 30
  
         self.params = {
             'batch_size':BATCH_SIZE,
@@ -396,7 +399,6 @@ class train_hparameters_ati(HParams):
             'train_batches': TRAIN_SET_SIZE_ELEMENTS//BATCH_SIZE, 
                 #Note TRAIN_SET_SIZE_ELEMENTS refers to the number of sequences of days that are passed to TRU_NET as oppose dot every single day
             'val_batches': VAL_SET_SIZE_ELEMENTS//BATCH_SIZE,
-
 
             'checkpoints_to_keep':CHECKPOINTS_TO_KEEP,
             'reporting_freq':0.25,

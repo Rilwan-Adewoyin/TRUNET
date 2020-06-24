@@ -28,8 +28,8 @@
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
-            "args": [ "-mn","TRUNET","-dd","Data/Rain_Data_Mar20", "-bs","4","-ctsm" ,"1979_2009_2009_1983",                
-"-mts" ,"{'stochastic':False,'stochastc_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout','do':0.2,'ido':0.2,'rdo':0.3,'location':['Cardiff','London','Manchester']}"
+            "args": [ "-mn","TRUNET","-dd","Data/Rain_Data_Mar20", "-bs","4","-ctsm" ,"1979_1984_1984_1985",                
+"-mts" ,"{'stochastic':False,'stochastc_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout','do':0.2,'ido':0.2,'rdo':0.3,'location':['Cardiff','London','Glasgow','Manchester','Birmingham','Norwich','Liverpool','Edinburgh']}"
                 ]  
         },
         {

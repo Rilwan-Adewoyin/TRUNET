@@ -226,7 +226,6 @@ class TRUNET(tf.keras.Model):
         output = self.output_layer(hs_dec, training=training)
         return output
 
-
     def predict( self, inputs, n_preds, training=True):
         """
             Produces N predictions for a each input

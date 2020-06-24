@@ -130,7 +130,7 @@ class TrainTruNet():
 
         # region ---- Defining Model / Optimizer / Losses / Metrics / Records / Checkpoints / Tensorboard 
                     
-        self.strategy = tf.distribute.MirroredStrategy()
+        self.strategy = tf.distribute.MirroredStrategy() #OneDeviceStrategy(device="/GPU:0") # 
         
         assert self.t_params['batch_size'] % self.strategy.num_replicas_in_sync  == 0
         print("Nuber of Devices used in MirroredStrategy: {}".format(self.strategy.num_replicas_in_sync))
@@ -138,8 +138,10 @@ class TrainTruNet():
             #Model
             self.model = models.model_loader( self.t_params, self.m_params )
             #Optimizer
-            self.optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*30 ) 
-            self.optimizer = mixed_precision.LossScaleOptimizer( self.optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) 
+            optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*30, weight_decay=0.25e-3 ) 
+            #optimizer = tfa.optimizers.LAMB( learning_rate=1e-4, weight_decay_rate=0.25e-3 )
+            optimizer = tfa.optimizers.Lookahead(optimizer, sync_period=1, slow_step_size=0.99 )            
+            self.optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) 
             self.strategy_gpu_count = self.strategy.num_replicas_in_sync    
 
         
@@ -172,7 +174,6 @@ class TrainTruNet():
             # compat: Initializing model and optimizer before restoring from checkpoint
             inp_shape = [t_params['batch_size'], t_params['lookback_feature']] + m_params['region_grid_params']['outer_box_dims'] + [len(t_params['vars_for_feature'])]
             inp_shape1 = [t_params['batch_size'], t_params['lookback_target']] + m_params['region_grid_params']['outer_box_dims'] 
-
 
             # _ = self.model( tf.zeros( inp_shape ,dtype=tf.float16), self.t_params['trainable'] ) #( bs, tar_seq_len, h, w)
             # gradients = [ tf.zeros_like(t_var, dtype=tf.float32 ) for t_var in self.model.trainable_variables  ]
@@ -396,7 +397,7 @@ class TrainTruNet():
 
                 #NOTE: Error on vandal equation 14 last line, he forgets to put the logs and forgets the negative symbol so correct in yours
                 loss_to_optimize += tf.reduce_mean( 
-                                tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) ) 
+                                tf.keras.backend.binary_crossentropy(labels_true, labels_pred, from_logits=False) ) 
 
                 if self.m_params['model_type_settings']['distr_type'] == 'Normal': 
                     # CC Normal
@@ -410,19 +411,12 @@ class TrainTruNet():
                     # To calculate metric_mse for CC model we assume that pred_rain=0 if pred_prob<0.5 
                 # endregion
 
-
-            # Averaging losses across GPUS
-            f = loss_to_optimize/self.strategy_gpu_count
-            loss_to_optimize_agg =  loss_to_optimize + tf.stop_gradient( f - loss_to_optimize  )
-            # Updating weights with gradients - using mixed precision schema
-            f = self.optimizer.get_scaled_loss(loss_to_optimize_agg)
-            scaled_loss = loss_to_optimize_agg + tf.stop_gradient(f - loss_to_optimize_agg)
-
-        scaled_gradients = tape.gradient( scaled_loss, self.model.trainable_variables )
-        unscaled_gradients = self.optimizer.get_unscaled_gradients(scaled_gradients)
-        
-        gradients, _ = tf.clip_by_global_norm( unscaled_gradients, 5.5 ) #gradient clipping
-        self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
+            loss_to_optimize_agg = loss_to_optimize/self.strategy_gpu_count
+            scaled_loss = self.optimizer.get_scaled_loss( loss_to_optimize_agg )
+            scaled_gradients = tape.gradient( scaled_loss, self.model.trainable_variables )
+            unscaled_gradients = self.optimizer.get_unscaled_gradients(scaled_gradients)
+            gradients, _ = tf.clip_by_global_norm( unscaled_gradients, clip_norm=1 ) #gradient clipping
+            self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
         
         # Metrics (batchwise, epoch)  
         # we pass in non global_batch_averaged results to keras.Metrics.Mean 
@@ -432,7 +426,6 @@ class TrainTruNet():
         self.mse_agg_epoch( metric_mse )
         return True
                 
-    
     def step_val(self, feature, target, mask, bounds):
                     
         # Non CC distribution

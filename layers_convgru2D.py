@@ -1927,7 +1927,6 @@ class ConvGRU2D_attn(ConvRNN2D):
                  recurrent_dropout=0.,
                  trainable=True,
                  reset_after=True,
-                 compat_dict= {},
                  attn_ablation = 0,
                  **kwargs):
 
@@ -1948,7 +1947,7 @@ class ConvGRU2D_attn(ConvRNN2D):
             # 3: Using last element
             # 4: Sel Attention
         if self.attn_ablation in [0,4] :
-            self.Attention2D = MultiHead2DAttention_v2( **attn_params, attention_scaling_params=attn_downscaling_params , attn_factor_reduc=attn_factor_reduc ,trainable=self.trainable, compat_dict=compat_dict  )
+            self.Attention2D = MultiHead2DAttention_v2( **attn_params, attention_scaling_params=attn_downscaling_params , attn_factor_reduc=attn_factor_reduc ,trainable=self.trainable)
         else:
             self.Attention2D = None
 
@@ -1990,7 +1989,6 @@ class ConvGRU2D_attn(ConvRNN2D):
         
         self.activity_regularizer = regularizers.get(activity_regularizer)
 
-    
     def call(self, inputs, mask=None, training=None, initial_state=None):
         self._maybe_reset_cell_dropout_mask(self.cell)
         if initial_state is not None:
