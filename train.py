@@ -182,7 +182,7 @@ class TrainTruNet():
             # _t = tf.zeros(inp_shape1, dtype=tf.float32)
             # _m = _t == 0.0
             # _b = cl.central_region_bounds(self.m_params['region_grid_params']) 
-            bool_cmpltd = self.distributed_train_step( tf.constant(0.0), tf.constant(0.0), tf.constant(0.0), tf.constant(0.0), tf.constant(1.0) )
+            bool_cmpltd = self.distributed_train_step( 0.0, 0.0, 0.0, 0.0, 1.0 )
 
             ckpt_epoch.restore(self.ckpt_mngr_epoch.latest_checkpoint).assert_consumed()              
         else:
@@ -264,7 +264,7 @@ class TrainTruNet():
                 # get next set of training datums
                 idx, (feature, target, mask) = next(self.iter_train)
                 
-                bool_cmpltd = self.distributed_train_step( feature, target, mask, bounds, tf.constant(0.0) )
+                bool_cmpltd = self.distributed_train_step( feature, target, mask, bounds, 0.0 )
 
                 # reporting
                 if( batch % self.train_batch_report_freq==0 or batch == self.t_params['train_batches']):
@@ -330,7 +330,7 @@ class TrainTruNet():
 
     def step_train(self, feature, target, mask, bounds, _init):
         
-        if _init==tf.constant(1.0):
+        if _init==1.0:
             inp_shape = [self.t_params['batch_size'], self.t_params['lookback_feature']] + self.m_params['region_grid_params']['outer_box_dims'] + [len(self.t_params['vars_for_feature'])]
             inp_shape1 = [self.t_params['batch_size'], self.t_params['lookback_target']] + self.m_params['region_grid_params']['outer_box_dims'] 
 
