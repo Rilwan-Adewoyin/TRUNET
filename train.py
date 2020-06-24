@@ -375,7 +375,7 @@ class TrainTruNet():
                 labels_true = tf.where( target_masked > 0.5, 1.0, 0.0 )
                 labels_pred = probs_masked 
 
-                all_count = tf.cast(tf.size( labels_true, out_type=tf.int32 ),tf.float32)
+                all_count = tf.size( labels_true, out_type=tf.int64 )
 
                 # Seperating predictions for the days it did rain and the days it did not rain
                 bool_rain = (labels_true==1.0) 
@@ -467,7 +467,7 @@ class TrainTruNet():
             labels_true = tf.where( target_masked > 0.5, 1.0, 0.0 )
             labels_pred = probs_masked 
 
-            all_count = tf.cast(tf.size( labels_true, out_type=tf.int32 ),tf.float32)
+            all_count = tf.size( labels_true, out_type=tf.int64 )
 
             # Gathering predictions which are conditional on rain actually occuring
             bool_rain = (labels_true==1.0) 

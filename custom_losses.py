@@ -35,8 +35,10 @@ def mse( obs, preds, count=None):
     if count == None:
         mse = tf.keras.metrics.MSE( obs, preds)
     else:
-        size = tf.size(obs, out_type=tf.float32)
-        mse = tf.keras.metrics.MSE( obs, preds) * size/count
+        size = tf.size(obs, out_type=tf.int64)
+        ratio = tf.cast( size/count, tf.float32)
+        
+        mse = tf.keras.metrics.MSE( obs, preds) * ratio
         # mse = tf.math.squared_difference( obs, preds)
         # mse = tf.math.reduce_sum( mse )
         # mse = mse / count
