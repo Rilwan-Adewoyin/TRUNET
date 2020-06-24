@@ -36,9 +36,9 @@ try:
 except Exception as e:
     gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 
-print("GPU Available: {}\n GPU Devices:{} ".format(tf.test.is_gpu_available(), gpu_devices) )
-for idx, gpu_name in enumerate(gpu_devices):
-    tf.config.experimental.set_memory_growth(gpu_name, True)
+# print("GPU Available: {}\n GPU Devices:{} ".format(tf.test.is_gpu_available(), gpu_devices) )
+# for idx, gpu_name in enumerate(gpu_devices):
+#     tf.config.experimental.set_memory_growth(gpu_name, True)
 
 # try:
 #     tf.config.set_logical_device_configuration(

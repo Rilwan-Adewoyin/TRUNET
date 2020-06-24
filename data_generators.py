@@ -376,7 +376,7 @@ class Era5_Eobs():
         ds = tf.data.Dataset.zip( (ds_feat, ds_tar) ) #( model_fields, (rain, rain_mask) ) 
         
         ds, idx_loc_in_region = self.location_extractor( ds, self.li_loc)
-        ds = ds.prefetch(1)
+        ds = ds.prefetch(2)
         
         return ds.take(batch_count), idx_loc_in_region
 
