@@ -422,7 +422,7 @@ class TrainTruNet():
             scaled_loss = self.optimizer.get_scaled_loss( loss_to_optimize_agg )
             scaled_gradients = tape.gradient( scaled_loss, self.model.trainable_variables )
             unscaled_gradients = self.optimizer.get_unscaled_gradients(scaled_gradients)
-            gradients, _ = tf.clip_by_global_norm( unscaled_gradients, clip_norm=4 ) #gradient clipping
+            gradients, _ = tf.clip_by_global_norm( unscaled_gradients, clip_norm=3 ) #gradient clipping
             self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
         
         # Metrics (batchwise, epoch)  
