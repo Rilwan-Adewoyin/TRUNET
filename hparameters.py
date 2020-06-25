@@ -115,7 +115,7 @@ class model_TRUNET_hparameters(MParams):
 
         # ConvGRU params
         if model_type_settings.get('large_model',False) == False:
-            filters = 32 # no. of filters in all conv operations in ConvGRU units
+            filters = 72 # no. of filters in all conv operations in ConvGRU units
         else:
             filters = 120
 
@@ -138,7 +138,7 @@ class model_TRUNET_hparameters(MParams):
             {'bias':None, 'total_key_depth': kd  ,'total_value_depth':vd, 'output_depth': vd   ,
             'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
             "transform_value_antecedent":True,  "transform_output":True, 
-            'implementation':1, 'conv_qk_ops':self.conv_ops_qk,
+            'implementation':1, 'conv_ops_qk':self.conv_ops_qk,
             "value_conv":{ "filters":int(filters * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':bias_reg, 'padding':'same' },
             "output_conv":{ "filters":int(filters * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"outp", 'bias_regularizer':bias_reg,'padding':'same' }
             } 
