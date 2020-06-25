@@ -20,20 +20,20 @@ warnings.filterwarnings("ignore")
 """Example of how to use
 
     For Evaluation of IFS predictive scores between the periods 1987-10-20 till 1989-11-20, for the single points representing region Cardiff and London:
-        python3 ifspreds_rmse.py -dd "." -sd "1987-10-20" -ed "1989-11-20" -lo ["Cardiff","London] -mth 3
+        python3 evaluate_true_rain.py -dd "." -sd "1987-10-20" -ed "1989-11-20" -lo ["Cardiff","London] -mth 3
 
 
     For Evaluation of IFS predictive scores between the periods 1988-10-20 till 2000-11-20, for the whole UK:
-        python3 ifspreds_rmse.py -dd "." -sd "1988-10-20" -ed "2000-11-20" -lo ["All"] -mth 3
+        python3 evaluate_true_rain.py -dd "." -sd "1988-10-20" -ed "2000-11-20" -lo ["All"] -mth 3
 
     For infomration on the True rainfall statistics for London between the periods 2008-01-20 till 2015-11-20
-        python3 ifspreds_rmse.py -dd "." -sd "2008-01-20" -ed "2015-11-20" -lo "London" -mth 3 -rfs True
+        python3 evaluate_true_rain.py -dd "." -sd "2008-01-20" -ed "2015-11-20" -lo "London" -mth 3 -rfs True
         -This returns information such as Average Rainfall, Percentage of R10 Events and Average rainfall given an R10 event occurs.
 
 """
 
 
-def main(date_start_str, date_end_str, location, data_dir="./", rain_fall_stats=False, method=3 ):
+def main(date_start_str, date_end_str, location, data_dir="./", rain_fall_stats=False, method=3, region=False ):
     """
         :str date_start: start evaluation date as a string in the following format YYYY-MM-DD
         :str date_end: end evaluation date as a string in the following format YYYY-MM-DD
@@ -45,10 +45,10 @@ def main(date_start_str, date_end_str, location, data_dir="./", rain_fall_stats=
     date_end = np.datetime64(date_end_str,'D')
     
     #Extract the IFS Predictions for a given location and time range
-    ifs_preds = ifs_pred_extractor(data_dir, date_start, date_end, location, method )
+    ifs_preds = ifs_pred_extractor(data_dir, date_start, date_end, location, method, region )
     
     #Extract the True rainfall for a given location and time range
-    true_rain, rain_mask = true_rain_extractor( data_dir, date_start, date_end, location )
+    true_rain, rain_mask = true_rain_extractor( data_dir, date_start, date_end, location, region )
     
     #Creating a list of the epoch timestamps relating to the days we study. i.e. if we tested from 1978-01-20 till 2000-03-01 
         # this would be a list such as [254102400 ,......,  951868800]
@@ -60,16 +60,19 @@ def main(date_start_str, date_end_str, location, data_dir="./", rain_fall_stats=
     preds = ifs_preds
     true_rain = true_rain
     f_dir = "./Output/ERA5/preds/"
-    fn = "{}_{}_{}_pred_true.dat".format(location, date_start_str, date_end_str)
+    fn = "{}_{}_{}".format(location, date_start_str, date_end_str)
+    if region ==True:
+        fn+= "regional"
+    fn += "_pred_true.dat"
     fp = f_dir+fn
     if not os.path.isdir(f_dir):
         os.makedirs( f_dir, exist_ok=True  )
 
-    pickle.dump( [np.array(timestamp_epochs), np.array(preds) , np.array(true_rain) ], 
+    pickle.dump( [np.array(timestamp_epochs), np.array(preds,dtype=np.float64) , np.array(true_rain) ], 
         open(fp,"wb")  )
 
     #Create a Plot of IFS predictions against True Rain values, for a quick check if I have aligned the IFS prediction and True rain correctly
-    if location != "All":
+    if location != "All" and region==False:
         plot_ifs_preds( ifs_preds, true_rain, date_start, date_end, data_dir, location  ) 
     
     # Masking out data which is either invalid or does not represent land (e.g. the sea)
@@ -101,7 +104,7 @@ def main(date_start_str, date_end_str, location, data_dir="./", rain_fall_stats=
 
     return True
     
-def ifs_pred_extractor( data_dir, target_start_date, target_end_date, location="London", method=3 ):
+def ifs_pred_extractor( data_dir, target_start_date, target_end_date, location="London", method=3, region=False ):
     """
         This method extracts the IFS data from file. And performs any grouping/preproc neccesary. 
     """
@@ -202,11 +205,11 @@ def ifs_pred_extractor( data_dir, target_start_date, target_end_date, location="
         ifs_preds_24hr = ifs_preds_24hr * 1000
 
     #If a location is passed, this extracts the single point ,representing a city, from the 100,140 map 
-    ifs_preds_24hr = data_craft(ifs_preds_24hr, location)
+    ifs_preds_24hr = data_craft(ifs_preds_24hr, location, region)
         
     return ifs_preds_24hr
 
-def true_rain_extractor(data_dir, target_start_date, target_end_date, location):
+def true_rain_extractor(data_dir, target_start_date, target_end_date, location, region):
     
     # Valid Date Check
     rain_start_date = np.datetime64('1979-01-01','D')
@@ -228,7 +231,7 @@ def true_rain_extractor(data_dir, target_start_date, target_end_date, location):
     data_rain = data_rain[:, ::-1, :]
         
     #Selecting location of interest
-    data_rain = data_craft( data_rain, location)
+    data_rain = data_craft( data_rain, location, region)
     
     #Selecting the rain_mask and actual rain_data
     rain_mask = np.logical_not( np.ma.getmask(data_rain) )
@@ -236,7 +239,7 @@ def true_rain_extractor(data_dir, target_start_date, target_end_date, location):
     
     return data_rain, rain_mask
 
-def data_craft( data, location ):
+def data_craft( data, location, region=False ):
     # location of cities/regions of interest
     city_location = {
         "London": [51.5074, -0.1278],
@@ -270,8 +273,14 @@ def data_craft( data, location ):
         
         latitude_index =    np.abs(latitude_array - coordinates[0]).argmin()
         longitude_index =   np.abs(longitude_array - coordinates[1]).argmin()
-        
-        data = data[:,latitude_index, longitude_index]
+
+        if region==False:
+            data = data[:,latitude_index, longitude_index]
+    
+        elif region == True:
+            data = data[:,latitude_index-2:latitude_index+2, longitude_index-2:longitude_index+2].astype(np.float64)
+    else:
+        raise ValueError("Invalid Location")
         
     return data
 
@@ -320,6 +329,8 @@ if __name__ == "__main__":
     
     parser.add_argument('-sd','--date_start_str', type=str, required=True)
 
+    parser.add_argument('-reg','--region', type=eval, required=False, default='True', choices=[True,False])
+
     parser.add_argument('-ed','--date_end_str', type=str, required=False, default='2019-07-31')
 
     parser.add_argument('-lo','--location', type=str, required=True, default="[London]", help="List of locations to evaluation on")
@@ -328,8 +339,11 @@ if __name__ == "__main__":
 
     parser.add_argument('-mth','--method', type=int,required=False, default=3)
 
+    
+
     args_dict = vars(parser.parse_args() )
 
+    print(args_dict)
     li_loc = ast.literal_eval( args_dict.pop('location') )
     for loc in li_loc:
         print(f"Evaluating {loc}")
