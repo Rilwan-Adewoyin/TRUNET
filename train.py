@@ -145,7 +145,7 @@ class TrainTruNet():
             #Optimizer
             optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*30, weight_decay=0.125e-3 ) 
             #optimizer = tfa.optimizers.LAMB( learning_rate=1e-4, weight_decay_rate=0.25e-3 )
-            #optimizer = tfa.optimizers.Lookahead(optimizer, sync_period=1, slow_step_size=0.99 )            
+            optimizer = tfa.optimizers.Lookahead(optimizer, sync_period=1, slow_step_size=0.99 )            
             self.optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) 
             self.strategy_gpu_count = self.strategy.num_replicas_in_sync    
 
@@ -513,12 +513,14 @@ class TrainTruNet():
     
     @tf.function
     def distributed_train_step(self, feature, target, mask, bounds, _init):
-        bool_completed = self.strategy.run( self.step_train, args=(feature, target, mask, bounds, _init))
+        #bool_completed = self.strategy.run( self.step_train, args=(feature, target, mask, bounds, _init))
+        bool_completed = self.strategy.experimental_run_v2( self.step_train, args=(feature, target, mask, bounds, _init))
         return bool_completed
     
     @tf.function
     def distributed_val_step(self, feature, target, mask, bounds):
-        bool_completed = self.strategy.run( self.step_val, args=(feature, target, mask, bounds))
+        #bool_completed = self.strategy.run( self.step_val, args=(feature, target, mask, bounds))
+        bool_completed = self.strategy.experimental_run_v2( self.step_val, args=(feature, target, mask, bounds))
         return bool_completed
 
 
