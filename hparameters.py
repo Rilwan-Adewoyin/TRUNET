@@ -88,8 +88,8 @@ class model_TRUNET_hparameters(MParams):
         rdo =       model_type_settings.get('rdo',0.0) # Dropout for recurrent input into GRU
         kernel_reg   = None  #regularlization for input to GRU
         recurrent_reg = None #regularlization for recurrent input to GRU
-        bias_reg = tf.keras.regularizers.l2(0.2)
-        #bias_reg_attn = tf.keras.regularizers.l2(0.00002)
+        bias_reg = tf.keras.regularizers.l2(0.0)
+        bias_reg_attn = tf.keras.regularizers.l2(2.002e-5)
         # endregion
 
         #region --- Key Model Size Settings
@@ -139,8 +139,8 @@ class model_TRUNET_hparameters(MParams):
             'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
             "transform_value_antecedent":True,  "transform_output":True, 
             'implementation':1, 'conv_ops_qk':self.conv_ops_qk,
-            "value_conv":{ "filters":int(filters * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':bias_reg, 'padding':'same' },
-            "output_conv":{ "filters":int(filters * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"outp", 'bias_regularizer':bias_reg,'padding':'same' }
+            "value_conv":{ "filters":int(filters * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':bias_reg_attn, 'padding':'same' },
+            "output_conv":{ "filters":int(filters * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"outp", 'bias_regularizer':bias_reg_attn,'padding':'same' }
             } 
             for kd, vd ,nh, idx in zip( key_depth, val_depth, attn_heads,range(attn_layers_count) )
         ] #list of param dictionaries for each Inter Layer Cross Attention unit in the encoder
@@ -208,7 +208,7 @@ class model_TRUNET_hparameters(MParams):
         activations = ['relu','linear']
 
         OUTPUT_LAYER_PARAMS = [ 
-            { "filters":fs, "kernel_size":ks , "padding":"same", "activation":act, 'bias_regularizer':bias_reg  } 
+            { "filters":fs, "kernel_size":ks , "padding":"same", "activation":act, 'bias_regularizer': None } 
                 for fs, ks, act in zip( output_filters, output_kernel_size, activations )
         ]
         # endregion
@@ -271,9 +271,9 @@ class model_SimpleConvGRU_hparamaters(MParams):
         }
 
         REC_ADAM_PARAMS = {
-            "learning_rate":7e-4 , "warmup_proportion":0.75,
-            "min_lr":1e-4, "beta_1":0.90, "beta_2":0.999, "decay":0.004, "amsgrad":True,
-            'epsilon':1e-5
+            "learning_rate":7e-4 , "warmup_proportion":0.65,
+            "min_lr":1e-4, "beta_1":0.90, "beta_2":0.999, "decay":0.0008, "amsgrad":True,
+            'epsilon':5e-8
             }
 
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }
