@@ -193,6 +193,13 @@ class TrainTruNet():
         self.writer = tf.summary.create_file_writer( "log_tensboard/{}".format(utility.model_name_mkr(m_params,t_params=self.t_params) ) )
         # endregion
         
+        
+        bc_ds_in_train = int( self.t_params['train_batches']/era5_eobs.loc_count  ) #batch_count
+        bc_ds_in_val = int( self.t_params['val_batches']/era5_eobs.loc_count )
+
+        self.reset_idxs_training = np.cumsum( [bc_ds_in_train]*era5_eobs.loc_count )
+        self.reset_idxs_validation = np.cumsum( [bc_ds_in_val]*era5_eobs.loc_count )
+
         # region ---- Making Datasets
         self.ds_train, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'], self.t_params['start_date'] )
         self.ds_val, _ = era5_eobs.load_data_era5eobs( self.t_params['val_batches'], self.t_params['val_start_date'] )
@@ -282,6 +289,8 @@ class TrainTruNet():
                     self.df_training_info.loc[ ( self.df_training_info['Epoch']==epoch) , ['Last_Trained_Batch'] ] = batch
                     self.df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(self.m_params,t_params=self.t_params)), header=True, index=False )
 
+                if batch in self.reset_idxs_training:
+                    self.model.reset_states()
                     
             # --- Tensorboard record          
             li_losses = [self.loss_agg_epoch.result(), self.mse_agg_epoch.result()]
@@ -310,7 +319,10 @@ class TrainTruNet():
                     print("\t\tCompleted Validation Batch:{}/{} \t Time:{:.4f} \tEst Time Left:{:.1f}".format( batch, self.t_params['val_batches'], batch_group_time, est_completion_time_mins))
                                                 
                     start_batch_group_time = time.time()
-                    
+                
+                if batch in self.reset_idxs_validation:
+                    self.model.reset_states()
+
             # region - End of Epoch Reporting and Early iteration Callback
             print("\tEpoch:{}\t Train Loss:{:.8f}\t Train MSE:{:.5f}\t Val Loss:{:.5f}\t Val MSE:{:.5f}\t Time:{:.5f}".format(epoch, self.loss_agg_epoch.result(), self.mse_agg_epoch.result(), 
                         self.loss_agg_val.result(), self.mse_agg_val.result(), time.time()-start_epoch_train  ) )

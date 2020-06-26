@@ -80,8 +80,8 @@ class model_TRUNET_hparameters(MParams):
         
         REC_ADAM_PARAMS = {
             "learning_rate":5e-4,   "warmup_proportion":0.65,
-            "min_lr":1e-4,         "beta_1":0.90,               "beta_2":0.999,
-            "amsgrad":False,         "decay":0.0004,              "epsilon":5e-8 } #Rectified Adam params
+            "min_lr":2.5e-4,         "beta_1":0.70,               "beta_2":0.99,
+            "amsgrad":True,         "decay":0.0008,              "epsilon":5e-8 } #Rectified Adam params
         
         DROPOUT =   model_type_settings.get('do',0.0)
         ido =       model_type_settings.get('ido',0.0) # Dropout for input into GRU
@@ -121,7 +121,7 @@ class model_TRUNET_hparameters(MParams):
 
         kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )             
         print("Check appropriate stateful is being used for multi gpu status")
-        stateful = False                       
+        stateful = True                       
 
         # Attention params
         attn_heads = [ 8 ]*attn_layers_count            #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
@@ -240,7 +240,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
         layer_count = 3 
         filters = 80
         print("Check appropriate stateful is being used for multi gpu status")
-        stateful = False
+        stateful = True
         kernel_sizes = [[4,4]]*layer_count
         paddings = ['same']*layer_count
         return_sequences = [True]*layer_count
