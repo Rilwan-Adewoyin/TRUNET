@@ -43,15 +43,15 @@ except Exception as e:
 # for idx, gpu_name in enumerate(gpu_devices):
 #     tf.config.experimental.set_memory_growth(gpu_name, True)
 
-# try:
-#     tf.config.set_logical_device_configuration(
-#         gpu_devices[0], 
-#         [tf.config.LogicalDeviceConfiguration(memory_limit=4000),
-#             tf.config.LogicalDeviceConfiguration(memory_limit=3600)] )
-#     gpu_devices = tf.config.list_logical_devices('GPU')
+try:
+    tf.config.set_logical_device_configuration(
+        gpu_devices[0], 
+        [tf.config.LogicalDeviceConfiguration(memory_limit=4000),
+            tf.config.LogicalDeviceConfiguration(mem6ry_limit=3800)] )
+    gpu_devices = tf.config.list_logical_devices('GPU')
 
-# except:
-#     pass
+except:
+    pass
 
 policy = mixed_precision.Policy('mixed_float16')
 mixed_precision.set_policy(policy)

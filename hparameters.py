@@ -121,7 +121,7 @@ class model_TRUNET_hparameters(MParams):
 
         kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )             
         print("Check appropriate stateful is being used for multi gpu status")
-        stateful = True                       
+        stateful = False                       
 
         # Attention params
         attn_heads = [ 8 ]*attn_layers_count            #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
