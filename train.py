@@ -430,11 +430,11 @@ class TrainTruNet():
                     # To calculate metric_mse for CC model we assume that pred_rain=0 if pred_prob<0.5 
                 # endregion
 
-            loss_to_optimize_agg = ( loss_to_optimize+tf.add_n(self.model.losses ) )/self.strategy_gpu_count
+            loss_to_optimize_agg = tf.grad_pass_through( lambda x:  x/self.strategy_gpu_count )(loss_to_optimize )
             scaled_loss = self.optimizer.get_scaled_loss( loss_to_optimize_agg )
             scaled_gradients = tape.gradient( scaled_loss, self.model.trainable_variables )
             unscaled_gradients = self.optimizer.get_unscaled_gradients(scaled_gradients)
-            gradients, _ = tf.clip_by_global_norm( unscaled_gradients, clip_norm=3 ) #gradient clipping
+            gradients, _ = tf.clip_by_global_norm( unscaled_gradients, clip_norm=5.5 ) #gradient clipping
             self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
         
         # Metrics (batchwise, epoch)  
@@ -443,6 +443,7 @@ class TrainTruNet():
         self.loss_agg_batch( loss_to_optimize )
         self.loss_agg_epoch( loss_to_optimize )
         self.mse_agg_epoch( metric_mse )
+        gc.collect()
         return True
                 
     def step_val(self, feature, target, mask, bounds):
