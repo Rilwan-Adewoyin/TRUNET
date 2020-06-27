@@ -152,9 +152,10 @@ class TrainTruNet():
         
         with self.strategy.scope():
             # These objects will aggregate losses and metrics across batches and epochs
-            self.loss_agg_batch = tf.keras.metrics.Mean(name='loss_agg_batch')
+            self.loss_agg_batch = tf.keras.metrics.Mean(name='loss_agg_batch' )
             self.loss_agg_epoch = tf.keras.metrics.Mean(name="loss_agg_epoch")
-            self.mse_agg_epoch = tf.keras.metrics.Mean(name='self.mse_agg_epoch')
+
+            self.mse_agg_epoch = tf.keras.metrics.Mean(name='mse_agg_epoch')
             
             self.loss_agg_val = tf.keras.metrics.Mean(name='loss_agg_val')
             self.mse_agg_val = tf.keras.metrics.Mean(name='mse_agg_val')
@@ -202,7 +203,7 @@ class TrainTruNet():
 
         # region ---- Making Datasets
         self.ds_train, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'], self.t_params['start_date'] )
-        self.ds_val, _ = era5_eobs.load_data_era5eobs( self.t_params['val_batches'], self.t_params['val_start_date'] )
+        self.ds_val, _ = era5_eobs.load_data_era5eobs( self.t_params['val_batches'], self.t_params['val_start_date'], prefetch=8 )
         
         #caching dataset to file post pre-processing steps have been completed 
         cache_suffix = utility.cache_suffix_mkr( m_params, self.t_params )
@@ -271,8 +272,9 @@ class TrainTruNet():
                 # get next set of training datums
                 idx, (feature, target, mask) = next(self.iter_train)
                 
-                bool_cmpltd = self.distributed_train_step( feature, target, mask, bounds, 0.0 )
-
+                gradients = self.distributed_train_step( feature, target, mask, bounds, 0.0 )
+                #print(gradients)
+                
                 # reporting
                 if( batch % self.train_batch_report_freq==0 or batch == self.t_params['train_batches']):
                     batch_group_time =  time.time() - start_batch_group_time
@@ -282,21 +284,25 @@ class TrainTruNet():
                     print("\t\tBatch:{}/{}\tTrain Loss: {:.8f} \t Batch Time:{:.4f}\tEpoch mins left:{:.1f}".format(batch, self.t_params['train_batches'], self.loss_agg_batch.result(), batch_group_time, est_completion_time_mins ) )
                     
                     # resetting time and losses
-                    self.loss_agg_batch.reset_states()
                     start_batch_group_time = time.time()
 
                     # Updating record of the last batch to be operated on in training epoch
                     self.df_training_info.loc[ ( self.df_training_info['Epoch']==epoch) , ['Last_Trained_Batch'] ] = batch
                     self.df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(self.m_params,t_params=self.t_params)), header=True, index=False )
 
+                li_losses = [self.loss_agg_batch.result()]
+                li_names = ['train_loss_batch']
+                step = batch + (epoch)*self.t_params['train_batches']
+                utility.tensorboard_record( self.writer.as_default(), li_losses, li_names, step, gradients, self.model.trainable_variables )
+                self.loss_agg_batch.reset_states()
+
                 if batch in self.reset_idxs_training:
                     self.model.reset_states()
                     
             # --- Tensorboard record          
             li_losses = [self.loss_agg_epoch.result(), self.mse_agg_epoch.result()]
-            li_names = ['train_loss','train_mse']
-            step = batch + (epoch)*self.t_params['train_batches']
-            #utility.tensorboard_record( self.writer.as_default(), li_losses, li_names, step, gradients, self.model.trainable_variables )
+            li_names = ['train_loss_epoch','train_mse_epoch']
+            utility.tensorboard_record( self.writer.as_default(), li_losses, li_names, epoch)
             
             
             print("\tStarting Validation")
@@ -340,7 +346,7 @@ class TrainTruNet():
         
         print("Model Training Finished")
 
-    def step_train(self, feature, target, mask, bounds, _init):
+    def train_step(self, feature, target, mask, bounds, _init):
         
         if _init==1.0:
             inp_shape = [self.t_params['batch_size'], self.t_params['lookback_feature']] + self.m_params['region_grid_params']['outer_box_dims'] + [len(self.t_params['vars_for_feature'])]
@@ -349,7 +355,7 @@ class TrainTruNet():
             _ = self.model( tf.zeros( inp_shape ,dtype=tf.float16), self.t_params['trainable'] ) #( bs, tar_seq_len, h, w)
             gradients = [ tf.zeros_like(t_var, dtype=tf.float32 ) for t_var in self.model.trainable_variables  ]
             self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
-            return True
+            return [0]
 
         with tf.GradientTape(persistent=False) as tape:
                                    
@@ -435,7 +441,9 @@ class TrainTruNet():
             scaled_gradients = tape.gradient( scaled_loss, self.model.trainable_variables )
             unscaled_gradients = self.optimizer.get_unscaled_gradients(scaled_gradients)
             gradients, _ = tf.clip_by_global_norm( unscaled_gradients, clip_norm=5.5 ) #gradient clipping
-            self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
+            #gradients = tf.distribute.get_replica_context().all_reduce('sum', gradients)
+            self.optimizer.apply_gradients( zip(gradients, self.model.trainable_variables))
+            #gradients_agg = tf.distribute.get_replica_context().merge_call()
         
         # Metrics (batchwise, epoch)  
         # we pass in non global_batch_averaged results to keras.Metrics.Mean 
@@ -444,9 +452,10 @@ class TrainTruNet():
         self.loss_agg_epoch( loss_to_optimize )
         self.mse_agg_epoch( metric_mse )
         gc.collect()
-        return True
+        #gradients = [ tf.expand_dims(grad,axis=0) for grad in gradients]
+        return gradients
                 
-    def step_val(self, feature, target, mask, bounds):
+    def val_step(self, feature, target, mask, bounds):
                     
         # Non CC distribution
         if self.m_params['model_type_settings']['discrete_continuous'] == False:
@@ -526,14 +535,15 @@ class TrainTruNet():
     
     @tf.function
     def distributed_train_step(self, feature, target, mask, bounds, _init):
-        #bool_completed = self.strategy.run( self.step_train, args=(feature, target, mask, bounds, _init))
-        bool_completed = self.strategy.experimental_run_v2( self.step_train, args=(feature, target, mask, bounds, _init))
-        return bool_completed
+        #bool_completed = self.strategy.run( self.train_step, args=(feature, target, mask, bounds, _init))
+        gradients = self.strategy.experimental_run_v2( self.train_step, args=(feature, target, mask, bounds, _init))
+        #gradients_agg = self.strategy.extended.batch_reduce_to( tf.distribute.ReduceOp.SUM, zip(gradients,gradients) )
+        return gradients
     
     @tf.function
     def distributed_val_step(self, feature, target, mask, bounds):
-        #bool_completed = self.strategy.run( self.step_val, args=(feature, target, mask, bounds))
-        bool_completed = self.strategy.experimental_run_v2( self.step_val, args=(feature, target, mask, bounds))
+        #bool_completed = self.strategy.run( self.val_step, args=(feature, target, mask, bounds))
+        bool_completed = self.strategy.experimental_run_v2( self.val_step, args=(feature, target, mask, bounds))
         return bool_completed
 
 

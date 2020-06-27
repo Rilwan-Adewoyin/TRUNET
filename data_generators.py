@@ -325,7 +325,7 @@ class Era5_Eobs():
                 self.li_loc != ["All"] else \
                     len( self.rain_data.get_locs_for_whole_map(self.m_params['region_grid_params']))
 
-    def load_data_era5eobs(self, batch_count, start_date,_num_parallel_calls=-1):
+    def load_data_era5eobs(self, batch_count, start_date,_num_parallel_calls=-1, prefetch=-1):
         """Produces Tensorflow Datasets for the ERA5 and E-obs dataset
 
             Args:
@@ -376,7 +376,7 @@ class Era5_Eobs():
         ds = tf.data.Dataset.zip( (ds_feat, ds_tar) ) #( model_fields, (rain, rain_mask) ) 
         
         ds, idx_loc_in_region = self.location_extractor( ds, self.li_loc, batch_count)
-        ds = ds.prefetch(-1)
+        ds = ds.prefetch(prefetch)
         
         return ds, idx_loc_in_region
         #return ds.take(batch_count), idx_loc_in_region
