@@ -237,10 +237,10 @@ class model_SimpleConvGRU_hparamaters(MParams):
         dropout = kwargs.get('dropout',0.0)
 
         #region --- ConvLayers
-        layer_count = 3 
+        layer_count = 4 
         filters = 80
         print("Check appropriate stateful is being used for multi gpu status")
-        stateful = True
+        stateful = False
         kernel_sizes = [[4,4]]*layer_count
         paddings = ['same']*layer_count
         return_sequences = [True]*layer_count
