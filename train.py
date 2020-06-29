@@ -213,6 +213,7 @@ class TrainTruNet():
         #ds_val = ds_val.repeat(self.t_params['epochs']-self.start_epoch)
 
         ds_train_val = ds_train.concatenate(ds_val)
+        ds_train_val = ds_train_val.cache('Data/data_cache/train_val'+cache_suffix ) 
         ds_train_val = ds_train_val.repeat(self.t_params['epochs']-self.start_epoch)
         self.ds_train_val = self.strategy.experimental_distribute_dataset(dataset=ds_train_val)
         self.iter_train_val = enumerate(self.ds_train_val)
