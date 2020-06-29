@@ -1,11 +1,14 @@
 from netCDF4 import Dataset, num2date 
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 import data_generators
 import argparse
 import ast
 import gc
 import logging
 import math
-import os
+
 import re
 import sys
 import time
@@ -21,6 +24,8 @@ from tensorflow.python.ops import variables as tf_variables
 from tensorflow.python.training.tracking import data_structures
 from tensorflow_probability import distributions as tfd
 from tensorflow_probability import layers as tfpl
+# import pydot
+# import graphviz
 try:
     import tensorflow_addons as tfa
 except Exception as e:
@@ -32,7 +37,7 @@ import hparameters
 import models
 import utility
 
-os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
+#os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 logging.getLogger("tensorflow").setLevel(logging.ERROR)
 tf.keras.backend.set_floatx('float16')
 tf.keras.backend.set_epsilon(1e-3)
@@ -42,9 +47,9 @@ try:
 except Exception as e:
     gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 
-print("GPU Available: {}\n GPU Devices:{} ".format(tf.test.is_gpu_available(), gpu_devices) )
-for idx, gpu_name in enumerate(gpu_devices):
-    tf.config.experimental.set_memory_growth(gpu_name, True)
+# print("GPU Available: {}\n GPU Devices:{} ".format(tf.test.is_gpu_available(), gpu_devices) )
+# for idx, gpu_name in enumerate(gpu_devices):
+#     tf.config.experimental.set_memory_growth(gpu_name, True)
 
 policy = mixed_precision.Policy('mixed_float16')
 mixed_precision.set_policy(policy)
@@ -159,29 +164,35 @@ class TrainTrueNet():
             print (' Initializing model from scratch')
         
         #Tensorboard
-        os.makedirs("log_tensboard/{}".format(utility.model_name_mkr(m_params, t_params=self.t_params)), exist_ok=True ) 
-        self.writer = tf.summary.create_file_writer( "log_tensboard/{}".format(utility.model_name_mkr(m_params,t_params=self.t_params) ) )
+        log_dir = "log_tensboard/{}".format(utility.model_name_mkr(m_params, t_params=self.t_params))
+        os.makedirs(log_dir, exist_ok=True ) 
+        self.writer = tf.summary.create_file_writer( log_dir )
         # endregion
         
         # region ---- Making Datasets
         #era5_eobs = data_generators.Era5_Eobs( self.t_params, self.m_params )
-        ds_train, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'], self.t_params['start_date'] )
-        ds_val, _ = era5_eobs.load_data_era5eobs( self.t_params['val_batches'], self.t_params['val_start_date'] )
+        #ds_train, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'], self.t_params['start_date'] )
+        #ds_val, _ = era5_eobs.load_data_era5eobs( self.t_params['val_batches'], self.t_params['val_start_date'] )
         
         # setting naming system for cache 
         cache_suffix = utility.cache_suffix_mkr( m_params, self.t_params )
-        ds_train = ds_train.cache('Data/data_cache/train'+cache_suffix ) 
-        ds_val = ds_val.cache('Data/data_cache/val'+cache_suffix )
-        
+        #ds_train = ds_train.cache('Data/data_cache/train'+cache_suffix ) 
+        #ds_val = ds_val.cache('Data/data_cache/val'+cache_suffix )
+        #ds_train = ds_train.cache('Data/data_cache/train2'+cache_suffix ) 
+
         # preparing iterators for train and validation
         # data loading schemes based on ram limitations
         if psutil.virtual_memory()[0] / 1e9 <= 38.0 : 
+            ds_train_val, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'] + self.t_params['val_batches'] , self.t_params['start_date'] )
+            ds_train_val = ds_train_val.cache('Data/data_cache/train_val'+cache_suffix ) 
+            ds_train_val = ds_train_val.repeat(self.t_params['epochs']-self.start_epoch)
             #Data Loading Scheme 1 - Version that works on low memeory devices e.g. under 30 GB RAM
-            ds_train_val = ds_train.concatenate(ds_val).repeat(self.t_params['epochs']-self.start_epoch)
+            #ds_train_val = ds_train.concatenate(ds_val).repeat(self.t_params['epochs']-self.start_epoch)
+            #ds_train_val = ds_train.repeat(self.t_params['epochs']-self.start_epoch)
             self.ds_train_val = ds_train_val.skip(self.batches_to_skip)
             self.iter_val_train = enumerate(self.ds_train_val)
-            self.iter_train = self.iter_val_train
-            self.iter_val = self.iter_val_train
+            # self.iter_train = self.iter_val_train
+            # self.iter_val = self.iter_val_train
         else:
             #Data Loading Scheme 2 - Version that ensures validation and train set are well defined 
             self.ds_train = ds_train.repeat(self.t_params['epochs']-self.start_epoch)
@@ -226,7 +237,7 @@ class TrainTrueNet():
                 
                 step = batch + (epoch)*self.t_params['train_batches']
                 # get next set of training datums
-                idx, (feature, target, mask) = next(self.iter_train)
+                idx, (feature, target, mask) = next(self.iter_val_train)
 
                 with tf.GradientTape(persistent=False) as tape:
                     
@@ -326,10 +337,10 @@ class TrainTrueNet():
                         raise NotImplementedError
 
                     # gradient Update step - mixed precision training
-                    scaled_loss = self.optimizer.get_scaled_loss(loss_to_optimize+tf.math.add_n(self.model.losses) )
+                    scaled_loss = self.optimizer.get_scaled_loss(loss_to_optimize )
                     scaled_gradients = tape.gradient( scaled_loss, self.model.trainable_variables )
                     gradients = self.optimizer.get_unscaled_gradients(scaled_gradients)
-                    gradients, _ = tf.clip_by_global_norm( gradients, 4 )
+                    gradients, _ = tf.clip_by_global_norm( gradients, 5.5 )
                     
                     self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
                     gc.collect()
@@ -373,7 +384,7 @@ class TrainTrueNet():
             #region Validation Loops
             for batch in range(1, self.t_params['val_batches']+1):
 
-                idx, (feature, target, mask) = next(self.iter_val)
+                idx, (feature, target, mask) = next(self.iter_val_train)
                 
                 #Skipping any completely masked data     
                 if tf.reduce_any( mask[:, :, 6:10, 6:10] )==False  :

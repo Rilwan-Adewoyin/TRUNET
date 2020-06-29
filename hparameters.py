@@ -375,8 +375,8 @@ class train_hparameters_ati(HParams):
             dates_str = self.custom_train_split_method.split("_")
             start_date = np.datetime64(dates_str[0],'D')
             train_end_date = (pd.Timestamp(dates_str[1]) - pd.DateOffset(seconds=1) ).to_numpy()
-            val_start_date = np.datetime64(dates_str[2],'D')
-            val_end_date = (pd.Timestamp(dates_str[3]) - pd.DateOffset(seconds=1) ).to_numpy()
+            val_start_date = np.datetime64(dates_str[1],'D')
+            val_end_date = (pd.Timestamp(dates_str[2]) - pd.DateOffset(seconds=1) ).to_numpy()
             
             TRAIN_SET_SIZE_ELEMENTS = ( np.timedelta64(train_end_date - start_date,'D')  // WINDOW_SHIFT  ).astype(int) 
             VAL_SET_SIZE_ELEMENTS   = ( np.timedelta64(val_end_date - val_start_date,'D')  // WINDOW_SHIFT  ).astype(int)               
@@ -492,29 +492,6 @@ class test_hparameters_ati(HParams):
         start_date = feature_start_date if (feature_start_date > target_start_date) else target_start_date
         end_date = tar_end_date if (tar_end_date < feature_end_date) else feature_end_date     
 
-        # if self.custom_test_split_method == None:
-        #     raise NotImplementedError("From now traint set size must never be used")
-        #     #If user passes no value for custom_test_split_method, then assume whole dataset is to be used 
-        #     #train set size is determined from self.tst (train_set_size)
-        #     total_datums_target = np.timedelta64(end_date - train_start_date,'D')   
-        #     total_datums_target = total_datums_target.astype(int)
-
-        #     test_start_date = train_start_date + (end_date - train_start_date)*((1+self.tst)/2)
-        #     test_end_date = end_date
-
-        #     TEST_SET_SIZE_DAYS_TARGET = int( total_datums_target * ((1-self.tst)/2))
-        
-        
-        # if self.custom_test_split_method == "Rolling_eval":
-        #     #Default behaviour is to identify start testing time based on tst used previously
-        #     #NOTE: remove this methodology, replace with passing in years
-        #     years_used_for_training = int(40*self.tst)
-        #     years_used_for
-        #     data_year_start = 1979      #1) Must be at least after validation set for November data, Also the IFS data only starts after 1989, So testing on final 30 years
-        #     test_start_date = np.datetime64('{}-01-01'.format(str(int(data_year_start+years_used_for_training))),'D')
-        #     test_end_date = end_date
-
-        #     TEST_SET_SIZE_DAYS_TARGET = np.timedelta64( test_end_date - test_start_date, 'D' ).astype(int)
 
         if self.custom_test_split_method == "4ds_10years":
             # Ease helper for the 4 dataset experiement: "Varied Time Span"

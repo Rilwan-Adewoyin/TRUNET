@@ -105,8 +105,8 @@ class TrainTruNet():
         self.t_params['val_batches'] = int(self.t_params['val_batches'] * era5_eobs.loc_count)
 
         # The fequency at which we report during training and validation i.e every 10% of minibatches report training loss and training mse
-        self.train_batch_report_freq = max( int(self.t_params['train_batches']*self.t_params['reporting_freq']), 2)
-        self.val_batch_report_freq = max( int(self.t_params['val_batches']*self.t_params['reporting_freq']), 2)
+        self.train_batch_report_freq = max( int(self.t_params['train_batches']*self.t_params['reporting_freq']), 3)
+        self.val_batch_report_freq = max( int(self.t_params['val_batches']*self.t_params['reporting_freq']), 3)
         #endregion
 
         # region ---- Restoring/Creating New Training Records and Restoring training progress
@@ -127,7 +127,6 @@ class TrainTruNet():
         except FileNotFoundError as e:
             #If no file found, then make new training records file
             self.df_training_info = pd.DataFrame(columns=['Epoch','Train_loss','Val_loss','Checkpoint_Path', 'Last_Trained_Batch'] ) 
-            #key: epoch number #Value: the corresponding loss #TODO: Implement early stopping
             self.batches_to_skip = 0
             self.start_epoch = 0
             print("Did not recover training records. Starting from scratch")
@@ -143,9 +142,7 @@ class TrainTruNet():
             #Model
             self.model = models.model_loader( self.t_params, self.m_params )
             #Optimizer
-            optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*30, weight_decay=0.125e-3 ) 
-            #optimizer = tfa.optimizers.LAMB( learning_rate=1e-4, weight_decay_rate=0.25e-3 )
-            optimizer = tfa.optimizers.Lookahead(optimizer, sync_period=1, slow_step_size=0.99 )            
+            optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*40, weight_decay=1.25e-5 )         
             self.optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) 
             self.strategy_gpu_count = self.strategy.num_replicas_in_sync    
 
@@ -174,15 +171,6 @@ class TrainTruNet():
             # compat: Initializing model and optimizer before restoring from checkpoint
             inp_shape = [t_params['batch_size'], t_params['lookback_feature']] + m_params['region_grid_params']['outer_box_dims'] + [len(t_params['vars_for_feature'])]
             inp_shape1 = [t_params['batch_size'], t_params['lookback_target']] + m_params['region_grid_params']['outer_box_dims'] 
-
-            # _ = self.model( tf.zeros( inp_shape ,dtype=tf.float16), self.t_params['trainable'] ) #( bs, tar_seq_len, h, w)
-            # gradients = [ tf.zeros_like(t_var, dtype=tf.float32 ) for t_var in self.model.trainable_variables  ]
-            # self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
-
-            # _f = tf.zeros( inp_shape ,dtype=tf.float16)
-            # _t = tf.zeros(inp_shape1, dtype=tf.float32)
-            # _m = _t == 0.0
-            # _b = cl.central_region_bounds(self.m_params['region_grid_params']) 
             bool_cmpltd = self.distributed_train_step( 0.0, 0.0, 0.0, 0.0, 1.0 )
 
             ckpt_epoch.restore(self.ckpt_mngr_epoch.latest_checkpoint).assert_consumed()              
@@ -202,38 +190,41 @@ class TrainTruNet():
         self.reset_idxs_validation = np.cumsum( [bc_ds_in_val]*era5_eobs.loc_count )
 
         # region ---- Making Datasets
-        self.ds_train, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'], self.t_params['start_date'] )
-        self.ds_val, _ = era5_eobs.load_data_era5eobs( self.t_params['val_batches'], self.t_params['val_start_date'], prefetch=8 )
+        #self.ds_train, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'], self.t_params['start_date'], prefetch=4 )
+        #self.ds_val, _ = era5_eobs.load_data_era5eobs( self.t_params['val_batches'], self.t_params['val_start_date'], prefetch=8 )
         
         #caching dataset to file post pre-processing steps have been completed 
         cache_suffix = utility.cache_suffix_mkr( m_params, self.t_params )
         os.makedirs( './Data/data_cache/', exist_ok=True  )
-        self.ds_train = self.ds_train.cache('Data/data_cache/train'+cache_suffix ) 
-        self.ds_val = self.ds_val.cache('Data/data_cache/val'+cache_suffix )
+        # self.ds_train = self.ds_train.cache('Data/data_cache/train'+cache_suffix ) 
+        # self.ds_val = self.ds_val.cache('Data/data_cache/val'+cache_suffix )
         
-        
-        # preparing iterators for train and validation
-        # data loading schemes based on ram limitations
-        if psutil.virtual_memory()[0] / 1e9 <= 30.0 : 
-            #Data Loading Scheme 1 - Version that works on low memeory devices e.g. under 30 GB RAM
-            ds_train_val = self.ds_train.concatenate(self.ds_val).repeat(self.t_params['epochs']-self.start_epoch)
-            #ds_train_val = ds_train.unbatch().shuffle( self.t_params['batch_size']*2, reshuffle_each_iteration=True).batch(self.t_params['batch_size']).concatenate(ds_val).repeat(self.t_params['epochs']-self.start_epoch)
-            #ds_train_val = ds_train_val.skip(self.batches_to_skip)
-            self.ds_train_val = self.strategy.experimental_distribute_dataset(dataset=ds_train_val)
-            self.iter_val_train = enumerate(self.ds_train_val)
-            self.iter_train = self.iter_val_train
-            self.iter_val = self.iter_val_train
-        else:
-            #Data Loading Scheme 2 - Version that ensures validation and train set are well defined 
-            #self.ds_train = self.ds_train.repeat(self.t_params['epochs']-self.start_epoch)
-            self.ds_train = self.ds_train.unbatch().shuffle( self.t_params['batch_size']*6, reshuffle_each_iteration=True).batch(self.t_params['batch_size']).repeat(self.t_params['epochs']-self.start_epoch)
+        ds_train_val, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'] + self.t_params['val_batches'] , self.t_params['start_date'] )
+        ds_train_val = ds_train_val.cache('Data/data_cache/train_val'+cache_suffix ) 
+        ds_train_val = ds_train_val.unbatch().shuffle( self.t_params['batch_size']*12, reshuffle_each_iteration=True).batch(self.t_params['batch_size']).repeat(self.t_params['epochs']-self.start_epoch)
 
-            self.ds_val = self.ds_val.repeat(self.t_params['epochs']-self.start_epoch)
-            #self.ds_train = self.ds_train.skip(self.batches_to_skip)
-            self.ds_train = self.strategy.experimental_distribute_dataset(dataset=self.ds_train)
-            self.ds_val = self.strategy.experimental_distribute_dataset(dataset=self.ds_val)
-            self.iter_train = enumerate(self.ds_train)
-            self.iter_val = enumerate(self.ds_val)
+        self.ds_train_val = self.strategy.experimental_distribute_dataset(dataset=ds_train_val)
+        self.iter_train_val = enumerate(self.ds_train_val)
+        
+        # # preparing iterators for train and validation
+        # # data loading schemes based on ram limitations
+        # if psutil.virtual_memory()[0] / 1e9 <= 30.0 : 
+        #     #Data Loading Scheme 1 - Version that works on low memeory devices e.g. under 30 GB RAM
+        #     self.ds_train_val = self.strategy.experimental_distribute_dataset(dataset=ds_train_val)
+        #     self.iter_val_train = enumerate(self.ds_train_val)
+        #     self.iter_train = self.iter_val_train
+        #     self.iter_val = self.iter_val_train
+        # else:
+        #     #Data Loading Scheme 2 - Version that ensures validation and train set are well defined 
+        #     #self.ds_train = self.ds_train.repeat(self.t_params['epochs']-self.start_epoch)
+        #     self.ds_train = self.ds_train.unbatch().shuffle( self.t_params['batch_size']*6, reshuffle_each_iteration=True).batch(self.t_params['batch_size']).repeat(self.t_params['epochs']-self.start_epoch)
+
+        #     self.ds_val = self.ds_val.repeat(self.t_params['epochs']-self.start_epoch)
+        #     #self.ds_train = self.ds_train.skip(self.batches_to_skip)
+        #     self.ds_train = self.strategy.experimental_distribute_dataset(dataset=self.ds_train)
+        #     self.ds_val = self.strategy.experimental_distribute_dataset(dataset=self.ds_val)
+        #     self.iter_train = enumerate(self.ds_train)
+        #     self.iter_val = enumerate(self.ds_val)
         #endregion
 
     def train_model(self):
@@ -270,7 +261,7 @@ class TrainTruNet():
             for batch in range(self.batches_to_skip+1, self.t_params['train_batches']+1):
                                
                 # get next set of training datums
-                idx, (feature, target, mask) = next(self.iter_train)
+                idx, (feature, target, mask) = next(self.iter_train_val)
                 
                 gradients = self.distributed_train_step( feature, target, mask, bounds, 0.0 )
                 #print(gradients)
@@ -312,7 +303,7 @@ class TrainTruNet():
             for batch in range(1, self.t_params['val_batches']+1):
                 
                 # next datum
-                idx, (feature, target, mask) = next(self.iter_val)
+                idx, (feature, target, mask) = next(self.iter_train_val)
                 
                 bool_cmpltd = self.distributed_val_step(feature, target, mask, bounds)
 
@@ -441,9 +432,7 @@ class TrainTruNet():
             scaled_gradients = tape.gradient( scaled_loss, self.model.trainable_variables )
             unscaled_gradients = self.optimizer.get_unscaled_gradients(scaled_gradients)
             gradients, _ = tf.clip_by_global_norm( unscaled_gradients, clip_norm=5.5 ) #gradient clipping
-            #gradients = tf.distribute.get_replica_context().all_reduce('sum', gradients)
             self.optimizer.apply_gradients( zip(gradients, self.model.trainable_variables))
-            #gradients_agg = tf.distribute.get_replica_context().merge_call()
         
         # Metrics (batchwise, epoch)  
         # we pass in non global_batch_averaged results to keras.Metrics.Mean 
