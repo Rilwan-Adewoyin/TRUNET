@@ -284,7 +284,8 @@ class TrainTruNet():
                 li_losses = [self.loss_agg_batch.result()]
                 li_names = ['train_loss_batch']
                 step = batch + (epoch)*self.t_params['train_batches']
-                utility.tensorboard_record( self.writer.as_default(), li_losses, li_names, step, gradients, self.model.trainable_variables )
+                #utility.tensorboard_record( self.writer.as_default(), li_losses, li_names, step, gradients, self.model.trainable_variables )
+                utility.tensorboard_record( self.writer.as_default(), li_losses, li_names, step, None, None )
                 self.loss_agg_batch.reset_states()
 
                 if batch in self.reset_idxs_training:
@@ -439,9 +440,7 @@ class TrainTruNet():
         # as advised in tensorflow multi-gpu script  
         self.loss_agg_batch( loss_to_optimize )
         self.loss_agg_epoch( loss_to_optimize )
-        self.mse_agg_epoch( metric_mse )
-        gc.collect()
-        #gradients = [ tf.expand_dims(grad,axis=0) for grad in gradients]
+        self.mse_agg_epoch( metric_mse )        
         return gradients
                 
     def val_step(self, feature, target, mask, bounds):
@@ -526,7 +525,6 @@ class TrainTruNet():
     def distributed_train_step(self, feature, target, mask, bounds, _init):
         #bool_completed = self.strategy.run( self.train_step, args=(feature, target, mask, bounds, _init))
         gradients = self.strategy.experimental_run_v2( self.train_step, args=(feature, target, mask, bounds, _init))
-        #gradients_agg = self.strategy.extended.batch_reduce_to( tf.distribute.ReduceOp.SUM, zip(gradients,gradients) )
         return gradients
     
     @tf.function
