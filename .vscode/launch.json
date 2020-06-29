@@ -28,7 +28,7 @@
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
-            "args": [ "-mn","TRUNET","-dd","Data/Rain_Data_Mar20", "-bs","8","-ctsm" ,"1979_1995-03-26_1995-03-27_2007-05-28",                
+            "args": [ "-mn","TRUNET","-dd","Data/Rain_Data_Mar20", "-bs","8","-ctsm" ,"1979_1995-03-27_2007-05-28",                
 "-mts" ,"{'stochastic':False,'stochastc_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout','do':0.2,'ido':0.2,'rdo':0.3,'location':['London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin']}"
                 ]  
         },

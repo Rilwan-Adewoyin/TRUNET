@@ -199,10 +199,21 @@ class TrainTruNet():
         # self.ds_train = self.ds_train.cache('Data/data_cache/train'+cache_suffix ) 
         # self.ds_val = self.ds_val.cache('Data/data_cache/val'+cache_suffix )
         
-        ds_train_val, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'] + self.t_params['val_batches'] , self.t_params['start_date'] )
-        ds_train_val = ds_train_val.cache('Data/data_cache/train_val'+cache_suffix ) 
-        ds_train_val = ds_train_val.unbatch().shuffle( self.t_params['batch_size']*12, reshuffle_each_iteration=True).batch(self.t_params['batch_size']).repeat(self.t_params['epochs']-self.start_epoch)
+        _ds_train_val, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'] + self.t_params['val_batches'] , self.t_params['start_date'] )
 
+        # ds_train_val = ds_train_val.cache('Data/data_cache/train_val'+cache_suffix ) 
+        # ds_train_val = ds_train_val.unbatch().shuffle( self.t_params['batch_size']*12, reshuffle_each_iteration=True).batch(self.t_params['batch_size']).repeat(self.t_params['epochs']-self.start_epoch)
+        # self.ds_train_val = self.strategy.experimental_distribute_dataset(dataset=ds_train_val)
+        # self.iter_train_val = enumerate(self.ds_train_val)
+
+        ds_train = _ds_train_val.take(self.t_params['train_batches'] )
+        ds_val = _ds_train_val.skip(self.t_params['val_batches'] )
+
+        ds_train = ds_train.unbatch().shuffle( self.t_params['batch_size']*12, reshuffle_each_iteration=True).batch(self.t_params['batch_size']) #.repeat(self.t_params['epochs']-self.start_epoch)
+        #ds_val = ds_val.repeat(self.t_params['epochs']-self.start_epoch)
+
+        ds_train_val = ds_train.concatenate(ds_val)
+        ds_train_val = ds_train_val.repeat(self.t_params['epochs']-self.start_epoch)
         self.ds_train_val = self.strategy.experimental_distribute_dataset(dataset=ds_train_val)
         self.iter_train_val = enumerate(self.ds_train_val)
         
