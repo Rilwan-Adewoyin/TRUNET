@@ -224,6 +224,7 @@ class model_TRUNET_hparameters(MParams):
 
             'rec_adam_params':REC_ADAM_PARAMS,
             'dropout':DROPOUT,
+            'clip_norm':6.75
             } )
 
 class model_SimpleConvGRU_hparamaters(MParams):
@@ -293,7 +294,8 @@ class model_SimpleConvGRU_hparamaters(MParams):
             'model_type_settings':model_type_settings,
 
             'rec_adam_params':REC_ADAM_PARAMS,
-            'lookahead_params':LOOKAHEAD_PARAMS
+            'lookahead_params':LOOKAHEAD_PARAMS,
+            'clip_norm':5.5
         })
 
 class train_hparameters_ati(HParams):
@@ -344,7 +346,7 @@ class train_hparameters_ati(HParams):
         # endregion
 
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
-        EPOCHS = 600
+        EPOCHS = 300
         CHECKPOINTS_TO_KEEP = 5
 
         # region ---- data formulation strategies
@@ -387,7 +389,7 @@ class train_hparameters_ati(HParams):
         # endregion
         
         DATA_DIR = self.dd
-        EARLY_STOPPING_PERIOD = 60
+        EARLY_STOPPING_PERIOD = 30
  
         self.params = {
             'batch_size':BATCH_SIZE,

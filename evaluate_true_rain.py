@@ -20,20 +20,22 @@ warnings.filterwarnings("ignore")
 """Example of how to use
 
     For Evaluation of IFS predictive scores between the periods 1987-10-20 till 1989-11-20, for the single points representing region Cardiff and London:
-        python3 evaluate_true_rain.py -dd "." -sd "1987-10-20" -ed "1989-11-20" -lo ["Cardiff","London] -mth 3
+        python3 evaluate_true_rain.py -dd "." -sd "1987-10-20" -ed "1989-11-20" -lo ["Cardiff","London"] -mth 3 
 
+    For Evaluation of IFS predictive scores between the periods 1987-10-20 till 1989-11-20, for the regions representing region Cardiff and London:
+        python3 evaluate_true_rain.py -dd "." -sd "1987-10-20" -ed "1989-11-20" -lo ["Cardiff","London"] -mth 3 -reg True
 
     For Evaluation of IFS predictive scores between the periods 1988-10-20 till 2000-11-20, for the whole UK:
         python3 evaluate_true_rain.py -dd "." -sd "1988-10-20" -ed "2000-11-20" -lo ["All"] -mth 3
 
     For infomration on the True rainfall statistics for London between the periods 2008-01-20 till 2015-11-20
-        python3 evaluate_true_rain.py -dd "." -sd "2008-01-20" -ed "2015-11-20" -lo "London" -mth 3 -rfs True
+        python3 evaluate_true_rain.py -dd "." -sd "2008-01-20" -ed "2015-11-20" -lo ["London"] -mth 3 -rfs True -reg True
         -This returns information such as Average Rainfall, Percentage of R10 Events and Average rainfall given an R10 event occurs.
 
 """
 
 
-def main(date_start_str, date_end_str, location, data_dir="./", rain_fall_stats=False, method=3, region=False ):
+def main(date_start_str, date_end_str, location, data_dir="./", rain_fall_stats=False, region=False ):
     """
         :str date_start: start evaluation date as a string in the following format YYYY-MM-DD
         :str date_end: end evaluation date as a string in the following format YYYY-MM-DD
@@ -45,7 +47,7 @@ def main(date_start_str, date_end_str, location, data_dir="./", rain_fall_stats=
     date_end = np.datetime64(date_end_str,'D')
     
     #Extract the IFS Predictions for a given location and time range
-    ifs_preds = ifs_pred_extractor(data_dir, date_start, date_end, location, method, region )
+    ifs_preds = ifs_pred_extractor(data_dir, date_start, date_end, location, region )
     
     #Extract the True rainfall for a given location and time range
     true_rain, rain_mask = true_rain_extractor( data_dir, date_start, date_end, location, region )
@@ -96,113 +98,37 @@ def main(date_start_str, date_end_str, location, data_dir="./", rain_fall_stats=
     else:
         #Rainfall statistics of an area.
         avg_precip = np.nanmean(true_rain)
-        days_r10 = np.size(true_rain[true_rain>10]) / len(timestamp_epochs)
-        avg_precip_r10 = np.nanmean( true_rain[true_rain>10])
-        _dataframe = pd.DataFrame( { 'Avg_precip':[avg_precip], 'days_r10':[days_r10], "Avg_precip_r10":[avg_precip_r10] })
+        days_r10 = np.size(true_rain[true_rain>=10]) / np.size(true_rain)
+        avg_precip_r10 = np.nanmean( true_rain[true_rain>=10] )
+        _dataframe = pd.DataFrame( { 'Avg_precip':[avg_precip], 'days_r10':[days_r10*100], "Avg_precip_r10":[avg_precip_r10] })
 
         print(_dataframe)
 
     return True
     
-def ifs_pred_extractor( data_dir, target_start_date, target_end_date, location="London", method=3, region=False ):
+def ifs_pred_extractor( data_dir, target_start_date, target_end_date, location="London", region=False ):
     """
         This method extracts the IFS data from file. And performs any grouping/preproc neccesary. 
     """
     ifs_fn = data_dir + "/IFS_precip_preds/ana_tp_1234.grib"
 
-    #Depracated: This was the method I used for the initial IFS Dataset Peter D. sent I have annotated it
-    if method == 1:
-        #rsCheck Date
-        ifs_start_date = np.datetime64('1979-01-01','D')
-        ifs_end_date = np.datetime64('2019-12-31','D')
-        if target_end_date >ifs_end_date  or target_start_date < ifs_start_date:
-            raise ValueError("Invalid Datespan, please stick within range")
+    ifs_start_date = np.datetime64('1979-01-02','D') #IFS preds starts from 1979-01-02
+    ifs_end_date = np.datetime64('2019-12-31','D')
+    if target_end_date >ifs_end_date  or target_start_date < ifs_start_date:
+        #rejects user request for results outside of relevant time span
+        raise ValueError("Invalid Datespan, please stick within range")
         
-        #Extracting 12 hourly data from file
-        ifs_preds_12hr = pickle.load( open(ifs_fn,"rb"))
-        
-        #Reshaping it to 100,140 grid in line with E-obs 1 degree precipitation data
-        ifs_preds_12hr = ifs_preds_12hr[:, 2:-2, 2:-2] 
+    #Extracting and reshapping and IFS Data
+    ifs_preds_24hr = pickle.load( open(ifs_fn,"rb"))
+    ifs_preds_24hr = ifs_preds_24hr[:, 2:-2, 2:-2] 
 
-        #Creating the start and end indexes corresponding to the start and end target dates the user wants to evaluate between
-        cut_idx_s = np.timedelta64( target_start_date - ifs_start_date, 'D' ).astype(int) * 2
-        cut_idx_e = np.timedelta64( target_end_date - ifs_start_date, 'D' ).astype(int) * 2 + 2
+    #Calculating start and end index at which to slice the IFS data.
+    cut_idx_s = np.timedelta64( target_start_date - ifs_start_date, 'D' ).astype(int) 
+    cut_idx_e = np.timedelta64( target_end_date - ifs_start_date, 'D' ).astype(int) + 1
+    ifs_preds_24hr = ifs_preds_24hr[cut_idx_s:cut_idx_e]
 
-        #Slic 12hr data to get only data of interest
-        ifs_preds_12hr = ifs_preds_12hr[cut_idx_s: cut_idx_e]
-        
-        #These line sums every sequential pair of readings. As such each element now represents data from 
-        ifs_preds_24hr  = np.add.reduceat( ifs_preds_12hr, np.arange(0, ifs_preds_12hr.shape[0], 2 ) ,axis=0 )     
-        _len = len(ifs_preds_24hr)
-        target_len = int( 2 * _len//2 )
-        ifs_preds_24hr = ifs_preds_24hr[:target_len]
-
-        #Upscaling Data -> This is the reason why my previous IFS predictions were not really high despite only having 1 hour of predictions. 
-            # My upscaling factor bewlo was a factor 10 above what it should have been. 
-            #  This means that the the 2hr summ of rainfall was incorrectly basically upscaled to represent 20 hours ~ approx a day
-        ifs_preds_24hr =  ifs_preds_24hr * 10000
-    
-    #Depracated: I didn't actually have to use this method, but this method was written to implement the following strategy
-        #To get 1 day of rain: 0.5*(previous dat 6pm-6am data ) + 1*(current day 6am-6pm data) + 0.5*(next day-6pm data )
-        # This method is not annotated
-    elif method==2:
-                #rsCheck Date
-        ifs_start_date = np.datetime64('1979-01-01','D')
-        ifs_end_date = np.datetime64('2019-12-31','D')
-        if target_end_date >ifs_end_date  or target_start_date < ifs_start_date:
-            raise ValueError("Invalid Datespan, please stick within range")
-        #Extracting and reshapping and upscaling values
-        ifs_preds_12hr = ifs_preds_12hr[:, 2:-2, 2:-2]
-        ifs_preds_12hr_halved = ifs_preds_12hr * 0.5
-
-        """ This is the more complex method 6PM-6AM*0.5 + 6AM-6pm + 6pm-6AM*.5 """
-        if np.timedelta64( target_start_date - ifs_start_date, 'D' ).astype(int) == 0:
-            #Scenario wherein First day has to be estimated
-            ifs_preds_24hrs_from_each_12hrmark = ifs_preds_12hr_halved[1:-2,:, :] + ifs_preds_12hr[ 2:-1,:,:] + ifs_preds_12hr_halved[3:,:, :] 
-            ifs_preds_24hrs_from_day_starts = ifs_preds_24hrs_from_each_12hrmark[ ::2 , :, :] #First day is 1979-01-02
-
-            #Making estimate for 1979-01-01
-            day1 = (4/3) * ( ifs_preds_12hr[:1,:,:] + ifs_preds_12hr_halved[1:2,:,:] )
-            ifs_preds_24hrs_from_day_starts = np.concatenate( [day1, ifs_preds_24hrs_from_day_starts], axis=0  )
-            ifs_preds_24hr = ifs_preds_24hrs_from_day_starts
-            
-            cut_idx_e = np.timedelta64( target_end_date - target_start_date, 'D' ).astype(int) + 1
-
-            ifs_preds_24hr = ifs_preds_24hrs_from_day_starts[:cut_idx_e]
-        
-        else:
-            cut_idx_s = np.timedelta64( target_start_date - ifs_start_date, 'D' ).astype(int) * 2
-            
-            ifs_preds_24hrs_from_each_12hrmark = ifs_preds_12hr_halved[ cut_idx_s-1:-2,:,:] + ifs_preds_12hr[cut_idx_s:-1, :, :] + ifs_preds_12hr_halved[cut_idx_s+1:,:, :] 
-            ifs_preds_24hrs_from_day_starts = ifs_preds_24hrs_from_each_12hrmark[ ::2 , :, :] #First day is 1979-01-02
-            
-            cut_idx_e = np.timedelta64( target_end_date - target_start_date, 'D' ).astype(int) + 1
-            
-            ifs_preds_24hr = ifs_preds_24hrs_from_day_starts[:cut_idx_e]
-
-        ifs_preds_24hr =  ifs_preds_24hr * 10000
-        #Time shaping
-    
-    # This method I am using now
-    elif method==3:
-        
-        ifs_start_date = np.datetime64('1979-01-02','D') #IFS preds starts from 1979-01-02
-        ifs_end_date = np.datetime64('2019-12-31','D')
-        if target_end_date >ifs_end_date  or target_start_date < ifs_start_date:
-            #rejects user request for results outside of relevant time span
-            raise ValueError("Invalid Datespan, please stick within range")
-            
-        #Extracting and reshapping and IFS Data
-        ifs_preds_24hr = pickle.load( open(ifs_fn,"rb"))
-        ifs_preds_24hr = ifs_preds_24hr[:, 2:-2, 2:-2] 
-
-        #Calculating start and end index at which to slice the IFS data.
-        cut_idx_s = np.timedelta64( target_start_date - ifs_start_date, 'D' ).astype(int) 
-        cut_idx_e = np.timedelta64( target_end_date - ifs_start_date, 'D' ).astype(int) + 1
-        ifs_preds_24hr = ifs_preds_24hr[cut_idx_s:cut_idx_e]
-
-        #Scaling the IFS data to match that of the true  precip observations
-        ifs_preds_24hr = ifs_preds_24hr * 1000
+    #Scaling the IFS data to match that of the true  precip observations
+    ifs_preds_24hr = ifs_preds_24hr * 1000
 
     #If a location is passed, this extracts the single point ,representing a city, from the 100,140 map 
     ifs_preds_24hr = data_craft(ifs_preds_24hr, location, region)
@@ -279,6 +205,9 @@ def data_craft( data, location, region=False ):
     
         elif region == True:
             data = data[:,latitude_index-2:latitude_index+2, longitude_index-2:longitude_index+2].astype(np.float64)
+            
+    elif location == "All":
+        pass
     else:
         raise ValueError("Invalid Location")
         
@@ -337,13 +266,10 @@ if __name__ == "__main__":
     
     parser.add_argument('-rfs','--rain_fall_stats', type=bool, required=False, default=False, help="Pass True to return statistics on the true rainfall of an for the areas of interest")
 
-    parser.add_argument('-mth','--method', type=int,required=False, default=3)
-
-    
+       
 
     args_dict = vars(parser.parse_args() )
 
-    print(args_dict)
     li_loc = ast.literal_eval( args_dict.pop('location') )
     for loc in li_loc:
         print(f"Evaluating {loc}")
