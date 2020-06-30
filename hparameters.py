@@ -79,8 +79,8 @@ class model_TRUNET_hparameters(MParams):
         #     "amsgrad":True,         "decay":0.0004,              "epsilon":1e-6 } #Rectified Adam params
         
         REC_ADAM_PARAMS = {
-            "learning_rate":5e-4,   "warmup_proportion":0.65,
-            "min_lr":2.5e-4,         "beta_1":0.70,               "beta_2":0.99,
+            "learning_rate":7e-4,   "warmup_proportion":0.65,
+            "min_lr":2.5e-4,         "beta_1":0.9,               "beta_2":0.99,
             "amsgrad":True,         "decay":0.0008,              "epsilon":5e-8 } #Rectified Adam params
         
         DROPOUT =   model_type_settings.get('do',0.0)
@@ -224,7 +224,7 @@ class model_TRUNET_hparameters(MParams):
 
             'rec_adam_params':REC_ADAM_PARAMS,
             'dropout':DROPOUT,
-            'clip_norm':6.75
+            'clip_norm':6.5
             } )
 
 class model_SimpleConvGRU_hparamaters(MParams):
