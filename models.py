@@ -134,12 +134,14 @@ class SimpleConvGRU(tf.keras.Model):
 
             self.output_activation = layers.CustomRelu_maker(t_params, dtype='float32')
 
-        self.new_shape1 = tf.TensorShape( [t_params['batch_size']//t_params['gpu_count'] ,m_params['region_grid_params']['outer_box_dims'][0], m_params['region_grid_params']['outer_box_dims'][1],  t_params['lookback_target'] ,int(6*4)] )
-
+        #self.new_shape1 = tf.TensorShape( [t_params['batch_size']//t_params['gpu_count'] ,m_params['region_grid_params']['outer_box_dims'][0], m_params['region_grid_params']['outer_box_dims'][1],  t_params['lookback_target'] ,int(6*4)] )
+        
+        self.new_shape1 = [0,m_params['region_grid_params']['outer_box_dims'][0], m_params['region_grid_params']['outer_box_dims'][1],  t_params['lookback_target'] ,int(6*4)]
     @tf.function
     def call(self, _input, training):
         
         x = tf.transpose( _input, [0, 2,3,1,4])     # moving time axis next to channel axis
+        self.new_shape1[0] = _input.shape[0]
         x = tf.reshape( x, self.new_shape1 )        # reshape time and channel axis
         x = tf.transpose( x, [0,3,1,2,4 ] )   # converting back to bs, time, h,w, c
 
