@@ -134,7 +134,7 @@ class SimpleConvGRU(tf.keras.Model):
 
             self.output_activation = layers.CustomRelu_maker(t_params, dtype='float32')
 
-        self.new_shape1 = tf.TensorShape( [t_params['batch_size'],m_params['region_grid_params']['outer_box_dims'][0], m_params['region_grid_params']['outer_box_dims'][1],  t_params['lookback_target'] ,int(6*4)] )
+        self.new_shape1 = tf.TensorShape( [-1 ,m_params['region_grid_params']['outer_box_dims'][0], m_params['region_grid_params']['outer_box_dims'][1],  t_params['lookback_target'] ,int(6*4)] )
 
     @tf.function
     def call(self, _input, training):

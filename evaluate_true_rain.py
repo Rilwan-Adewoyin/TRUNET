@@ -20,16 +20,16 @@ warnings.filterwarnings("ignore")
 """Example of how to use
 
     For Evaluation of IFS predictive scores between the periods 1987-10-20 till 1989-11-20, for the single points representing region Cardiff and London:
-        python3 evaluate_true_rain.py -dd "." -sd "1987-10-20" -ed "1989-11-20" -lo ["Cardiff","London"] -mth 3 
+        python3 evaluate_true_rain.py -dd "./Data" -sd "1987-10-20" -ed "1989-11-20" -lo ["Cardiff","London"] -mth 3 
 
     For Evaluation of IFS predictive scores between the periods 1987-10-20 till 1989-11-20, for the regions representing region Cardiff and London:
-        python3 evaluate_true_rain.py -dd "." -sd "1987-10-20" -ed "1989-11-20" -lo ["Cardiff","London"] -mth 3 -reg True
+        python3 evaluate_true_rain.py -dd "./Data" -sd "1987-10-20" -ed "1989-11-20" -lo ["Cardiff","London"] -reg True
 
     For Evaluation of IFS predictive scores between the periods 1988-10-20 till 2000-11-20, for the whole UK:
-        python3 evaluate_true_rain.py -dd "." -sd "1988-10-20" -ed "2000-11-20" -lo ["All"] -mth 3
+        python3 evaluate_true_rain.py -dd "./Data" -sd "1988-10-20" -ed "2000-11-20" -lo ["All"] -mth 3 -reg "False"
 
     For infomration on the True rainfall statistics for London between the periods 2008-01-20 till 2015-11-20
-        python3 evaluate_true_rain.py -dd "." -sd "2008-01-20" -ed "2015-11-20" -lo ["London"] -mth 3 -rfs True -reg True
+        python3 evaluate_true_rain.py -dd "./Data" -sd "2008-01-20" -ed "2015-11-20" -lo ["London"] -mth 3 -rfs True -reg True
         -This returns information such as Average Rainfall, Percentage of R10 Events and Average rainfall given an R10 event occurs.
 
 """
@@ -65,7 +65,7 @@ def main(date_start_str, date_end_str, location, data_dir="./", rain_fall_stats=
     fn = "{}_{}_{}".format(location, date_start_str, date_end_str)
     if region ==True:
         fn+= "regional"
-    fn += "_pred_true.dat"
+    fn += "_pred.dat"
     fp = f_dir+fn
     if not os.path.isdir(f_dir):
         os.makedirs( f_dir, exist_ok=True  )
@@ -161,7 +161,7 @@ def true_rain_extractor(data_dir, target_start_date, target_end_date, location, 
     
     #Selecting the rain_mask and actual rain_data
     rain_mask = np.logical_not( np.ma.getmask(data_rain) )
-    data_rain = np.ma.getdata(data_rain)
+    data_rain = np.ma.getdata( data_rain )
     
     return data_rain, rain_mask
 
@@ -205,7 +205,7 @@ def data_craft( data, location, region=False ):
     
         elif region == True:
             data = data[:,latitude_index-2:latitude_index+2, longitude_index-2:longitude_index+2].astype(np.float64)
-            
+
     elif location == "All":
         pass
     else:
@@ -238,7 +238,7 @@ def plot_ifs_preds( ifs_preds, true_val, date_start, date_end, data_dir,loc):
         
     plt.savefig(img_dir+"/"+fn_name )
 
-def rmse_aggregate(preds_mean, true_vals):
+def rmse_aggregate( preds_mean, true_vals):
     return np.sqrt( np.square(np.subtract(preds_mean, true_vals)).mean() )
 
 def r10rmse_aggregate(preds_mean ,true_vals, N=10):
