@@ -140,12 +140,14 @@ class TrainTruNet():
         print("Nuber of Devices used in MirroredStrategy: {}".format(self.strategy.num_replicas_in_sync))
         with self.strategy.scope():   
             #Model
+            self.strategy_gpu_count = self.strategy.num_replicas_in_sync    
+            self.t_params['gpu_count'] = self.strategy.num_replicas_in_sync    
             self.model = models.model_loader( self.t_params, self.m_params )
             #Optimizer
             optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*40, weight_decay=1.25e-5 )         
             self.optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) 
-            self.strategy_gpu_count = self.strategy.num_replicas_in_sync    
-
+            
+        
         
         with self.strategy.scope():
             # These objects will aggregate losses and metrics across batches and epochs
