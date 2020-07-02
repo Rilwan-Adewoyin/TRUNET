@@ -209,7 +209,7 @@ class TrainTruNet():
         # self.iter_train_val = enumerate(self.ds_train_val)
 
         ds_train = _ds_train_val.take(self.t_params['train_batches'] )
-        ds_val = _ds_train_val.skip(self.t_params['val_batches'] )
+        ds_val = _ds_train_val.skip(self.t_params['train_batches'] ).take(self.t_params['val_batches'])
 
         ds_train = ds_train.cache('Data/data_cache/train'+cache_suffix ) 
         ds_val = ds_val.cache('Data/data_cache/val'+cache_suffix )
@@ -356,7 +356,7 @@ class TrainTruNet():
         
         if _init==1.0:
             inp_shape = [self.t_params['batch_size'], self.t_params['lookback_feature']] + self.m_params['region_grid_params']['outer_box_dims'] + [len(self.t_params['vars_for_feature'])]
-            inp_shape1 = [self.t_params['batch_size'], self.t_params['lookback_target']] + self.m_params['region_grid_params']['outer_box_dims'] 
+            inp_2 = [self.t_params['batch_size'], self.t_params['lookback_target']] + self.m_params['region_grid_params']['outer_box_dims'] 
 
             _ = self.model( tf.zeros( inp_shape ,dtype=tf.float16), self.t_params['trainable'] ) #( bs, tar_seq_len, h, w)
             gradients = [ tf.zeros_like(t_var, dtype=tf.float32 ) for t_var in self.model.trainable_variables  ]
