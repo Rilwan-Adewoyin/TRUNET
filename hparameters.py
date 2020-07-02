@@ -264,18 +264,18 @@ class model_SimpleConvGRU_hparamaters(MParams):
 
         #region --- Data pipeline and optimizers
         target_to_feature_time_ratio = 4
-        lookback_feature = 30*target_to_feature_time_ratio  
+        lookback_feature = 28*target_to_feature_time_ratio  
         DATA_PIPELINE_PARAMS = {
             'lookback_feature':lookback_feature,
             'lookback_target': int(lookback_feature/target_to_feature_time_ratio),
             'target_to_feature_time_ratio' :  target_to_feature_time_ratio
         }
 
+
         REC_ADAM_PARAMS = {
-            "learning_rate":7e-4 , "warmup_proportion":0.65,
-            "min_lr":1e-4, "beta_1":0.90, "beta_2":0.999, "decay":0.0008, "amsgrad":True,
-            'epsilon':5e-8
-            }
+            "learning_rate":7e-4,   "warmup_proportion":0.65,
+            "min_lr":2.5e-4,         "beta_1":0.9,               "beta_2":0.99,
+            "amsgrad":True,         "decay":0.0008,              "epsilon":5e-8 } #Rectified Adam params
 
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }
 
@@ -295,7 +295,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
 
             'rec_adam_params':REC_ADAM_PARAMS,
             'lookahead_params':LOOKAHEAD_PARAMS,
-            'clip_norm':5.5
+            'clip_norm':6.5
         })
 
 class train_hparameters_ati(HParams):
