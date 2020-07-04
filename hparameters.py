@@ -73,11 +73,6 @@ class model_TRUNET_hparameters(MParams):
         model_type_settings = kwargs.get('model_type_settings', {})        
 
         # region ---  learning/convergence/regularlisation params
-        # REC_ADAM_PARAMS = {
-        #     "learning_rate":5e-4,   "warmup_proportion":0.65,
-        #     "min_lr":2.5e-4,         "beta_1":0.70,               "beta_2":0.99,
-        #     "amsgrad":True,         "decay":0.0004,              "epsilon":1e-6 } #Rectified Adam params
-        
         REC_ADAM_PARAMS = {
             "learning_rate":7e-4,   "warmup_proportion":0.65,
             "min_lr":2.5e-4,         "beta_1":0.9,               "beta_2":0.99,
@@ -298,6 +293,186 @@ class model_SimpleConvGRU_hparamaters(MParams):
             'clip_norm':6.5
         })
 
+class TRUNET_EF_hparams(HParams):
+
+    def __init__(self, **kwargs):
+        """  
+        """
+        self.big = kwargs.get('model_type_settings',{}).get('big',False)
+        self.conv_ops_qk = kwargs['model_type_settings'].get('conv_ops_qk',False)
+        kwargs['model_type_settings'].pop('conv_ops_qk',None)
+
+        super( TRUNET_EF_hparams, self ).__init__(**kwargs)
+
+    def _default_params( self, **kwargs ):
+
+        model_type_settings = kwargs.get('model_type_settings',{})        
+        
+        # region ---  learning/convergence/regularlisation params
+        REC_ADAM_PARAMS = {
+            "learning_rate":5e-4,   "warmup_proportion":0.65,
+            "min_lr":2.5e-4,          "beta_1":0.70,               "beta_2":0.99,
+            "amsgrad":True,         "decay":0.0008,              "epsilon":5e-8 }
+
+        DROPOUT =   model_type_settings.get('do',0.0)
+        ido =       model_type_settings.get('ido',0.0) # Dropout for input into GRU
+        rdo =       model_type_settings.get('rdo',0.0) # Dropout for recurrent input into GRU
+        kernel_reg   = None  #regularlization for input to GRU
+        recurrent_reg = None #regularlization for recurrent input to GRU
+        bias_reg = tf.keras.regularizers.l2(0.0)
+        bias_reg_attn = tf.keras.regularizers.l2(2.002e-5)
+        # endregion
+        
+        #region Key Model Size Settings
+
+        seq_len_for_highest_hierachy_level = 4 
+
+        SEQ_LEN_FACTOR_REDUCTION = [4, 5, 3 ]        # 6hrs -> 4days -> 12 days
+        # endregion
+        
+        # region Model Specific Data Generator Params
+        target_to_feature_time_ratio = SEQ_LEN_FACTOR_REDUCTION[0] 
+        lookback_feature = reduce( (lambda x,y: x*y ), SEQ_LEN_FACTOR_REDUCTION ) * seq_len_for_highest_hierachy_level
+        DATA_PIPELINE_PARAMS = {
+            'lookback_feature':lookback_feature,
+            'lookback_target': int(lookback_feature/target_to_feature_time_ratio),
+            'target_to_feature_time_ratio' :  target_to_feature_time_ratio
+        }
+        # endregion
+
+        # region --------------- ENCODER params -----------------
+        enc_layer_count        = len( SEQ_LEN_FACTOR_REDUCTION ) + 1
+        h_w_enc = [ [32, 64], [16, 32], [8, 16] ]
+        h_w_dec = [ [8, 16], [16, 32], [32, 64] ]
+
+        # region CLSTM params
+        _filters = [ 16, 32, 48, 64]
+            
+        output_filters_enc     = _filters
+                
+        kernel_size_enc        = [ (4,4), (3,3), (2,2 ), (2,2) ]           
+        recurrent_regularizers = [ None ] * (enc_layer_count) 
+        kernel_regularizers    = [ None ] * (enc_layer_count)
+        bias_regularizers      = [ tf.keras.regularizers.l2(0.00) ]*(enc_layer_count) # [ tf.keras.regularizers.l2(0.02) ] * (enc_layer_count)  #changed
+        recurrent_dropouts     = [ kwargs.get('rec_dropout',0.0) ]*(enc_layer_count)
+        input_dropouts         = [ kwargs.get('inp_dropout',0.0) ]*(enc_layer_count)
+        stateful               = True                       #True if testing on single location , false otherwise
+        layer_norms            = lambda: None               #lambda: tf.keras.layers.LayerNormalization(axis=[-1], center=False, scale=False ) #lambda: None
+
+        attn_layers_count = enc_layer_count - 1
+        attn_heads = [ 8 ]*attn_layers_count                #[ 8 ]*attn_layers_count        #[5]  #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
+        
+        kq_downscale_stride = [1, 4, 4]                 #[1, 8, 8] 
+        kq_downscale_kernelshape = kq_downscale_stride
+        key_depth = _filters[1:]
+        val_depth = [ int( np.prod( h_w ) * output_filters_enc[idx] * 2 ) for h_w in h_w_enc  ]
+                  
+            
+        ATTN_LAYERS_NUM_OF_SPLITS = list(reversed((np.cumprod( list( reversed(SEQ_LEN_FACTOR_REDUCTION[1:] + [1] ) ) ) *seq_len_for_highest_hierachy_level ).tolist())) 
+            #Each encoder layer receives a seq of 3D tensors from layer below. NUM_OF_SPLITS codes in how many chunks to devide the incoming data. NOTE: This is defined only for Encoder-Attn layers
+        ATTN_params_enc = [
+            {'bias':None, 'total_key_depth': kd  ,'total_value_depth':vd, 'output_depth': vd   ,
+            'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
+            "transform_value_antecedent":True,  "transform_output":True, 
+            'implementation':1,
+            "value_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':tf.keras.regularizers.l2(0.00002), 'padding':'same' },
+            "output_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"outp", 'bias_regularizer':tf.keras.regularizers.l2(0.00002),'padding':'same' }
+            } 
+            for kd, vd ,nh, idx in zip( key_depth, val_depth, attn_heads,range(attn_layers_count) )
+        ] 
+        #Note: bias refers to masking attention places
+
+        ATTN_DOWNSCALING_params_enc = {
+            'kq_downscale_stride': kq_downscale_stride,
+            'kq_downscale_kernelshape':kq_downscale_kernelshape
+        }
+        
+        CGRUs_params_enc = [
+            {'filters':f , 'kernel_size':ks, 'padding':'same', 
+                'return_sequences':True, 'return_state':True ,'dropout':ido, 'recurrent_dropout':rd,
+                'stateful':stateful, 'recurrent_regularizer': rr, 'kernel_regularizer':kr,
+                'bias_regularizer':br, 'implementation':1 ,'layer_norm':layer_norms() }
+             for f, ks, rr, kr, br, rd, ido in zip( output_filters_enc, kernel_size_enc, recurrent_regularizers, kernel_regularizers, bias_regularizers, recurrent_dropouts, input_dropouts )
+        ]
+        # endregion
+        
+        ENCODER_PARAMS = {
+            'enc_layer_count': enc_layer_count,
+            'attn_layers_count': attn_layers_count,
+            'CGRUs_params' : CGRUs_params_enc,
+            'ATTN_params': ATTN_params_enc,
+            'ATTN_DOWNSCALING_params_enc':ATTN_DOWNSCALING_params_enc,
+            'seq_len_factor_reduction': SEQ_LEN_FACTOR_REDUCTION,
+            'attn_layers_num_of_splits': ATTN_LAYERS_NUM_OF_SPLITS,
+            'dropout':DROPOUT,
+            'h_w_enc':h_w_enc
+
+        }
+        #endregion
+
+        # region --------------- DECODER params -----------------
+        decoder_layer_count = enc_layer_count-2
+
+        output_filters_dec = output_filters_enc[:1] + output_filters_enc[ :decoder_layer_count ]  #The first part list needs to be changed, only works when all convlstm layers have the same number of filters
+                
+        kernel_size_dec = kernel_size_enc[ 1:1+decoder_layer_count  ]           
+                                              
+            #Each decoder layer sends in values into the layer below. 
+        CGRUs_params_dec = [
+            {'filters':f , 'kernel_size':ks, 'padding':'same', 
+                'return_sequences':True, 'dropout':ido,
+                'recurrent_dropout':rdo, 
+                'kernel_regularizer':kr,
+                'recurrent_regularizer': rr,
+                'bias_regularizer':br,
+                'stateful':False,
+                'implementation':1 ,'layer_norm':[ layer_norms(),layer_norms() ]  }
+             for f, ks, ido, rdo, rr, kr, br  in zip( output_filters_dec, kernel_size_dec, input_dropouts, recurrent_dropouts, recurrent_regularizers, kernel_regularizers, bias_regularizers)
+        ]
+        DECODER_LAYERS_NUM_OF_SPLITS = ATTN_LAYERS_NUM_OF_SPLITS[:decoder_layer_count]
+            #Each output from a decoder layer is split into n chunks the fed to n different nodes in the layer below. param above tracks teh value n for each dec layer
+        SEQ_LEN_FACTOR_EXPANSION = SEQ_LEN_FACTOR_REDUCTION[-decoder_layer_count:]
+        DECODER_PARAMS = {
+            'decoder_layer_count': decoder_layer_count,
+            'CGRUs_params' : CGRUs_params_dec,
+            'seq_len_factor_expansion': SEQ_LEN_FACTOR_EXPANSION, #This is written in the correct order
+            'seq_len': DECODER_LAYERS_NUM_OF_SPLITS,
+            'attn_layer_no_splits':ATTN_LAYERS_NUM_OF_SPLITS,
+            'dropout':DROPOUT,
+            'h_w_dec':h_w_dec
+        }
+        # endregion
+
+        # region --------------- OUTPUT_LAYER_PARAMS and Upscaling-----------------
+
+ 
+        output_filters = [  int(  8*(((output_filters_dec[-1]*2)/4)//8)) ] + [ 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
+
+        output_kernel_size = [ (3,3), (2,2) ] 
+
+        activations = [ tf.keras.layers.PRelu() , 'linear' ]
+
+        OUTPUT_LAYER_PARAMS = [ 
+            { "filters":fs, "kernel_size":ks , "padding":"same", "activation":act, 'bias_regularizer':bias_regularizers[0]  } 
+                for fs, ks, act in zip( output_filters, output_kernel_size, activations )
+        ]
+  
+        self.params.update( {
+            'model_name':"THST",
+            'model_type_settings':model_type_settings,
+    
+            'encoder_params':ENCODER_PARAMS,
+            'decoder_params':DECODER_PARAMS,
+            'output_layer_params':OUTPUT_LAYER_PARAMS,
+            'data_pipeline_params':DATA_PIPELINE_PARAMS,
+
+            'rec_adam_params':REC_ADAM_PARAMS,
+            'lookahead_params':LOOKAHEAD_PARAMS,
+            'dropout':DROPOUT
+            } )
+
+
+
 class train_hparameters_ati(HParams):
     """ Parameters for testing """
     def __init__(self, **kwargs):
@@ -389,7 +564,7 @@ class train_hparameters_ati(HParams):
         # endregion
         
         DATA_DIR = self.dd
-        EARLY_STOPPING_PERIOD = 30
+        EARLY_STOPPING_PERIOD = 45
  
         self.params = {
             'batch_size':BATCH_SIZE,

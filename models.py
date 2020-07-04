@@ -21,75 +21,6 @@ def model_loader(t_params,m_params ):
 
     return model
 
-class TRUNET_EF(tf.keras.Model):
-    """
-    Temporal Hierarchical Spatial Transformer 
-
-    """
-    def __init__(self, t_params, m_params, **kwargs):
-        super(TRUNET_EF, self).__init__()
-
-        self.input_shape = m_params['input_shape']
-
-        h_w_enc = m_params['encoder_params']['h_w_enc']
-        h_w_dec = m_params['decoder_params']['h_w_dec']
-
-        if m_params['model_type_settings']['location'] not in ["wholeregion"]:
-            h_w_enc = h_w_dec = m_params['region_grid_params']['outer_box_dims']
-
-        self.encoder = layers.TRUNET_EF_Encoder( t_params, m_params['encoder_params'], h_w_enc)
-
-        self.decoder = layers.TRUNET_EF_Forecaster( t_params, m_params['decoder_params'], h_w_dec )
-
-        self.output_layer_z = layers.TRUNET_OutputLayer( t_params, m_params['output_layer_params'], m_params['model_type_settings'],
-            m_params['dropout'] )
-
-        self.output_layer_t = layers.TRUNET_OutputLayer( t_params, m_params['output_layer_params'], m_params['model_type_settings'],
-            m_params['dropout']  )
-        #self.float32_custom_relu = layers.OutputReluFloat32(t_params) 
-        
-        ##Output Lyaer
-        # self.conv_hidden1 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
-        # self.conv_hidden2 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
-        # self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
-        # self.conv_output2 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
-        # self.do1 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=dropout_rate, data_format = 'channels_last' ) )
-        # self.do2 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=dropout_rate, data_format = 'channels_last' ) )
-        # self.outputf32 = tf.keras.layers.Activation('linear', dtype='float32')
-
-
-    @tf.function
-    def call(self, _input, tape=None, training=False):
-        _input = tf.keras.Input( self.input_shape)
-
-        hs_list_enc = self.encoder(_input, training=training)
-        hs_dec = self.decoder(hs_list_enc, training=training)
-        
-        outp1 = self.conv_hidden1( self.do1(hs_dec,training=training), training=training )
-        outp2 = self.conv_hidden2( self.do2(hs_dec,training=training), training=training ) 	
-		
-        outp1 = self.conv_output( outp1, training=training ) #shape (bs, height, width)
-        outp2 = self.conv_output( outp2, training=training ) #shape (bs, height, width)
-
-        outp1 = self.float32_custom_relu(outp1)   
-        outp2 = self.float32_custom_relu(outp2)   
-
-        output = tf.concat([outp1,outp2],axis=-1)
-        
-        #output = self.float32_custom_relu(output)   
-        return output
-
-
-    def predict(self, inputs, n_preds, training=True):
-        """
-            Produces N predictions for each given input
-        """
-        preds = []
-        for count in tf.range(n_preds):
-            pred = self.call( inputs, training=True ) #shape ( batch_size, output_h, output_w, 1 ) or # (pred_count, bs, seq_len, h, w)
-            preds.append( pred )
-        return preds
-
 class SimpleConvGRU(tf.keras.Model):
     def __init__(self, t_params, m_params):
         super(SimpleConvGRU, self).__init__()
@@ -237,3 +168,57 @@ class TRUNET(tf.keras.Model):
             pred = self.call( inputs, training=True ) #shape ( batch_size, output_h, output_w, 1 ) or # (pred_count, bs, seq_len, h, w)
             preds.append( pred )
         return preds
+
+class TRUNET_EF(tf.keras.Model):
+    """
+    Temporal Hierarchical Spatial Transformer 
+
+    """
+    def __init__(self, t_params, m_params, **kwargs):
+        super(TRUNET_EF, self).__init__()
+
+        self.input_shape = m_params['input_shape']
+
+        h_w_enc = m_params['encoder_params']['h_w_enc']
+        h_w_dec = m_params['decoder_params']['h_w_dec']
+
+        if m_params['model_type_settings']['location'] not in ["wholeregion"]:
+            h_w_enc = h_w_dec = m_params['region_grid_params']['outer_box_dims']
+
+        self.encoder = layers.TRUNET_EF_Encoder( t_params, m_params['encoder_params'], h_w_enc)
+
+        self.decoder = layers.TRUNET_EF_Forecaster( t_params, m_params['decoder_params'], h_w_dec )
+
+        self.output_layer_z = layers.TRUNET_OutputLayer( t_params, m_params['output_layer_params'], m_params['model_type_settings'],
+            m_params['dropout'] )
+
+        self.output_layer_t = layers.TRUNET_OutputLayer( t_params, m_params['output_layer_params'], m_params['model_type_settings'],
+            m_params['dropout']  )
+
+    
+    @tf.function
+    def call(self, _input, tape=None, training=False):
+        _input = tf.keras.Input( self.input_shape)
+
+        hs_list_enc = self.encoder(_input, training=training)
+        hs_dec = self.decoder(hs_list_enc, training=training)
+        
+        outp1 = self.output_layer_z(hs_dec)
+        outp2 = self.output_layer_t(hs_dec)
+
+        output = tf.concat([outp1,outp2],axis=-1)
+        
+        #output = self.float32_custom_relu(output)   
+        return output
+
+
+    def predict(self, inputs, n_preds, training=True):
+        """
+            Produces N predictions for each given input
+        """
+        preds = []
+        for count in tf.range(n_preds):
+            pred = self.call( inputs, training=True ) #shape ( batch_size, output_h, output_w, 1 ) or # (pred_count, bs, seq_len, h, w)
+            preds.append( pred )
+        return preds
+

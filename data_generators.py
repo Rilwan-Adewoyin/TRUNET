@@ -189,6 +189,8 @@ class Generator():
 
         return li_boundaries 
 
+# region -- Era5_Eobs
+
 class Generator_rain(Generator):
     """ A generator for E-obs 0.1 degree rain data
     
@@ -490,3 +492,8 @@ class Era5_Eobs():
         rain = rain[ :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
         rain_mask = rain_mask[ :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
         return tf.expand_dims(mf,axis=0), tf.expand_dims(rain,axis=0), tf.expand_dims(rain_mask,axis=0) #Note: expand_dim for unbatch/batch compatibility
+
+# endregion
+
+# region -- Weather Bench
+
