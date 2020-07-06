@@ -110,7 +110,7 @@ class TestTrueNet():
         
         # Caching datasets, Creating iterable
         if self.t_params['ctsm'] != "4ds_10years":
-            cache_suffix = '{}_{}_loctest_{}'.format( m_params['model_name'], self.t_params['ctsm_test'] , "_".join(utility.loc_name_shrtner(self.era5_eobs.li_loc) ) )
+            cache_suffix = '{}_loctest_{}'.format(self.t_params['ctsm_test'] , "_".join(utility.loc_name_shrtner(self.era5_eobs.li_loc) ) )
         
         elif self.t_params['ctsm'] == "4ds_10years":
             cache_suffix = '{}_fyitest{}_loctest{}'.format( self.m_params['model_name'], str(self.t_params['fyi_test']), "_".join(utility.loc_name_shrtner(self.era5_eobs.li_loc) ) )
