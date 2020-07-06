@@ -109,13 +109,18 @@ class TestTrueNet():
         self.li_true_values = []
         
         # Caching datasets, Creating iterable
-        if self.t_params['ctsm'] != "4ds_10years":
-            cache_suffix = '{}_loctest_{}'.format(self.t_params['ctsm_test'] , "_".join(utility.loc_name_shrtner(self.era5_eobs.li_loc) ) )
+        if self.era5_eobs.li_loc != ['All']:
         
-        elif self.t_params['ctsm'] == "4ds_10years":
-            cache_suffix = '{}_fyitest{}_loctest{}'.format( self.m_params['model_name'], str(self.t_params['fyi_test']), "_".join(utility.loc_name_shrtner(self.era5_eobs.li_loc) ) )
+            if self.t_params['ctsm'] != "4ds_10years":
+                cache_suffix = '{}_loctest_{}'.format(self.t_params['ctsm_test'] , "_".join(utility.loc_name_shrtner(self.era5_eobs.li_loc) ) )
+            
+            elif self.t_params['ctsm'] == "4ds_10years":
+                cache_suffix = '{}_fyitest{}_loctest{}'.format( self.m_params['model_name'], str(self.t_params['fyi_test']), "_".join(utility.loc_name_shrtner(self.era5_eobs.li_loc) ) )
+            
+            self.ds = self.ds.cache('Data/data_cache/test'+cache_suffix )
         
-        self.ds = self.ds.cache('Data/data_cache/test'+cache_suffix ).repeat(1) 
+        self.ds = self.ds.repeat(1) 
+        
         self.iter_test = enumerate(self.ds)
         #endregion
     
