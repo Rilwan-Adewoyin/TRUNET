@@ -172,18 +172,19 @@ class Generator():
                         of the form [ ([upper_h, lower_h]. [left_w, right_w]), ... ]
         """       
         input_image_shape = region_grid_params['input_image_shape']
-        vertical_shift = region_grid_params['vertical_shift']
-        horizontal_shift = region_grid_params['horizontal_shift']
+        h_shift = region_grid_params['vertical_shift']
+        w_shift = region_grid_params['horizontal_shift']
+        h_span, w_span = region_grid_params['outer_box_dims']
 
         #list of values for upper_h and lower_h
-        range_h = np.arange(0, input_image_shape[0], step=vertical_shift, dtype=np.int32 ) 
+        range_h = np.arange(0, input_image_shape[0]-h_span+1, step=h_shift, dtype=np.int32 ) 
         # list of pairs of values (upper_h, lower_h)
-        li_range_h_pairs = [ [range_h[i], range_h[i+1]] for i in range(0,len(range_h), 2)]
+        li_range_h_pairs = [ [range_h[i], range_h[i]+h_span ] for i in range(0,len(range_h)-1, 2)]
         
         #list of values for left_w and right_w
-        range_w = np.range(0, input_image_shape[1], step=horizontal_shift, dtype=np.int32)
+        range_w = np.arange(0, input_image_shape[1]-w_span+1, step=w_shift, dtype=np.int32)
         # list of pairs of values (left_w, right_w)
-        li_range_w_pairs = [ [range_w[i], range_w[i+1]] for i in range(0,len(range_w), 2)]
+        li_range_w_pairs = [ [range_w[i], range_w[i]+w_span ] for i in range(0,len(range_w)-1, 2)]
 
         li_boundaries = list( it.product( li_range_h_pairs, li_range_w_pairs ) )
 
@@ -447,19 +448,21 @@ class Era5_Eobs():
                     tuple: (tf.data.Dataset, [int, int] ) tuple containing dataset and [h,w] of indexes of the central region
         """        
         
-        if locations == ["All"]:
-            locations = self.rain_data.get_locs_for_whole_map( self.m_params['region_grid_params'] ) #[ ([upper_h, lower_h]. [left_w, right_w]), ... ]
+
         
         ds = ds.map( lambda mf, rain_mask: tuple( [mf, rain_mask[0], rain_mask[1]] ), num_parallel_calls=-1)   
         
         # list of central h,w indexes from which to extract the region around
-        li_hw_idxs = [ self.rain_data.find_idx_of_loc_region( _loc, self.m_params['region_grid_params'] ) for _loc in locations ] #[ (h_idx,w_idx), ... ]
+        if locations == ["All"]:
+            li_hw_idxs = self.rain_data.get_locs_for_whole_map( self.m_params['region_grid_params'] ) #[ ([upper_h, lower_h]. [left_w, right_w]), ... ]
+        else:
+            li_hw_idxs = [ self.rain_data.find_idx_of_loc_region( _loc, self.m_params['region_grid_params'] ) for _loc in locations ] #[ (h_idx,w_idx), ... ]
         
         # Creating seperate datasets for each location
         li_ds = [ ds.map( lambda mf, rain, rmask : self.select_region( mf, rain, rmask, _idx[0], _idx[1]), num_parallel_calls=-1) for _idx in li_hw_idxs ]
         
         # Concatenating all datasets for each location
-        batches_per_loc = int(batch_count/len(locations))
+        batches_per_loc = int(batch_count/len(li_hw_idxs))
         for idx in range(len(li_ds)):
             li_ds[idx] = li_ds[idx].unbatch().batch( self.t_params['batch_size'], drop_remainder=True ).take(batches_per_loc)
             if idx==0:

@@ -39,12 +39,12 @@
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
-            "args": [ "-mn","TRUNET","-dd","Data/Rain_Data_Mar20", "-bs","5", "-do","0.2", "-ido","0.2", "-rdo","0.3", "-ctsm", "1979_2007_2007_2013", "-ctsm_test","2014_2019-07-02",
-"-mts" ,"{'stochastic':True,'stochastic_f_pass':25,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout','location':[],'location_test':['Leeds']}",
-"-ts", "{'region_pred':False, 'model_ckpt_path':'./checkpoints/THST_mc_dropout_Normal_True_Cardiff_London_Glasgow_Birmingham_Lancaster_Manchester_Liverpool_Bradford_Edinburgh_Leeds_Dublin_v145_tst_0.7_iim_linear'}"
+            "args": [ "-mn","TRUNET","-dd","Data/Rain_Data_Mar20", "-bs","25", "-ctsm", "1979_2009_2014", "-ctsm_test","2014_2019-07-02",
+"-mts" ,"{'stochastic':True,'stochastic_f_pass':2,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin', 'Norwich', 'Truro', 'Newry','Plymouth','Bangor'],'location_test':['All'],'do':0.2,'ido':0.2,'rdo':0.3}",
+"-ts", "{'region_pred':True}"
                 ]
         },
-        {
+    {
             "name": "TRU_NET_test1",
             "type": "python",
             "request": "launch",

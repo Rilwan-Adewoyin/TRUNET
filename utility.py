@@ -318,6 +318,7 @@ def location_getter(model_settings):
 
 # region data standardization
 
+@tf.function
 def standardize_ati(_array, shift, scale, reverse):
     
     if(reverse==False):

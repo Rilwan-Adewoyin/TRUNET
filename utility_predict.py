@@ -40,7 +40,7 @@ def load_model(t_params, m_params):
     best_checkpoint_path = df_checkpoint_scores['Checkpoint_Path'][0]
     checkpoint_code = "E"+str(df_checkpoint_scores['Epoch'][0])
     #status = ckpt.restore( best_checkpoint_path ).assert_existing_objects_matched() #.expect_partial()
-    status = ckpt.restore( best_checkpoint_path ).assert_consumed() #.assert_existing_objects_matched() #.expect_partial()
+    status = ckpt.restore( best_checkpoint_path ).assert_existing_objects_matched() #.assert_existing_objects_matched() #.expect_partial()
     print("Are weights empty after restoring from checkpoint?", model.weights == [] )
 
     return model, checkpoint_code

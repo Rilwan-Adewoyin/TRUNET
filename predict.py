@@ -100,7 +100,9 @@ class TestTrueNet():
     
         # Timestamps
         if self.era5_eobs.li_loc == ['All']:
-            li_timestamps_chunked = [li_timestamps[i:i+self.t_params['window_shift']*self.t_params['batch_size']] for i in range(0, len(li_timestamps), self.t_params['window_shift']*self.t_params['batch_size'])]
+            li_timestamps_chunked = [li_timestamps[i:i+self.t_params['window_shift']*self.t_params['batch_size']] 
+                                        for i in range(0, len(li_timestamps), self.t_params['window_shift']*self.t_params['batch_size'])
+                                            if i+self.t_params['window_shift']*self.t_params['batch_size']<=len(li_timestamps) ]
             self.li_timestamps_chunked = list( itertools.chain.from_iterable( itertools.repeat(li_timestamps_chunked, self.era5_eobs.loc_count )) )
         else:
             self.li_timestamps_chunked = [li_timestamps[i:i+self.t_params['window_shift']*self.t_params['batch_size']] for i in range(0, len(li_timestamps), self.t_params['window_shift']*self.t_params['batch_size'])] 
@@ -136,6 +138,10 @@ class TestTrueNet():
             # next batch of data
             idx, (feature, target, mask) = next(self.iter_test)
 
+            #if region in datum is completely masked then skip to next training datum
+            if( tf.reduce_any( cl.extract_central_region(mask, bounds) )==False ):
+                continue
+            
             if self.m_params['model_type_settings']['stochastic'] == False:
                     
                 preds = self.model(feature,training=False )
@@ -186,8 +192,9 @@ class TestTrueNet():
             preds_std = utility.standardize_ati(preds, self.t_params['normalization_shift']['rain'], self.t_params['normalization_scales']['rain'], reverse=True) #(bs, seq_len ,samples) or (bs, seq_len, h, w ,samples)
 
             # mask
-            preds_masked = cl.water_mask(preds_std, tf.expand_dims(mask,-1)  )
-            target_masked = cl.water_mask(target, mask ) 
+            #TODO: make sure these masks add nan values for masked predictions, then add nanmeans to jupyter score scripts
+            preds_masked = cl.water_mask(preds_std, tf.expand_dims(mask,-1), np.nan  )
+            target_masked = cl.water_mask(target, mask, np.nan ) 
 
             #Combining the batch and seq_len dimensions into a timesteps dimension            
             preds_reshaped      = tf.reshape( preds_masked,[-1] + preds_masked.shape.as_list()[ 2: ] )    #(timesteps, ... , samples)
