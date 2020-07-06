@@ -100,24 +100,28 @@ class TestTrueNet():
     
         # Timestamps
         if self.era5_eobs.li_loc == ['All']:
-            li_timestamps_chunked = [li_timestamps[i:i+self.t_params['window_shift']*self.t_params['batch_size']] 
+            li_timestamps_chunked = [ li_timestamps[i:i+self.t_params['window_shift']*self.t_params['batch_size']] 
                                         for i in range(0, len(li_timestamps), self.t_params['window_shift']*self.t_params['batch_size'])
-                                            if i+self.t_params['window_shift']*self.t_params['batch_size']<=len(li_timestamps) ]
+                                           ]
+
             self.li_timestamps_chunked = list( itertools.chain.from_iterable( itertools.repeat(li_timestamps_chunked, self.era5_eobs.loc_count )) )
         else:
             self.li_timestamps_chunked = [li_timestamps[i:i+self.t_params['window_shift']*self.t_params['batch_size']] for i in range(0, len(li_timestamps), self.t_params['window_shift']*self.t_params['batch_size'])] 
         self.li_true_values = []
         
         # Caching datasets, Creating iterable
-        if self.era5_eobs.li_loc != ['All']:
+        #if self.era5_eobs.li_loc != ['All']:
         
-            if self.t_params['ctsm'] != "4ds_10years":
-                cache_suffix = '{}_loctest_{}'.format(self.t_params['ctsm_test'] , "_".join(utility.loc_name_shrtner(self.era5_eobs.li_loc) ) )
-            
-            elif self.t_params['ctsm'] == "4ds_10years":
-                cache_suffix = '{}_fyitest{}_loctest{}'.format( self.m_params['model_name'], str(self.t_params['fyi_test']), "_".join(utility.loc_name_shrtner(self.era5_eobs.li_loc) ) )
-            
-            self.ds = self.ds.cache('Data/data_cache/test'+cache_suffix )
+        if self.t_params['ctsm'] != "4ds_10years":
+            cache_suffix = '{}_loctest_{}'.format(self.t_params['ctsm_test'] , "_".join(utility.loc_name_shrtner(self.era5_eobs.li_loc) ) )
+        
+        elif self.t_params['ctsm'] == "4ds_10years":
+            cache_suffix = '{}_fyitest{}_loctest{}'.format( self.m_params['model_name'], str(self.t_params['fyi_test']), "_".join(utility.loc_name_shrtner(self.era5_eobs.li_loc) ) )
+        
+        cache_dir = self.t_params['data_dir']+"/data_cache/test/"
+        os.makedirs( cache_dir, exist_ok=True )
+
+        self.ds = self.ds.cache(cache_dir+cache_suffix)
         
         self.ds = self.ds.repeat(1) 
         
