@@ -299,7 +299,7 @@ class TrainTruNet():
                 li_names = ['train_loss_batch']
                 step = batch + (epoch)*self.t_params['train_batches']
                 #utility.tensorboard_record( self.writer.as_default(), li_losses, li_names, step, gradients, self.model.trainable_variables )
-                utility.tensorboard_record( self.writer.as_default(), li_losses, li_names, step, None, None )
+                #utility.tensorboard_record( self.writer.as_default(), li_losses, li_names, step, None, None )
                 self.loss_agg_batch.reset_states()
 
                 if batch in self.reset_idxs_training:
@@ -308,7 +308,7 @@ class TrainTruNet():
             # --- Tensorboard record          
             li_losses = [self.loss_agg_epoch.result(), self.mse_agg_epoch.result()]
             li_names = ['train_loss_epoch','train_mse_epoch']
-            utility.tensorboard_record( self.writer.as_default(), li_losses, li_names, epoch)
+            #utility.tensorboard_record( self.writer.as_default(), li_losses, li_names, epoch)
             
             
             print("\tStarting Validation")
@@ -339,7 +339,7 @@ class TrainTruNet():
             print("\tEpoch:{}\t Train Loss:{:.8f}\t Train MSE:{:.5f}\t Val Loss:{:.5f}\t Val MSE:{:.5f}\t Time:{:.5f}".format(epoch, self.loss_agg_epoch.result(), self.mse_agg_epoch.result(), 
                         self.loss_agg_val.result(), self.mse_agg_val.result(), time.time()-start_epoch_train  ) )
                     
-            utility.tensorboard_record( self.writer.as_default(), [self.loss_agg_val.result(), self.mse_agg_val.result()], ['Validation Loss', 'Validation MSE' ], epoch  )                    
+            #utility.tensorboard_record( self.writer.as_default(), [self.loss_agg_val.result(), self.mse_agg_val.result()], ['Validation Loss', 'Validation MSE' ], epoch  )                    
             self.df_training_info = utility.update_checkpoints_epoch(self.df_training_info, epoch, self.loss_agg_epoch, self.loss_agg_val, self.ckpt_mngr_epoch, self.t_params, 
                     self.m_params, self.mse_agg_epoch, self.mse_agg_val )
             
