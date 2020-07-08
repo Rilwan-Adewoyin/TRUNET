@@ -76,7 +76,12 @@ class model_TRUNET_hparameters(MParams):
         REC_ADAM_PARAMS = {
             "learning_rate":7e-4,   "warmup_proportion":0.65,
             "min_lr":2.5e-4,         "beta_1":0.9,               "beta_2":0.99,
-            "amsgrad":True,         "decay":0.0008,              "epsilon":5e-8 } #Rectified Adam params
+            "amsgrad":True,         "decay":0.0009,              "epsilon":5e-8 } #Rectified Adam params
+        
+        REC_ADAM_PARAMS = {
+            "learning_rate":7e-4,   "warmup_proportion":0.65,
+            "min_lr":2.5e-4,         "beta_1":0.45,               "beta_2":0.9,
+            "amsgrad":True,         "decay":0.0009,              "epsilon":5e-8 } #Rectified Adam params            
         
         DROPOUT =   model_type_settings.get('do',0.0)
         ido =       model_type_settings.get('ido',0.0) # Dropout for input into GRU
@@ -270,7 +275,12 @@ class model_SimpleConvGRU_hparamaters(MParams):
         REC_ADAM_PARAMS = {
             "learning_rate":7e-4,   "warmup_proportion":0.65,
             "min_lr":2.5e-4,         "beta_1":0.9,               "beta_2":0.99,
-            "amsgrad":True,         "decay":0.0008,              "epsilon":5e-8 } #Rectified Adam params
+            "amsgrad":True,         "decay":0.0009,              "epsilon":5e-8 } #Rectified Adam params
+        
+        REC_ADAM_PARAMS = {
+            "learning_rate":7e-4,   "warmup_proportion":0.65,
+            "min_lr":1.5e-4,         "beta_1":0.45,               "beta_2":0.9,
+            "amsgrad":True,         "decay":0.0009,              "epsilon":5e-8 } #Rectified Adam params  
 
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }
 

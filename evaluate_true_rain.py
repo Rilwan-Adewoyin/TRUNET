@@ -51,16 +51,19 @@ def main(date_start_str, date_end_str, location, data_dir="./", rain_fall_stats=
     
     #Extract the True rainfall for a given location and time range
     true_rain, rain_mask = true_rain_extractor( data_dir, date_start, date_end, location, region )
-    
+
     #Creating a list of the epoch timestamps relating to the days we study. i.e. if we tested from 1978-01-20 till 2000-03-01 
         # this would be a list such as [254102400 ,......,  951868800]
     date_tss = pd.date_range( end=date_end, start=date_start, freq='D',normalize=True)
     timestamp_epochs =  list ( (date_tss - pd.Timestamp("1970-01-01") ) // pd.Timedelta('1s') )
     
+    #Inserting nans in masked values
+    true_rain = np.where(rain_mask, true_rain, np.nan )
+    ifs_preds = np.where(rain_mask, ifs_preds, np.nan )
+
     #Save the extracted IFS prediction, true rainfall for optional Visualization using Visualization.ipynb
-        #Also some unecessary name variable changes - will be cleaned
-    preds = ifs_preds
-    true_rain = true_rain
+    #preds = ifs_preds
+    #true_rain = true_rain
     f_dir = "./Output/ERA5/preds/"
     fn = "{}_{}_{}".format(location, date_start_str, date_end_str)
     if region ==True:
@@ -70,7 +73,7 @@ def main(date_start_str, date_end_str, location, data_dir="./", rain_fall_stats=
     if not os.path.isdir(f_dir):
         os.makedirs( f_dir, exist_ok=True  )
 
-    pickle.dump( [np.array(timestamp_epochs), np.array(preds,dtype=np.float64) , np.array(true_rain) ], 
+    pickle.dump( [np.array(timestamp_epochs), np.array(ifs_preds,dtype=np.float64) , np.array(true_rain) ], 
         open(fp,"wb")  )
 
     #Create a Plot of IFS predictions against True Rain values, for a quick check if I have aligned the IFS prediction and True rain correctly

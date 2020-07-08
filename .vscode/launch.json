@@ -19,7 +19,7 @@
             "program": "${file}",
             "console": "internalConsole",
             "justMyCode": false,
-            "args": [ "-dd", "/home/u1862646/BNN/Data", "-sd", "2010-01-10", "-ed", "2010-10-15", "-lo", "London"]  
+            "args": [ "-dd", "./Data", "-sd", "2010-01-10", "-ed", "2015-10-15", "-lo", "['All']"]  
         },
         {
             "name": "TRU_NET",
