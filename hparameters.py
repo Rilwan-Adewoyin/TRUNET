@@ -574,7 +574,7 @@ class train_hparameters_ati(HParams):
         # endregion
         
         DATA_DIR = self.dd
-        EARLY_STOPPING_PERIOD = 60
+        EARLY_STOPPING_PERIOD = 120
  
         self.params = {
             'batch_size':BATCH_SIZE,
