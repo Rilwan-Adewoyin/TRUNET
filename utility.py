@@ -53,9 +53,9 @@ def update_checkpoints_epoch(df_training_info, epoch, train_loss_epoch, val_loss
             df_training_info = df_training_info.append( other={ 'Epoch':epoch,'Train_loss':train_loss_epoch.result().numpy(), 'Val_loss':val_loss_epoch.result().numpy(),
                                                             'Checkpoint_Path': ckpt_save_path, 'Last_Trained_Batch':-1}, ignore_index=True ) #A Train batch of -1 represents final batch of training step was completed
         else:
-            df_training_info = df_training_info.append( other={ 'Epoch':epoch,'Train_loss':train_loss_epoch.result().numpy(), 'Val_loss':val_loss_epoch.result().numpy(),
-                                                            'Checkpoint_Path': ckpt_save_path, 'Last_Trained_Batch':-1,
-                                                            'Train_mse':train_metric_mse.result().numpy(), 'Val_mse':val_metric_mse.result().numpy()
+            df_training_info = df_training_info.append( other={ 'Epoch':epoch,'Train_loss':train_loss_epoch.result().numpy(), 'Train_mse':train_metric_mse.result().numpy(),
+                                                            'Val_loss':val_loss_epoch.result().numpy(),'Val_mse':val_metric_mse.result().numpy(),
+                                                            'Checkpoint_Path': ckpt_save_path, 'Last_Trained_Batch':-1
                                                             }, ignore_index=True ) #A Train batch of -1 represents final batch of training step was completed
             
 
