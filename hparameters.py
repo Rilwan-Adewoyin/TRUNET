@@ -90,7 +90,7 @@ class model_TRUNET_hparameters(MParams):
         recurrent_reg = None #regularlization for recurrent input to GRU
         bias_reg = tf.keras.regularizers.l2(0.0)
         bias_reg_attn = tf.keras.regularizers.l2(0.005)
-        kernel_reg_attn = None
+        kernel_reg_attn = tf.keras.regularizers.l2(0.0025)
         # endregion
 
         #region --- Key Model Size Settings
