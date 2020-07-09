@@ -43,15 +43,15 @@ except Exception as e:
 # for idx, gpu_name in enumerate(gpu_devices):
 #     tf.config.experimental.set_memory_growth(gpu_name, True)
 
-try:
-    tf.config.set_logical_device_configuration(
-        gpu_devices[0], 
-        [tf.config.LogicalDeviceConfiguration(memory_limit=4000),
-            tf.config.LogicalDeviceConfiguration(mem6ry_limit=3800)] )
-    gpu_devices = tf.config.list_logical_devices('GPU')
+# try:
+#     tf.config.set_logical_device_configuration(
+#         gpu_devices[0], 
+#         [tf.config.LogicalDeviceConfiguration(memory_limit=4000),
+#             tf.config.LogicalDeviceConfiguration(mem6ry_limit=3800)] )
+#     gpu_devices = tf.config.list_logical_devices('GPU')
 
-except:
-    pass
+# except:
+#     pass
 
 policy = mixed_precision.Policy('mixed_float16')
 mixed_precision.set_policy(policy)
@@ -144,7 +144,7 @@ class TrainTruNet():
             self.t_params['gpu_count'] = self.strategy.num_replicas_in_sync    
             self.model = models.model_loader( self.t_params, self.m_params )
             #Optimizer
-            optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*40, weight_decay=1.25e-5 )         
+            optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*40 ) #, weight_decay=1.25e-5 )         
             self.optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) 
             
         

@@ -75,7 +75,7 @@ class model_TRUNET_hparameters(MParams):
         # region ---  learning/convergence/regularlisation params
         REC_ADAM_PARAMS = {
             "learning_rate":8e-4,   "warmup_proportion":0.65,
-            "min_lr":5.0e-4,         "beta_1":0.9,               "beta_2":0.98,
+            "min_lr":6.0e-4,         "beta_1":0.9,               "beta_2":0.98,
             "amsgrad":True,         "decay":0.0008,              "epsilon":1e-8 } #Rectified Adam params
         
         # REC_ADAM_PARAMS = {
@@ -116,7 +116,7 @@ class model_TRUNET_hparameters(MParams):
 
         # ConvGRU params
         if model_type_settings.get('large_model',False) == False:
-            filters = 72 # no. of filters in all conv operations in ConvGRU units
+            filters = 80 # no. of filters in all conv operations in ConvGRU units
         else:
             filters = 120
 
@@ -137,7 +137,7 @@ class model_TRUNET_hparameters(MParams):
 
         attn_params_enc = [
             {'bias':None, 'total_key_depth': kd  ,'total_value_depth':vd, 'output_depth': vd   ,
-            'num_heads': nh , 'dropout_rate':0.10, 'max_relative_position':None,
+            'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
             "transform_value_antecedent":True,  "transform_output":True, 
             'implementation':1, 'conv_ops_qk':self.conv_ops_qk,
             "value_conv":{ "filters":int(filters * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':bias_reg_attn, 'kernel_regularizer':kernel_reg_attn ,'padding':'same' },
