@@ -75,7 +75,7 @@ class model_TRUNET_hparameters(MParams):
         # region ---  learning/convergence/regularlisation params
         REC_ADAM_PARAMS = {
             "learning_rate":7e-4,   "warmup_proportion":0.65,
-            "min_lr":3.0e-4,         "beta_1":0.9,               "beta_2":0.99,
+            "min_lr":4.0e-4,         "beta_1":0.9,               "beta_2":0.99,
             "amsgrad":True,         "decay":0.0008,              "epsilon":5e-8 } #Rectified Adam params
         
         # REC_ADAM_PARAMS = {
@@ -89,7 +89,8 @@ class model_TRUNET_hparameters(MParams):
         kernel_reg   = None  #regularlization for input to GRU
         recurrent_reg = None #regularlization for recurrent input to GRU
         bias_reg = tf.keras.regularizers.l2(0.0)
-        bias_reg_attn = tf.keras.regularizers.l2(0.00)
+        bias_reg_attn = tf.keras.regularizers.l2(0.005)
+        kernel_reg_attn = tf.keras.regularizers.l2(0.0025)
         # endregion
 
         #region --- Key Model Size Settings
@@ -139,8 +140,8 @@ class model_TRUNET_hparameters(MParams):
             'num_heads': nh , 'dropout_rate':0.00, 'max_relative_position':None,
             "transform_value_antecedent":True,  "transform_output":True, 
             'implementation':1, 'conv_ops_qk':self.conv_ops_qk,
-            "value_conv":{ "filters":int(filters * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':bias_reg_attn, 'padding':'same' },
-            "output_conv":{ "filters":int(filters * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"outp", 'bias_regularizer':bias_reg_attn,'padding':'same' }
+            "value_conv":{ "filters":int(filters * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':bias_reg_attn, 'kernel_regularizer':kernel_reg_attn ,'padding':'same' },
+            "output_conv":{ "filters":int(filters * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"outp", 'bias_regularizer':bias_reg_attn, 'kernel_regularizer':kernel_reg_attn, 'padding':'same' }
             } 
             for kd, vd ,nh, idx in zip( key_depth, val_depth, attn_heads,range(attn_layers_count) )
         ] #list of param dictionaries for each Inter Layer Cross Attention unit in the encoder
@@ -224,7 +225,7 @@ class model_TRUNET_hparameters(MParams):
 
             'rec_adam_params':REC_ADAM_PARAMS,
             'dropout':DROPOUT,
-            'clip_norm':6.5
+            'clip_norm':7.0
             } )
 
 class model_SimpleConvGRU_hparamaters(MParams):
@@ -330,7 +331,7 @@ class TRUNET_EF_hparams(HParams):
         kernel_reg   = None  #regularlization for input to GRU
         recurrent_reg = None #regularlization for recurrent input to GRU
         bias_reg = tf.keras.regularizers.l2(0.0)
-        bias_reg_attn = tf.keras.regularizers.l2(0.00)
+        bias_reg_attn = tf.keras.regularizers.l2(0.005)
         # endregion
         
         #region Key Model Size Settings
@@ -385,8 +386,8 @@ class TRUNET_EF_hparams(HParams):
             'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
             "transform_value_antecedent":True,  "transform_output":True, 
             'implementation':1,
-            "value_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':tf.keras.regularizers.l2(0.00002), 'padding':'same' },
-            "output_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"outp", 'bias_regularizer':tf.keras.regularizers.l2(0.00002),'padding':'same' }
+            "value_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':bias_reg_attn, 'padding':'same' },
+            "output_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"outp", 'bias_regularizer':bias_reg_attn,'padding':'same' }
             } 
             for kd, vd ,nh, idx in zip( key_depth, val_depth, attn_heads,range(attn_layers_count) )
         ] 
