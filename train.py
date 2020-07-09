@@ -442,7 +442,7 @@ class TrainTruNet():
                     # To calculate metric_mse for CC model we assume that pred_rain=0 if pred_prob<0.5 
                 # endregion
 
-            loss_to_optimize_agg = tf.grad_pass_through( lambda x:  x/self.strategy_gpu_count )(loss_to_optimize + tf.cast( tf.reduce_sum(self.model.losses), dtype=tf.float16) )
+            loss_to_optimize_agg = tf.grad_pass_through( lambda x:  x/self.strategy_gpu_count )(loss_to_optimize + tf.reduce_sum( [tf.cast(x, dtype=tf.float16) for x in self.model.losses]))
             scaled_loss = self.optimizer.get_scaled_loss( loss_to_optimize_agg )
             scaled_gradients = tape.gradient( scaled_loss, self.model.trainable_variables )
             unscaled_gradients = self.optimizer.get_unscaled_gradients(scaled_gradients)
