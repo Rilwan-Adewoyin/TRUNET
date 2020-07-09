@@ -234,7 +234,9 @@ class TrainTruNet():
             r_batch_size = self.t_params['batch_size'] // self.strategy_gpu_count
             last_update_epoch = int( max( self.df_training_info['Epoch'][:], default=0 ) )
             epoch_non_update = last_update_epoch - epoch  
-            if epoch_non_update >= -3:
+            if epoch_non_update == 0:
+                pass
+            elif epoch_non_update >= -3:
                 r_batch_size = max( [self.t_params['batch_size']//(2*self.strategy_gpu_count), 2] )
             elif epoch_non_update >= -7:
                     r_batch_size = max( [self.t_params['batch_size']//(4*self.strategy_gpu_count) ,2] )
@@ -390,6 +392,7 @@ class TrainTruNet():
                     preds = tf.gather( preds, indices, axis=0)
                     probs = tf.gather( probs, indices, axis=0)
                     target= tf.gather( target,indices, axis=0)
+                    mask    = tf.gather(mask, indices, axis=0)
 
                 # applying mask to predicted values
                 preds_masked    = tf.boolean_mask(preds, mask )
