@@ -240,7 +240,7 @@ class TrainTruNet():
                 r_batch_size = max( [self.t_params['batch_size']//(2*self.strategy_gpu_count), 2] )
             elif epoch_non_update >= -7:
                     r_batch_size = max( [self.t_params['batch_size']//(4*self.strategy_gpu_count) ,2] )
-            elif epoch_non_update < 27:
+            elif epoch_non_update >= -20:
                     r_batch_size = max( [self.t_params['batch_size']//(8*self.strategy_gpu_count) ,2] )
             
             start_epoch_train = time.time()
