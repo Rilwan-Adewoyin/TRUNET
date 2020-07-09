@@ -387,9 +387,9 @@ class TrainTruNet():
                 
                 if r_batch_size != per_gpu_bs:
                     indices = tf.random.uniform( [ r_batch_size ], minval=0 , maxval=per_gpu_bs, dtype=tf.int32 )
-                    preds = preds[indices]
-                    probs = probs[indices]
-                    target = target[indices]
+                    preds = tf.gather( preds, indices, axis=0)
+                    probs = tf.gather( probs, indices, axis=0)
+                    target= tf.gather( target,indices, axis=0)
 
                 # applying mask to predicted values
                 preds_masked    = tf.boolean_mask(preds, mask )
