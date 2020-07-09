@@ -213,7 +213,7 @@ class TrainTruNet():
 
         ds_train = ds_train.cache('Data/data_cache/train'+cache_suffix ) 
         ds_val = ds_val.cache('Data/data_cache/val'+cache_suffix )
-        ds_train = ds_train.unbatch().shuffle( self.t_params['batch_size']*int(self.t_params['train_batches']/6), reshuffle_each_iteration=True).batch(self.t_params['batch_size']) #.repeat(self.t_params['epochs']-self.start_epoch)
+        ds_train = ds_train.unbatch().shuffle( self.t_params['batch_size']*int(self.t_params['train_batches']/5), reshuffle_each_iteration=True).batch(self.t_params['batch_size']) #.repeat(self.t_params['epochs']-self.start_epoch)
 
         ds_train_val = ds_train.concatenate(ds_val)
         ds_train_val = ds_train_val.repeat(self.t_params['epochs']-self.start_epoch)

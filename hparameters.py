@@ -277,10 +277,10 @@ class model_SimpleConvGRU_hparamaters(MParams):
             "min_lr":2.5e-4,         "beta_1":0.9,               "beta_2":0.99,
             "amsgrad":True,         "decay":0.0009,              "epsilon":5e-8 } #Rectified Adam params
         
-        REC_ADAM_PARAMS = {
-            "learning_rate":8e-4,   "warmup_proportion":0.65,
-            "min_lr":1.5e-4,         "beta_1":0.6,               "beta_2":0.9,
-            "amsgrad":True,         "decay":0.0009,              "epsilon":5e-8 } #Rectified Adam params  
+        # REC_ADAM_PARAMS = {
+        #     "learning_rate":8e-4,   "warmup_proportion":0.65,
+        #     "min_lr":1.5e-4,         "beta_1":0.6,               "beta_2":0.9,
+        #     "amsgrad":True,         "decay":0.0009,              "epsilon":5e-8 } #Rectified Adam params  
 
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }
 
