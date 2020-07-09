@@ -144,7 +144,7 @@ class TrainTruNet():
             self.t_params['gpu_count'] = self.strategy.num_replicas_in_sync    
             self.model = models.model_loader( self.t_params, self.m_params )
             #Optimizer
-            optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*40 ) #, weight_decay=1.25e-5 )         
+            optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*20 ) #, weight_decay=1.25e-5 )         
             self.optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) 
             
         
@@ -173,7 +173,7 @@ class TrainTruNet():
             # compat: Initializing model and optimizer before restoring from checkpoint
             inp_shape = [t_params['batch_size'], t_params['lookback_feature']] + m_params['region_grid_params']['outer_box_dims'] + [len(t_params['vars_for_feature'])]
             inp_shape1 = [t_params['batch_size'], t_params['lookback_target']] + m_params['region_grid_params']['outer_box_dims'] 
-            bool_cmpltd = self.distributed_train_step( 0.0, 0.0, 0.0, 0.0, 1.0 )
+            bool_cmpltd = self.distributed_train_step( 0.0, 0.0, 0.0, 0.0, 1.0, 0.0 )
 
             ckpt_epoch.restore(self.ckpt_mngr_epoch.latest_checkpoint).assert_consumed()              
         else:
@@ -192,21 +192,12 @@ class TrainTruNet():
         self.reset_idxs_validation = np.cumsum( [bc_ds_in_val]*era5_eobs.loc_count )
 
         # region ---- Making Datasets
-        #self.ds_train, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'], self.t_params['start_date'], prefetch=4 )
-        #self.ds_val, _ = era5_eobs.load_data_era5eobs( self.t_params['val_batches'], self.t_params['val_start_date'], prefetch=8 )
         
         #caching dataset to file post pre-processing steps have been completed 
         cache_suffix = utility.cache_suffix_mkr( m_params, self.t_params )
         os.makedirs( './Data/data_cache/', exist_ok=True  )
-        # self.ds_train = self.ds_train.cache('Data/data_cache/train'+cache_suffix ) 
-        # self.ds_val = self.ds_val.cache('Data/data_cache/val'+cache_suffix )
-        
-        _ds_train_val, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'] + self.t_params['val_batches'] , self.t_params['start_date'] )
 
-        # ds_train_val = ds_train_val.cache('Data/data_cache/train_val'+cache_suffix ) 
-        # ds_train_val = ds_train_val.unbatch().shuffle( self.t_params['batch_size']*12, reshuffle_each_iteration=True).batch(self.t_params['batch_size']).repeat(self.t_params['epochs']-self.start_epoch)
-        # self.ds_train_val = self.strategy.experimental_distribute_dataset(dataset=ds_train_val)
-        # self.iter_train_val = enumerate(self.ds_train_val)
+        _ds_train_val, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'] + self.t_params['val_batches'] , self.t_params['start_date'] )
 
         ds_train = _ds_train_val.take(self.t_params['train_batches'] )
         ds_val = _ds_train_val.skip(self.t_params['train_batches'] ).take(self.t_params['val_batches'])
@@ -220,27 +211,6 @@ class TrainTruNet():
         self.ds_train_val = self.strategy.experimental_distribute_dataset(dataset=ds_train_val)
         self.iter_train_val = enumerate(self.ds_train_val)
         
-        # # preparing iterators for train and validation
-        # # data loading schemes based on ram limitations
-        # if psutil.virtual_memory()[0] / 1e9 <= 30.0 : 
-        #     #Data Loading Scheme 1 - Version that works on low memeory devices e.g. under 30 GB RAM
-        #     self.ds_train_val = self.strategy.experimental_distribute_dataset(dataset=ds_train_val)
-        #     self.iter_val_train = enumerate(self.ds_train_val)
-        #     self.iter_train = self.iter_val_train
-        #     self.iter_val = self.iter_val_train
-        # else:
-        #     #Data Loading Scheme 2 - Version that ensures validation and train set are well defined 
-        #     #self.ds_train = self.ds_train.repeat(self.t_params['epochs']-self.start_epoch)
-        #     self.ds_train = self.ds_train.unbatch().shuffle( self.t_params['batch_size']*6, reshuffle_each_iteration=True).batch(self.t_params['batch_size']).repeat(self.t_params['epochs']-self.start_epoch)
-
-        #     self.ds_val = self.ds_val.repeat(self.t_params['epochs']-self.start_epoch)
-        #     #self.ds_train = self.ds_train.skip(self.batches_to_skip)
-        #     self.ds_train = self.strategy.experimental_distribute_dataset(dataset=self.ds_train)
-        #     self.ds_val = self.strategy.experimental_distribute_dataset(dataset=self.ds_val)
-        #     self.iter_train = enumerate(self.ds_train)
-        #     self.iter_val = enumerate(self.ds_val)
-        #endregion
-
     def train_model(self):
         """During training we produce a prediction for a (n by n) square patch. 
             But we caculate losses on a central (h, w) region within the (n by n) patch
@@ -261,6 +231,16 @@ class TrainTruNet():
             self.mse_agg_val.reset_states()
             self.df_training_info = self.df_training_info.append( { 'Epoch':epoch, 'Last_Trained_Batch':0 }, ignore_index=True )
             
+            r_batch_size = self.t_params['batch_size'] // self.strategy_gpu_count
+            last_update_epoch = int( max( self.df_training_info['Epoch'][:], default=0 ) )
+            epoch_non_update = last_update_epoch - epoch
+            if epoch_non_update < 3:
+                r_batch_size = max( [self.t_params['batch_size']//(2*self.strategy_gpu_count), 2] )
+            elif epoch_non_update < 10:
+                    r_batch_size = max( [self.t_params['batch_size']//(4*self.strategy_gpu_count) ,2] )
+            elif epoch_non_update < 20:
+                    r_batch_size = max( [self.t_params['batch_size']//(8*self.strategy_gpu_count) ,2] )
+            
             start_epoch_train = time.time()
             start_batch_group_time = time.time()
             batch=0           
@@ -268,7 +248,7 @@ class TrainTruNet():
             # if( epoch!=self.start_epoch  ):
             #     self.batches_to_skip = 0
             #print("\n\nStarting EPOCH {} Batch {}/{}".format(epoch, self.batches_to_skip+1, self.t_params['train_batches']))
-            print("\n\nStarting EPOCH {} Batch {}/{}".format(epoch, 1, self.t_params['train_batches'] ))
+            print("\n\nStarting EPOCH {}".format(epoch ))
             #endregion 
             
             # --- Training Loops
@@ -277,7 +257,8 @@ class TrainTruNet():
                 # get next set of training datums
                 idx, (feature, target, mask) = next(self.iter_train_val)
                 
-                gradients = self.distributed_train_step( feature, target, mask, bounds, 0.0 )
+
+                gradients = self.distributed_train_step( feature, target, mask, bounds, 0.0, r_batch_size )
                 #print(gradients)
                 
                 # reporting
@@ -352,7 +333,7 @@ class TrainTruNet():
         
         print("Model Training Finished")
 
-    def train_step(self, feature, target, mask, bounds, _init):
+    def train_step(self, feature, target, mask, bounds, _init, r_batch_size):
         
         if _init==1.0:
             inp_shape = [self.t_params['batch_size'], self.t_params['lookback_feature']] + self.m_params['region_grid_params']['outer_box_dims'] + [len(self.t_params['vars_for_feature'])]
@@ -400,7 +381,16 @@ class TrainTruNet():
                 probs   = cl.extract_central_region(probs, bounds)
                 mask    = cl.extract_central_region(mask, bounds)
                 target  = cl.extract_central_region(target, bounds)
+
+                # For Large Batches we need to dynamically operate on smaller batches to improve loss, retains speed of larger epochs tho
+                per_gpu_bs = self.t_params['batch_size']//self.strategy_gpu_count
                 
+                if r_batch_size != per_gpu_bs:
+                    indices = tf.random.uniform( [ r_batch_size ], minval=0 , maxval=per_gpu_bs, dtype=tf.int32 )
+                    preds = preds[indices]
+                    probs = probs[indices]
+                    target = target[indices]
+
                 # applying mask to predicted values
                 preds_masked    = tf.boolean_mask(preds, mask )
                 probs_masked    = tf.boolean_mask(probs, mask ) 
@@ -537,9 +527,9 @@ class TrainTruNet():
         return True
     
     @tf.function
-    def distributed_train_step(self, feature, target, mask, bounds, _init):
+    def distributed_train_step(self, feature, target, mask, bounds, _init, r_batch_size):
         #bool_completed = self.strategy.run( self.train_step, args=(feature, target, mask, bounds, _init))
-        gradients = self.strategy.experimental_run_v2( self.train_step, args=(feature, target, mask, bounds, _init))
+        gradients = self.strategy.experimental_run_v2( self.train_step, args=(feature, target, mask, bounds, _init, r_batch_size))
         return gradients
     
     @tf.function

@@ -818,64 +818,65 @@ class ConvGRU2D(ConvRNN2D):
 class ConvGRU2DCell(DropoutRNNCellMixin, Layer):
     """Cell class for the ConvGRU2D layer.
 
-    Arguments:
-        filters: Integer, the dimensionality of the output space
-        (i.e. the number of output filters in the convolution).
-        kernel_size: An integer or tuple/list of n integers, specifying the
-        dimensions of the convolution window.
-        strides: An integer or tuple/list of n integers,
-        specifying the strides of the convolution.
-        Specifying any stride value != 1 is incompatible with specifying
-        any `dilation_rate` value != 1.
-        padding: One of `"valid"` or `"same"` (case-insensitive).
-        data_format: A string,
-        one of `channels_last` (default) or `channels_first`.
-        It defaults to the `image_data_format` value found in your
-        Keras config file at `~/.keras/keras.json`.
-        If you never set it, then it will be "channels_last".
-        dilation_rate: An integer or tuple/list of n integers, specifying
-        the dilation rate to use for dilated convolution.
-        Currently, specifying any `dilation_rate` value != 1 is
-        incompatible with specifying any `strides` value != 1.
-        activation: Activation function to use.
-        If you don't specify anything, no activation is applied
-        (ie. "linear" activation: `a(x) = x`).
-        recurrent_activation: Activation function to use
-        for the recurrent step.
-        use_bias: Boolean, whether the layer uses a bias vector.
-        kernel_initializer: Initializer for the `kernel` weights matrix,
-        used for the linear transformation of the inputs.
-        recurrent_initializer: Initializer for the `recurrent_kernel`
-        weights matrix,
-        used for the linear transformation of the recurrent state.
-        bias_initializer: Initializer for the bias vector.
-        If True, add 1 to the bias of the forget gate at initialization.
-        Use in combination with `bias_initializer="zeros"`.
-        This is recommended in [Jozefowicz et al.]
-        (http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
-        kernel_regularizer: Regularizer function applied to
-        the `kernel` weights matrix.
-        recurrent_regularizer: Regularizer function applied to
-        the `recurrent_kernel` weights matrix.
-        bias_regularizer: Regularizer function applied to the bias vector.
-        kernel_constraint: Constraint function applied to
-        the `kernel` weights matrix.
-        recurrent_constraint: Constraint function applied to
-        the `recurrent_kernel` weights matrix.
-        bias_constraint: Constraint function applied to the bias vector.
-        dropout: Float between 0 and 1.
-        Fraction of the units to drop for
-        the linear transformation of the inputs.
-        recurrent_dropout: Float between 0 and 1.
-        Fraction of the units to drop for
-        the linear transformation of the recurrent state.
+        Arguments:
+            filters: Integer, the dimensionality of the output space
+            (i.e. the number of output filters in the convolution).
+            kernel_size: An integer or tuple/list of n integers, specifying the
+            dimensions of the convolution window.
+            strides: An integer or tuple/list of n integers,
+            specifying the strides of the convolution.
+            Specifying any stride value != 1 is incompatible with specifying
+            any `dilation_rate` value != 1.
+            padding: One of `"valid"` or `"same"` (case-insensitive).
+            data_format: A string,
+            one of `channels_last` (default) or `channels_first`.
+            It defaults to the `image_data_format` value found in your
+            Keras config file at `~/.keras/keras.json`.
+            If you never set it, then it will be "channels_last".
+            dilation_rate: An integer or tuple/list of n integers, specifying
+            the dilation rate to use for dilated convolution.
+            Currently, specifying any `dilation_rate` value != 1 is
+            incompatible with specifying any `strides` value != 1.
+            activation: Activation function to use.
+            If you don't specify anything, no activation is applied
+            (ie. "linear" activation: `a(x) = x`).
+            recurrent_activation: Activation function to use
+            for the recurrent step.
+            use_bias: Boolean, whether the layer uses a bias vector.
+            kernel_initializer: Initializer for the `kernel` weights matrix,
+            used for the linear transformation of the inputs.
+            recurrent_initializer: Initializer for the `recurrent_kernel`
+            weights matrix,
+            used for the linear transformation of the recurrent state.
+            bias_initializer: Initializer for the bias vector.
+            If True, add 1 to the bias of the forget gate at initialization.
+            Use in combination with `bias_initializer="zeros"`.
+            This is recommended in [Jozefowicz et al.]
+            (http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
+            kernel_regularizer: Regularizer function applied to
+            the `kernel` weights matrix.
+            recurrent_regularizer: Regularizer function applied to
+            the `recurrent_kernel` weights matrix.
+            bias_regularizer: Regularizer function applied to the bias vector.
+            kernel_constraint: Constraint function applied to
+            the `kernel` weights matrix.
+            recurrent_constraint: Constraint function applied to
+            the `recurrent_kernel` weights matrix.
+            bias_constraint: Constraint function applied to the bias vector.
+            dropout: Float between 0 and 1.
+            Fraction of the units to drop for
+            the linear transformation of the inputs.
+            recurrent_dropout: Float between 0 and 1.
+            Fraction of the units to drop for
+            the linear transformation of the recurrent state.
 
-    Call arguments:
-        inputs: A 4D tensor.
-        states:  List of state tensors corresponding to the previous timestep.
-        training: Python boolean indicating whether the layer should behave in
-        training mode or in inference mode. Only relevant when `dropout` or
-        `recurrent_dropout` is used.
+            Call arguments:
+                inputs: A 4D tensor.
+                states:  List of state tensors corresponding to the previous timestep.
+                training: Python boolean indicating whether the layer should behave in
+                training mode or in inference mode. Only relevant when `dropout` or
+                `recurrent_dropout` is used.
+        
     """
 
     def __init__(self,
@@ -2394,7 +2395,7 @@ class ConvGRU2DCell_attn(DropoutRNNCellMixin, Layer):
                                 v_antecedent=v_antecedent,
                                 training=training ) #(bs, 1, h, w, f)
 
-        inputs = tf.squeeze( attn_output)
+        inputs = tf.squeeze( attn_output , axis=[1])
         # endregion
 
         # region --- 2D Conv GRU operations
