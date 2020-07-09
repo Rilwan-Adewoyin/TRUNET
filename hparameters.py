@@ -74,8 +74,8 @@ class model_TRUNET_hparameters(MParams):
 
         # region ---  learning/convergence/regularlisation params
         REC_ADAM_PARAMS = {
-            "learning_rate":7e-4,   "warmup_proportion":0.65,
-            "min_lr":4.0e-4,         "beta_1":0.9,               "beta_2":0.98,
+            "learning_rate":8e-4,   "warmup_proportion":0.65,
+            "min_lr":5.0e-4,         "beta_1":0.9,               "beta_2":0.98,
             "amsgrad":True,         "decay":0.0008,              "epsilon":1e-8 } #Rectified Adam params
         
         # REC_ADAM_PARAMS = {
