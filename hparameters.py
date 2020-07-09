@@ -75,8 +75,8 @@ class model_TRUNET_hparameters(MParams):
         # region ---  learning/convergence/regularlisation params
         REC_ADAM_PARAMS = {
             "learning_rate":7e-4,   "warmup_proportion":0.65,
-            "min_lr":4.0e-4,         "beta_1":0.9,               "beta_2":0.99,
-            "amsgrad":True,         "decay":0.0008,              "epsilon":5e-8 } #Rectified Adam params
+            "min_lr":4.0e-4,         "beta_1":0.9,               "beta_2":0.98,
+            "amsgrad":True,         "decay":0.0008,              "epsilon":1e-8 } #Rectified Adam params
         
         # REC_ADAM_PARAMS = {
         #     "learning_rate":7e-4,   "warmup_proportion":0.65,
@@ -89,8 +89,8 @@ class model_TRUNET_hparameters(MParams):
         kernel_reg   = None  #regularlization for input to GRU
         recurrent_reg = None #regularlization for recurrent input to GRU
         bias_reg = tf.keras.regularizers.l2(0.0)
-        bias_reg_attn = tf.keras.regularizers.l2(0.001)
-        kernel_reg_attn = tf.keras.regularizers.l2(0.0005)
+        bias_reg_attn = tf.keras.regularizers.l2(0.0001)
+        kernel_reg_attn = tf.keras.regularizers.l2(0.0000)
         # endregion
 
         #region --- Key Model Size Settings
@@ -137,7 +137,7 @@ class model_TRUNET_hparameters(MParams):
 
         attn_params_enc = [
             {'bias':None, 'total_key_depth': kd  ,'total_value_depth':vd, 'output_depth': vd   ,
-            'num_heads': nh , 'dropout_rate':0.00, 'max_relative_position':None,
+            'num_heads': nh , 'dropout_rate':0.10, 'max_relative_position':None,
             "transform_value_antecedent":True,  "transform_output":True, 
             'implementation':1, 'conv_ops_qk':self.conv_ops_qk,
             "value_conv":{ "filters":int(filters * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':bias_reg_attn, 'kernel_regularizer':kernel_reg_attn ,'padding':'same' },
