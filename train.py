@@ -237,12 +237,12 @@ class TrainTruNet():
             epoch_non_update = last_update_epoch - epoch  
             if epoch_non_update == 0:
                 pass
-            elif epoch_non_update >= -3:
+            elif epoch_non_update >= -2:
                 r_batch_size = max( [self.t_params['batch_size']//(2*self.strategy_gpu_count), 2] )
             elif epoch_non_update >= -5:
                 r_batch_size = max( [self.t_params['batch_size']//(4*self.strategy_gpu_count) ,2] )
             elif epoch_non_update >= -15:
-                r_batch_size = max( [self.t_params['batch_size']//(8*self.strategy_gpu_count) ,2] )
+                r_batch_size = max( [self.t_params['batch_size']//(8*self.strategy_gpu_count) ,2] ) 
             
             start_epoch_train = time.time()
             start_batch_group_time = time.time()
