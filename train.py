@@ -424,15 +424,14 @@ class TrainTruNet():
 
                 if self.m_params['model_type_settings']['distr_type'] == 'Normal': 
                     # CC Normal
-                    loss_to_optimize += 1.5*cl.mse( target_cond_rain, preds_cond_rain, all_count )
+                    loss_to_optimize += 1.1*cl.mse( target_cond_rain, preds_cond_rain, all_count )
                 
                 elif self.m_params['model_type_settings']['distr_type'] == 'LogNormal':    
                     # CC LogNormal                                                             
                     loss_to_optimize += cl.log_mse( target_cond_rain, preds_cond_rain, all_count)                                                         
                 
                 if True:
-                    loss_to_optimize += 0.50*tf.reduce_mean( 
-                                    tf.keras.backend.binary_crossentropy(labels_true, labels_pred, from_logits=False) ) 
+                    loss_to_optimize += 0.9*tf.reduce_mean( tf.keras.backend.binary_crossentropy(labels_true, labels_pred, from_logits=False) ) 
                     loss_for_record = loss_to_optimize
                 
                 else:
