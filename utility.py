@@ -117,12 +117,26 @@ def load_params(args_dict, train_test="train"):
 
     if(args_dict['model_name'] == "TRUNET"):
         m_params = hparameters.model_TRUNET_hparameters( **init_m_params, **args_dict )()
+        init_t_params.update( { 'lookback_target': m_params['data_pipeline_params']['lookback_target'] } )
+        init_t_params.update( { 'lookback_feature': m_params['data_pipeline_params']['lookback_feature']})
 
     elif(args_dict['model_name']=="SimpleConvGRU"):
         m_params = hparameters.model_SimpleConvGRU_hparamaters(**init_m_params, **args_dict)()
+        init_t_params.update( { 'lookback_target': m_params['data_pipeline_params']['lookback_target'] } )
+        init_t_params.update( { 'lookback_feature': m_params['data_pipeline_params']['lookback_feature']})
 
-    init_t_params.update( { 'lookback_target': m_params['data_pipeline_params']['lookback_target'] } )
-    init_t_params.update( { 'lookback_feature': m_params['data_pipeline_params']['lookback_feature']})
+    elif(args_dict['model_name'] == "TRUNET_EF"):
+        
+        #init_m_params.update( {'m_settings': ast.literal_eval( args_dict.pop('m_settings') ) } )
+        m_params = hparameters.m_params_EF( **init_m_params, **args_dict )()
+        
+        init_t_params = {}
+        init_t_params.update( {'t_settings':ast.literal_eval( args_dict.pop('t_settings'))  } ) 
+            #Needs to include bs 
+        
+        train_params = hparameters.t_params_wb( **init_t_params )
+
+
     
     if train_test == "train":
         t_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )

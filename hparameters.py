@@ -79,8 +79,8 @@ class model_TRUNET_hparameters(MParams):
         #     "amsgrad":True,         "decay":0.0008,              "epsilon":1e-8 } #Rectified Adam params
         
         REC_ADAM_PARAMS = {
-            "learning_rate":1e-3,   "warmup_proportion":0.65,
-            "min_lr":8e-4,         "beta_1":0.5,               "beta_2":0.98,
+            "learning_rate":1.5e-3,   "warmup_proportion":0.65,
+            "min_lr":9e-4,         "beta_1":0.5,               "beta_2":0.98,
             "amsgrad":True,         "decay":0.0008,              "epsilon":1e-8 } #Rectified Adam params            
         
         DROPOUT =   model_type_settings.get('do',0.0)
@@ -117,6 +117,8 @@ class model_TRUNET_hparameters(MParams):
         # ConvGRU params
         if model_type_settings.get('large_model',False) == False:
             filters = 80 # no. of filters in all conv operations in ConvGRU units
+            #filters = 72 # no. of filters in all conv operations in ConvGRU units
+
         else:
             filters = 120
 
@@ -203,7 +205,7 @@ class model_TRUNET_hparameters(MParams):
         # endregion
 
         # region --- OUTPUT_LAYER_PARAMS and Upscaling
-        output_filters = [  int(  8*(((filters*2)/4)//8)), 1 ] 
+        output_filters = [  int(  8*(((filters*2)/3)//8)), 1 ] 
 
         output_kernel_size = [ (3,3), (3,3) ] 
         activations = ['relu','linear']
@@ -225,7 +227,7 @@ class model_TRUNET_hparameters(MParams):
 
             'rec_adam_params':REC_ADAM_PARAMS,
             'dropout':DROPOUT,
-            'clip_norm':7.0
+            'clip_norm':9.0
             } )
 
 class model_SimpleConvGRU_hparamaters(MParams):
@@ -253,14 +255,14 @@ class model_SimpleConvGRU_hparamaters(MParams):
                                 'return_sequences':rs, "dropout": dp , "recurrent_dropout":rdp,
                                 'kernel_regularizer': None,
                                 'recurrent_regularizer': None,
-                                'bias_regularizer':tf.keras.regularizers.l2(0.2),
+                                'bias_regularizer':tf.keras.regularizers.l2(0.0),
                                 'layer_norm': None,
                                 'implementation':1, 'stateful':stateful  }
                                 for ks,ps,rs,dp,rdp in zip( kernel_sizes, paddings, return_sequences, input_dropout, recurrent_dropout)  ]
 
-        conv1_layer_params = {'filters': int(  8*(((filters*2)/3)//8)) , 'kernel_size':[3,3], 'activation':'relu','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2) }  
+        conv1_layer_params = {'filters': int(  8*(((filters*2)/3)//8)) , 'kernel_size':[3,3], 'activation':'relu','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.0) }  
 
-        outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'linear','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.2) }
+        outpconv_layer_params = {'filters':1, 'kernel_size':[3,3], 'activation':'linear','padding':'same','bias_regularizer':tf.keras.regularizers.l2(0.0) }
         #endregion
 
         #region --- Data pipeline and optimizers
@@ -304,41 +306,42 @@ class model_SimpleConvGRU_hparamaters(MParams):
             'clip_norm':6.5
         })
 
-class TRUNET_EF_hparams(HParams):
+class m_params_EF(HParams):
 
     def __init__(self, **kwargs):
         """  
         """
+        self.dc = kwargs.get('model_type_settings',{}).get('discrete_continuous',False)
+        self.stoc = kwargs.get('model_type_settings',{}).get('stochastic',False)
+        self.di = kwargs.get('downscaled_input',False)
+        self.ep = kwargs.get('model_type_settings',{}).get('epsilon',5e-8)
+        self.ctsm = kwargs.get('ctsm', None)
         self.big = kwargs.get('model_type_settings',{}).get('big',False)
-        self.conv_ops_qk = kwargs['model_type_settings'].get('conv_ops_qk',False)
-        kwargs['model_type_settings'].pop('conv_ops_qk',None)
 
-        super( TRUNET_EF_hparams, self ).__init__(**kwargs)
+        super( m_params_EF, self ).__init__(**kwargs)
 
     def _default_params( self, **kwargs ):
 
-        model_type_settings = kwargs.get('model_type_settings',{})        
+        _mts = {  }
+        model_type_settings = kwargs.get('model_type_settings',_mts)        
         
-        # region ---  learning/convergence/regularlisation params
+        # region learning/convergence params
         REC_ADAM_PARAMS = {
             "learning_rate":5e-4,   "warmup_proportion":0.65,
             "min_lr":2.5e-4,          "beta_1":0.70,               "beta_2":0.99,
-            "amsgrad":True,         "decay":0.0008,              "epsilon":5e-8 }
+            "amsgrad":True,         "decay":0.0008,              "epsilon":self.ep }
 
-        DROPOUT =   model_type_settings.get('do',0.0)
-        ido =       model_type_settings.get('ido',0.0) # Dropout for input into GRU
-        rdo =       model_type_settings.get('rdo',0.0) # Dropout for recurrent input into GRU
-        kernel_reg   = None  #regularlization for input to GRU
-        recurrent_reg = None #regularlization for recurrent input to GRU
-        bias_reg = tf.keras.regularizers.l2(0.0)
-        bias_reg_attn = tf.keras.regularizers.l2(0.005)
+        DROPOUT = kwargs.get('dropout',0.0)
+        LOOKAHEAD_PARAMS = { "sync_period":1, "slow_step_size":0.99 }
         # endregion
         
         #region Key Model Size Settings
 
-        seq_len_for_highest_hierachy_level = 4 
+        seq_len_for_highest_hierachy_level = 4   # 2
 
-        SEQ_LEN_FACTOR_REDUCTION = [4, 5, 3 ]        # 6hrs -> 4days -> 12 days
+        SEQ_LEN_FACTOR_REDUCTION = [4, 4, 3 ]        # 6hr -> 4days -> 12 days
+            #This represents the rediction in seq_len when going from layer 1 to layer 2 and layer 2 to layer 3 in the encoder / decoder
+            # 6hrs, 1Day, 1Week, 1Month
         # endregion
         
         # region Model Specific Data Generator Params
@@ -386,8 +389,8 @@ class TRUNET_EF_hparams(HParams):
             'num_heads': nh , 'dropout_rate':DROPOUT, 'max_relative_position':None,
             "transform_value_antecedent":True,  "transform_output":True, 
             'implementation':1,
-            "value_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':bias_reg_attn, 'padding':'same' },
-            "output_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"outp", 'bias_regularizer':bias_reg_attn,'padding':'same' }
+            "value_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':tf.keras.regularizers.l2(0.00002), 'padding':'same' },
+            "output_conv":{ "filters":int(output_filters_enc[idx] * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"outp", 'bias_regularizer':tf.keras.regularizers.l2(0.00002),'padding':'same' }
             } 
             for kd, vd ,nh, idx in zip( key_depth, val_depth, attn_heads,range(attn_layers_count) )
         ] 
@@ -455,8 +458,6 @@ class TRUNET_EF_hparams(HParams):
         # endregion
 
         # region --------------- OUTPUT_LAYER_PARAMS and Upscaling-----------------
-
- 
         output_filters = [  int(  8*(((output_filters_dec[-1]*2)/4)//8)) ] + [ 1 ]  #[ 2, 1 ]   # [ 8, 1 ]
 
         output_kernel_size = [ (3,3), (2,2) ] 
@@ -469,7 +470,7 @@ class TRUNET_EF_hparams(HParams):
         ]
   
         self.params.update( {
-            'model_name':"THST",
+            'model_name':"TRUNET_EF",
             'model_type_settings':model_type_settings,
     
             'encoder_params':ENCODER_PARAMS,
@@ -481,8 +482,6 @@ class TRUNET_EF_hparams(HParams):
             'lookahead_params':LOOKAHEAD_PARAMS,
             'dropout':DROPOUT
             } )
-
-
 
 class train_hparameters_ati(HParams):
     """ Parameters for testing """
@@ -736,3 +735,52 @@ class test_hparameters_ati(HParams):
             #'train_test_size':self.tst,
         }
 
+class t_params_wb(HParams):
+    def __init__(self, **kwargs):
+        self.lead_time = kwargs.get('lead_time',5)
+        self.batch_size = kwargs.get("batch_size",None)
+        self.dd = kwargs.get("data_dir") 
+
+        kwargs.pop('batch_size')
+        kwargs.pop('lead_time')
+
+        super( t_params_wb, self).__init__(**kwargs)
+
+    def _default_params(self):
+        # region -------data pipepline vars
+        trainable = True
+        train_years = ('1979-01-01', '2010-12-31')
+        val_years = ('2011-01-01', '2016-12-31')
+        test_years = ('2017-01-01', '2018-12-31')
+
+        WINDOW_SHIFT = self.lead_time
+        BATCH_SIZE = self.batch_size
+        # endregion
+
+        NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
+        EPOCHS = 600
+        CHECKPOINTS_TO_KEEP = 5
+        
+        DATA_DIR = self.dd
+
+        EARLY_STOPPING_PERIOD = 30
+ 
+        self.params = {
+            'input_shape': (None, 32, 64, 7 ),
+            'batch_size':BATCH_SIZE,
+            'epochs':EPOCHS,
+            'early_stopping_period':EARLY_STOPPING_PERIOD,
+            'trainable':trainable,
+            
+            'checkpoints_to_keep':CHECKPOINTS_TO_KEEP,
+
+            'num_parallel_calls':NUM_PARALLEL_CALLS,
+
+            'data_dir': DATA_DIR,
+            'lead_time':5,
+            'window_shift': WINDOW_SHIFT,
+            'train_years': train_years,
+            'val_years':val_years,
+            'test_years':test_years
+
+        }

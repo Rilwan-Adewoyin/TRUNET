@@ -113,6 +113,7 @@ class TrainTruNet():
             #This training records keeps track of the losses on each epoch
         try:
             self.df_training_info = pd.read_csv( "checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(m_params,t_params=self.t_params)), header=0, index_col=False) 
+            self.df_training_info = self.df_training_info[['Epoch','Train_loss','Train_Mse','Val_loss','Val_mse','Checkpoint_Path','Last_Trained_Batch']]
             self.start_epoch =  int(max([self.df_training_info['Epoch'][0]], default=0))
             last_batch = int( self.df_training_info.loc[self.df_training_info['Epoch']==self.start_epoch,'Last_Trained_Batch'].iloc[0] )
             if(last_batch in [-1, self.t_params['train_batches']] ):
@@ -126,7 +127,7 @@ class TrainTruNet():
 
         except FileNotFoundError as e:
             #If no file found, then make new training records file
-            self.df_training_info = pd.DataFrame(columns=['Epoch','Train_loss','Val_loss','Checkpoint_Path', 'Last_Trained_Batch'] ) 
+            self.df_training_info = pd.DataFrame(columns=['Epoch','Train_loss','Train_Mse','Val_loss','Val_mse','Checkpoint_Path','Last_Trained_Batch'] ) 
             self.batches_to_skip = 0
             self.start_epoch = 0
             print("Did not recover training records. Starting from scratch")
@@ -238,10 +239,10 @@ class TrainTruNet():
                 pass
             elif epoch_non_update >= -3:
                 r_batch_size = max( [self.t_params['batch_size']//(2*self.strategy_gpu_count), 2] )
-            elif epoch_non_update >= -7:
-                    r_batch_size = max( [self.t_params['batch_size']//(4*self.strategy_gpu_count) ,2] )
-            elif epoch_non_update >= -20:
-                    r_batch_size = max( [self.t_params['batch_size']//(8*self.strategy_gpu_count) ,2] )
+            elif epoch_non_update >= -5:
+                r_batch_size = max( [self.t_params['batch_size']//(4*self.strategy_gpu_count) ,2] )
+            elif epoch_non_update >= -15:
+                r_batch_size = max( [self.t_params['batch_size']//(8*self.strategy_gpu_count) ,2] )
             
             start_epoch_train = time.time()
             start_batch_group_time = time.time()
@@ -420,8 +421,6 @@ class TrainTruNet():
                 loss_to_optimize = 0
 
                 #NOTE: Error on vandal equation 14 last line, he forgets to put the logs and forgets the negative symbol so correct in yours
-                loss_to_optimize += tf.reduce_mean( 
-                                tf.keras.backend.binary_crossentropy(labels_true, labels_pred, from_logits=False) ) 
 
                 if self.m_params['model_type_settings']['distr_type'] == 'Normal': 
                     # CC Normal
@@ -431,6 +430,15 @@ class TrainTruNet():
                     # CC LogNormal                                                             
                     loss_to_optimize += cl.log_mse( target_cond_rain, preds_cond_rain, all_count)                                                         
                 
+                if r_batch_size == per_gpu_bs:
+                    loss_to_optimize += tf.reduce_mean( 
+                                    tf.keras.backend.binary_crossentropy(labels_true, labels_pred, from_logits=False) ) 
+                    loss_for_record = loss_to_optimize
+                
+                else:
+                    loss_for_record  = loss_to_optimize + tf.reduce_mean( 
+                                    tf.keras.backend.binary_crossentropy(labels_true, labels_pred, from_logits=False) ) 
+
                 metric_mse  = cl.mse( target_masked, cl.cond_rain(preds_masked, probs_masked) )   
                     # To calculate metric_mse for CC model we assume that pred_rain=0 if pred_prob<0.5 
                 # endregion
@@ -446,8 +454,8 @@ class TrainTruNet():
         # Metrics (batchwise, epoch)  
         # we pass in non global_batch_averaged results to keras.Metrics.Mean 
         # as advised in tensorflow multi-gpu script  
-        self.loss_agg_batch( loss_to_optimize )
-        self.loss_agg_epoch( loss_to_optimize )
+        self.loss_agg_batch( loss_for_record )
+        self.loss_agg_epoch( loss_for_record )
         self.mse_agg_epoch( metric_mse )        
         return gradients
                 

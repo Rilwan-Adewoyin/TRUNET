@@ -32,7 +32,7 @@ except:
 class TRUNET_Encoder(tf.keras.layers.Layer):
 	"""TRU-NET Encoder-Decoder Encoder
 	"""	
-	def __init__(self, train_params, encoder_params, h_w, attn_ablation=0):
+	def __init__(self, t_params, encoder_params, h_w, attn_ablation=0):
 		"""
 
 		Args:
@@ -44,15 +44,15 @@ class TRUNET_Encoder(tf.keras.layers.Layer):
 		"""		
 		super( TRUNET_Encoder, self ).__init__()
 		self.encoder_params = encoder_params
-		self.train_params = train_params
+		self.t_params = t_params
 		self.layer_count = encoder_params['enc_layer_count']	
 		
-		self.CGRU_Input_Layer = TRUNET_CGRU_Input_Layer( train_params, encoder_params['CGRUs_params'][0] )
+		self.CGRU_Input_Layer = TRUNET_CGRU_Input_Layer( t_params, encoder_params['CGRUs_params'][0] )
 
 		#Dynamically init ConvGRU w/ ILCA layers
 		self.CGRU_Attn_layers = []
 		for idx in range( encoder_params['attn_layers_count'] ):
-			_layer = TRUNET_CGRU_Attention_Layer( train_params, encoder_params['CGRUs_params'][idx+1],
+			_layer = TRUNET_CGRU_Attention_Layer( t_params, encoder_params['CGRUs_params'][idx+1],
 						encoder_params['ATTN_params'][idx], encoder_params['ATTN_DOWNSCALING_params_enc'] ,
 						encoder_params['seq_len_factor_reduction'][idx], self.encoder_params['attn_layers_num_of_splits'][idx],
 						h_w, attn_ablation )
@@ -81,26 +81,26 @@ class TRUNET_Encoder(tf.keras.layers.Layer):
 		return hidden_states
 
 class TRUNET_Decoder(tf.keras.layers.Layer):
-	def __init__(self, train_params ,decoder_params, h_w):
+	def __init__(self, t_params ,decoder_params, h_w):
 		"""
 		:param list decoder_params: a list of dictionaries of the contained LSTM's params
 		"""
 		super( TRUNET_Decoder, self ).__init__()
 		self.decoder_params = decoder_params
-		self.train_params = train_params
+		self.t_params = t_params
 		self.layer_count = decoder_params['decoder_layer_count']
 		#self.h_w = h_w
 		#self.encoder_hidden_state_count = self.layer_count + 1
 		
 		self.CGRU_2cell_layers = []
 		for idx in range( self.layer_count ):
-			_layer = TRUNET_CGRU_Decoder_Layer( train_params, self.decoder_params['CGRUs_params'][idx], 
+			_layer = TRUNET_CGRU_Decoder_Layer( t_params, self.decoder_params['CGRUs_params'][idx], 
 												decoder_params['seq_len_factor_expansion'][idx],
 												decoder_params['seq_len'][idx], h_w )
 			self.CGRU_2cell_layers.append(_layer)
 
 		self.seq_lens = self.decoder_params['attn_layer_no_splits']
-		#self.shape1 = [ sum( self.seq_lens ) ] + [ self.train_params['batch_size'] ] + [h_w[0], h_w[1], self.decoder_params['CGRUs_params'][0]['filters']*2 ] 
+		#self.shape1 = [ sum( self.seq_lens ) ] + [ self.t_params['batch_size'] ] + [h_w[0], h_w[1], self.decoder_params['CGRUs_params'][0]['filters']*2 ] 
 	
 	def call(self, hidden_states, training=True):
 
@@ -114,16 +114,15 @@ class TRUNET_Decoder(tf.keras.layers.Layer):
 		return dec_hs_outp
 
 class TRUNET_OutputLayer(tf.keras.layers.Layer):
-	def __init__(self, train_params,layer_params, model_type_settings, dropout_rate):
+	def __init__(self, t_params,layer_params, model_type_settings, dropout_rate):
 		"""
 			:param list layer_params: a list of dicts of params for the layers
 		"""
 		super( TRUNET_OutputLayer, self ).__init__()
 
-		self.trainable = train_params['trainable']
+		self.trainable = t_params['trainable']
 		
 		self.dc = model_type_settings['discrete_continuous']
-		
 		
 		self.do0 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=dropout_rate, data_format = 'channels_last') )
 		self.do1 = tf.keras.layers.TimeDistributed( tf.keras.layers.SpatialDropout2D( rate=dropout_rate, data_format = 'channels_last') )
@@ -131,15 +130,18 @@ class TRUNET_OutputLayer(tf.keras.layers.Layer):
 		if not self.dc:			
 			self.conv_hidden = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
 			self.conv_output = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
-			self.float32_custom_relu = OutputReluFloat32(train_params) 
+			self.float32_custom_relu = OutputReluFloat32(t_params) 
 		
 		else:
 			self.conv_hidden_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
 			self.conv_hidden_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
+
 			self.conv_output_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
 			self.conv_output_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
+
 			self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
-			self.output_activation_val = CustomRelu_maker(train_params, dtype='float32')
+
+			self.output_activation_val = CustomRelu_maker(t_params, dtype='float32')
 			self.output_activation_prob = tf.keras.layers.Activation('sigmoid', dtype='float32')
 
 	def call(self, _inputs, training=True ):
@@ -153,8 +155,8 @@ class TRUNET_OutputLayer(tf.keras.layers.Layer):
 			outp = self.float32_custom_relu(outp)   
 		
 		else:
-			x_val = self.conv_hidden_val( self.do0(_inputs,training=training),training=training )
-			x_prob = self.conv_hidden_prob( self.do1(_inputs,training=training),training=training )
+			x_val = self.conv_hidden_val( self.do0(_inputs,training=training))
+			x_prob = self.conv_hidden_prob( self.do1(_inputs,training=training) )
 			
 			x_val = self.conv_output_val( x_val, training=training)
 			x_prob = self.conv_output_prob( x_prob, training=training)
@@ -172,7 +174,7 @@ class TRUNET_OutputLayer(tf.keras.layers.Layer):
 class TRUNET_CGRU_Input_Layer(tf.keras.layers.Layer):
 	"""Convolutional GRU Input Layer
 	"""	
-	def __init__(self, train_params, layer_params):
+	def __init__(self, t_params, layer_params):
 		super( TRUNET_CGRU_Input_Layer, self ).__init__()
 			
 		self.layer_params = layer_params #list of dictionaries containing params for all layers
@@ -191,10 +193,10 @@ class TRUNET_CGRU_Attention_Layer(tf.keras.layers.Layer):
 		Returns:
 			[type]: tensor of shape (bs, seq_len/n, h2, w2, c2)
 	"""	
-	def __init__(self, train_params, CGRU_params, attn_params, attn_downscaling_params ,seq_len_factor_reduction, num_of_splits, h_w, attn_ablation=0 ):
+	def __init__(self, t_params, CGRU_params, attn_params, attn_downscaling_params ,seq_len_factor_reduction, num_of_splits, h_w, attn_ablation=0 ):
 		super( TRUNET_CGRU_Attention_Layer, self ).__init__()
 
-		self.trainable 					= train_params['trainable']
+		self.trainable 					= t_params['trainable']
 		self.num_of_splits 				= num_of_splits
 		self.slfr 						= seq_len_factor_reduction
 		self.attn_ablation				= attn_ablation
@@ -217,7 +219,7 @@ class TRUNET_CGRU_Attention_Layer(tf.keras.layers.Layer):
 		return hidden_states #shape(bs, seq_len, h, w, 2*c2)
 
 class TRUNET_CGRU_Decoder_Layer(tf.keras.layers.Layer):
-	def __init__(self, train_params ,layer_params, input_2_factor_increase, seq_len, h_w ):
+	def __init__(self, t_params ,layer_params, input_2_factor_increase, seq_len, h_w ):
 		super( TRUNET_CGRU_Decoder_Layer, self ).__init__()
 		
 		self.layer_params = layer_params
@@ -255,21 +257,21 @@ class TRUNET_CGRU_Decoder_Layer(tf.keras.layers.Layer):
 
 # region --- TRU-NET Encoder-Forecaster
 class TRUNET_EF_Encoder(tf.keras.layers.Layer):
-	def __init__(self, train_params, encoder_params, h_w):
+	def __init__(self, t_params, encoder_params, h_w):
 		super( TRUNET_EF_Encoder, self ).__init__()
 		self.encoder_params = encoder_params
-		self.train_params = train_params
+		self.t_params = t_params
 		self.layer_count = encoder_params['enc_layer_count']
 		self.seq_len_factor = encoder_params['seq_len_factor_reduction']
 		
-		self.CGRU_Input_Layer = TRUNET_CGRU_Input_Layer( train_params, encoder_params['CGRUs_params'][0] )
+		self.CGRU_Input_Layer = TRUNET_CGRU_Input_Layer( t_params, encoder_params['CGRUs_params'][0] )
 
 		self.CGRU_dsample = []
 		self.CGRU_Attn_layers = []
 		
 		for idx in range( encoder_params['attn_layers_count'] ):
 			_layer_dsample = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( filters= encoder_params['CGRUs_params'][idx]['filters'] , kernel_size=(2,2), strides=(2,2), activation=None, padding='same'   ) )
-			_layer = TRUNET_CGRU_Attention_Layer( train_params, encoder_params['CGRUs_params'][idx+1],
+			_layer = TRUNET_CGRU_Attention_Layer( t_params, encoder_params['CGRUs_params'][idx+1],
 						encoder_params['ATTN_params'][idx], encoder_params['ATTN_DOWNSCALING_params_enc'] ,
 						encoder_params['seq_len_factor_reduction'][idx], self.encoder_params['attn_layers_num_of_splits'][idx],
 						h_w )

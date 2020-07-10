@@ -24,6 +24,7 @@ import utility
     datum = next(iter(grib_gen))
 
 """
+# region -- Era5_Eobs
 class Generator():
     """
         Base class for Generator classes
@@ -208,8 +209,6 @@ class Generator():
 
         li_boundaries = [ x for x in li_boundaries if x not in boundaries_to_remove]
         return li_boundaries 
-
-# region -- Era5_Eobs
 
 class Generator_rain(Generator):
     """ A generator for E-obs 0.1 degree rain data
@@ -518,4 +517,191 @@ class Era5_Eobs():
 # endregion
 
 # region -- Weather Bench
+class Generator_wb():
+    def __init__(self, ds, var_dict, lead_time, seq_len ,batch_size=32, shuffle=False, load=False, 
+                        mean=None, std=None, ds_constant=None, 
+                        var_dict_constants=None, constant_mean=None, constant_std=None,
+                        **kwargs):
+        """
+            Data generator for WeatherBench data.
+            Template from https://stanford.edu/~shervine/blog/keras-how-to-generate-data-on-the-fly
+            Args:
+                ds: Dataset containing all variables
+                var_dict: Dictionary of the form {'var': level}. Use None for level if data is of single level
+                seq_len: Should be calculated by my THST model and passed to this function
+                lead_time: Lead time in hours
+                batch_size: Batch size
+                shuffle: bool. If True, data is shuffled.
+                load: bool. If True, datadet is loaded into RAM.
+                mean: If None, compute mean from data.
+                std: If None, compute standard deviation from data.
+        """
+        self.ds = ds
+        self.var_dict = var_dict
+        self.seq_len = seq_len
+        self.shuffle = shuffle
+        self.lead_time = lead_time
+        self.ds_constant = ds_constant
 
+        data = []
+        generic_level = xr.DataArray([1], coords={'level': [1]}, dims=['level'])
+
+        #Getting non constant data "longitude and latitude"
+        for var, levels in var_dict.items():
+            try:
+                data.append(ds[var].sel(level=levels))
+            except ValueError:
+                data.append(ds[var].expand_dims({'level': generic_level}, 1))
+        self.data = xr.concat(data, 'level').transpose('time', 'lat', 'lon', 'level')
+                
+        self.mean = self.data.mean(('time', 'lat', 'lon')).compute() if mean is None else mean
+        self.std = self.data.std(('lat','lon')).mean('std').compute() if std is None else std
+        
+
+        #Getting constant level data
+        data_constant = []
+        if self.ds_constant != None:
+            ds_constant = ds_constant.expand_dims({'level': generic_level}, -1) 
+            for var, levels in var_dict.items():
+                #Figure out what to replace lat2d and lon2d with layer
+                data_constant.append( data_constant[var] )
+
+        data_constant = xr.concat(data_constant, 'level').transpose('lat', 'lon', 'level')
+        
+        #Preproc lon and lat here
+        X_constant = data_constant.values
+        X_constant = self.latlon_to_surface_dist( X_constant)
+        
+        self.constant_mean = np.mean(X_constant, [0,1] ) if constant_mean is None else constant_mean
+        self.constant_std = np.std(X_constant, [0,1] ) if constant_std is None else constant_std
+                
+        # Normalize
+        self.data = (self.data - self.mean) / self.std
+        data_constant = (data_constant - self.constant_mean)/ self.constant_std
+        self.X_constant = np.broadcast_to( X_constant, [self.seq_len] + list(X_constant.shape) )
+
+        self.n_samples = self.data.isel(time=slice(0, -lead_time)).shape[0]
+        self.idxs = np.arange(self.n_samples)
+        self.i = 0
+        
+    def latlon_to_surface_dist(self, arr_latlon):
+        """:param arr_latlon npar: is (k,w,2) wher last dim is lon lat"""
+
+        lon_vals = []
+        #Calculating the longitude distances
+        for idx0 in range(arr_latlon.shape[0]): #lat
+            _vals_row = []
+            for idx1 in range (arr_latlon.shape[1]): #lon
+                if idx1 == 0:
+                    p_mid = arr_latlon[idx0,idx1,:] 
+                    p_high = arr_latlon[idx0,idx1+1,:]
+                    _val = geopy.distance.geodesic( p_mid, p_high).km
+
+                elif idx1 == arr_latlon.shape[1]-1:
+                    p_mid = arr_latlon[idx0,idx1,:] 
+                    p_low = arr_latlon[idx0,idx1-1,:]
+                    _val = geopy.distance.geodesic( p_mid, p_low).km
+
+                else:
+                    p_high = arr_latlon[idx0,idx1+1,:] 
+                    p_low = arr_latlon[idx0,idx1-1,:]
+                    _val = geopy.distance.geodesic( p_low, p_high).km /2
+                    
+
+                _vals_row.append( _val)
+            lon_vals.append(_vals_row)
+        lon_vals = np.array( lon_vals)
+
+        lat_vals = []
+        #Calculating the latitude distances
+        for idx1 in range(arr_latlon.shape[1]): #lon
+            _vals_row = []
+            for idx0 in range (arr_latlon.shape[0]): #lat
+                if idx0 == 0:
+                    p_mid = arr_latlon[idx0,idx1,:] 
+                    p_high = arr_latlon[idx0+1,idx1,:]
+                    _val = geopy.distance.geodesic( p_mid, p_high).km
+
+                elif idx0 == arr_latlon.shape[0]-1:
+                    p_mid = arr_latlon[idx0,idx1,:] 
+                    p_low = arr_latlon[idx0-1,idx1,:]
+                    _val = geopy.distance.geodesic( p_mid, p_low).km
+
+                else:
+                    p_high = arr_latlon[idx0+1,idx1,:] 
+                    p_low = arr_latlon[idx0-1,idx1,:]
+                    _val = geopy.distance.geodesic( p_low, p_high).km /2
+                    
+                _vals_row.append( _val)
+            lat_vals.append(_vals_row)
+        lat_vals = np.array( lat_vals).T
+    
+        arr_dist = np.stack( [lat_vals,lon_vals], axis=-1 )
+        return arr_dist
+        
+    def yield_iter(self, i):
+        
+        while (self.i+1 * self.seq_len) < self.n_samples:
+            idxs = self.idxs[ i * self.seq_len: (i + 1) * self.seq_len ]   
+            self.i += 1        
+            X = self.data.isel( time=idxs ).values
+            Y = self.data.isel( time=idxs + self.lead_time).values
+                    
+            X = np.concatenate( [X, self.X_constant],  axis=-1)
+
+            yield X, Y
+        #Concatenating constant fields
+
+    def __call__(self):
+        return self.yield_iter(self.i)
+
+def make_datasets_wb(t_params):
+    datadir = t_params['data_dir']
+    #xarray files
+    z500 = xr.open_mfdataset(f'{datadir}/geopotential_500_5.625deg/*.nc', combine='by_coords')
+    t850 = xr.open_mfdataset(f'{datadir}/temperature_850_5.625deg/*.nc', combine='by_coords')
+    rel_hu = xr.open_mfdataset(f'{datadir}/relative_humidity_700_5.625deg/*.nc', combine='by_coords')
+    z1000 = xr.open_mfdataset(f'{datadir}/geopotential_1000_5.625deg/*.nc', combine='by_coords')
+    z1000 = z1000.rename_vars( {{'z':'z1000'}} )
+    temp2m =  xr.open_mfdataset(f'{datadir}/2m_temperature_5.625deg/*.nc', combine='by_coords')
+    constants = xr.open_mfdataset(f'{datadir}/constants_5.625deg/*.nc', combine='by_coords')
+
+    ds = xr.merge( [z500, t850, rel_hu, z1000, temp2m ])
+    var_dict = OrderedDict( {'z':None, 't':None, 'rel_hu':None, 'z1000':None, 't2m':None })
+    ds_constants = constants #fields that are time invariant
+    var_dict_constants = OrderedDict( { "lsm":None, "lat2d":None, "lon2d":None  })
+
+    train_years = t_params['train_years']   #(1979,2012)
+    val_years = t_params['val_years']       #(2013,2016)
+    test_years = t_params['test_years']     #(2017, 2018)
+
+    ds_train = ds.sel( time=slice(*train_years) )
+    ds_train_constant = ds_constants.sel( time=slice(*train_years)  )
+    
+    ds_val = ds.sel( time=slice(*val_years) )
+    ds_val_constant = ds_constants.sel( time=slice(*val_years)  )
+    
+    ds_test = ds.sel( time=slice(*test_years) )
+    ds_test_constant = ds_constants.sel( time=slice(*test_years)  )
+
+    data_gen_train = Generator_wb( ds_train,var_dict, ds_constant=ds_train_constant, var_dict_constant=var_dict_constants,**t_params )
+    # Mean and Validation from training ds
+    train_mean = data_gen_train.mean  
+    train_std = data_gen_train.std
+    train_constant_mean = data_gen_train.constant_mean
+    train_constant_std = data_gen_train.constant_std
+
+    data_gen_val = Generator_wb( ds_val, var_dict, ds_constant=ds_val_constant, var_dict_constant=var_dict_constants,
+                    mean=train_mean , std=train_std, constant_mean=train_constant_mean, constant_std=train_constant_std,
+                    **t_params )
+    data_gen_test = Generator_wb( ds_test,var_dict, ds_constant=ds_test_constant, var_dict_constant=var_dict_constants,
+                    mean=train_mean, std=train_std,  constant_mean=train_constant_mean, constant_std=train_constant_std,
+                    **t_params )
+    
+    ds_train = tf.data.Dataset.from_generator( data_gen_train, output_types=( tf.float16, tf.float16 ) ).batch( t_params('batch_size') )
+    ds_val = tf.data.Dataset.from_generator( data_gen_val, output_types=( tf.float16, tf.float16 ) ).batch( t_params['batch_size'] )
+    ds_test = tf.data.Dataset.from_generator( data_gen_test, output_types=( tf.float16, tf.float16 ) ).batch( 1 )
+
+    return ds_train, ds_val, ds_test
+
+#endregion
