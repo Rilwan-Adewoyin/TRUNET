@@ -113,7 +113,7 @@ class TrainTruNet():
             #This training records keeps track of the losses on each epoch
         try:
             self.df_training_info = pd.read_csv( "checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(m_params,t_params=self.t_params)), header=0, index_col=False) 
-            self.df_training_info = self.df_training_info[['Epoch','Train_loss','Train_Mse','Val_loss','Val_mse','Checkpoint_Path','Last_Trained_Batch']]
+            self.df_training_info = self.df_training_info[['Epoch','Train_loss','Train_mse','Val_loss','Val_mse','Checkpoint_Path','Last_Trained_Batch']]
             self.start_epoch =  int(max([self.df_training_info['Epoch'][0]], default=0))
             last_batch = int( self.df_training_info.loc[self.df_training_info['Epoch']==self.start_epoch,'Last_Trained_Batch'].iloc[0] )
             if(last_batch in [-1, self.t_params['train_batches']] ):
@@ -127,7 +127,7 @@ class TrainTruNet():
 
         except FileNotFoundError as e:
             #If no file found, then make new training records file
-            self.df_training_info = pd.DataFrame(columns=['Epoch','Train_loss','Train_Mse','Val_loss','Val_mse','Checkpoint_Path','Last_Trained_Batch'] ) 
+            self.df_training_info = pd.DataFrame(columns=['Epoch','Train_loss','Train_mse','Val_loss','Val_mse','Checkpoint_Path','Last_Trained_Batch'] ) 
             self.batches_to_skip = 0
             self.start_epoch = 0
             print("Did not recover training records. Starting from scratch")
@@ -424,14 +424,14 @@ class TrainTruNet():
 
                 if self.m_params['model_type_settings']['distr_type'] == 'Normal': 
                     # CC Normal
-                    loss_to_optimize += 1.1*cl.mse( target_cond_rain, preds_cond_rain, all_count )
+                    loss_to_optimize += 1.2*cl.mse( target_cond_rain, preds_cond_rain, all_count )
                 
                 elif self.m_params['model_type_settings']['distr_type'] == 'LogNormal':    
                     # CC LogNormal                                                             
                     loss_to_optimize += cl.log_mse( target_cond_rain, preds_cond_rain, all_count)                                                         
                 
                 if True:
-                    loss_to_optimize += 0.9*tf.reduce_mean( tf.keras.backend.binary_crossentropy(labels_true, labels_pred, from_logits=False) ) 
+                    loss_to_optimize += 0.8*tf.reduce_mean( tf.keras.backend.binary_crossentropy(labels_true, labels_pred, from_logits=False) ) 
                     loss_for_record = loss_to_optimize
                 
                 else:
