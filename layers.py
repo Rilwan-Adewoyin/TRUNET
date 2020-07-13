@@ -134,7 +134,7 @@ class TRUNET_OutputLayer(tf.keras.layers.Layer):
 		
 		else:
 			self.conv_hidden_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
-			self.conv_hidden_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( bias_regularizer= tf.keras.regularizers.l2(0.001),**layer_params[0] ) )
+			self.conv_hidden_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( bias_regularizer= tf.keras.regularizers.l2(0.0001),**layer_params[0] ) )
 
 			self.conv_output_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
 			self.conv_output_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
