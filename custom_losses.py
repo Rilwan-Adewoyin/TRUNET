@@ -49,7 +49,7 @@ def cond_rain(vals, probs):
         If prob of event occuring is above 0.5 return predicted conditional event value,
         If it is below 0.5, then return 0
     """
-    round_probs = tf.where(probs<0.5,0.0,1.0)
+    round_probs = tf.where(probs<=0.5,0.0,1.0)
     vals = vals* round_probs
     return vals
 

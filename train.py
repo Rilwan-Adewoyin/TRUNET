@@ -388,12 +388,16 @@ class TrainTruNet():
                 # For Large Batches we need to dynamically operate on smaller batches to improve loss, retains speed of larger epochs tho
                 per_gpu_bs = self.t_params['batch_size']//self.strategy_gpu_count
                 
+                
                 if r_batch_size != per_gpu_bs:
-                    indices = tf.random.uniform( [ r_batch_size ], minval=0 , maxval=per_gpu_bs, dtype=tf.int32 )
-                    preds = tf.gather( preds, indices, axis=0)
-                    probs = tf.gather( probs, indices, axis=0)
-                    target= tf.gather( target,indices, axis=0)
-                    mask    = tf.gather(mask, indices, axis=0)
+                    # indices = tf.random.uniform( [ r_batch_size ], minval=0 , maxval=per_gpu_bs, dtype=tf.int32 )
+                    # preds = tf.gather( preds, indices, axis=0)
+                    # probs = tf.gather( probs, indices, axis=0)
+                    # target= tf.gather( target,indices, axis=0)
+                    # mask    = tf.gather(mask, indices, axis=0)
+
+                    mask2 = tf.where(target>0.5, True, False)
+                    mask = tf.logical_and(mask, mask2)
 
                 # applying mask to predicted values
                 preds_masked    = tf.boolean_mask(preds, mask )
