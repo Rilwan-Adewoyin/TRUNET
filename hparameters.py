@@ -79,7 +79,7 @@ class model_TRUNET_hparameters(MParams):
         #     "amsgrad":True,         "decay":0.0008,              "epsilon":1e-8 } #Rectified Adam params
         
         REC_ADAM_PARAMS = {
-            "learning_rate":1.5e-3,   "warmup_proportion":0.65,
+            "learning_rate":2e-3,   "warmup_proportion":0.65,
             "min_lr":9e-4,         "beta_1":0.5,               "beta_2":0.98,
             "amsgrad":True,         "decay":0.0008,              "epsilon":1e-8 } #Rectified Adam params            
         
@@ -227,7 +227,7 @@ class model_TRUNET_hparameters(MParams):
 
             'rec_adam_params':REC_ADAM_PARAMS,
             'dropout':DROPOUT,
-            'clip_norm':9.0
+            'clip_norm':9.4
             } )
 
 class model_SimpleConvGRU_hparamaters(MParams):

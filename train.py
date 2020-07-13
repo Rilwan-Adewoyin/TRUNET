@@ -516,12 +516,12 @@ class TrainTruNet():
             target_cond_rain    = tf.boolean_mask( target_masked, bool_rain )
                                 
             # Calculating cross entropy loss                         
-            loss = 0.9*tf.reduce_mean(  tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )
+            loss = 0.85*tf.reduce_mean(  tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )
 
             # Calculating conditional continuous loss
             if self.m_params['model_type_settings']['distr_type'] == 'Normal':
                 #Conditional Normal distribution
-                loss    += 1.1*cl.mse( preds_cond_rain, target_cond_rain, all_count )
+                loss    += 1.15*cl.mse( preds_cond_rain, target_cond_rain, all_count )
 
             elif self.m_params['model_type_settings']['distr_type'] == 'LogNormal':  
                 #COnditional LogNormal distribution                 
