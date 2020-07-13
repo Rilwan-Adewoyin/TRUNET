@@ -388,6 +388,7 @@ class TrainTruNet():
                 
                 
                 if r_batch_size != per_gpu_bs:
+                    pass
                     # indices = tf.random.uniform( [ r_batch_size ], minval=0 , maxval=per_gpu_bs, dtype=tf.int32 )
                     # preds = tf.gather( preds, indices, axis=0)
                     # probs = tf.gather( probs, indices, axis=0)
