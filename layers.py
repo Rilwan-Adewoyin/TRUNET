@@ -143,6 +143,7 @@ class TRUNET_OutputLayer(tf.keras.layers.Layer):
 
 			self.output_activation_val = CustomRelu_maker(t_params, dtype='float32')
 			self.output_activation_prob = tf.keras.layers.Activation('sigmoid', dtype='float32')
+			#self.output_activation_prob = tf.keras.layers.Activation()
 
 	def call(self, _inputs, training=True ):
 		"""
@@ -165,7 +166,8 @@ class TRUNET_OutputLayer(tf.keras.layers.Layer):
 			outp_prob = self.float32_output(x_prob)
 
 			outp_val = self.output_activation_val(outp_val)
-			outp_prob = self.output_activation_prob(outp_prob)
+			#outp_prob = self.output_activation_prob(outp_prob)
+			outp_prob = tf.keras.activations.relu(outp_prob, max_value=1.0 )
 
 			outp = tf.stack([outp_val, outp_prob], axis=0)
 

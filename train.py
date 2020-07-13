@@ -145,7 +145,7 @@ class TrainTruNet():
             self.t_params['gpu_count'] = self.strategy.num_replicas_in_sync    
             self.model = models.model_loader( self.t_params, self.m_params )
             #Optimizer
-            optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*20 ) #, weight_decay=1.25e-5 )         
+            optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*20, weight_decay=1.25e-5 )         
             self.optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) 
                     
         
@@ -394,8 +394,8 @@ class TrainTruNet():
                     # target= tf.gather( target,indices, axis=0)
                     # mask    = tf.gather(mask, indices, axis=0)
 
-                    mask2 = tf.where(target>0.5, True, False)
-                    mask = tf.logical_and(mask, mask2)
+                    # mask2 = tf.where(target>0.5, True, False)
+                    # mask = tf.logical_and(mask, mask2)
 
                 # applying mask to predicted values
                 preds_masked    = tf.boolean_mask(preds, mask )
