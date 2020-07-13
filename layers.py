@@ -134,7 +134,7 @@ class TRUNET_OutputLayer(tf.keras.layers.Layer):
 		
 		else:
 			self.conv_hidden_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
-			self.conv_hidden_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( bias_regularizer= tf.keras.regularizers.l2(0.0001),**layer_params[0] ) )
+			self.conv_hidden_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
 
 			self.conv_output_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
 			self.conv_output_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
@@ -143,7 +143,7 @@ class TRUNET_OutputLayer(tf.keras.layers.Layer):
 
 			self.output_activation_val = CustomRelu_maker(t_params, dtype='float32')
 			self.output_activation_prob = tf.keras.layers.Activation('sigmoid', dtype='float32')
-			
+				
 
 	def call(self, _inputs, training=True ):
 		"""
@@ -156,8 +156,11 @@ class TRUNET_OutputLayer(tf.keras.layers.Layer):
 			outp = self.float32_custom_relu(outp)   
 		
 		else:
-			x_val = self.conv_hidden_val( self.do0(_inputs,training=training))
-			x_prob = self.conv_hidden_prob( self.do1(_inputs,training=training) )
+			indexes1 = tf.range(start=0, limit=_inputs.shape[0]//2, dtype=tf.int32)
+			indexes2 = tf.range(start=_inputs.shape[0]//2, limit=_inputs.shape[0], dtype=tf.int32)
+
+			x_val = self.conv_hidden_val( self.do0(tf.gather(_inputs,indexes1), training=training))
+			x_prob = self.conv_hidden_prob( self.do1(tf.gather(_inputs,indexes2),training=training) )
 			
 			x_val = self.conv_output_val( x_val, training=training)
 			x_prob = self.conv_output_prob( x_prob, training=training)
