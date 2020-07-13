@@ -211,7 +211,7 @@ class model_TRUNET_hparameters(MParams):
         activations = ['relu','linear']
 
         OUTPUT_LAYER_PARAMS = [ 
-            { "filters":fs, "kernel_size":ks , "padding":"same", "activation":act, 'bias_regularizer': None } 
+            { "filters":fs, "kernel_size":ks , "padding":"same", "activation":act }
                 for fs, ks, act in zip( output_filters, output_kernel_size, activations )
         ]
         # endregion

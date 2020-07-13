@@ -145,7 +145,7 @@ class TrainTruNet():
             self.t_params['gpu_count'] = self.strategy.num_replicas_in_sync    
             self.model = models.model_loader( self.t_params, self.m_params )
             #Optimizer
-            optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*20, weight_decay=1.25e-5 )         
+            optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*20) # , weight_decay=1.25e-5 )         
             self.optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) 
                     
         
@@ -384,12 +384,11 @@ class TrainTruNet():
                 target  = cl.extract_central_region(target, bounds)
 
                 # For Large Batches we need to dynamically operate on smaller batches to improve loss, retains speed of larger epochs tho
-                per_gpu_bs = self.t_params['batch_size']//self.strategy_gpu_count
+                #per_gpu_bs = self.t_params['batch_size']//self.strategy_gpu_count
                 
-                
-                if r_batch_size != per_gpu_bs:
-                    pass
-                    # indices = tf.random.uniform( [ r_batch_size ], minval=0 , maxval=per_gpu_bs, dtype=tf.int32 )
+                # if r_batch_size != per_gpu_bs:
+                #     pass
+                #     # indices = tf.random.uniform( [ r_batch_size ], minval=0 , maxval=per_gpu_bs, dtype=tf.int32 )
                     # preds = tf.gather( preds, indices, axis=0)
                     # probs = tf.gather( probs, indices, axis=0)
                     # target= tf.gather( target,indices, axis=0)

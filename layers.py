@@ -134,7 +134,7 @@ class TRUNET_OutputLayer(tf.keras.layers.Layer):
 		
 		else:
 			self.conv_hidden_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
-			self.conv_hidden_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
+			self.conv_hidden_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( bias_regularizer= tf.keras.regularizers.l2(0.001),**layer_params[0] ) )
 
 			self.conv_output_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
 			self.conv_output_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
@@ -143,7 +143,7 @@ class TRUNET_OutputLayer(tf.keras.layers.Layer):
 
 			self.output_activation_val = CustomRelu_maker(t_params, dtype='float32')
 			self.output_activation_prob = tf.keras.layers.Activation('sigmoid', dtype='float32')
-			#self.output_activation_prob = tf.keras.layers.Activation()
+			
 
 	def call(self, _inputs, training=True ):
 		"""
@@ -166,8 +166,8 @@ class TRUNET_OutputLayer(tf.keras.layers.Layer):
 			outp_prob = self.float32_output(x_prob)
 
 			outp_val = self.output_activation_val(outp_val)
-			#outp_prob = self.output_activation_prob(outp_prob)
-			outp_prob = tf.keras.activations.relu(outp_prob, max_value=1.0 )
+			outp_prob = self.output_activation_prob(outp_prob)
+			#outp_prob = tf.keras.activations.relu(outp_prob, max_value=1.0 )
 
 			outp = tf.stack([outp_val, outp_prob], axis=0)
 
