@@ -147,8 +147,7 @@ class TrainTruNet():
             #Optimizer
             optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*20 ) #, weight_decay=1.25e-5 )         
             self.optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) 
-            
-        
+                    
         
         with self.strategy.scope():
             # These objects will aggregate losses and metrics across batches and epochs
@@ -184,7 +183,6 @@ class TrainTruNet():
         os.makedirs("log_tensboard/{}".format(utility.model_name_mkr(m_params, t_params=self.t_params)), exist_ok=True ) 
         self.writer = tf.summary.create_file_writer( "log_tensboard/{}".format(utility.model_name_mkr(m_params,t_params=self.t_params) ) )
         # endregion
-        
         
         bc_ds_in_train = int( self.t_params['train_batches']/era5_eobs.loc_count  ) #batch_count
         bc_ds_in_val = int( self.t_params['val_batches']/era5_eobs.loc_count )
@@ -428,14 +426,14 @@ class TrainTruNet():
 
                 if self.m_params['model_type_settings']['distr_type'] == 'Normal': 
                     # CC Normal
-                    loss_to_optimize += 1.1*cl.mse( target_cond_rain, preds_cond_rain, all_count )
+                    loss_to_optimize += cl.mse( target_cond_rain, preds_cond_rain, all_count )
                 
                 elif self.m_params['model_type_settings']['distr_type'] == 'LogNormal':    
                     # CC LogNormal                                                             
                     loss_to_optimize += cl.log_mse( target_cond_rain, preds_cond_rain, all_count)                                                         
                 
                 if True:
-                    loss_to_optimize += 0.9*tf.reduce_mean( tf.keras.backend.binary_crossentropy(labels_true, labels_pred, from_logits=False) ) 
+                    loss_to_optimize += tf.reduce_mean( tf.keras.backend.binary_crossentropy(labels_true, labels_pred, from_logits=False) ) 
                     loss_for_record = loss_to_optimize
                 
                 else:
@@ -520,12 +518,12 @@ class TrainTruNet():
             target_cond_rain    = tf.boolean_mask( target_masked, bool_rain )
                                 
             # Calculating cross entropy loss                         
-            loss = 0.85*tf.reduce_mean(  tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )
+            loss = tf.reduce_mean(  tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )
 
             # Calculating conditional continuous loss
             if self.m_params['model_type_settings']['distr_type'] == 'Normal':
                 #Conditional Normal distribution
-                loss    += 1.15*cl.mse( preds_cond_rain, target_cond_rain, all_count )
+                loss    += cl.mse( preds_cond_rain, target_cond_rain, all_count )
 
             elif self.m_params['model_type_settings']['distr_type'] == 'LogNormal':  
                 #COnditional LogNormal distribution                 
