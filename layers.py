@@ -134,9 +134,9 @@ class TRUNET_OutputLayer(tf.keras.layers.Layer):
 		
 		else:
 			self.conv_hidden_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
-			layer_params_pr = copy.deepcopy(layer_params[0])
-			layer_params_pr['filters'] = layer_params_pr['filters']//2
-			self.conv_hidden_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params_pr ) )
+			# layer_params_pr = copy.deepcopy(layer_params[0])
+			# layer_params_pr['filters'] = layer_params_pr['filters']//2
+			self.conv_hidden_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
 
 			self.conv_output_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
 			self.conv_output_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
