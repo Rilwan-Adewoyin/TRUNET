@@ -156,11 +156,11 @@ class TRUNET_OutputLayer(tf.keras.layers.Layer):
 			outp = self.float32_custom_relu(outp)   
 		
 		else:
-			indexes1 = tf.range(start=0, limit=_inputs.shape[0]//2, dtype=tf.int32)
-			indexes2 = tf.range(start=_inputs.shape[0]//2, limit=_inputs.shape[0], dtype=tf.int32)
+			indexes1 = tf.range(start=0, limit=_inputs.shape[4]//2, dtype=tf.int32)
+			indexes2 = tf.range(start=_inputs.shape[4]//2, limit=_inputs.shape[4], dtype=tf.int32)
 
-			x_val = self.conv_hidden_val( self.do0(tf.gather(_inputs,indexes1), training=training))
-			x_prob = self.conv_hidden_prob( self.do1(tf.gather(_inputs,indexes2),training=training) )
+			x_val = self.conv_hidden_val( self.do0( tf.gather(_inputs,indexes1,axis=4), training=training))
+			x_prob = self.conv_hidden_prob( self.do1( tf.gather(_inputs,indexes2, axis=4),training=training))
 			
 			x_val = self.conv_output_val( x_val, training=training)
 			x_prob = self.conv_output_prob( x_prob, training=training)

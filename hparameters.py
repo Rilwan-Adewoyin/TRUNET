@@ -205,7 +205,9 @@ class model_TRUNET_hparameters(MParams):
         # endregion
 
         # region --- OUTPUT_LAYER_PARAMS and Upscaling
-        output_filters = [  int(  8*(((filters*2)/3)//8)), 1 ] 
+        #output_filters = [  int(  8*(((filters*2)/3)//8)), 1 ] 
+        
+        output_filters = [  int(  8*(((filters*2)/1)//8)), 1 ] 
 
         output_kernel_size = [ (3,3), (3,3) ] 
         activations = ['relu','linear']
