@@ -170,8 +170,8 @@ class TRUNET_OutputLayer(tf.keras.layers.Layer):
 			x_val 	= self.conv_hidden_val( self.do0( _inputs, training=training))
 			x_prob 	= self.conv_hidden_prob( self.do0( _inputs, training=training))	
 
-			x_val 	= self.conv_hidden_val1( self.do0( x_val, training=training))
-			x_prob 	= self.conv_hidden_prob1( self.do0( x_prob, training=training))			
+			x_val 	= self.conv_hidden_val1( self.do1( x_val, training=training))
+			x_prob 	= self.conv_hidden_prob1( self.do1( x_prob, training=training))			
 			
 			x_val = self.conv_output_val( x_val, training=training)
 			x_prob = self.conv_output_prob( x_prob, training=training)
