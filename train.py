@@ -440,7 +440,7 @@ class TrainTruNet():
                     loss_for_record  = loss_to_optimize + tf.reduce_mean( 
                                     tf.keras.backend.binary_crossentropy(labels_true, labels_pred, from_logits=False) ) 
 
-                metric_mse  = cl.mse( target_masked, cl.cond_rain(preds_masked, probs_masked, threshold=0.25) )   
+                metric_mse  = cl.mse( target_masked, cl.cond_rain(preds_masked, probs_masked, threshold=0.45) )   
                     # To calculate metric_mse for CC model we assume that pred_rain=0 if pred_prob<0.5 
                 # endregion
 
@@ -531,7 +531,7 @@ class TrainTruNet():
 
             # calculating seperate mse for reporting
                 # This mse metric assumes that if probability of rain is predicted below 0.5, the rain value is 0
-            mse = cl.mse( target_masked, cl.cond_rain( preds_masked, probs_masked, threshold=0.25) )
+            mse = cl.mse( target_masked, cl.cond_rain( preds_masked, probs_masked, threshold=0.45) )
         
         self.loss_agg_val(loss)
         self.mse_agg_val(mse)
