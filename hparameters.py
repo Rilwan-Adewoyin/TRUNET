@@ -80,7 +80,7 @@ class model_TRUNET_hparameters(MParams):
         
         REC_ADAM_PARAMS = {
             "learning_rate":2e-3,   "warmup_proportion":0.65,
-            "min_lr":8e-4,         "beta_1":0.45,               "beta_2":0.99,
+            "min_lr":8e-4,         "beta_1":0.8,               "beta_2":0.99,
             "amsgrad":True,         "decay":0.0008,              "epsilon":1e-8 } #Rectified Adam params            
         
         DROPOUT =   model_type_settings.get('do',0.0)

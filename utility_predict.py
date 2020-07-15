@@ -45,7 +45,7 @@ def load_model(t_params, m_params):
 
     return model, checkpoint_code
 
-def save_preds( t_params, m_params, li_preds, li_timestamps, li_truevalues, precip_threshold=None, custom_test_loc=None ):
+def save_preds( t_params, m_params, li_preds, li_timestamps, li_truevalues custom_test_loc=None ):
     """Save predictions to file
 
         Args:
@@ -54,7 +54,6 @@ def save_preds( t_params, m_params, li_preds, li_timestamps, li_truevalues, prec
             li_preds (list): list of predictions
             li_timestamps (list): corresponding list of timestamps
             li_truevalues (list): corresponding list of true values
-            precip_threshold (float, optional): The conditional value for prob rain. Defaults to None.
             custom_test_loc ([type], optional): [description]. Defaults to None.
 
         Returns:

@@ -217,7 +217,7 @@ class TestTrueNet():
             #Uploading predictions in batches
             bool_upload =  len(self.li_predictions)>=self.buffer_size or batch == self.test_batches
             if( bool_upload ):
-                self.upload_pred(min_prob_for_rain)
+                self.upload_pred()
 
         try:
             next(self.iter_test)
@@ -226,9 +226,9 @@ class TestTrueNet():
 
         # endregion
     
-    def upload_pred(self, min_prob_for_rain):
+    def upload_pred(self):
 
-        utility_predict.save_preds(self.t_params, self.m_params, self.li_predictions, self.li_timestamps_chunked[:len(self.li_predictions)], self.li_true_values, min_prob_for_rain, self.era5_eobs.li_loc )
+        utility_predict.save_preds(self.t_params, self.m_params, self.li_predictions, self.li_timestamps_chunked[:len(self.li_predictions)], self.li_true_values, self.era5_eobs.li_loc )
         self.li_timestamps_chunked = self.li_timestamps_chunked[len(self.li_predictions):]
         self.li_predictions = []
         self.li_true_values = []
@@ -249,5 +249,5 @@ if __name__ == "__main__":
 
     for loc in locations:
         test_tru_net.initialize_scheme_era5Eobs(location=[loc])
-        test_tru_net.predict()
+        test_tru_net.predict(min_prob_for_rain=mts['rain_thresh'])
         print(f"Completed Prediction for {loc}")
