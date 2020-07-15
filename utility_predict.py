@@ -74,7 +74,7 @@ def save_preds( t_params, m_params, li_preds, li_timestamps, li_truevalues, cust
         fn = "local"
 
     if m_params['model_type_settings'].get( 'rain_thresh', 0.5) != 0.5:
-        fn += str( m_params['mts']['rain_thresh'] )
+        fn += str( m_params['model_type_settings']['rain_thresh'] )
     fn += ".dat"
 
     if(not os.path.exists(_path_pred) ):
