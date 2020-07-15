@@ -45,7 +45,7 @@ def load_model(t_params, m_params):
 
     return model, checkpoint_code
 
-def save_preds( t_params, m_params, li_preds, li_timestamps, li_truevalues custom_test_loc=None ):
+def save_preds( t_params, m_params, li_preds, li_timestamps, li_truevalues, custom_test_loc=None ):
     """Save predictions to file
 
         Args:
