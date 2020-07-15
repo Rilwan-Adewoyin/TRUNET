@@ -122,7 +122,7 @@ class model_TRUNET_hparameters(MParams):
         # ConvGRU params
         if model_type_settings.get('large_model',False) == False:
             #filters = 80 # no. of filters in all conv operations in ConvGRU units
-            filters = 64 # no. of filters in all conv operations in ConvGRU units
+            filters = 80 # no. of filters in all conv operations in ConvGRU units
 
         else:
             filters = 96
