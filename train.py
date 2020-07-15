@@ -145,7 +145,8 @@ class TrainTruNet():
             self.t_params['gpu_count'] = self.strategy.num_replicas_in_sync    
             self.model = models.model_loader( self.t_params, self.m_params )
             #Optimizer
-            optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*20) # , weight_decay=1.25e-5 )         
+            #optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*20) # , weight_decay=1.25e-5 ) 
+            optimizer = tfa.optimizers.LAMB(**self.m_params['lamb_params'])        
             self.optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) 
                     
         

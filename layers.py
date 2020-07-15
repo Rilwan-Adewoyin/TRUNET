@@ -138,8 +138,8 @@ class TRUNET_OutputLayer(tf.keras.layers.Layer):
 			self.conv_hidden_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
 			self.conv_hidden_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
 
-			self.conv_hidden_val1 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
-			self.conv_hidden_prob1 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
+			# self.conv_hidden_val1 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
+			# self.conv_hidden_prob1 = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[0] ) )
 
 			self.conv_output_val = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
 			self.conv_output_prob = tf.keras.layers.TimeDistributed( tf.keras.layers.Conv2D( **layer_params[1] ) )
@@ -161,8 +161,6 @@ class TRUNET_OutputLayer(tf.keras.layers.Layer):
 			outp = self.float32_custom_relu(outp)   
 		
 		else:
-			# indexes1 = tf.range(start=0, limit=_inputs.shape[4]//2, dtype=tf.int32)
-			# indexes2 = tf.range(start=_inputs.shape[4]//2, limit=_inputs.shape[4], dtype=tf.int32)
 
 			# x_val = self.conv_hidden_val( self.do0( tf.gather(_inputs,indexes2,axis=4), training=training))
 			# x_prob = self.conv_hidden_prob( self.do0( tf.gather(_inputs,indexes1, axis=4),training=training))
@@ -170,8 +168,8 @@ class TRUNET_OutputLayer(tf.keras.layers.Layer):
 			x_val 	= self.conv_hidden_val( self.do0( _inputs, training=training))
 			x_prob 	= self.conv_hidden_prob( self.do0( _inputs, training=training))	
 
-			x_val 	= self.conv_hidden_val1( self.do1( x_val, training=training))
-			x_prob 	= self.conv_hidden_prob1( self.do1( x_prob, training=training))			
+			# x_val 	= self.conv_hidden_val1( self.do1( x_val, training=training))
+			# x_prob 	= self.conv_hidden_prob1( self.do1( x_prob, training=training))			
 			
 			x_val = self.conv_output_val( x_val, training=training)
 			x_prob = self.conv_output_prob( x_prob, training=training)
