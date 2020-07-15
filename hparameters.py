@@ -238,7 +238,7 @@ class model_TRUNET_hparameters(MParams):
 
             'rec_adam_params':REC_ADAM_PARAMS,
             'dropout':DROPOUT,
-            'clip_norm':9.4,
+            'clip_norm':11.4,
             'lamb_params':LAMB_PARAMS
             } )
 
