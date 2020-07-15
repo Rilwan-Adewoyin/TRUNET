@@ -125,7 +125,7 @@ class model_TRUNET_hparameters(MParams):
             filters = 64 # no. of filters in all conv operations in ConvGRU units
 
         else:
-            filters = 120
+            filters = 96
 
         kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )             
         print("Check appropriate stateful is being used for multi gpu status")
@@ -133,7 +133,11 @@ class model_TRUNET_hparameters(MParams):
 
         # Attention params
         attn_heads = [ 8 ]*attn_layers_count            #NOTE:Must be a factor of h or w or c. h,w are dependent on model type so make it a multiple of c = 8
-        kq_downscale_stride = [1, 4, 4]                 #[1, 8, 8] 
+        if model_type_settings.get('large_model',False) == False:
+            kq_downscale_stride = [1, 4, 4]                 #[1, 8, 8] 
+        else:
+            kq_downscale_stride = [1, 6, 6]                 #[1, 8, 8] 
+
         kq_downscale_kernelshape = kq_downscale_stride
         key_depth = [filters]*attn_layers_count # Key vector size
         val_depth = [ int( np.prod( self.params['region_grid_params']['outer_box_dims'] ) * filters * 2 )] *attn_layers_count
