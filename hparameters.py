@@ -85,7 +85,7 @@ class model_TRUNET_hparameters(MParams):
 
         LAMB_PARAMS = {
             "learning_rate":1e-3, "beta_1":0.8, "beta_2":0.999,
-            "epsilon":1e-8, "weight_decay_rate":3.00e-5, "decay":0.001,
+            "epsilon":1e-8, "weight_decay_rate":3.00e-7, "decay":0.001,
         }          
         
         DROPOUT =   model_type_settings.get('do',0.0)
