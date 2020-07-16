@@ -408,7 +408,8 @@ class TrainTruNet():
                                                         self.t_params['normalization_scales']['rain'], reverse=True) 
                                                         
                 # Getting true labels and predicted labels for whether or not it rained [ 1 if if did rain, 0 if it did not rain]
-                labels_true = tf.where( target_masked > 0.5, 1.0, 0.0 )
+                #labels_true = tf.where( target_masked > 0.5, 1.0, 0.0 )
+                labels_true = tf.where( target_masked > 0.0, 1.0, 0.0 )
                 labels_pred = probs_masked 
 
                 all_count = tf.size( labels_true, out_type=tf.int64 )
@@ -506,8 +507,9 @@ class TrainTruNet():
                                                     self.t_params['normalization_scales']['rain'], reverse=True)
 
             # Getting classification labels for whether or not it rained
-            #labels_true = tf.cast( tf.greater( target_masked, 0.5 ), tf.float32 )
-            labels_true = tf.where( target_masked > 0.5, 1.0, 0.0 )
+            
+            #labels_true = tf.where( target_masked > 0.5, 1.0, 0.0 )
+            labels_true = tf.where( target_masked > 0.0, 1.0, 0.0 )
             labels_pred = probs_masked 
 
             all_count = tf.size( labels_true, out_type=tf.int64 )
