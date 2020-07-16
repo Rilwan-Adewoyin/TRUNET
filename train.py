@@ -408,8 +408,8 @@ class TrainTruNet():
                                                         self.t_params['normalization_scales']['rain'], reverse=True) 
                                                         
                 # Getting true labels and predicted labels for whether or not it rained [ 1 if if did rain, 0 if it did not rain]
-                #labels_true = tf.where( target_masked > 0.5, 1.0, 0.0 )
-                labels_true = tf.where( target_masked > 0.0, 1.0, 0.0 )
+                labels_true = tf.where( target_masked > 0.5, 1.0, 0.0 )
+                #labels_true = tf.where( target_masked > 0.0, 1.0, 0.0 )
                 labels_pred = probs_masked 
 
                 all_count = tf.size( labels_true, out_type=tf.int64 )
@@ -428,7 +428,8 @@ class TrainTruNet():
 
                 if self.m_params['model_type_settings']['distr_type'] == 'Normal': 
                     # CC Normal
-                    loss_to_optimize += cl.mse( target_cond_rain, preds_cond_rain, all_count )
+                    #loss_to_optimize += cl.mse( target_cond_rain, preds_cond_rain, all_count )
+                    loss_to_optimize += cl.mse( target_masked, preds_masked, all_count )
                 
                 elif self.m_params['model_type_settings']['distr_type'] == 'LogNormal':    
                     # CC LogNormal                                                             
@@ -508,8 +509,8 @@ class TrainTruNet():
 
             # Getting classification labels for whether or not it rained
             
-            #labels_true = tf.where( target_masked > 0.5, 1.0, 0.0 )
-            labels_true = tf.where( target_masked > 0.0, 1.0, 0.0 )
+            labels_true = tf.where( target_masked > 0.5, 1.0, 0.0 )
+            #labels_true = tf.where( target_masked > 0.0, 1.0, 0.0 )
             labels_pred = probs_masked 
 
             all_count = tf.size( labels_true, out_type=tf.int64 )
@@ -526,7 +527,8 @@ class TrainTruNet():
             # Calculating conditional continuous loss
             if self.m_params['model_type_settings']['distr_type'] == 'Normal':
                 #Conditional Normal distribution
-                loss    += cl.mse( preds_cond_rain, target_cond_rain, all_count )
+                #loss    += cl.mse( preds_cond_rain, target_cond_rain, all_count )
+                loss    += cl.mse( preds_masked, target_masked, all_count )
 
             elif self.m_params['model_type_settings']['distr_type'] == 'LogNormal':  
                 #COnditional LogNormal distribution                 
