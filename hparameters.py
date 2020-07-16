@@ -84,8 +84,8 @@ class model_TRUNET_hparameters(MParams):
             "amsgrad":True,         "decay":0.0008,              "epsilon":1e-8 } #Rectified Adam params  
 
         LAMB_PARAMS = {
-            "learning_rate":1e-3, "beta_1":0.9, "beta_2":0.99,
-            "epsilon":1e-8, "decay":0.0009,
+            "learning_rate":2e-3, "beta_1":0.9, "beta_2":0.99,
+            "epsilon":1e-8, "decay":0.001,
         }          
         
         DROPOUT =   model_type_settings.get('do',0.0)
