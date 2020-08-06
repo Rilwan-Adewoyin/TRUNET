@@ -10,6 +10,8 @@ import tensorflow as tf
 
 import utility
 
+import xarray as xr
+
 
 """
     Example of how to use
@@ -255,22 +257,7 @@ class Generator_mf(Generator):
 
     def yield_all(self):
         raise NotImplementedError
-    
-    # def yield_iter(self):
-    #     """ Yield the data chunk by chunk
-    #     """
-    #     ds = Dataset(self.fp, "r", format="NETCDF4")
-        
-    #     for tuple_mfs in zip( *[ds.variables[var_name][:] for var_name in self.vars_for_feature] ):
-    #         # extracting masks and data for variables of interest
-    #         list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar) ) for _mar in tuple_mfs]
-    #         _data, _masks = list(zip(*list_datamask))
-    #         _masks = [ np.full(_data[0].shape, np.logical_not(_mask_val), dtype=bool) for _mask_val in _masks] 
-    #         stacked_data = np.stack(_data, axis=-1)
-    #         stacked_masks = np.stack(_masks, axis=-1)
-            
-    #         yield np.expand_dims(stacked_data[ 1:-2, 2:-2, :], axis=0), np.expand_dims( stacked_masks[ 1:-2 , 2:-2, :], axis=0) #(100,140,6) 
-    
+       
 
     def yield_iter(self):
         xr_gn = xr.open_dataset(self.fp, cache=False, decode_times=False, decode_cf=False)

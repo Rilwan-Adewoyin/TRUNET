@@ -25,6 +25,7 @@ def load_model(t_params, m_params):
         model = models.TRUNET(t_params, m_params)
     elif(model_name=="SimpleConvGRU"):
         model = models.SimpleConvGRU(t_params,m_params)
+    
     inp_shape = [t_params['batch_size'], t_params['lookback_feature']] + m_params['region_grid_params']['outer_box_dims'] + [len(t_params['vars_for_feature'])]
     init_inp = tf.zeros(inp_shape, dtype=tf.float16 )
     model(init_inp, training=False )
@@ -32,7 +33,7 @@ def load_model(t_params, m_params):
     ckpt = tf.train.Checkpoint(model=model)
 
     # Choosing checkpoint with lowest validation loss
-    df_checkpoint_scores = pd.read_csv( t_params['t_settings']['model_ckpt_path'] + "/checkpoint_scores.csv", header=0 )
+    df_checkpoint_scores = pd.read_csv( t_params['script_dir']+'/checkpoints/{}/checkpoint_scores.csv'.format(utility.model_name_mkr(m_params, train_test="train", t_params=t_params )), header=0 )
 
     best_checkpoint_path = df_checkpoint_scores['Checkpoint_Path'][0]
     checkpoint_code = "E"+str(df_checkpoint_scores['Epoch'][0])

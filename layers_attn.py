@@ -53,7 +53,6 @@ class MultiHead2DAttention_v2(Layer):
             dropout_broadcast_dims:  an optional list of integers less than 4  
                                     specifying in which dimensions to broadcast
                                      the dropout decisions. saves memory.
-            hard_attention_k: integer, if > 0 triggers hard attention 
             training: indicating if it is in the training mode.
             **kwargs (dict): Parameters for the attention function.
 
@@ -91,7 +90,6 @@ class MultiHead2DAttention_v2(Layer):
                         add_relative_to_values=False,
                         name="multihead_rel_attention",
                         dropout_broadcast_dims=None, 
-                        hard_attention_k=0,
                         training=True,
                         conv_ops_qk = False,
                         key_conv = None,
@@ -107,7 +105,6 @@ class MultiHead2DAttention_v2(Layer):
         self.key_depth_per_head = total_key_depth // num_heads
         self.dropout_rate = dropout_rate
         self.value_dropout = value_dropout #bool indic whether to have dropout on value tensors
-        self.hard_attention_k = hard_attention_k
         self.attn_factor_reduc = attn_factor_reduc
         
         self.transform_value_antecedent = transform_value_antecedent
@@ -252,8 +249,6 @@ class MultiHead2DAttention_v2(Layer):
         # If logits are fp16, upcast before softmax
         logits = maybe_upcast(logits, self._compute_dtype, self.dtype)
         weights = tf.nn.softmax(logits, name="attention_weights") #Link To Paper: Equations (3) - normalizing exp()/sum(exp()) operation
-        if self.hard_attention_k > 0:
-            weights = harden_attention_weights(weights, self.hard_attention_k)
         weights = cast_like(weights, q)
 
         # Dropping out attention links for each head.
@@ -262,7 +257,8 @@ class MultiHead2DAttention_v2(Layer):
 
         outp = _relative_attention_inner(weights, v, relations_values, False) #Link To Paper: Equations (3) - calculating \hat(A}
 
-        outp = combine_heads(outp)
+        #outp = combine_heads(outp)
+        outp = combine_last_two_dimensions(tf.transpose(outp, [0, 2, 1, 3]))
         
         if self.transform_output == True:
             # convolution ops on output precedent \hat{A}
@@ -296,8 +292,6 @@ class MultiHead2DAttention_v2(Layer):
                 self.key_depth_per_head,
             'dropout_rate':
                 self.dropout_rate,
-            'hard_attention_k':
-                self.hard_attention_k,
             'attn_factor_reduc':
                 self.attn_factor_reduc,
             'trainsform_value_antecedent':
@@ -379,6 +373,7 @@ def _relative_attention_inner(x, y, z, transpose):
 
 def attn_shape_adjust(inputs, attn_factor_reduc, reverse=False):
 
+
     """ Used to adjust the size of the time dimension, 
         This is ideal when passing multiple 3D tensors to an RNN cell which only accepts one input
             - input data must be reshaped so time dim t -> 1 and channel dim c -> c*t 
@@ -398,3 +393,118 @@ def attn_shape_adjust(inputs, attn_factor_reduc, reverse=False):
         shape = tf.expand_dims(inputs, axis=1).shape
         outp = tf.reshape(inputs, shape[:1]+shape[1]*attn_factor_reduc+shape[2:4]+shape[4]//attn_factor_reduc )
     return outp
+
+def split_heads(x, num_heads):
+    """Split channels (dimension 2) into multiple heads (becomes dimension 1).
+    Args:
+    x: a Tensor with shape [batch, length, channels]
+    num_heads: an integer
+    Returns:
+    a Tensor with shape [batch, num_heads, length, channels / num_heads]
+    """
+    return tf.transpose(split_last_dimension(x, num_heads), [0, 2, 1, 3])
+
+def split_last_dimension(x, n):
+    """Reshape x so that the last dimension becomes two dimensions.
+        The first of these two dimensions is n.
+        Args:
+        x: a Tensor with shape [..., m]
+        n: an integer.
+        Returns:
+        a Tensor with shape [..., n, m/n]
+    """
+    x_shape = shape_list(x)
+    m = x_shape[-1]
+    if isinstance(m, int) and isinstance(n, int):
+        assert m % n == 0
+    return tf.reshape(x, x_shape[:-1] + [n, m // n])
+
+def shape_list(x):
+    """Return list of dims, statically where possible."""
+    x = tf.convert_to_tensor(x)
+
+  # If unknown rank, return dynamic shape
+    if x.get_shape().dims is None:
+        return tf.shape(x)
+
+    static = x.get_shape().as_list()
+    shape = tf.shape(x)
+
+    ret = []
+    for i, dim in enumerate(static):
+        if dim is None:
+            dim = shape[i]
+        ret.append(dim)
+    return ret
+
+def cast_like(x, y):
+    """Cast x to y's dtype, if necessary."""
+    x = tf.convert_to_tensor(x)
+    y = tf.convert_to_tensor(y)
+
+    if x.dtype.base_dtype == y.dtype.base_dtype:
+        return x
+
+    cast_x = tf.cast(x, y.dtype)
+    if cast_x.device != x.device:
+        x_name = "(eager Tensor)"
+        try:
+            x_name = x.name
+        except AttributeError:
+            pass
+        #tf.logging.warning("Cast for %s may induce copy from '%s' to '%s'", x_name,
+        #               x.device, cast_x.device)
+    return cast_x
+
+def maybe_upcast(logits,
+                 activation_dtype=None, weight_dtype=None, hparams=None):
+    if mixed_precision_is_enabled(activation_dtype, weight_dtype, hparams):
+        return tf.cast(logits, tf.float32)
+    return logits
+
+def mixed_precision_is_enabled(
+        activation_dtype=None, weight_dtype=None, hparams=None):
+    assert not (hparams and (activation_dtype or weight_dtype)), (
+        "Provide only hparams or activation_dtype and weight_dtype")
+    if (hparams and hasattr(hparams, "activation_dtype") and
+        hasattr(hparams, "weight_dtype")):
+        activation_dtype = hparams.activation_dtype
+        weight_dtype = hparams.weight_dtype
+    return activation_dtype == tf.float16 and weight_dtype == tf.float32
+
+def dropout_with_broadcast_dims(x, keep_prob, broadcast_dims=None, **kwargs):
+    """Like tf.nn.dropout but takes broadcast_dims instead of noise_shape.
+    Instead of specifying noise_shape, this function takes broadcast_dims -
+    a list of dimension numbers in which noise_shape should be 1.  The random
+    keep/drop tensor has dimensionality 1 along these dimensions.
+    Args:
+        x: a floating point tensor.
+        keep_prob: A scalar Tensor with the same type as x.
+        The probability that each element is kept.
+        broadcast_dims: an optional list of integers
+        the dimensions along which to broadcast the keep/drop flags.
+        **kwargs: keyword arguments to tf.nn.dropout other than "noise_shape".
+    Returns:
+        Tensor of the same shape as x.
+    """
+    assert "noise_shape" not in kwargs
+    if broadcast_dims:
+        shape = tf.shape(x)
+        ndims = len(x.get_shape())
+        # Allow dimensions like "-1" as well.
+        broadcast_dims = [dim + ndims if dim < 0 else dim for dim in broadcast_dims]
+        kwargs["noise_shape"] = [
+            1 if i in broadcast_dims else shape[i] for i in range(ndims)
+        ]
+    return tf.nn.dropout(x, keep_prob, **kwargs)
+
+def combine_last_two_dimensions(x):
+    """Reshape x so that the last two dimension become one.
+    Args:
+        x: a Tensor with shape [..., a, b]
+    Returns:
+        a Tensor with shape [..., ab]
+    """
+    x_shape = shape_list(x)
+    a, b = x_shape[-2:]
+    return tf.reshape(x, x_shape[:-2] + [a * b])
