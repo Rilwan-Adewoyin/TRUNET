@@ -1,15 +1,10 @@
 .DS_Store
 Data/
-log_tensorboard/
 log_tensboard/
-mnt/
 checkpoints/
 Output/
 __pycache__/
-data_cache/
 model_params/
-Images_for_latex/
-temp.npy
-/testing_data_load.ipynb
-example_scripts/
 saved_params/
+.vscode/
+.ipynb_checkpoints/

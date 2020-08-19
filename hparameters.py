@@ -135,7 +135,7 @@ class model_TRUNET_hparameters(MParams):
 
         attn_params_enc = [
             {'bias':None, 'total_key_depth': kd  ,'total_value_depth':vd, 'output_depth': vd   ,
-            'num_heads': nh , 'dropout_rate':DROPOUT, 'value_dropout':model_type_settings.get('value_dropout',False),
+            'num_heads': nh , 'dropout_rate':DROPOUT, 'value_dropout':model_type_settings.get('value_dropout',True),
             'max_relative_position':None, "transform_value_antecedent":True,  "transform_output":True, 
             'implementation':1, 'conv_ops_qk':self.conv_ops_qk,
             "value_conv":{ "filters":int(filters * 2), 'kernel_size':[3,3] ,'use_bias':True, "activation":'relu', 'name':"v", 'bias_regularizer':bias_reg_attn, 'kernel_regularizer':kernel_reg_attn ,'padding':'same' },

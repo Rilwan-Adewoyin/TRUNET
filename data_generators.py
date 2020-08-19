@@ -252,12 +252,34 @@ class Generator_mf(Generator):
         self.vars_for_feature = vars_for_feature #['unknown_local_param_137_128', 'unknown_local_param_133_128', 'air_temperature', 'geopotential', 'x_wind', 'y_wind' ]       
         self.seq_len = seq_len*25
         self.start_idx = 0
+        self.end_idx =0
         #self.ds = Dataset(self.fp, "r", format="NETCDF4")
 
 
     def yield_all(self):
-        raise NotImplementedError
-       
+        
+        xr_gn = xr.open_dataset(self.fp, cache=False, decode_times=False, decode_cf=False)
+        #labels_to_drop = [ list( set(xr_gn.keys()) -set(self.vars_for_feature) ) ]
+        
+        #xr_gn.drop(labels=labels_to_drop)
+        slice_t = slice( self.start_idx , self.end_idx )
+        slice_h = slice(1,103-2 )
+        slice_w = slice(2,144-2)
+
+        # li_marray = [ xr_gn[name].isel(time=_slice).to_masked_array(copy=False) for name in self.vars_for_feature ]       
+        # stacked_data = np.stack(li_marray, axis=-1)
+        
+        xr_gn =  xr_gn.isel(time=slice_t, latitude=slice_h, longitude=slice_w)
+        
+        return xr_gn
+        # #cropping data for a single region -> More memory effecient to do it here
+
+
+        # #To array
+        # array = xr_gn.to_array()
+        # array = array.transpose(['time','longitiude','longitude','variables'])
+        
+        # return array#[ :, 1:-2, 2:-2, :] #time, latitude, longitude, variables
 
     def yield_iter(self):
         xr_gn = xr.open_dataset(self.fp, cache=False, decode_times=False, decode_cf=False)
@@ -285,10 +307,9 @@ class Generator_mf(Generator):
             #if idx>self.data_len: _bool=False
 
             yield stacked_data[ :, 1:-2, 2:-2, :], stacked_masks[ :, 1:-2 , 2:-2, :] #(100,140,6) 
-
-            
-    def __call__(self):
-        return self.yield_iter()
+      
+    # def __call__(self):
+    #     return self.yield_iter()
 
 class Era5_Eobs():
 
@@ -355,7 +376,8 @@ class Era5_Eobs():
         start_idx_feat, start_idx_tar = self.get_start_idx(start_date)
         self.mf_data.start_idx = start_idx_feat
         # region - Preparing feature model fields        
-        ds_feat = tf.data.Dataset.from_generator( self.mf_data , output_types=(tf.float16, tf.bool), output_shapes=( tf.TensorShape([None, None, None, None]),tf.TensorShape([None, None, None, None])) ) #(values, mask) 
+        ds_feat = tf.data.Dataset.from_generator( self.mf_data , output_types=(tf.float16, tf.bool),
+                     output_shapes=( tf.TensorShape([None, None, None, None]),tf.TensorShape([None, None, None, None])) ) #(values, mask) 
         ds_feat = ds_feat.unbatch()
         #ds_feat = ds_feat.skip(start_idx_feat) # Skipping forward to the correct time
         
@@ -451,7 +473,6 @@ class Era5_Eobs():
         """        
         
 
-        
         ds = ds.map( lambda mf, rain_mask: tuple( [mf, rain_mask[0], rain_mask[1]] ), num_parallel_calls=-1)   
         
         # list of central h,w indexes from which to extract the region around
@@ -461,7 +482,7 @@ class Era5_Eobs():
             li_hw_idxs = [ self.rain_data.find_idx_of_loc_region( _loc, self.m_params['region_grid_params'] ) for _loc in locations ] #[ (h_idx,w_idx), ... ]
         
         # Creating seperate datasets for each location
-        li_ds = [ ds.map( lambda mf, rain, rmask : self.select_region( mf, rain, rmask, _idx[0], _idx[1]), num_parallel_calls=-1) for _idx in li_hw_idxs ]
+        li_ds = [ ds.map( lambda mf, rain, rmask : select_region(self, mf, rain, rmask, _idx[0], _idx[1]), num_parallel_calls=-1) for _idx in li_hw_idxs ]
         
         # Concatenating all datasets for each location
         batches_per_loc = int(batch_count/len(li_hw_idxs))
@@ -475,9 +496,9 @@ class Era5_Eobs():
         # pair of indexes locating the central location within the grid region extracted for any location
         idx_loc_in_region = np.floor_divide( self.m_params['region_grid_params']['outer_box_dims'], 2) #This specifies the index of the central location of interest within the (h,w) patch    
         return ds, idx_loc_in_region
-        
-    def select_region(self, mf, rain, rain_mask, h_idxs, w_idxs ):
-        """ Extract the 1D specific point location relating to a [h_idxs, w_idxs] pair
+    
+    def select_region( self, mf, rain, rain_mask, h_idxs, w_idxs):
+        """ Extract the region relating to a [h_idxs, w_idxs] pair
 
             Args:
                 mf : model field data
@@ -496,6 +517,7 @@ class Era5_Eobs():
         mf = mf[ :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] , : ]
         rain = rain[ :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
         rain_mask = rain_mask[ :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
+        
+        
         return tf.expand_dims(mf,axis=0), tf.expand_dims(rain,axis=0), tf.expand_dims(rain_mask,axis=0) #Note: expand_dim for unbatch/batch compatibility
-
 # endregion

@@ -252,13 +252,13 @@ def model_name_mkr(m_params, train_test="train", t_params={}, custom_test_loc=No
     
     # Addons
     if m_params['model_type_settings'].get('attn_ablation',0) != 0:
-        model_name = model_name + "_" + str(m_params['model_type_settings']['attn_ablation'])
+        model_name = model_name + "_ablation" + str(m_params['model_type_settings']['attn_ablation'])
 
     if m_params['model_type_settings'].get('heads',8) != 8:
         model_name = model_name + "_heads_{}".format( str(m_params['model_type_settings']['heads']) )
     
-    if m_params['model_type_settings'].get('value_dropout',False) != False:
-        model_name = model_name + "_vdrop"
+    # if m_params['model_type_settings'].get('value_dropout',False) != False:
+    #     model_name = model_name + "_vdrop"
 
     model_name = re.sub(",",'_',model_name )
 

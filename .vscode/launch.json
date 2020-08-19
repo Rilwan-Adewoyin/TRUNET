@@ -4,6 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "Python: Current File",
             "type": "python",
@@ -12,5 +13,16 @@
             "console": "internalConsole",
             "justMyCode": false,
         },
+
+        {
+            "type": "python",
+            "request": "launch",
+            "name": "preds_w_mf",
+            "program": "${file}",
+            "console": "internalConsole",
+            "args": ["-dd","./Data", "-sd","1979-01-02", "-ed","2019-07-04", "-lo", "['Cardiff','London','Birmingham','Glasgow','Truro','Manchester']", "-reg","False" ],
+            "justMyCode": false,
+            //"args": ["-dd","./Data", "-sd","1979-01-02", "-ed","2019-07-04", "-lo", "['Cardiff']", "-reg","True" ]
+          }
     ]
 }

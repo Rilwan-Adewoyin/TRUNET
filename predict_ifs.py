@@ -1,5 +1,6 @@
 import netCDF4
 from netCDF4 import Dataset, num2date
+import data_generators
 import argparse
 import ast
 import datetime as dt
@@ -50,6 +51,9 @@ def main(date_start_str, date_end_str, location, data_dir="./", rain_fall_stats=
     #Extract the True rainfall for a given location and time range
     true_rain, rain_mask = true_rain_extractor( data_dir, date_start, date_end, location, region )
 
+    #Model fields extractor
+    mf = model_field_extractor(data_dir, date_start, date_end, location, region )
+
     #Creating a list of the epoch timestamps relating to the days we study. i.e. if we tested from 1978-01-20 till 2000-03-01 
         # this would be a list such as [254102400 ,......,  951868800]
     date_tss = pd.date_range( end=date_end, start=date_start, freq='D',normalize=True)
@@ -58,10 +62,10 @@ def main(date_start_str, date_end_str, location, data_dir="./", rain_fall_stats=
     #Inserting nans in masked values
     true_rain = np.where(rain_mask, true_rain, np.nan )
     ifs_preds = np.where(rain_mask, ifs_preds, np.nan )
-
+    
     #Save the extracted IFS prediction, true rainfall for optional Visualization using Visualization.ipynb
-    #preds = ifs_preds
-    #true_rain = true_rain
+    preds = ifs_preds
+    true_rain = true_rain
     f_dir = "./Output/ERA5/preds/"
     fn = "{}_{}_{}".format(location, date_start_str, date_end_str)
     if region ==True:
@@ -73,6 +77,20 @@ def main(date_start_str, date_end_str, location, data_dir="./", rain_fall_stats=
 
     pickle.dump( [np.array(timestamp_epochs), np.array(ifs_preds,dtype=np.float64) , np.array(true_rain) ], 
         open(fp,"wb")  )
+    
+    #Version that also saves associated model field data
+    # f_dir1 = "./Output/ERA5/preds_w_mf/"
+    # fn1 = "{}_{}_{}".format(location, date_start_str, date_end_str)
+    # if region ==True:
+    #     fn1+= "regional"
+    # fn1 += "_pred.dat"
+    # fp = f_dir1+fn1
+    # if not os.path.isdir(f_dir1):
+    #     os.makedirs( f_dir1, exist_ok=True  )
+
+    # pickle.dump( [np.array(timestamp_epochs), np.array(ifs_preds,dtype=np.float64) , np.array(true_rain), mf ], 
+    #     open(fp,"wb")  )
+    
 
     #Create a Plot of IFS predictions against True Rain values, for a quick check if I have aligned the IFS prediction and True rain correctly
     if location != "All" and region==False:
@@ -173,7 +191,36 @@ def true_rain_extractor(data_dir, target_start_date, target_end_date, location, 
     
     return data_rain, rain_mask
 
-def data_craft( data, location, region=False ):
+def model_field_extractor(data_dir,target_start_date, target_end_date, location, region ):
+   # Valid Date Check
+    feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h')
+    feature_end_date  = np.datetime64( feature_start_date + np.timedelta64(59900, '6h'), 'D')
+
+    if target_end_date >=feature_end_date  or target_start_date < feature_start_date:
+        raise ValueError("Invalid Datespan, please stick within range: {feature_end_date} to {feature_start_date}")    
+
+    #Instatiating model field data generator
+    fn_mf =  os.path.join(data_dir,'Rain_Data_Mar20',"ana_input_intrp_linear.nc")
+
+    vars_for_feature = ['unknown_local_param_137_128', 'unknown_local_param_133_128', 'air_temperature', 'geopotential', 'x_wind', 'y_wind' ]
+    all_at_once = True
+    seq_len =     np.timedelta64( target_end_date - target_start_date, '6h' ).astype(int)
+    
+    mf_data_gen = data_generators.Generator_mf(fp=fn_mf, vars_for_feature=vars_for_feature, 
+                all_at_once=all_at_once, seq_len=seq_len )
+    
+    #Extracting dta
+    mf_data_gen.start_idx = np.timedelta64(target_start_date - feature_start_date,'6h').astype(int)
+    mf_data_gen.end_idx = np.timedelta64(target_end_date - feature_start_date,'6h').astype(int)
+
+    mf_data = mf_data_gen()
+    
+    #Cropping spatial bounds of data t
+    mf_array = data_craft(mf_data, location, region, mf=True)
+
+    return mf_array
+
+def data_craft( data, location, region=False, mf=False ):
     # location of cities/regions of interest
     city_location = {
         "London": [51.5074, -0.1278],
@@ -207,11 +254,27 @@ def data_craft( data, location, region=False ):
         latitude_index =    np.abs(latitude_array - coordinates[0]).argmin()
         longitude_index =   np.abs(longitude_array - coordinates[1]).argmin()
 
-        if region==False:
+        if region==False and mf==False:
             data = data[:,latitude_index, longitude_index]
-    
-        elif region == True:
+
+        if region==False and mf==True:
+            slice_lat = slice(latitude_index,latitude_index+1)
+            slice_lon = slice(longitude_index,longitude_index+1)
+            data = data.isel(latitude=slice_lat,longitude=slice_lon)
+            
+            data = data.to_array()
+            data = data.transpose('time','latitude','longitude','variable').values
+
+        elif region == True and mf==False:
             data = data[:,latitude_index-2:latitude_index+2, longitude_index-2:longitude_index+2].astype(np.float64)
+
+        elif region == True and mf==True:
+            slice_lat = slice(latitude_index-8,latitude_index+8)
+            slice_lon = slice(longitude_index-8,longitude_index+8)
+            data = data.isel(latitude=slice_lat,longitude=slice_lon)
+            
+            data = data.to_array()
+            data = data.transpose('time','latitude','longitude','variable').values
 
     elif location == "All":
         pass
@@ -269,7 +332,7 @@ if __name__ == "__main__":
 
     parser.add_argument('-ed','--date_end_str', type=str, required=False, default='2019-07-31')
 
-    parser.add_argument('-lo','--location', type=str, required=True, default="[London]", help="List of locations to evaluation on")
+    parser.add_argument('-lo','--location', type=str, required=True, default="['London']", help="List of locations to evaluation on")
     
     parser.add_argument('-rfs','--rain_fall_stats', type=bool, required=False, default=False, help="Pass True to return statistics on the true rainfall of an for the areas of interest")
 
