@@ -222,7 +222,7 @@ def model_field_extractor(data_dir,target_start_date, target_end_date, location,
 
 def data_craft( data, location, region=False, mf=False ):
     # location of cities/regions of interest
-    self.city_latlon = {
+    city_latlon = {
         "London": [51.5074, -0.1278],
         "Cardiff": [51.4816 + 0.15, -3.1791 -0.05], #1st Rainiest
         "Glasgow": [55.8642,  -4.2518], #3rd rainiest
@@ -252,10 +252,10 @@ def data_craft( data, location, region=False, mf=False ):
         }
 
     #Selects the closest grid point to the location of the city
-    if location in city_location.keys():
+    if location in city_latlon.keys():
         latitude_array = np.linspace(58.95,49.05, 100)
         longitude_array = np.linspace(-10.95, 2.95, 140)
-        coordinates = city_location[location]
+        coordinates = city_latlon[location]
         
         latitude_index =    np.abs(latitude_array - coordinates[0]).argmin()
         longitude_index =   np.abs(longitude_array - coordinates[1]).argmin()
