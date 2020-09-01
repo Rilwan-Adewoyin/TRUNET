@@ -64,7 +64,14 @@ class Generator():
             "Truro":[50.2632, -5.0510],
             "Bangor":[54.2274 - 0, -4.1293 - 0.3],
             "Plymouth":[50.3755 + 0.1, -4.1427],
-            "Norwich": [52.6309, 1.2974]
+            "Norwich": [52.6309, 1.2974],
+            "StDavids":[51.8812+0.05, -5.2660+0.05] ,
+            "Swansea":[51.6214+0.05,-3.9436],
+            "Lisburn":[54.5162,-6.058],
+            "Salford":[53.4875, -2.2901],
+            "Aberdeen":[57.1497,-2.0943-0.05],
+            "Stirling":[56.1165, -3.9369],
+            "Hull":[53.7676+0.05, 0.3274]
             }
         
         #The longitude lattitude grid for the 0.1 degree E-obs and rainfall data
