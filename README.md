@@ -4,6 +4,25 @@ Code for predicting precipitation using model field data from IFS-ERA5 (temperat
 The Data used in this project is available at the following Google Drive link. Users must download and decompress the Rain_Data_Mar20 folder. 
 Keywords: TRU_NET, Downscaling, Cross Attention, Hierarchical GRU
 
+## Getting Started
+The following example shows the workflow required to: 
+* Download / Fork the repository
+* Download the Data into the root directory of the Downloaded repository - link:https://drive.google.com/file/d/1AUZc708aGrLAgjE8rK2lG2VTlP4XbxFq/view?usp=sharing
+* Train a model on a 26 cities between 1979 to 2009
+* Produce predictions for the whole country using the trained model
+* Evaluate the models' predictions
+
+#### train
+`python3 train.py -mn "THST" -ctsm "1979_2009_2014" -mts "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout','do':0.2,'ido':0.2,'rdo':0.3,'location':['London','Cardiff','Glasgow','Lancaster','Bradford','Manchester','Birmingham','Liverpool','Leeds','Edinburgh','Belfast','Dublin','LakeDistrict','Newry','Preston','Truro','Bangor','Plymouth','Norwich','StDavids','Swansea','Lisburn','Salford','Aberdeen','Stirling','Hull']}" -dd "/Data/Rain_Data_Mar20" -bs 64`
+
+#### predictions
+`python3 predict.py -mn "TRUNET" -ctsm "1979_2009_2014" -ctsm_test "2014_2019-07-04" -mts "{'stochastic':True,'stochastic_f_pass':25,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout', 'do':0.2,'ido':0.2,'rdo':0.3, 'location':'London','Cardiff','Glasgow','Lancaster','Bradford','Manchester','Birmingham','Liverpool','Leeds','Edinburgh','Belfast','Dublin','LakeDistrict','Newry','Preston','Truro','Bangor','Plymouth','Norwich','StDavids','Swansea','Lisburn','Salford','Aberdeen','Stirling','Hull']}", 'location_test':['All']}" -ts "{'region_pred':True}" -dd "/Data/Rain_Data_Mar20" -bs 71`
+
+Note: The maximum batch size that can be used during prediction is proportional to number of days covered by the test set. As explained in the paper, one prediction from TRUNET is one sequence of 28 values relating to the rain in the corresponding 28 days. As such each batch of predictions will cover 28 days * batch size. Using the prediction code from above as an example, each geographic region under evaluation has predictions produced for the time period 2014 till 2019-07-04. This is equal to 2010 days. When predicting for a single region, the upper limit on batch size should be 2010/28 days. This is roughly equal to 71.79. 
+
+#### evaluation
+Use the Evaluation.ipynb
+
 ## Training Scripts
 The code below can be used to train a TRU-NET model. The list the follows the code explains the role of the arguments.
 
@@ -68,19 +87,6 @@ Predictions will again be saved in the .Output/Predictions file.
 
 The data used for experiments related to the paper can be found at this link https://drive.google.com/file/d/1AUZc708aGrLAgjE8rK2lG2VTlP4XbxFq/view?usp=sharing. Users must extract the contents from the zip folder, into the root directory associated with their TRUNET repository.
 
-## Getting Started
-The following example shows the workflow required to: train a model; produce predictions for whole country with the trained model; Evaluate the models predictions. 
-
-#### train
-`python3 train.py -mn "THST" -ctsm "1979_2009_2" -mts "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout','do':0.2,'ido':0.2,'rdo':0.3,'location':['London','Cardiff','Glasgow','Lancaster','Bradford','Manchester','Birmingham','Liverpool','Leeds','Edinburgh','Belfast','Dublin','LakeDistrict','Newry','Preston','Truro','Bangor','Plymouth','Norwich','StDavids','Swansea','Lisburn','Salford','Aberdeen','Stirling','Hull']}" -dd "/Data/Rain_Data_Mar20" -bs 64`
-
-#### predictions
-`python3 predict.py -mn "TRUNET" -ctsm "1998_2010_2012" -ctsm_test "2012_2014" -mts "{'stochastic':True,'stochastic_f_pass':25,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout', 'do':0.2,'ido':0.2,'rdo':0.3, 'location':'London','Cardiff','Glasgow','Lancaster','Bradford','Manchester','Birmingham','Liverpool','Leeds','Edinburgh','Belfast','Dublin','LakeDistrict','Newry','Preston','Truro','Bangor','Plymouth','Norwich','StDavids','Swansea','Lisburn','Salford','Aberdeen','Stirling','Hull', 'location_test':['All']}" -ts "{'region_pred':True}" -dd "/Data/Rain_Data_Mar20" -bs 71`
-
-#### evaluation
-Use the Evaluation.ipynb
-
-Note: the batch size 
 
 ## Notes for Developers
 
