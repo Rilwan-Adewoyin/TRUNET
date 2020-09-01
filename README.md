@@ -49,7 +49,7 @@ The code below can be used to make predictions provided you have trained a TRU-N
 After running the predict sript, a pickled tuple (predictions, true_values, timesteps) will be saved to a folder './Output/modelcode/Predictions'. If region_pred=True this file will be called region.dat, if region_pred=False this file will be called local.dat
 
 ## Evaluation Scripts 
-Currently, to retrieve any scoring metrics or illustrations the 'Visualization.ipynb' notebook must be used. Examples of how to do so are included in the file Visualization.ipynb. The output from Visualization.ipynb is generally saved to the './Output/Experiments/' directory. 
+Currently, to retrieve any scoring metrics or illustrations the 'Evaluation.ipynb' notebook must be used. Examples of how to do so are included in the file Visualization.ipynb. The output from Evaluation.ipynb is generally saved to the './Output/Experiments/' directory. 
 
 ## Producing IFS-ERA5 Predictions
 IFS-ERA5 is the numerical weather system which is used as the baseline in our paper. The code below can be used to create prediction results from the IFS-ERA 5 model
@@ -64,7 +64,25 @@ IFS-ERA5 is the numerical weather system which is used as the baseline in our pa
 
 Predictions will again be saved in the .Output/Predictions file.
 
-##Notes for Developers
+## Data and Trained Models
+
+The data used for experiments related to the paper can be found at this link https://drive.google.com/file/d/1AUZc708aGrLAgjE8rK2lG2VTlP4XbxFq/view?usp=sharing. Users must extract the contents from the zip folder, into the root directory associated with their TRUNET repository.
+
+## Getting Started
+The following example shows the workflow required to: train a model; produce predictions for whole country with the trained model; Evaluate the models predictions. 
+
+#### train
+`python3 train.py -mn "THST" -ctsm "1979_2009_2" -mts "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout','do':0.2,'ido':0.2,'rdo':0.3,'location':['London','Cardiff','Glasgow','Lancaster','Bradford','Manchester','Birmingham','Liverpool','Leeds','Edinburgh','Belfast','Dublin','LakeDistrict','Newry','Preston','Truro','Bangor','Plymouth','Norwich','StDavids','Swansea','Lisburn','Salford','Aberdeen','Stirling','Hull']}" -dd "/Data/Rain_Data_Mar20" -bs 64`
+
+#### predictions
+`python3 predict.py -mn "TRUNET" -ctsm "1998_2010_2012" -ctsm_test "2012_2014" -mts "{'stochastic':True,'stochastic_f_pass':25,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout', 'do':0.2,'ido':0.2,'rdo':0.3, 'location':'London','Cardiff','Glasgow','Lancaster','Bradford','Manchester','Birmingham','Liverpool','Leeds','Edinburgh','Belfast','Dublin','LakeDistrict','Newry','Preston','Truro','Bangor','Plymouth','Norwich','StDavids','Swansea','Lisburn','Salford','Aberdeen','Stirling','Hull', 'location_test':['All']}" -ts "{'region_pred':True}" -dd "/Data/Rain_Data_Mar20" -bs 71`
+
+#### evaluation
+Use the Evaluation.ipynb
+
+Note: the batch size 
+
+## Notes for Developers
 
 ##Requirements (Python 3 and Linux)
 * Tensorflow 2
