@@ -5,7 +5,7 @@ The Data used in this project is available at the following Google Drive link. U
 Keywords: TRU_NET, Downscaling, Cross Attention, Hierarchical GRU
 
 ## Getting Started
-The following example shows the workflow required to: 
+The following list explains the workflow to get started quickly: 
 * Download / Fork the repository
 * Download the Data into the root directory of the Downloaded repository - link:https://drive.google.com/file/d/1AUZc708aGrLAgjE8rK2lG2VTlP4XbxFq/view?usp=sharing
 * Train a model on a 26 cities between 1979 to 2009
@@ -73,7 +73,7 @@ Currently, to retrieve any scoring metrics or illustrations the 'Evaluation.ipyn
 ## Producing IFS-ERA5 Predictions
 IFS-ERA5 is the numerical weather system which is used as the baseline in our paper. The code below can be used to create prediction results from the IFS-ERA 5 model
 
-`python3 predict_IFS.py -dd "./Data" -sd "2014" -ed "2019-06-11" -lo "['All']" -reg False`
+`python3 predict_ifs.py -dd "./Data" -sd "2014" -ed "2019-06-11" -lo "['All']" -reg False`
 
 * dd = string : data directory (Note: do not use a child directory)
 * sd = string: start_date for predictions. Can be of the form 'YYYY' or 'yy-mm-dd'.
