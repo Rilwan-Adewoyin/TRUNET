@@ -8,6 +8,7 @@ Keywords: TRU_NET, Downscaling, Cross Attention, Hierarchical GRU
 The following list explains the workflow to get started quickly: 
 * Download / Fork the repository
 * Download the Data into the root directory of the Downloaded repository - link:https://drive.google.com/file/d/1AUZc708aGrLAgjE8rK2lG2VTlP4XbxFq/view?usp=sharing
+  * If experiences a 'access denied error' follow workaround in section below titled 'Data Download'
 * Train a model on a 26 cities between 1979 to 2009
 * Produce predictions for the whole country using the trained model
 * Evaluate the models' predictions
@@ -83,10 +84,17 @@ IFS-ERA5 is the numerical weather system which is used as the baseline in our pa
 
 Predictions will again be saved in the .Output/Predictions file.
 
-## Data and Trained Models
+## Data Download
 
 The data used for experiments related to the paper can be found at this link https://drive.google.com/file/d/1AUZc708aGrLAgjE8rK2lG2VTlP4XbxFq/view?usp=sharing. Users must extract the contents from the zip folder, into the root directory associated with their TRUNET repository.
 
+**Problem**: 
+- When you try to download a file with .rar extension from google drive and you get access denied error. 
+
+**Solution**: 
+- you can fix the error by opening a new private/incognito window.
+- Copy the url of the file and paste that url in new private window. 
+- Hit enter the file will automatically start to download.
 
 ## Notes for Developers
 
