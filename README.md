@@ -8,13 +8,13 @@ Keywords: TRU_NET, Downscaling, Cross Attention, Hierarchical GRU
 The following list explains the workflow to get started quickly: 
 * Download / Fork the repository
 * Download the Data into the root directory of the Downloaded repository - link:https://drive.google.com/file/d/1AUZc708aGrLAgjE8rK2lG2VTlP4XbxFq/view?usp=sharing
-  * If experiences a 'access denied error' follow workaround in section below titled 'Data Download'
+  * If facing an 'access denied error' follow the workaround in section below titled 'Data Download'
 * Train a model on a 26 cities between 1979 to 2009
 * Produce predictions for the whole country using the trained model
 * Evaluate the models' predictions
 
 #### train
-`python3 train.py -mn "THST" -ctsm "1979_2009_2014" -mts "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout','do':0.2,'ido':0.2,'rdo':0.3,'location':['London','Cardiff','Glasgow','Lancaster','Bradford','Manchester','Birmingham','Liverpool','Leeds','Edinburgh','Belfast','Dublin','LakeDistrict','Newry','Preston','Truro','Bangor','Plymouth','Norwich','StDavids','Swansea','Lisburn','Salford','Aberdeen','Stirling','Hull']}" -dd "/Data/Rain_Data_Mar20" -bs 64`
+`python3 train.py -mn "TRUNET" -ctsm "1979_2009_2014" -mts "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout','do':0.2,'ido':0.2,'rdo':0.3,'location':['London','Cardiff','Glasgow','Lancaster','Bradford','Manchester','Birmingham','Liverpool','Leeds','Edinburgh','Belfast','Dublin','LakeDistrict','Newry','Preston','Truro','Bangor','Plymouth','Norwich','StDavids','Swansea','Lisburn','Salford','Aberdeen','Stirling','Hull']}" -dd "/Data/Rain_Data_Mar20" -bs 64`
 
 #### predictions
 `python3 predict.py -mn "TRUNET" -ctsm "1979_2009_2014" -ctsm_test "2014_2019-07-04" -mts "{'stochastic':True,'stochastic_f_pass':25,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout', 'do':0.2,'ido':0.2,'rdo':0.3, 'location':'London','Cardiff','Glasgow','Lancaster','Bradford','Manchester','Birmingham','Liverpool','Leeds','Edinburgh','Belfast','Dublin','LakeDistrict','Newry','Preston','Truro','Bangor','Plymouth','Norwich','StDavids','Swansea','Lisburn','Salford','Aberdeen','Stirling','Hull']}", 'location_test':['All']}" -ts "{'region_pred':True}" -dd "/Data/Rain_Data_Mar20" -bs 71`
