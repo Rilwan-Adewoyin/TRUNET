@@ -94,7 +94,7 @@ def main(m_params):
                         try:
                             outp = subprocess.run( train_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, check=True )
                         except subprocess.CalledProcessError as e:
-                            print(e.outp)
+                            print(e.output)
                             print("\n\n")
                             print(e.stderr)
                             
