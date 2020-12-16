@@ -91,11 +91,13 @@ def main(m_params):
                         print(f"\n Training model v{counter}")
                         train_cmd = train_cmd_maker( m_params['model_name'], lr, b1, b2, inpd, recd, counter )
 
-                        outp = subprocess.run( train_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True )
+                        outp = subprocess.run( train_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, capture_output=True, text=True )
                         
+                        print(outp)
+
                         test_cmd = test_cmd_maker( m_params['model_name'], inpd, recd, counter )
                         print(f" Testing model v{counter}")
-                        outp = subprocess.run( test_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True )
+                        outp = subprocess.run( test_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, capture_output=True, text=True )
                         counter = counter + 1
 
 def train_cmd_maker( mn ,lr_min_max, b1, b2, inp_drop, rec_drop, counter):
