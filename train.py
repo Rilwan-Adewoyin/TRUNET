@@ -116,7 +116,7 @@ class TrainTruNet():
 
         # region ---- Defining Model / Optimizer / Losses / Metrics / Records / Checkpoints / Tensorboard 
                     
-        self.strategy = tf.distribute.MirroredStrategy() #OneDeviceStrategy(device="/GPU:0") # 
+        self.strategy = tf.distribute.MirroredStrategy(device=["GPU:0", "GPU:1","GPU:2"]) #OneDeviceStrategy(device="/GPU:0") # 
         
         assert self.t_params['batch_size'] % self.strategy.num_replicas_in_sync  == 0
         print("Nuber of Devices used in MirroredStrategy: {}".format(self.strategy.num_replicas_in_sync))
@@ -158,8 +158,8 @@ class TrainTruNet():
             print (' Initializing model from scratch')
         
         #Tensorboard
-        os.makedirs("log_tensboard/{}".format(utility.model_name_mkr(m_params, t_params=self.t_params, htuning=m_params.get('htuning',False) )), exist_ok=True ) 
-        self.writer = tf.summary.create_file_writer( "log_tensboard/{}".format(utility.model_name_mkr(m_params,t_params=self.t_params, htuning=m_params.get('htuning',False) ) ) )
+        os.makedirs("log_tensboard/{}".format(utility.model_name_mkr(m_params, t_params=self.t_params, htuning=self.m_params.get('htuning',False) )), exist_ok=True ) 
+        self.writer = tf.summary.create_file_writer( "log_tensboard/{}".format(utility.model_name_mkr(m_params,t_params=self.t_params, htuning=self.m_params.get('htuning',False) ) ) )
         # endregion
         
         # region ---- Making Datasets
