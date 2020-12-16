@@ -91,9 +91,13 @@ def main(m_params):
 
                         print(f"\n\n Training model v{counter}")
                         train_cmd = train_cmd_maker( m_params['model_name'], lr, b1, b2, inpd, recd, counter )
-                        
-                        outp = subprocess.run( train_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, check=True )
-                        print(outp)
+                        try:
+                            outp = subprocess.run( train_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, check=True )
+                        except subprocess.CalledProcessError as e:
+                            print(outp)
+                            print("\n\n")
+                            print(e.outp)
+                            
 
                         # popen = subprocess.Popen( train_cmd, stdout=subprocess.PIPE, shell=True, check=True )
                         # for stdout_line in iter(popen.stdout.readline, ""):
