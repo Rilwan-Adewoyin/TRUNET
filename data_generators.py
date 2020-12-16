@@ -482,7 +482,7 @@ class Era5_Eobs():
             li_hw_idxs = [ self.rain_data.find_idx_of_loc_region( _loc, self.m_params['region_grid_params'] ) for _loc in locations ] #[ (h_idx,w_idx), ... ]
         
         # Creating seperate datasets for each location
-        li_ds = [ ds.map( lambda mf, rain, rmask : self.select_region(self, mf, rain, rmask, _idx[0], _idx[1]), num_parallel_calls=-1) for _idx in li_hw_idxs ]
+        li_ds = [ ds.map( lambda mf, rain, rmask : self.select_region(, mf, rain, rmask, _idx[0], _idx[1]), num_parallel_calls=-1) for _idx in li_hw_idxs ]
         
         # Concatenating all datasets for each location
         batches_per_loc = int(batch_count/len(li_hw_idxs))
