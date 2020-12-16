@@ -99,7 +99,7 @@ def main(m_params):
                         #     print("\n\n")
                         #     print(e.stderr)
                         
-                        f.write(f'{train_cmd}\n && ')
+                        f.write(f'{train_cmd} && ')
                             
 
                         # popen = subprocess.Popen( train_cmd, stdout=subprocess.PIPE, shell=True, check=True )
@@ -110,10 +110,10 @@ def main(m_params):
                         #     raise subprocess.CalledProcessError(return_code, train_cmd)
                         print(f" Testing model v{counter}")
                         test_cmd = test_cmd_maker( m_params['model_name'], inpd, recd, counter )
-                        f.write(f'{train_cmd}\n && ')
+                        f.write(f'{train_cmd} && ')
                         
                         # outp = subprocess.run( test_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, check=True )
-                        # counter = counter + 1
+                        counter = counter + 1
     f.close()
 
 def train_cmd_maker( mn ,lr_min_max, b1, b2, inp_drop, rec_drop, counter):
