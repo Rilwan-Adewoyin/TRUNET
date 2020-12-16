@@ -88,15 +88,19 @@ def main(m_params):
             for b2 in b2s:
                 for inpd in inp_dropouts:
                     for recd in rec_dropouts:
+
                         print(f"\n\n Training model v{counter}")
                         train_cmd = train_cmd_maker( m_params['model_name'], lr, b1, b2, inpd, recd, counter )
-
-                        popen = subprocess.Popen( train_cmd, stdout=subprocess.PIPE, shell=True, check=True )
-                        for stdout_line in iter(popen.stdout.readline, ""):
-                            yield stdout_line 
-                        return_code = popen.wait()
-                        if return_code:
-                            raise subprocess.CalledProcessError(return_code, train_cmd)
+                        
+                        outp = subprocess.run( test_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, check=True )
+                        print(outp)
+                        
+                        # popen = subprocess.Popen( train_cmd, stdout=subprocess.PIPE, shell=True, check=True )
+                        # for stdout_line in iter(popen.stdout.readline, ""):
+                        #     yield stdout_line 
+                        # return_code = popen.wait()
+                        # if return_code:
+                        #     raise subprocess.CalledProcessError(return_code, train_cmd)
 
                         test_cmd = test_cmd_maker( m_params['model_name'], inpd, recd, counter )
                         print(f" Testing model v{counter}")
