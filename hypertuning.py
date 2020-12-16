@@ -96,7 +96,7 @@ def main(m_params):
                             yield stdout_line 
                         return_code = popen.wait()
                         if return_code:
-                            raise subprocess.CalledProcessError(return_code, cmd)
+                            raise subprocess.CalledProcessError(return_code, train_cmd)
 
                         test_cmd = test_cmd_maker( m_params['model_name'], inpd, recd, counter )
                         print(f" Testing model v{counter}")
