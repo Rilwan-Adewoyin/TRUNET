@@ -102,7 +102,7 @@ def main(m_params):
 
 def train_cmd_maker( mn ,lr_min_max, b1, b2, inp_drop, rec_drop, counter):
     cmd = [
-        "CUDA_VISIBLE_DEVICES=0,1,2,3",
+        "CUDA_VISIBLE_DEVICES=1,2,3",
         "python3", "train.py","-mn",f"{mn}",
         "-ctsm", "1994_2009_2014", "-mts",
         f"{{'htuning':True, 'htune_version':{counter} ,'stochastic':False,'stochastic_f_pass':1,'discrete_continuous':True,'var_model_type':'mc_dropout','do':0.2,'ido':{inp_drop},'rdo':{rec_drop}, 'b1':{b1}, 'b2':{b2}, 'lr_max':{lr_min_max[0]}, 'lr_min':{lr_min_max[1]}, 'location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds'] }}",
@@ -111,7 +111,7 @@ def train_cmd_maker( mn ,lr_min_max, b1, b2, inp_drop, rec_drop, counter):
     return cmd
 
 def test_cmd_maker( lr_min_max, inp_drop, rec_drop, counter):
-    cmd = [ "CUDA_VISIBLE_DEVICES=0",
+    cmd = [ "CUDA_VISIBLE_DEVICES=1",
         "python 3", "predict.py", "-mn", f"{mn}", "-ctsm", "1994_2009_2014", "-ctsm_test", "2014_2019-07-04", "-mts",
     f"{{'htuning':True, 'htune_version':{counter},'stochastic':True,'stochastic_f_pass':2,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout', 'do':0.2,'ido':{inp_drop},'rdo':{rec_drop}, 'location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds'],'location_test':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds']}}",
     "-ts", "{'region_pred':True}", "-dd", "/Data/Rain_Data_Mar20", "-bs", f"{71}" ]
