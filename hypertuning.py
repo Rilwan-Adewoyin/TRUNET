@@ -124,7 +124,7 @@ def test_cmd_maker( lr_min_max, inp_drop, rec_drop, counter):
 
 if __name__ == "__main__":
     s_dir = utility.get_script_directory(sys.argv[0])
-    args_dict = utility.parse_arguments_htuning(s_dir)
+    args_dict = utility.parse_arguments(s_dir)
 
     # get training and model params
     #_, m_params = utility.load_params(args_dict)
