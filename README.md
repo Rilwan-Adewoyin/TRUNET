@@ -4,6 +4,26 @@ Code for predicting precipitation using model field data from IFS-ERA5 (temperat
 The Data used in this project is available at the following Google Drive link. Users must download and decompress the Rain_Data_Mar20 folder. 
 Keywords: TRU_NET, Downscaling, Cross Attention, Hierarchical GRU
 
+## Getting Started
+The following list explains the workflow to get started quickly: 
+* Download / Fork the repository
+* Download the Data into the root directory of the Downloaded repository - link:https://drive.google.com/file/d/1AUZc708aGrLAgjE8rK2lG2VTlP4XbxFq/view?usp=sharing
+  * If facing an 'access denied error' follow the workaround in section below titled 'Data Download'
+* Train a model on a 26 cities between 1979 to 2009
+* Produce predictions for the whole country using the trained model
+* Evaluate the models' predictions
+
+#### train
+`python3 train.py -mn "TRUNET" -ctsm "1979_2009_2014" -mts "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout','do':0.2,'ido':0.2,'rdo':0.3,'location':['London','Cardiff','Glasgow','Lancaster','Bradford','Manchester','Birmingham','Liverpool','Leeds','Edinburgh','Belfast','Dublin','LakeDistrict','Newry','Preston','Truro','Bangor','Plymouth','Norwich','StDavids','Swansea','Lisburn','Salford','Aberdeen','Stirling','Hull']}" -dd "/Data/Rain_Data_Mar20" -bs 64`
+
+#### predictions
+`python3 predict.py -mn "TRUNET" -ctsm "1979_2009_2014" -ctsm_test "2014_2019-07-04" -mts "{'stochastic':True,'stochastic_f_pass':25,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout', 'do':0.2,'ido':0.2,'rdo':0.3, 'location':'London','Cardiff','Glasgow','Lancaster','Bradford','Manchester','Birmingham','Liverpool','Leeds','Edinburgh','Belfast','Dublin','LakeDistrict','Newry','Preston','Truro','Bangor','Plymouth','Norwich','StDavids','Swansea','Lisburn','Salford','Aberdeen','Stirling','Hull']}", 'location_test':['All']}" -ts "{'region_pred':True}" -dd "/Data/Rain_Data_Mar20" -bs 71`
+
+Note: The maximum batch size that can be used during prediction is proportional to number of days covered by the test set. As explained in the paper, one prediction from TRUNET is one sequence of 28 values relating to the rain in the corresponding 28 days. As such each batch of predictions will cover 28 days * batch size. Using the prediction code from above as an example, each geographic region under evaluation has predictions produced for the time period 2014 till 2019-07-04. This is equal to 2010 days. When predicting for a single region, the upper limit on batch size should be 2010/28 days. This is roughly equal to 71.79. 
+
+#### evaluation
+Use the Evaluation.ipynb
+
 ## Training Scripts
 The code below can be used to train a TRU-NET model. The list the follows the code explains the role of the arguments.
 
@@ -49,12 +69,12 @@ The code below can be used to make predictions provided you have trained a TRU-N
 After running the predict sript, a pickled tuple (predictions, true_values, timesteps) will be saved to a folder './Output/modelcode/Predictions'. If region_pred=True this file will be called region.dat, if region_pred=False this file will be called local.dat
 
 ## Evaluation Scripts 
-Currently, to retrieve any scoring metrics or illustrations the 'Visualization.ipynb' notebook must be used. Examples of how to do so are included in the file Visualization.ipynb. The output from Visualization.ipynb is generally saved to the './Output/Experiments/' directory. 
+Currently, to retrieve any scoring metrics or illustrations the 'Evaluation.ipynb' notebook must be used. Examples of how to do so are included in the file Visualization.ipynb. The output from Evaluation.ipynb is generally saved to the './Output/Experiments/' directory. 
 
 ## Producing IFS-ERA5 Predictions
 IFS-ERA5 is the numerical weather system which is used as the baseline in our paper. The code below can be used to create prediction results from the IFS-ERA 5 model
 
-`python3 predict_IFS.py -dd "./Data" -sd "2014" -ed "2019-06-11" -lo "['All']" -reg False`
+`python3 predict_ifs.py -dd "./Data" -sd "2014" -ed "2019-06-11" -lo "['All']" -reg False`
 
 * dd = string : data directory (Note: do not use a child directory)
 * sd = string: start_date for predictions. Can be of the form 'YYYY' or 'yy-mm-dd'.
@@ -64,7 +84,19 @@ IFS-ERA5 is the numerical weather system which is used as the baseline in our pa
 
 Predictions will again be saved in the .Output/Predictions file.
 
-##Notes for Developers
+## Data Download
+
+The data used for experiments related to the paper can be found at this link https://drive.google.com/file/d/1AUZc708aGrLAgjE8rK2lG2VTlP4XbxFq/view?usp=sharing. Users must extract the contents from the zip folder, into the root directory associated with their TRUNET repository.
+
+**Problem**: 
+- When you try to download a file with .rar extension from google drive and you get access denied error. 
+
+**Solution**: 
+- you can fix the error by opening a new private/incognito window.
+- Copy the url of the file and paste that url in new private window. 
+- Hit enter the file will automatically start to download.
+
+## Notes for Developers
 
 ##Requirements (Python 3 and Linux)
 * Tensorflow 2
