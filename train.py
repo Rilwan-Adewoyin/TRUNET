@@ -452,8 +452,8 @@ class TrainTruNet():
     
     @tf.function
     def distributed_train_step(self, feature, target, mask, bounds, _init):
-        gradients = self.strategy.run( self.train_step, args=(feature, target, mask, bounds, _init))
-        #gradients = self.strategy.experimental_run_v2( self.train_step, args=(feature, target, mask, bounds, _init) )
+        #gradients = self.strategy.run( self.train_step, args=(feature, target, mask, bounds, _init))
+        gradients = self.strategy.experimental_run_v2( self.train_step, args=(feature, target, mask, bounds, _init) )
         return gradients
     
     @tf.function
