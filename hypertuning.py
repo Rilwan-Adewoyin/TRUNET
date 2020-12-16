@@ -90,7 +90,7 @@ def main(m_params):
                     for recd in rec_dropouts:
                         train_cmd = train_cmd_maker( m_params['model_name'], lr, b1, b2, inpd, recd, counter )
 
-                        outp = subprocess.run( train_cmd, stout=subprocess.PIPE, stderr=subprocess.PIPE )
+                        outp = subprocess.run( train_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE )
                         
                         test_cmd = test_cmd_maker( m_params['model_name'], inpd, recd, counter )
 
