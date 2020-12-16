@@ -15,13 +15,13 @@ import numpy as np
 import pandas as pd
 import psutil
 
-import tensorflow as tf
-from tensorflow.keras.mixed_precision import experimental as mixed_precision
+#import tensorflow as tf
+#from tensorflow.keras.mixed_precision import experimental as mixed_precision
 
-try:
-    import tensorflow_addons as tfa
-except Exception as e:
-    tfa = None
+# try:
+#     import tensorflow_addons as tfa
+# except Exception as e:
+#     tfa = None
 
 import data_generators
 import custom_losses as cl
@@ -29,16 +29,16 @@ import hparameters
 import models
 import utility
 
-tf.keras.backend.set_floatx('float16')
-tf.keras.backend.set_epsilon(1e-3)
+# tf.keras.backend.set_floatx('float16')
+# tf.keras.backend.set_epsilon(1e-3)
 
-try:
-    gpu_devices = tf.config.list_physical_devices('GPU')
-except Exception as e:
-    gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+# try:
+#     gpu_devices = tf.config.list_physical_devices('GPU')
+# except Exception as e:
+#     gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 
-policy = mixed_precision.Policy('mixed_float16')
-mixed_precision.set_policy(policy)
+# policy = mixed_precision.Policy('mixed_float16')
+# mixed_precision.set_policy(policy)
 
 import subprocess
 
@@ -117,7 +117,7 @@ def train_cmd_maker( mn ,lr_min_max, b1, b2, inp_drop, rec_drop, counter):
         "python3", "train.py","-mn",f"{mn}",
         "-ctsm", "1994_2009_2014", "-mts",
         f"\"{{'htuning':True, 'htune_version':{counter},'stochastic':False,'stochastic_f_pass':1,'discrete_continuous':True,'var_model_type':'mc_dropout','do':0.2,'ido':{inp_drop},'rdo':{rec_drop}, 'b1':{b1}, 'b2':{b2}, 'lr_max':{lr_min_max[0]}, 'lr_min':{lr_min_max[1]}, 'location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds'] }}\"",
-        "-dd", "/media/Data3/akanni/Rain_Data_Mar20", "-bs", "64"]
+        "-dd", "/media/Data3/akanni/Rain_Data_Mar20", "-bs", "48"]
     
     cmd2 = ' '.join(cmd)
     return cmd2
