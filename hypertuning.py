@@ -95,7 +95,7 @@ def main(m_params):
                         
                         test_cmd = test_cmd_maker( m_params['model_name'], inpd, recd, counter )
                         print(f" Testing model v{counter}")
-                        outp = subprocess.run( test_cmd, stout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True )
+                        outp = subprocess.run( test_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True )
 
                         df_scores = df_scores.append(dict_scores, ignore_index=True)
 
