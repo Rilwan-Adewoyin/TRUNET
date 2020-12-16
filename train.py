@@ -116,7 +116,7 @@ class TrainTruNet():
 
         # region ---- Defining Model / Optimizer / Losses / Metrics / Records / Checkpoints / Tensorboard 
                     
-        self.strategy = tf.distribute.MirroredStrategy(device=["GPU:0", "GPU:1","GPU:2"]) #OneDeviceStrategy(device="/GPU:0") # 
+        self.strategy = tf.distribute.MirroredStrategy(devices=["GPU:0", "GPU:1","GPU:2"]) #OneDeviceStrategy(device="/GPU:0") # 
         
         assert self.t_params['batch_size'] % self.strategy.num_replicas_in_sync  == 0
         print("Nuber of Devices used in MirroredStrategy: {}".format(self.strategy.num_replicas_in_sync))
