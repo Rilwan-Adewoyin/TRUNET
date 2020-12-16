@@ -88,12 +88,13 @@ def main(m_params):
             for b2 in b2s:
                 for inpd in inp_dropouts:
                     for recd in rec_dropouts:
+                        print(f"\n Training model v{counter}")
                         train_cmd = train_cmd_maker( m_params['model_name'], lr, b1, b2, inpd, recd, counter )
 
                         outp = subprocess.run( train_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True )
                         
                         test_cmd = test_cmd_maker( m_params['model_name'], inpd, recd, counter )
-
+                        print(f" Testing model v{counter}"
                         outp = subprocess.run( test_cmd, stout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True )
 
                         df_scores = df_scores.append(dict_scores, ignore_index=True)
@@ -111,7 +112,7 @@ def train_cmd_maker( mn ,lr_min_max, b1, b2, inp_drop, rec_drop, counter):
     
     return cmd
 
-def test_cmd_maker( lr_min_max, inp_drop, rec_drop, counter):
+def test_cmd_maker( mn,inp_drop, rec_drop, counter):
     cmd = [ 
         "CUDA_VISIBLE_DEVICES=1",
         #"export", "CUDA_VISIBLE_DEVICES=1", "&&",
