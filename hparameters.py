@@ -218,6 +218,7 @@ class model_TRUNET_hparameters(MParams):
             'model_name':"TRUNET",
             'model_type_settings':model_type_settings,
             'htuning':model_type_settings.get('htuning',False),
+            'htune_version':model_type_settings.get('htune_version',0),
             'encoder_params':ENCODER_PARAMS,
             'decoder_params':DECODER_PARAMS,
             'output_layer_params':OUTPUT_LAYER_PARAMS,
@@ -295,6 +296,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
             'data_pipeline_params':DATA_PIPELINE_PARAMS,
             'model_type_settings':model_type_settings,
             'htuning':model_type_settings.get('htuning',False),
+            'htune_version':model_type_settings.get('htune_version',0),
             'rec_adam_params':REC_ADAM_PARAMS,
             'lookahead_params':LOOKAHEAD_PARAMS,
             'clip_norm':6.5
