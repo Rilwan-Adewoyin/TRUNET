@@ -67,7 +67,7 @@ def update_checkpoints_epoch(df_training_info, epoch, train_loss_epoch, val_loss
             print(df_training_info[['Epoch','Train_loss','Train_mse','Val_loss','Val_mse']] )
 
         df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(model_name_mkr(m_params, t_params=t_params)),
-                                    header=True, index=False ) #saving df of scores                      
+                                    header=True, index=False, htuning=m_params.get('htuning',False) ) #saving df of scores                      
     
     return df_training_info
 
@@ -166,6 +166,7 @@ def parse_arguments(s_dir=None):
 
     return args_dict
 
+
 #endregion
 
 # region - Saving model / settings / params
@@ -173,7 +174,7 @@ def save_model_settings(m_params,t_params):
     """Saves the m_params and t_params dicts to file
 
     """    
-    f_dir = "saved_params/{}".format( model_name_mkr(m_params, t_params=t_params) )
+    f_dir = "saved_params/{}".format( model_name_mkr(m_params, t_params=t_params, htuning=m_params.get('htuning',False)) )
 
     m_path = "m_params.json"
     
@@ -210,7 +211,7 @@ def default_pkl(obj):
 
     raise TypeError('Unknown type:', type(obj))
 
-def model_name_mkr(m_params, train_test="train", t_params={}, custom_test_loc=None ) : 
+def model_name_mkr(m_params, train_test="train", t_params={}, custom_test_loc=None, htuning=False ) : 
     """Creates file names for models based on the variants used to train them
 
         Args:
@@ -224,13 +225,14 @@ def model_name_mkr(m_params, train_test="train", t_params={}, custom_test_loc=No
     """    
     
     model_name = "{}_{}_{}_{}_{}".format( m_params['model_name'], m_params['model_type_settings']['var_model_type'],
-                        m_params['model_type_settings']['distr_type'], 
+                        m_params['model_type_settings'].get('distr_type',"Normal"), 
                         str(m_params['model_type_settings']['discrete_continuous']),
                         "_".join(loc_name_shrtner(m_params['model_type_settings']['location']) ) )
 
 
-    if m_params['model_type_settings'].get('conv_ops_qk',False) == True:
-        model_name = model_name + "convopsqk"
+    # if m_params['model_type_settings'].get('conv_ops_qk',False) == True:
+    #     model_name = model_name + "convopsqk"
+
 
     if train_test=="train": 
         model_name = model_name + "_" + str( t_params['ctsm'] )
@@ -257,9 +259,9 @@ def model_name_mkr(m_params, train_test="train", t_params={}, custom_test_loc=No
     if m_params['model_type_settings'].get('heads',8) != 8:
         model_name = model_name + "_heads_{}".format( str(m_params['model_type_settings']['heads']) )
     
-    # if m_params['model_type_settings'].get('value_dropout',False) != False:
-    #     model_name = model_name + "_vdrop"
-
+    if htuning==True:
+        model_name = model_name + f"_htune_v{m_params['htune_version']:03d}"
+    
     model_name = re.sub(",",'_',model_name )
 
     return model_name

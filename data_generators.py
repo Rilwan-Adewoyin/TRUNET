@@ -279,14 +279,7 @@ class Generator_mf(Generator):
         xr_gn =  xr_gn.isel(time=slice_t, latitude=slice_h, longitude=slice_w)
         
         return xr_gn
-        # #cropping data for a single region -> More memory effecient to do it here
 
-
-        # #To array
-        # array = xr_gn.to_array()
-        # array = array.transpose(['time','longitiude','longitude','variables'])
-        
-        # return array#[ :, 1:-2, 2:-2, :] #time, latitude, longitude, variables
 
     def yield_iter(self):
         xr_gn = xr.open_dataset(self.fp, cache=False, decode_times=False, decode_cf=False)

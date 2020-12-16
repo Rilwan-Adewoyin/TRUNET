@@ -232,12 +232,12 @@ class model_TRUNET_hparameters(MParams):
 class model_SimpleConvGRU_hparamaters(MParams):
 
     def __init__(self, **kwargs):
-        self.dc = kwargs.get('model_type_settings',{}).get('discrete_continuous',False)
+        #self.dc = kwargs.get('model_type_settings',{}).get('discrete_continuous',False)
         self.stoc = kwargs.get('model_type_settings',{}).get('stochastic',False)
         super(model_SimpleConvGRU_hparamaters, self).__init__(**kwargs)
     
     def _default_params(self,**kwargs):
-        dropout = kwargs.get('dropout',0.0)
+        dropout = kwargs.get('do',0.0)
 
         #region --- ConvLayers
         layer_count = 4 
@@ -247,8 +247,8 @@ class model_SimpleConvGRU_hparamaters(MParams):
         kernel_sizes = [[4,4]]*layer_count
         paddings = ['same']*layer_count
         return_sequences = [True]*layer_count
-        input_dropout = [kwargs.get('inp_dropout',0.0) ]*layer_count #[0.0]*layer_count
-        recurrent_dropout = [ kwargs.get('rec_dropout',0.0)]*layer_count #[0.0]*layer_count
+        input_dropout = [kwargs.get('ido',0.0) ]*layer_count #[0.0]*layer_count
+        recurrent_dropout = [ kwargs.get('rdo',0.0)]*layer_count #[0.0]*layer_count
 
         ConvGRU_layer_params = [ { 'filters':filters, 'kernel_size':ks , 'padding': ps,
                                 'return_sequences':rs, "dropout": dp , "recurrent_dropout":rdp,
@@ -275,8 +275,8 @@ class model_SimpleConvGRU_hparamaters(MParams):
 
 
         REC_ADAM_PARAMS = {
-            "learning_rate":8e-4,   "warmup_proportion":0.65,
-            "min_lr":5e-4,         "beta_1":0.9,               "beta_2":0.99,
+            "learning_rate":kwargs.get('lr_max',8e-4),   "warmup_proportion":0.65,
+            "min_lr":kwargs.get('lr_min',5e-4),         "beta_1":kwargs.get('b1',0.9),  "beta_2":kwargs.get( 'b2',0.99),
             "amsgrad":True,         "decay":0.0008,              "epsilon":5e-8 } #Rectified Adam params
         
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }

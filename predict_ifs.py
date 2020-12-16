@@ -63,7 +63,7 @@ def main(date_start_str, date_end_str, location, data_dir="./", rain_fall_stats=
     true_rain = np.where(rain_mask, true_rain, np.nan )
     ifs_preds = np.where(rain_mask, ifs_preds, np.nan )
     
-    #Save the extracted IFS prediction, true rainfall for optional Visualization using Visualization.ipynb
+    #Save the extracted IFS prediction, true rainfall for optional Visualization using Evaluation.ipynb
     preds = ifs_preds
     true_rain = true_rain
     f_dir = "./Output/ERA5/preds/"
@@ -79,17 +79,23 @@ def main(date_start_str, date_end_str, location, data_dir="./", rain_fall_stats=
         open(fp,"wb")  )
     
     #Version that also saves associated model field data
-    # f_dir1 = "./Output/ERA5/preds_w_mf/"
-    # fn1 = "{}_{}_{}".format(location, date_start_str, date_end_str)
-    # if region ==True:
-    #     fn1+= "regional"
-    # fn1 += "_pred.dat"
-    # fp = f_dir1+fn1
-    # if not os.path.isdir(f_dir1):
-    #     os.makedirs( f_dir1, exist_ok=True  )
+    f_dir1 = "./Output/ERA5/preds_w_mf/"
+    fn1 = "{}_{}_{}".format(location, date_start_str, date_end_str)
+    if region ==True:
+        fn1+= "regional"
+    fn1 += "_pred.dat"
+    fp1 = f_dir1+fn1
+    if not os.path.isdir(f_dir1):
+        os.makedirs( f_dir1, exist_ok=True  )
 
-    # pickle.dump( [np.array(timestamp_epochs), np.array(ifs_preds,dtype=np.float64) , np.array(true_rain), mf ], 
-    #     open(fp,"wb")  )
+    _dat = [np.array(timestamp_epochs), np.array(ifs_preds,dtype=np.float64) , np.array(true_rain), mf ]
+    _dat = {
+        'timestamps':np.array(timestamp_epochs),
+        'ERA5':np.array(ifs_preds,dtype=np.float64),
+        'true_rain':np.array(true_rain),
+        'model_field':mf
+    }
+    pickle.dump( _dat , open(fp1,"wb")  )
     
 
     #Create a Plot of IFS predictions against True Rain values, for a quick check if I have aligned the IFS prediction and True rain correctly
@@ -211,7 +217,7 @@ def model_field_extractor(data_dir,target_start_date, target_end_date, location,
     
     #Extracting dta
     mf_data_gen.start_idx = np.timedelta64(target_start_date - feature_start_date,'6h').astype(int)
-    mf_data_gen.end_idx = np.timedelta64(target_end_date - feature_start_date,'6h').astype(int)
+    mf_data_gen.end_idx = np.timedelta64(target_end_date - feature_start_date,'6h').astype(int) + 4
 
     mf_data = mf_data_gen()
     

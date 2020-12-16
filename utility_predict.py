@@ -33,7 +33,7 @@ def load_model(t_params, m_params):
     ckpt = tf.train.Checkpoint(model=model)
 
     # Choosing checkpoint with lowest validation loss
-    df_checkpoint_scores = pd.read_csv( t_params['script_dir']+'/checkpoints/{}/checkpoint_scores.csv'.format(utility.model_name_mkr(m_params, train_test="train", t_params=t_params )), header=0 )
+    df_checkpoint_scores = pd.read_csv( t_params['script_dir']+'/checkpoints/{}/checkpoint_scores.csv'.format(utility.model_name_mkr(m_params, train_test="train", t_params=t_params, htuning=m_params.get('htuning',False)  )), header=0 )
 
     best_checkpoint_path = df_checkpoint_scores['Checkpoint_Path'][0]
     checkpoint_code = "E"+str(df_checkpoint_scores['Epoch'][0])
@@ -58,7 +58,7 @@ def save_preds( t_params, m_params, li_preds, li_timestamps, li_truevalues, cust
     """ 
 
     if type( t_params['ctsm_test'] ) == str:
-        _path_pred = t_params['output_dir'] + "/{}/Predictions".format(utility.model_name_mkr(m_params, train_test="test", t_params=t_params, custom_test_loc=custom_test_loc))
+        _path_pred = t_params['output_dir'] + "/{}/Predictions".format(utility.model_name_mkr(m_params, train_test="test", t_params=t_params, custom_test_loc=custom_test_loc, htuning=m_params.get('htuning',False) ))
     
     if t_params['t_settings'].get('region_pred', False) == True:
         fn = "_regional"

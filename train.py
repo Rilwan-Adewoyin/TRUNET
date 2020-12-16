@@ -95,7 +95,7 @@ class TrainTruNet():
         # region ---- Restoring/Creating New Training Records and Restoring training progress
             #This training records keeps track of the losses on each epoch
         try:
-            self.df_training_info = pd.read_csv( "checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(m_params,t_params=self.t_params)), header=0, index_col=False) 
+            self.df_training_info = pd.read_csv( "checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(m_params,t_params=self.t_params,htuning=m_params.get('htuning',False))), header=0, index_col=False) 
             self.df_training_info = self.df_training_info[['Epoch','Train_loss','Train_mse','Val_loss','Val_mse','Checkpoint_Path','Last_Trained_Batch']]
             self.start_epoch =  int(max([self.df_training_info['Epoch'][0]], default=0))
             last_batch = int( self.df_training_info.loc[self.df_training_info['Epoch']==self.start_epoch,'Last_Trained_Batch'].iloc[0] )
@@ -144,7 +144,7 @@ class TrainTruNet():
 
         #checkpoints  (For Epochs)
             #The CheckpointManagers can be called to serializae the weights within TRUNET
-        checkpoint_path_epoch = "checkpoints/{}/epoch".format(utility.model_name_mkr(m_params,t_params=self.t_params ))
+        checkpoint_path_epoch = "checkpoints/{}/epoch".format(utility.model_name_mkr(m_params,t_params=self.t_params, htuning=m_params.get('htuning',False) ))
         os.makedirs(checkpoint_path_epoch,exist_ok=True)
         with self.strategy.scope():
             ckpt_epoch = tf.train.Checkpoint(model=self.model, optimizer=self.optimizer)
@@ -158,8 +158,8 @@ class TrainTruNet():
             print (' Initializing model from scratch')
         
         #Tensorboard
-        os.makedirs("log_tensboard/{}".format(utility.model_name_mkr(m_params, t_params=self.t_params)), exist_ok=True ) 
-        self.writer = tf.summary.create_file_writer( "log_tensboard/{}".format(utility.model_name_mkr(m_params,t_params=self.t_params) ) )
+        os.makedirs("log_tensboard/{}".format(utility.model_name_mkr(m_params, t_params=self.t_params, htuning=m_params.get('htuning',False) )), exist_ok=True ) 
+        self.writer = tf.summary.create_file_writer( "log_tensboard/{}".format(utility.model_name_mkr(m_params,t_params=self.t_params, htuning=m_params.get('htuning',False) ) ) )
         # endregion
         
         # region ---- Making Datasets
@@ -239,7 +239,7 @@ class TrainTruNet():
 
                     # Updating record of the last batch to be operated on in training epoch
                     self.df_training_info.loc[ ( self.df_training_info['Epoch']==epoch) , ['Last_Trained_Batch'] ] = batch
-                    self.df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(self.m_params,t_params=self.t_params)), header=True, index=False )
+                    self.df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(self.m_params,t_params=self.t_params, htuning=m_params.get('htuning',False) )), header=True, index=False )
 
                 li_losses = [self.loss_agg_batch.result()]
                 li_names = ['train_loss_batch']
