@@ -78,7 +78,7 @@ def main(m_params):
     b1s = [0.75, 0.9]
     b2s = [0.99]
     
-    inp_dropouts = [0.2,0.3]
+    inp_dropouts = [0.2,0.3,0.35]
     rec_dropouts = [0.15,0.25,0.35]
 
     counter =  0
