@@ -78,8 +78,8 @@ def main(m_params):
     b1s = [0.5, 0.75, 0.9]
     b2s = [0.5, 0.75, 0.99]
     
-    inp_dropouts = [0.1,0.2,0.3,0.4]
-    rec_dropouts = [0.2,0.3,0.4]
+    inp_dropouts = [0.15,0.25,0.35]
+    rec_dropouts = [0.15,0.25,0.35]
 
     counter =  0
 
@@ -110,13 +110,13 @@ def main(m_params):
 def train_cmd_maker( mn ,lr_min_max, b1, b2, inp_drop, rec_drop, counter):
     cmd = [
         "CUDA_VISIBLE_DEVICES=1,2,3",
-        #"export", "CUDA_VISIBLE_DEVICES=1,2,3", "&&",
         "python3", "train.py","-mn",f"{mn}",
         "-ctsm", "1994_2009_2014", "-mts",
-        f"{{'htuning':True, 'htune_version':{counter} ,'stochastic':False,'stochastic_f_pass':1,'discrete_continuous':True,'var_model_type':'mc_dropout','do':0.2,'ido':{inp_drop},'rdo':{rec_drop}, 'b1':{b1}, 'b2':{b2}, 'lr_max':{lr_min_max[0]}, 'lr_min':{lr_min_max[1]}, 'location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds'] }}",
+        f"{{'htuning':True, 'htune_version':{counter},'stochastic':False,'stochastic_f_pass':1,'discrete_continuous':True,'var_model_type':'mc_dropout','do':0.2,'ido':{inp_drop},'rdo':{rec_drop}, 'b1':{b1}, 'b2':{b2}, 'lr_max':{lr_min_max[0]}, 'lr_min':{lr_min_max[1]}, 'location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds'] }}",
         "-dd", "/media/Data3/akanni/Rain_Data_Mar20", "-bs", "64"]
     
-    return cmd
+    cmd2 = ' '.join(cmd)
+    return cmd2
 
 def test_cmd_maker( mn,inp_drop, rec_drop, counter):
     cmd = [ 
