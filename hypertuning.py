@@ -75,14 +75,15 @@ def main(m_params):
     #defining hyperam range
 
     lrs_max_min = [ ( 1e-3, 1e-4) , (1e-4,1e-5)]
-    b1s = [0.5, 0.75, 0.9]
-    b2s = [0.5, 0.75, 0.99]
+    b1s = [0.75, 0.9]
+    b2s = [0.99]
     
-    inp_dropouts = [0.15,0.25,0.35]
+    inp_dropouts = [0.2,0.3]
     rec_dropouts = [0.15,0.25,0.35]
 
     counter =  0
 
+    f =  open("hypertune.txt","w")
     for lr in lrs_max_min:
         for b1 in b1s:
             for b2 in b2s:
@@ -91,12 +92,14 @@ def main(m_params):
 
                         print(f"\n\n Training model v{counter}")
                         train_cmd = train_cmd_maker( m_params['model_name'], lr, b1, b2, inpd, recd, counter )
-                        try:
-                            outp = subprocess.run( train_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, check=True )
-                        except subprocess.CalledProcessError as e:
-                            print(e.args)
-                            print("\n\n")
-                            print(e.stderr)
+                        # try:
+                        #     outp = subprocess.run( train_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, check=True )
+                        # except subprocess.CalledProcessError as e:
+                        #     print(e.args)
+                        #     print("\n\n")
+                        #     print(e.stderr)
+                        
+                        f.write(f'{train_cmd}\n && ')
                             
 
                         # popen = subprocess.Popen( train_cmd, stdout=subprocess.PIPE, shell=True, check=True )
@@ -105,11 +108,13 @@ def main(m_params):
                         # return_code = popen.wait()
                         # if return_code:
                         #     raise subprocess.CalledProcessError(return_code, train_cmd)
-
-                        test_cmd = test_cmd_maker( m_params['model_name'], inpd, recd, counter )
                         print(f" Testing model v{counter}")
-                        outp = subprocess.run( test_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, check=True )
-                        counter = counter + 1
+                        test_cmd = test_cmd_maker( m_params['model_name'], inpd, recd, counter )
+                        f.write(f'{train_cmd}\n && ')
+                        
+                        # outp = subprocess.run( test_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, check=True )
+                        # counter = counter + 1
+    f.close()
 
 def train_cmd_maker( mn ,lr_min_max, b1, b2, inp_drop, rec_drop, counter):
     cmd = [
