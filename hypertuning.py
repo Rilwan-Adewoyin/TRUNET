@@ -74,16 +74,24 @@ def main(m_params):
 
     #defining hyperam range
 
-    lrs_max_min = [ ( 1e-3, 1e-4) , (1e-4,1e-5)]
-    b1s = [0.75, 0.9]
-    b2s = [0.99]
+    # Rectified Adam Parameters
+    lrs_max_min = [ ( 1e-3, 1e-4) , (1e-4,1e-5)] # minimum and maximum learning rate
+    b1s = [0.75, 0.9]                            # beta 1
+    b2s = [0.99]                                 # beta 2
     
-    inp_dropouts = [0.2,0.3,0.35]
-    rec_dropouts = [0.15,0.25,0.35]
+    inp_dropouts = [0.2,0.3,0.35]                #input dropout
+    rec_dropouts = [0.15,0.25,0.35]              #recurrent dropout
+
+    # Train set
+        #15 years 1994-2009 
+    # Test set
 
     counter =  0
 
-    f =  open("hypertune.txt","w")
+    os.makedirs('hypertune',exist_ok=True)
+    f_training =  open("hypertune/hypertune_train.txt","w")
+    f_testing =  open("hyertune/hypertune_test.txt","w")
+
     for lr in lrs_max_min:
         for b1 in b1s:
             for b2 in b2s:
@@ -99,7 +107,7 @@ def main(m_params):
                         #     print("\n\n")
                         #     print(e.stderr)
                         
-                        f.write(f'{train_cmd} && ')
+                        f_training.write(f'{train_cmd} && ')
                             
 
                         # popen = subprocess.Popen( train_cmd, stdout=subprocess.PIPE, shell=True, check=True )
@@ -110,11 +118,12 @@ def main(m_params):
                         #     raise subprocess.CalledProcessError(return_code, train_cmd)
                         print(f" Testing model v{counter}")
                         test_cmd = test_cmd_maker( m_params['model_name'], inpd, recd, counter )
-                        f.write(f'{train_cmd} && ')
+                        f_testing.write(f'{train_cmd} && ')
                         
                         # outp = subprocess.run( test_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, check=True )
                         counter = counter + 1
-    f.close()
+    f_training.close()
+    f_testing.close()
 
 def train_cmd_maker( mn ,lr_min_max, b1, b2, inp_drop, rec_drop, counter):
     cmd = [
