@@ -90,7 +90,7 @@ def main(m_params):
 
     os.makedirs('hypertune',exist_ok=True)
     f_training =  open("hypertune/hypertune_train.txt","w")
-    f_testing =  open("hyertune/hypertune_test.txt","w")
+    f_testing =  open("hypertune/hypertune_test.txt","w")
 
     for lr in lrs_max_min:
         for b1 in b1s:
