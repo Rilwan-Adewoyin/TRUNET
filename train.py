@@ -120,7 +120,7 @@ class TrainTruNet():
         self.strategy = tf.distribute.MirroredStrategy(devices=gpus_names ) #OneDeviceStrategy(device="/GPU:0") # 
         
         assert self.t_params['batch_size'] % self.strategy.num_replicas_in_sync  == 0
-        print("Nuber of Devices used in MirroredStrategy: {}".format(self.strategy.num_replicas_in_sync))
+        print("Number of Devices used in MirroredStrategy: {}".format(self.strategy.num_replicas_in_sync))
         with self.strategy.scope():   
             #Model
             self.strategy_gpu_count = self.strategy.num_replicas_in_sync    
@@ -452,8 +452,8 @@ class TrainTruNet():
     
     @tf.function
     def distributed_train_step(self, feature, target, mask, bounds, _init):
-        #gradients = self.strategy.run( self.train_step, args=(feature, target, mask, bounds, _init))
-        gradients = self.strategy.experimental_run_v2( self.train_step, args=(feature, target, mask, bounds, _init) )
+        gradients = self.strategy.run( self.train_step, args=(feature, target, mask, bounds, _init))
+        #gradients = self.strategy.experimental_run_v2( self.train_step, args=(feature, target, mask, bounds, _init) )
         return gradients
     
     @tf.function
