@@ -350,7 +350,7 @@ class train_hparameters_ati(HParams):
         # endregion
 
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
-        EPOCHS = 200
+        EPOCHS = 121
         CHECKPOINTS_TO_KEEP = 2
 
         # region ---- data formulation strategies
