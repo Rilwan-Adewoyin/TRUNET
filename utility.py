@@ -66,8 +66,8 @@ def update_checkpoints_epoch(df_training_info, epoch, train_loss_epoch, val_loss
         else:
             print(df_training_info[['Epoch','Train_loss','Train_mse','Val_loss','Val_mse']] )
 
-        df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(model_name_mkr(m_params, t_params=t_params)),
-                                    header=True, index=False, htuning=m_params.get('htuning',False) ) #saving df of scores                      
+        df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(model_name_mkr(m_params, t_params=t_params,  htuning=m_params.get('htuning',False)),
+                                    header=True, index=False) ) #saving df of scores                      
     
     return df_training_info
 
