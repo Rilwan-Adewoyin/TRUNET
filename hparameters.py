@@ -350,8 +350,8 @@ class train_hparameters_ati(HParams):
         # endregion
 
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
-        EPOCHS = 500
-        CHECKPOINTS_TO_KEEP = 5
+        EPOCHS = 200
+        CHECKPOINTS_TO_KEEP = 2
 
         # region ---- data formulation strategies
         target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
