@@ -75,11 +75,11 @@ def main(m_params):
     #defining hyperam range
 
     # Rectified Adam Parameters
-    lrs_max_min = [ ( 1e-3, 1e-4) , (1e-4,1e-5)] # minimum and maximum learning rate
+    lrs_max_min = [ ( 1e-3, 1e-4) ,( 5e-3, 5e-4) , (1e-4,1e-5)] # minimum and maximum learning rate
     b1s = [0.75, 0.9]                            # beta 1
-    b2s = [0.99]                                 # beta 2
+    b2s = [0.9, 0.99]                                 # beta 2
     
-    inp_dropouts = [0.2,0.3,0.35]                #input dropout
+    inp_dropouts = [0.15, 0.25, 0.35]                #input dropout
     rec_dropouts = [0.15,0.25,0.35]              #recurrent dropout
 
     # Train set
