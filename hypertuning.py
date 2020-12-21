@@ -130,7 +130,7 @@ def train_cmd_maker( mn ,lr_min_max, b1, b2, inp_drop, rec_drop, counter,gpu=Non
         "python3", "train.py","-mn",f"{mn}",
         "-ctsm", "1999_2009_2014", "-mts",
         f"\"{{'htuning':True, 'htune_version':{counter},'stochastic':False,'stochastic_f_pass':1,'discrete_continuous':True,'var_model_type':'mc_dropout','do':0.2,'ido':{inp_drop},'rdo':{rec_drop}, 'b1':{b1}, 'b2':{b2}, 'lr_max':{lr_min_max[0]}, 'lr_min':{lr_min_max[1]}, 'location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds'] }}\"",
-        "-dd", "/media/Data3/akanni/Rain_Data_Mar20", "-bs", "48"]
+        "-dd", "/media/Data3/akanni/Rain_Data_Mar20", "-bs", "45"]
     
     cmd2 = ' '.join(cmd)
     return cmd2
