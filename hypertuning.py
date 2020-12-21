@@ -89,7 +89,7 @@ def main(m_params):
     counter =  0
 
     os.makedirs('hypertune',exist_ok=True)
-    f_training =  open("hypertune/hypertune_train1.txt","w")
+    f_training =  open("hypertune/hypertune_train.txt","w")
     # f_training2 =  open("hypertune/hypertune_train2.txt","w")
     
     #f_testing = open(f"hypertune/hypertune_test.txt","w")
@@ -104,7 +104,8 @@ def main(m_params):
 
                         print(f"\n\n Training model v{counter}")
                         train_cmd = train_cmd_maker( m_params['model_name'], lr, b1, b2, inpd, recd, counter )
-                        
+                        f_training.write(f'{train_cmd} && ')
+
                         # if counter%2 == 0:
                         #     train_cmd = train_cmd_maker( m_params['model_name'], lr, b1, b2, inpd, recd, counter,"1,2")
                         #     f_training1.write(f'{train_cmd} && ')
@@ -118,8 +119,8 @@ def main(m_params):
                         f_testings[int(counter%3)].write(f'{train_cmd} && ')
                         
                         counter = counter + 1
-    f_training1.close()
-    f_training2.close()
+    f_training.close()
+    #f_training2.close()
     [ f.close() for f in f_testings ]
 
 def train_cmd_maker( mn ,lr_min_max, b1, b2, inp_drop, rec_drop, counter,gpu=None):
