@@ -277,7 +277,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
 
 
         REC_ADAM_PARAMS = {
-            "learning_rate":model_type_settings.get('lr_max',8e-4)),
+            "learning_rate":model_type_settings.get('lr_max',8e-4),
             "warmup_proportion":0.65,
             "min_lr":model_type_settings.get('lr_min',5e-4),
             "beta_1":model_type_settings.get('b1',0.9),  
