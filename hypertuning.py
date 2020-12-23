@@ -29,36 +29,6 @@ import hparameters
 # import models
 import utility
 
-# tf.keras.backend.set_floatx('float16')
-# tf.keras.backend.set_epsilon(1e-3)
-
-# try:
-#     gpu_devices = tf.config.list_physical_devices('GPU')
-# except Exception as e:
-#     gpu_devices = tf.config.experimental.list_physical_devices('GPU')
-
-# policy = mixed_precision.Policy('mixed_float16')
-# mixed_precision.set_policy(policy)
-
-#import subprocess
-
-# Structure of code
-
-# User passes in: 
-    # kwargs that will be pass on to train.py
-
-# Already Defined
-    # kwargs that will be tested in a given range
-
-# Make a list of the subprocess. commands that will be run for hyper-parameter training
-# Make a list of the subprocess commands that will be run for hyper-parameter testing
-# 	- Need to adjust the trianing script to take new hyper-parameter == "htuning".
-# 		-if htuning=True: Changing Model naming, Model Saving [Put this in new folder called model hypertuning]
-# 			include ( (max lr,min lr), B_1, B_2, min lr, rec_dropout and input_dropout ) in 
-
-#   - Create a hyper-parameter testing pandas dictionary  for which after each model is train/tested the final_train_loss&val_loss/test_loss is appended
-        # new directory called hyptertuning
-#       - Append final_train_loss, final_val_loss, test_loss to a 
  
 # Training Example
 #CUDA_VISIBLE_DEVICES=0,1,2,3 python3 train.py -mn "TRUNET" -ctsm "1979_2009_2014" -mts "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout','do':0.2,'ido':0.2,'rdo':0.3,'location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin', 'Norwich', 'Truro', 'Newry','Plymouth','Bangor'] }" -dd "/media/Data3/akanni/Rain_Data_Mar20" -bs 64
@@ -116,7 +86,7 @@ def main(m_params):
                         print(f" Testing model v{counter}")
                         test_cmd = test_cmd_maker( m_params['model_name'], inpd, recd, counter )
                         #f_testing.write(f'{train_cmd} && ')
-                        f_testings[int(counter%3)].write(f'{train_cmd} && ')
+                        f_testings[int(counter%3)].write(f'{test_cmd} && ')
                         
                         counter = counter + 1
     f_training.close()
@@ -138,26 +108,18 @@ def train_cmd_maker( mn ,lr_min_max, b1, b2, inp_drop, rec_drop, counter,gpu=Non
 def test_cmd_maker( mn,inp_drop, rec_drop, counter):
     cmd = [ 
         f"CUDA_VISIBLE_DEVICES={int(counter%3)+1}",
-        #"export", "CUDA_VISIBLE_DEVICES=1", "&&",
-        "python 3", "predict.py", "-mn", f"{mn}", "-ctsm", "1999_2009_2014", "-ctsm_test", "2014_2019-07-04", "-mts",
-    f"\"{{'htuning':True, 'htune_version':{counter},'stochastic':True,'stochastic_f_pass':2,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout', 'do':0.2,'ido':{inp_drop},'rdo':{rec_drop}, 'location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds'],'location_test':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds']}}\"",
-    "-ts", "{'region_pred':True}", "-dd", "/Data/Rain_Data_Mar20", "-bs", f"{65}" ]
+        "python3", "predict.py", "-mn", f"{mn}", "-ctsm", "1999_2009_2014", "-ctsm_test", "2014_2019-07-04", "-mts",
+    f"\"{{'htuning':True, 'htune_version':{counter},'stochastic':True,'stochastic_f_pass':5,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout', 'do':0.2,'ido':{inp_drop},'rdo':{rec_drop}, 'location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds'],'location_test':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds']}}\"",
+    "-ts", f"\"{{'region_pred':True}}\"", "-dd", "/media/Data3/akanni/Rain_Data_Mar20", "-bs", f"{65}" ]
 
-    return cmd
+    cmd2 = ' '.join(cmd)
+    return cmd2
     
-    
-
-
 
 if __name__ == "__main__":
     s_dir = utility.get_script_directory(sys.argv[0])
     args_dict = utility.parse_arguments(s_dir)
-
-    # get training and model params
-    #_, m_params = utility.load_params(args_dict)
-    
     
     main( args_dict )
-    
 
-    #CUDA_VISIBLE_DEVICES=0,1,2,3 python3 hypertuning.py -mn "SimpleConvGRU" -mts "{}' -ctsm ""    
+    #python3 hypertuning.py -mn "SimpleConvGRU" -mts "{}" -ctsm ""    
