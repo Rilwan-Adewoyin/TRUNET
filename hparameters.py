@@ -202,9 +202,6 @@ class model_TRUNET_hparameters(MParams):
 
         # region --- OUTPUT_LAYER_PARAMS and Upscaling
         output_filters = [  int(  8*(((filters*2)/4)//8)), 1 ] 
-        
-        #output_filters = [  int(  8*(((filters*2)/3)//8)), 1 ] 
-
         output_kernel_size = [ (3,3), (3,3) ] 
         activations = ['relu','linear']
 
@@ -357,7 +354,7 @@ class train_hparameters_ati(HParams):
 
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
         EPOCHS = 100
-        CHECKPOINTS_TO_KEEP = 2
+        CHECKPOINTS_TO_KEEP = 1
 
         # region ---- data formulation strategies
         target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')

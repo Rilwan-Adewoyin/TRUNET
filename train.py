@@ -61,13 +61,13 @@ def is_compatible_with(self, other):
                                 other.base_dtype.as_datatype_enum)
 tf.DType.is_compatible_with = is_compatible_with
 
-class TrainTruNet():
+class WeatherModel():
     """Handles the Training of the TRUNET model
 
         Example of how to use:
-        traintrunet = TrainTruNet( t_params, m_params)
-        traintrunet.initialize_scheme_era5Eobs()    #Initializes datasets for ERA5 and Eobs
-        traintrunet.train_model()                   #Trains and saves model
+        WeatherModel = WeatherModel( t_params, m_params)
+        WeatherModel.initialize_scheme_era5Eobs()    #Initializes datasets for ERA5 and Eobs
+        WeatherModel.train_model()                   #Trains and saves model
     """    
     def __init__(self, t_params, m_params): 
         """Train the TRU_NET Model
@@ -376,7 +376,6 @@ class TrainTruNet():
             scaled_loss = self.optimizer.get_scaled_loss( loss_to_optimize_agg )
             scaled_gradients = tape.gradient( scaled_loss, self.model.trainable_variables )
             unscaled_gradients = self.optimizer.get_unscaled_gradients(scaled_gradients)
-
              
             gradients, _ = tf.clip_by_global_norm( unscaled_gradients, clip_norm=self.m_params['clip_norm'] ) #gradient clipping
             self.optimizer.apply_gradients( zip(gradients, self.model.trainable_variables))
@@ -473,7 +472,7 @@ if __name__ == "__main__":
     t_params, m_params = utility.load_params(args_dict)
     
     # Initialize and  train model
-    train_tru_net = TrainTruNet(t_params, m_params)
-    train_tru_net.initialize_scheme_era5Eobs()
-    train_tru_net.train_model()
+    weather_model = WeatherModel(t_params, m_params)
+    weather_model.initialize_scheme_era5Eobs()
+    weather_model.train_model()
     
