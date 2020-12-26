@@ -130,7 +130,8 @@ def load_params(args_dict, train_test="train"):
         t_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
     else:
         t_params = hparameters.test_hparameters_ati( **{ **args_dict, **init_t_params} )
-        
+    
+    #if train_test == "train":
     save_model_settings( m_params, t_params() )
 
     return t_params(), m_params
@@ -176,12 +177,14 @@ def save_model_settings(m_params,t_params):
     """    
     f_dir = "saved_params/{}".format( model_name_mkr(m_params, t_params=t_params, htuning=m_params.get('htuning',False)) )
 
-    m_path = "m_params.json"
+    
     
     if t_params['trainable']==True:
         t_path = "train_params.json"
+        m_path = "m_params.json"
     else:
         t_path = "test_params.json"
+        m_path = "test_m_params.json"
 
     if not os.path.isdir(f_dir):
         os.makedirs( f_dir, exist_ok=True  )
