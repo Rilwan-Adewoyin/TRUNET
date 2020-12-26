@@ -73,11 +73,11 @@ def main(m_params):
     elif m_params['model_name'] == "TRUNET":
 
         # Rectified Adam Parameters
-        lrs_max_min = [ (1e-3, 1e-4), (1e-4,1e-5)] # minimum and maximum learning rate
+        lrs_max_min = [ (1e-3, 1e-4)] # minimum and maximum learning rate
         b1s = [0.75, 0.9]                            # beta 1
         b2s = [0.9, 0.99]                                 # beta 2
         
-        dropouts = [0.1, 0.225, 0.35 ]
+        dropouts = [0.15, 0.35 ]
         inp_dropouts = [0.1, 0.225, 0.35]                #input dropout
         rec_dropouts = [0.1, 0.225, 0.35]             #recurrent dropout
         clip_norms = [6.5, 12.5]
@@ -99,11 +99,11 @@ def main(m_params):
                                 for dropout in dropouts:
 
                                     print(f"\n\n Training model v{counter}")
-                                    train_cmd = train_cmd_maker( m_params['model_name'], lr, b1, b2, inpd, recd, counter, clip_norm=clip_norm, dropout )
+                                    train_cmd = train_cmd_maker( m_params['model_name'], lr, b1, b2, inpd, recd, counter, clip_norm=clip_norm, do=dropout )
                                     f_training.write(f'{train_cmd} && ')
 
                                     print(f" Testing model v{counter}")
-                                    test_cmd = test_cmd_maker( m_params['model_name'], inpd, recd, counter, dopout )
+                                    test_cmd = test_cmd_maker( m_params['model_name'], inpd, recd, counter, dropout )
                                     #f_testing.write(f'{train_cmd} && ')
                                     f_testings[int(counter%3)].write(f'{test_cmd} && ')
                                     
@@ -125,7 +125,7 @@ def train_cmd_maker( mn ,lr_min_max, b1, b2, inp_drop, rec_drop, counter,gpu=Non
     cmd2 = ' '.join(cmd)
     return cmd2
 
-def test_cmd_maker( mn,inp_drop, rec_drop, counter, d0=0.2):
+def test_cmd_maker( mn,inp_drop, rec_drop, counter, do=0.2):
     cmd = [ 
         f"CUDA_VISIBLE_DEVICES={int(counter%3)+1}",
         "python3", "predict.py", "-mn", f"{mn}", "-ctsm", "1999_2009_2014", "-ctsm_test", "2014_2019-07-04", "-mts",
@@ -143,3 +143,4 @@ if __name__ == "__main__":
     main( args_dict )
 
     #python3 hypertuning.py -mn "SimpleConvGRU" -mts "{}" -ctsm ""    
+    #python3 hypertuning.py -mn "TRUNET" -mts "{}" -ctsm ""    

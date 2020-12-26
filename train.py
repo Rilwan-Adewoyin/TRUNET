@@ -160,7 +160,7 @@ class WeatherModel():
         
         #Tensorboard
         os.makedirs("log_tensboard/{}".format(utility.model_name_mkr(m_params, t_params=self.t_params, htuning=self.m_params.get('htuning',False) )), exist_ok=True ) 
-        self.writer = tf.summary.create_file_writer( "log_tensboard/{}".format(utility.model_name_mkr(m_params,t_params=self.t_params, htuning=self.m_params.get('htuning',False) ) ) )
+        #self.writer = tf.summary.create_file_writer( "log_tensboard/{}".format(utility.model_name_mkr(m_params,t_params=self.t_params, htuning=self.m_params.get('htuning',False) ) ) )
         # endregion
         
         # region ---- Making Datasets
