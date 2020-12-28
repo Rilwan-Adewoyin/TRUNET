@@ -73,14 +73,14 @@ def main(m_params):
     elif m_params['model_name'] == "TRUNET":
 
         # Rectified Adam Parameters
-        lrs_max_min = [ (1e-3, 1e-4)] # minimum and maximum learning rate
-        b1s = [0.75, 0.9]                            # beta 1
+        lrs_max_min = [ (1e-3, 1e-4),(1e-4, 1e-5)  ] # minimum and maximum learning rate
+        b1s = [0.9]                            # beta 1
         b2s = [0.9, 0.99]                                 # beta 2
         
         dropouts = [0.15, 0.35 ]
-        inp_dropouts = [0.1, 0.225, 0.35]                #input dropout
-        rec_dropouts = [0.1, 0.225, 0.35]             #recurrent dropout
-        clip_norms = [6.5, 12.5]
+        inp_dropouts = [0.15, 0.35]                #input dropout
+        rec_dropouts = [0.15, 0.35]             #recurrent dropout
+        clip_norms = [4.5, 5.5]
 
         counter =  0
 
