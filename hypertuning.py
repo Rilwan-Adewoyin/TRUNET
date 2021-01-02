@@ -1,7 +1,5 @@
-#from netCDF4 import Dataset, num2date
 import os
-# os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
-# os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
+
 import argparse
 import ast
 import gc
@@ -13,24 +11,15 @@ import time
 
 import numpy as np
 import pandas as pd
-#import psutil
 
-#import tensorflow as tf
-#from tensorflow.keras.mixed_precision import experimental as mixed_precision
-
-# try:
-#     import tensorflow_addons as tfa
-# except Exception as e:
-#     tfa = None
-
-# import data_generators
-# import custom_losses as cl
 import hparameters
-# import models
 import utility
+import json
 
  
-def main(m_params):
+def main(m_params, start_counter=0):
+
+    param_dictionary = {} #Format is key:value = htune_number: dict containing variable params
 
     #defining hyperam range
     if m_params['model_name'] == "SimpleConvGRU" :
@@ -56,6 +45,9 @@ def main(m_params):
                 for b2 in b2s:
                     for inpd in inp_dropouts:
                         for recd in rec_dropouts:
+                            
+                            new_record = { 'lr_max':lr[0], 'lr_min':lr[1], 'b1':b1, 'b2':b2, 'inp_dropout':inpd, 'rec_dropout':recd }
+                            param_dictionary.update( {counter:new_record} )
 
                             print(f"\n\n Training model v{counter}")
                             train_cmd = train_cmd_maker( m_params['model_name'], lr, b1, b2, inpd, recd, counter )
@@ -81,14 +73,13 @@ def main(m_params):
         inp_dropouts = [0.15, 0.35]                #input dropout
         rec_dropouts = [0.15, 0.35]             #recurrent dropout
         clip_norms = [4.5, 5.5]
-
-        counter =  0
+        counter =  start_counter
 
         os.makedirs('hypertune',exist_ok=True)
-        f_training =  open(f"hypertune/{m_params['model_name']}_train.txt","w")
+        f_training =  open(f"hypertune/{m_params['model_name']}_train.txt","a")
         # f_training2 =  open("hypertune/hypertune_train2.txt","w")
         
-        f_testings =  [ open(f"hypertune/{m_params['model_name']}_test_{idx+1}.txt","w") for idx in range(3) ]
+        f_testings =  [ open(f"hypertune/{m_params['model_name']}_test_{idx+1}.txt","a") for idx in range(3) ]
 
         for lr in lrs_max_min:
             for b1 in b1s:
@@ -98,20 +89,24 @@ def main(m_params):
                             for clip_norm in clip_norms:
                                 for dropout in dropouts:
 
+                                    new_record = { 'lr_max':lr[0], 'lr_min':lr[1], 'b2':b2, 'inp_dropout':inpd, 'rec_dropout':recd,
+                                                    'clip_norm':clip_norm, 'dropout':dropout }
+                                    param_dictionary.update( {counter:new_record} )
+
                                     print(f"\n\n Training model v{counter}")
                                     train_cmd = train_cmd_maker( m_params['model_name'], lr, b1, b2, inpd, recd, counter, clip_norm=clip_norm, do=dropout )
-                                    f_training.write(f'{train_cmd} && ')
+                                    #f_training.write(f'{train_cmd} && ')
 
                                     print(f" Testing model v{counter}")
                                     test_cmd = test_cmd_maker( m_params['model_name'], inpd, recd, counter, dropout )
-                                    #f_testing.write(f'{train_cmd} && ')
-                                    f_testings[int(counter%3)].write(f'{test_cmd} && ')
+                                    
+                                    #f_testings[int(counter%3)].write(f'{test_cmd} && ')
                                     
                                     counter = counter + 1
         f_training.close()
         [ f.close() for f in f_testings ]
 
-
+    save_param_dict(m_params['model_name'], param_dictionary)
 
 def train_cmd_maker( mn ,lr_min_max, b1, b2, inp_drop, rec_drop, counter,gpu=None,clip_norm=6.5, do=0.2):
     cmd = [
@@ -135,6 +130,10 @@ def test_cmd_maker( mn,inp_drop, rec_drop, counter, do=0.2):
     cmd2 = ' '.join(cmd)
     return cmd2
     
+def save_param_dict(mn, param_dict ):
+    path_ = os.path.join('./hypertune',f'{mn}_param_dict.json')
+    json.dump( param_dict, open(path_,"w") )
+
 
 if __name__ == "__main__":
     s_dir = utility.get_script_directory(sys.argv[0])

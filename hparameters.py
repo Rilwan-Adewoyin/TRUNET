@@ -75,15 +75,15 @@ class model_TRUNET_hparameters(MParams):
         # region --- learning / convergence / regularlisation params
 
         REC_ADAM_PARAMS = {
-            "learning_rate":model_type_settings.get('lr_max',8e-4),   "warmup_proportion":0.65,
-            "min_lr":model_type_settings.get('lr_min',5e-4),         "beta_1":model_type_settings.get('b1',0.9),               "beta_2":model_type_settings.get('b2',0.99),
+            "learning_rate":model_type_settings.get('lr_max',1e-4),   "warmup_proportion":0.65,
+            "min_lr":model_type_settings.get('lr_min',1e-5),         "beta_1":model_type_settings.get('b1',0.9),               "beta_2":model_type_settings.get('b2',0.9),
             "amsgrad":True,         "decay":0.0008,              "epsilon":5e-8 } #Rectified Adam params  
         
-        clip_norm = 13.0
+        clip_norm = model_type_settings.get('clip_norm',4.5)
 
-        DROPOUT =   model_type_settings.get('do',0.0)
-        ido =       model_type_settings.get('ido',0.0) # Dropout for input into GRU
-        rdo =       model_type_settings.get('rdo',0.0) # Dropout for recurrent input into GRU
+        DROPOUT =   model_type_settings.get('do',0.35)
+        ido =       model_type_settings.get('ido',0.35) # Dropout for input into GRU
+        rdo =       model_type_settings.get('rdo',0.15) # Dropout for recurrent input into GRU
         kernel_reg   = None  #regularlization for input to GRU
         recurrent_reg = None #regularlization for recurrent input to GRU
         bias_reg = tf.keras.regularizers.l2(0.0)
@@ -223,7 +223,7 @@ class model_TRUNET_hparameters(MParams):
 
             'rec_adam_params':REC_ADAM_PARAMS,
             'dropout':DROPOUT,
-            'clip_norm':model_type_settings.get('clip_norm',6),
+            'clip_norm':clip_norm ,
             
             } )
 
