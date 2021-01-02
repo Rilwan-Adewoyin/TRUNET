@@ -27,6 +27,13 @@ def mse( obs, preds, count=None):
 
     return mse
 
+def rNmse(obs, preds , N):
+    rN_mask = tf.where( target_masked >= N, True, False )
+
+    mse =tf.keras.metrics.MSE( tf.boolean_mask( obs, rN_mask), tf.boolean_mask(preds, rN_mask)  )    
+
+    return mse
+
 def cond_rain(vals, probs, threshold=0.5):
     """
         If prob of event occuring is above 0.5 return predicted conditional event value,

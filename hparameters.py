@@ -302,7 +302,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
             'htune_version':model_type_settings.get('htune_version',0),
             'rec_adam_params':REC_ADAM_PARAMS,
             'lookahead_params':LOOKAHEAD_PARAMS,
-            'clip_norm':6.5
+            'clip_norm':model_type_settigs.get('clip_norm',5.5)
         })
 
 class train_hparameters_ati(HParams):
@@ -311,6 +311,7 @@ class train_hparameters_ati(HParams):
         self.lookback_target = kwargs.get('lookback_target',None)
         self.batch_size = kwargs.get("batch_size",None)
         self.dd = kwargs.get("data_dir") 
+        self.objective = kwargs.get("objective","mse")
         
         # data formulation method
         self.custom_train_split_method = kwargs.get('ctsm') 
@@ -353,7 +354,7 @@ class train_hparameters_ati(HParams):
         # endregion
 
         NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
-        EPOCHS = 120
+        EPOCHS = kwargs.get('epochs',100)
         CHECKPOINTS_TO_KEEP = 1
 
         # region ---- data formulation strategies
@@ -407,6 +408,7 @@ class train_hparameters_ati(HParams):
 
             'feature_start_date':feature_start_date,
             'target_start_date':target_start_date,
+            'objective':self.objective
         }
 
 class test_hparameters_ati(HParams):

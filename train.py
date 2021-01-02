@@ -139,9 +139,11 @@ class WeatherModel():
             self.loss_agg_epoch = tf.keras.metrics.Mean(name="loss_agg_epoch")
 
             self.mse_agg_epoch = tf.keras.metrics.Mean(name='mse_agg_epoch')
+            self.r10mse_agg_epoch = tf.keras.metrics.Mean(name='r10mse_agg_epoch')
             
             self.loss_agg_val = tf.keras.metrics.Mean(name='loss_agg_val')
             self.mse_agg_val = tf.keras.metrics.Mean(name='mse_agg_val')
+            self.r10mse_agg_val = tf.keras.metrics.Mean(name='r10mse_agg_val')
 
         #checkpoints  (For Epochs)
             #The CheckpointManagers can be called to serializae the weights within TRUNET
@@ -205,9 +207,11 @@ class WeatherModel():
             self.loss_agg_batch.reset_states()
             self.loss_agg_epoch.reset_states()
             self.mse_agg_epoch.reset_states()
+            self.r10mse_agg_epoch.reset_states()
             
             self.loss_agg_val.reset_states()
             self.mse_agg_val.reset_states()
+            self.r10mse_agg_val.reset_states()
             self.df_training_info = self.df_training_info.append( { 'Epoch':epoch, 'Last_Trained_Batch':0 }, ignore_index=True )
             
             start_epoch_train = time.time()
@@ -283,12 +287,13 @@ class WeatherModel():
                     self.model.reset_states()
 
             # region - End of Epoch Reporting and Early iteration Callback
-            print("\tEpoch:{}\t Train Loss:{:.8f}\t Train MSE:{:.5f}\t Val Loss:{:.5f}\t Val MSE:{:.5f}\t Time:{:.5f}".format(epoch, self.loss_agg_epoch.result(), self.mse_agg_epoch.result(), 
-                        self.loss_agg_val.result(), self.mse_agg_val.result(), time.time()-start_epoch_train  ) )
+            print("\tEpoch:{}\t Train Loss:{:.8f}\t Train MSE:{:.5f}\t Train R10 MSE:{:.5f} \t Val Loss:{:.5f}\t Val MSE:{:.5f}\t Val R10 MSE:{:.5f} \t Time:{:.5f}".format(epoch, self.loss_agg_epoch.result(), self.mse_agg_epoch.result(),
+                        self.r10mse_agg_epoch.result(), 
+                        self.loss_agg_val.result(), self.mse_agg_val.result(), self.r10mse_agg_val.result()  ,time.time()-start_epoch_train  ) )
                     
             #utility.tensorboard_record( self.writer.as_default(), [self.loss_agg_val.result(), self.mse_agg_val.result()], ['Validation Loss', 'Validation MSE' ], epoch  )                    
             self.df_training_info = utility.update_checkpoints_epoch(self.df_training_info, epoch, self.loss_agg_epoch, self.loss_agg_val, self.ckpt_mngr_epoch, self.t_params, 
-                    self.m_params, self.mse_agg_epoch, self.mse_agg_val )
+                    self.m_params, self.mse_agg_epoch, self.r10mse_agg_epoch, ,self.mse_agg_val, self.r10mse_agg_val, self.tparams['objective'] )
             
             # Early Stop Callback 
             if epoch > ( max( self.df_training_info.loc[:, 'Epoch'], default=0 ) + self.t_params['early_stopping_period']) :
@@ -384,6 +389,7 @@ class WeatherModel():
         self.loss_agg_batch( loss_to_optimize )
         self.loss_agg_epoch( loss_to_optimize )
         self.mse_agg_epoch( metric_mse )        
+        self.r10mse_agg_epoch( cl.rNmse(target_masked, preds_masked, 10.0) )        
         return gradients
                 
     def val_step(self, feature, target, mask, bounds):
@@ -445,10 +451,13 @@ class WeatherModel():
             loss = tf.reduce_mean(  tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )
 
             # Calculating conditinal continuous loss
-            loss    += cl.mse( preds_masked, target_masked, all_count )
+            loss    += cl.mse( target_masked, preds_masked, all_count )
 
         self.loss_agg_val(loss)
         self.mse_agg_val(mse)
+        self.r10mse_agg_val( cl.rNmse(target_masked, preds_masked, 10.0) )
+
+            
         return True
     
     @tf.function

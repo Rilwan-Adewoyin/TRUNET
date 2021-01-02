@@ -15,7 +15,8 @@ from tensorflow.python.ops import variables as tf_variables
 
 
 # region - Reporting
-def update_checkpoints_epoch(df_training_info, epoch, train_loss_epoch, val_loss_epoch, ckpt_manager_epoch, t_params, m_params, train_metric_mse=None, val_metric_mse=None  ):
+def update_checkpoints_epoch(df_training_info, epoch, train_loss_epoch, val_loss_epoch, ckpt_manager_epoch, t_params, m_params, train_metric_mse=None,
+                                train_metric_r10mse=None, val_metric_mse=None, val_metric_r10mse=None, objective="mse"  ):
     """Updates the checkpoint and epoch records associated with an instance of training
 
         Args:
@@ -35,8 +36,16 @@ def update_checkpoints_epoch(df_training_info, epoch, train_loss_epoch, val_loss
     # rm any pre-existing information from current epoch
     df_training_info = df_training_info[ df_training_info['Epoch'] != epoch ] 
     
+    if obejctive == "mse":
+        minimized = ( val_loss_epoch.result().numpy() < min( df_training_info.loc[ : ,'Val_loss' ], default= val_loss_epoch.result().numpy()+1 ) )
+    
+    elif objective == "r10mse":
+        criteria1 = ( val_loss_epoch.result().numpy() < min( df_training_info.loc[ : ,'Val_loss' ], default= val_loss_epoch.result().numpy()+1 ) )
+        criteria2 = ( val_metric_r10mse.result().numpy() < min( df_training_info.loc[ : ,'Val_R10mse' ], default= val_metric_r10mse.result().numpy()+1 ) )
+        minimized = criteria1 and criteria2
+
     # if new val_los_epoch is less than existing Val_loss then update, else return unedited df_training info
-    if( ( val_loss_epoch.result().numpy() < min( df_training_info.loc[ : ,'Val_loss' ], default= val_loss_epoch.result().numpy()+1 ) ) ):
+    if( minimized  ):
 
         print('Saving Checkpoint for epoch {}'.format(epoch)) 
         ckpt_save_path = ckpt_manager_epoch.save()
@@ -44,27 +53,31 @@ def update_checkpoints_epoch(df_training_info, epoch, train_loss_epoch, val_loss
         
         # Possibly removing old non top5 records from end of epoch
         if( len(df_training_info.index) >= t_params['checkpoints_to_keep'] ):
-            df_training_info = df_training_info.sort_values(by=['Val_loss'], ascending=True)
+            if objective == "mse":
+                df_training_info = df_training_info.sort_values(by=['Val_loss'], ascending=True)
+            elif objective == "r10mse":
+                df_training_info = df_training_info.sort_values(by=['Val_R10mse'], ascending=True)
+
             df_training_info = df_training_info.iloc[:-1]
             df_training_info.reset_index(drop=True)
 
-        
-        if train_metric_mse==None:
-            df_training_info = df_training_info.append( other={ 'Epoch':epoch,'Train_loss':train_loss_epoch.result().numpy(), 'Val_loss':val_loss_epoch.result().numpy(),
-                                                            'Checkpoint_Path': ckpt_save_path, 'Last_Trained_Batch':-1}, ignore_index=True ) #A Train batch of -1 represents final batch of training step was completed
-        else:
-            df_training_info = df_training_info.append( other={ 'Epoch':epoch,'Train_loss':train_loss_epoch.result().numpy(), 'Train_mse':train_metric_mse.result().numpy(),
-                                                            'Val_loss':val_loss_epoch.result().numpy(),'Val_mse':val_metric_mse.result().numpy(),
-                                                            'Checkpoint_Path': ckpt_save_path, 'Last_Trained_Batch':-1
-                                                            }, ignore_index=True ) #A Train batch of -1 represents final batch of training step was completed
-            
+    
+        df_training_info = df_training_info.append( 
+            other={ 'Epoch':epoch,'Train_loss':train_loss_epoch.result().numpy(), 'Train_mse':train_metric_mse.result().numpy(),
+                'Val_loss':val_loss_epoch.result().numpy(),'Val_mse':val_metric_mse.result().numpy(),
+                'Train_R10mse':train_metric_r10mse.result().numpy(),  "Val_R10mse": val_metric_r10mse.result().numpy(),
+                'Checkpoint_Path': ckpt_save_path, 'Last_Trained_Batch':-1
+                }, ignore_index=True ) #A Train batch of -1 represents final batch of training step was completed
+
 
         print("\nTop {} Performance Scores".format(t_params['checkpoints_to_keep']))
-        df_training_info = df_training_info.sort_values(by=['Val_loss'], ascending=True)[:t_params['checkpoints_to_keep']]
-        if train_metric_mse==None:
-            print(df_training_info[['Epoch','Val_loss']] )
-        else:
-            print(df_training_info[['Epoch','Train_loss','Train_mse','Val_loss','Val_mse']] )
+        
+        if objective == "mse":
+            df_training_info = df_training_info.sort_values(by=['Val_loss'], ascending=True)[:t_params['checkpoints_to_keep']]
+        elif objective == "r10mse":
+            df_training_info = df_training_info.sort_values(by=['Val_R10mse'], ascending=True)[:t_params['checkpoints_to_keep']]
+
+        print(df_training_info[['Epoch','Train_loss','Train_mse','Train_R10mse','Val_loss','Val_mse','Val_R10mse']] )
 
         df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(model_name_mkr(m_params, t_params=t_params,  htuning=m_params.get('htuning',False)),
                                     header=True, index=False) ) #saving df of scores                      
@@ -162,6 +175,8 @@ def parse_arguments(s_dir=None):
     parser.add_argument('-ctsm','--ctsm', type=str, required=True, default="1979_1982_1983_1984", help="how to split dataset for training and validation") 
 
     parser.add_argument('-ctsm_test','--ctsm_test', type=str, required=False, default=argparse.SUPPRESS, help="dataset for testing") 
+
+    parser.add_argument('-obj','--objective', type=str, required=False, choices=['mse','r10mse'])
        
     args_dict = vars(parser.parse_args() )
 
@@ -256,6 +271,9 @@ def model_name_mkr(m_params, train_test="train", t_params={}, custom_test_loc=No
 
     
     # Addons
+    if m_params['model_type_settings'].get('objective',"mse") != "mse":
+        model_name = model_name + "objctv_r10" 
+    
     if m_params['model_type_settings'].get('attn_ablation',0) != 0:
         model_name = model_name + "_ablation" + str(m_params['model_type_settings']['attn_ablation'])
 
