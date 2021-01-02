@@ -236,7 +236,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
     def _default_params(self,**kwargs):
         model_type_settings = kwargs.get('model_type_settings', {})        
 
-        dropout = model_type_settings.get('do',0.0)
+        dropout = model_type_settings.get('do',0.2)
 
         #region --- ConvLayers
         layer_count = 4 
@@ -246,8 +246,8 @@ class model_SimpleConvGRU_hparamaters(MParams):
         kernel_sizes = [[4,4]]*layer_count
         paddings = ['same']*layer_count
         return_sequences = [True]*layer_count
-        input_dropout = [model_type_settings.get('ido',0.0) ]*layer_count #[0.0]*layer_count
-        recurrent_dropout = [ model_type_settings.get('rdo',0.0)]*layer_count #[0.0]*layer_count
+        input_dropout = [model_type_settings.get('ido',0.1) ]*layer_count #[0.0]*layer_count
+        recurrent_dropout = [ model_type_settings.get('rdo',0.35)]*layer_count #[0.0]*layer_count
 
         ConvGRU_layer_params = [ { 'filters':filters, 'kernel_size':ks , 'padding': ps,
                                 'return_sequences':rs, "dropout": dp , "recurrent_dropout":rdp,
@@ -274,10 +274,10 @@ class model_SimpleConvGRU_hparamaters(MParams):
 
 
         REC_ADAM_PARAMS = {
-            "learning_rate":model_type_settings.get('lr_max',8e-4),
+            "learning_rate":model_type_settings.get('lr_max',1e-3),
             "warmup_proportion":0.65,
-            "min_lr":model_type_settings.get('lr_min',5e-4),
-            "beta_1":model_type_settings.get('b1',0.9),  
+            "min_lr":model_type_settings.get('lr_min',1e-4),
+            "beta_1":model_type_settings.get('b1',0.75),  
             "beta_2":model_type_settings.get( 'b2',0.99),
             "amsgrad":True,
             "decay":0.0008,
