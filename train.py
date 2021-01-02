@@ -293,7 +293,7 @@ class WeatherModel():
                     
             #utility.tensorboard_record( self.writer.as_default(), [self.loss_agg_val.result(), self.mse_agg_val.result()], ['Validation Loss', 'Validation MSE' ], epoch  )                    
             self.df_training_info = utility.update_checkpoints_epoch(self.df_training_info, epoch, self.loss_agg_epoch, self.loss_agg_val, self.ckpt_mngr_epoch, self.t_params, 
-                    self.m_params, self.mse_agg_epoch, self.r10mse_agg_epoch, ,self.mse_agg_val, self.r10mse_agg_val, self.tparams['objective'] )
+                    self.m_params, self.mse_agg_epoch, self.r10mse_agg_epoch ,self.mse_agg_val, self.r10mse_agg_val, self.tparams['objective'] )
             
             # Early Stop Callback 
             if epoch > ( max( self.df_training_info.loc[:, 'Epoch'], default=0 ) + self.t_params['early_stopping_period']) :
