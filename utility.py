@@ -271,7 +271,7 @@ def model_name_mkr(m_params, train_test="train", t_params={}, custom_test_loc=No
 
     
     # Addons
-    if m_params['model_type_settings'].get('objective',"mse") != "mse":
+    if t_params['model_type_settings'].get('objective',"mse") != "mse":
         model_name = model_name + "objctv_r10" 
     
     if m_params['model_type_settings'].get('attn_ablation',0) != 0:
