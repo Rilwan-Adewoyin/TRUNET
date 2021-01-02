@@ -28,7 +28,7 @@ def mse( obs, preds, count=None):
     return mse
 
 def rNmse(obs, preds , N):
-    rN_mask = tf.where( target_masked >= N, True, False )
+    rN_mask = tf.where( obs >= N, True, False )
 
     mse =tf.keras.metrics.MSE( tf.boolean_mask( obs, rN_mask), tf.boolean_mask(preds, rN_mask)  )    
 
