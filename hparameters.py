@@ -302,7 +302,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
             'htune_version':model_type_settings.get('htune_version',0),
             'rec_adam_params':REC_ADAM_PARAMS,
             'lookahead_params':LOOKAHEAD_PARAMS,
-            'clip_norm':model_type_settigs.get('clip_norm',5.5)
+            'clip_norm':model_type_settings.get('clip_norm',5.5)
         })
 
 class train_hparameters_ati(HParams):
