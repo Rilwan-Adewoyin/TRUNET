@@ -36,7 +36,7 @@ def update_checkpoints_epoch(df_training_info, epoch, train_loss_epoch, val_loss
     # rm any pre-existing information from current epoch
     df_training_info = df_training_info[ df_training_info['Epoch'] != epoch ] 
     
-    if obejctive == "mse":
+    if objective == "mse":
         minimized = ( val_loss_epoch.result().numpy() < min( df_training_info.loc[ : ,'Val_loss' ], default= val_loss_epoch.result().numpy()+1 ) )
     
     elif objective == "r10mse":
