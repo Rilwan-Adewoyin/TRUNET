@@ -154,11 +154,11 @@ class WeatherModel():
             self.ckpt_mngr_epoch = tf.train.CheckpointManager(ckpt_epoch, checkpoint_path_epoch, max_to_keep=self.t_params['checkpoints_to_keep'], keep_checkpoint_every_n_hours=None)    
         
             #restoring last checkpoint if it exists
-        if self.ckpt_mngr_epoch.latest_checkpoint: 
-            # compat: Initializing model and optimizer before restoring from checkpoint
-            ckpt_epoch.restore(self.ckpt_mngr_epoch.latest_checkpoint).assert_consumed()              
-        else:
-            print (' Initializing model from scratch')
+            if self.ckpt_mngr_epoch.latest_checkpoint: 
+                # compat: Initializing model and optimizer before restoring from checkpoint
+                ckpt_epoch.restore(self.ckpt_mngr_epoch.latest_checkpoint).assert_consumed()              
+            else:
+                print (' Initializing model from scratch')
         
         #Tensorboard
         os.makedirs("log_tensboard/{}".format(utility.model_name_mkr(m_params, t_params=self.t_params, htuning=self.m_params.get('htuning',False) )), exist_ok=True ) 
