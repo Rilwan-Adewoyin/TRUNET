@@ -156,7 +156,10 @@ class WeatherModel():
             #restoring last checkpoint if it exists
             if self.ckpt_mngr_epoch.latest_checkpoint: 
                 # compat: Initializing model and optimizer before restoring from checkpoint
-                ckpt_epoch.restore(self.ckpt_mngr_epoch.latest_checkpoint).assert_consumed()              
+                try:
+                    ckpt_epoch.restore(self.ckpt_mngr_epoch.latest_checkpoint).assert_consumed()            
+                except AssertionError as e:
+                    ckpt_epoch.restore(self.ckpt_mngr_epoch.latest_checkpoint)              
             else:
                 print (' Initializing model from scratch')
         
@@ -171,7 +174,7 @@ class WeatherModel():
         cache_suffix = utility.cache_suffix_mkr( m_params, self.t_params )
         os.makedirs( './Data/data_cache/', exist_ok=True  )
 
-        _ds_train_val, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'] + self.t_params['val_batches'] , self.t_params['start_date'] )
+        _ds_train_val, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'] + self.t_params['val_batches'] , self.t_params['start_date'], self.t_params['parallel_calls'] )
 
         ds_train = _ds_train_val.take(self.t_params['train_batches'] )
         ds_val = _ds_train_val.skip(self.t_params['train_batches'] ).take(self.t_params['val_batches'])

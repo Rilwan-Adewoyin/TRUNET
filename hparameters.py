@@ -35,7 +35,6 @@ class MParams(HParams):
      
         # Parameters related the extraction of the 2D patches of data
         self.regiongrid_param_adjustment()
-
         super(MParams,self).__init__(**kwargs)
                  
     def regiongrid_param_adjustment(self):
@@ -312,6 +311,7 @@ class train_hparameters_ati(HParams):
         self.batch_size = kwargs.get("batch_size",None)
         self.dd = kwargs.get("data_dir") 
         self.objective = kwargs.get("objective","mse")
+        self.parallel_calls = kwargs.get("parallel_calls",-1)
         
         # data formulation method
         self.custom_train_split_method = kwargs.get('ctsm') 
@@ -353,7 +353,6 @@ class train_hparameters_ati(HParams):
         BATCH_SIZE = self.batch_size
         # endregion
 
-        NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
         EPOCHS = kwargs.get('epochs',100)
         CHECKPOINTS_TO_KEEP = 1
 
@@ -376,7 +375,7 @@ class train_hparameters_ati(HParams):
         # endregion
         
         DATA_DIR = self.dd
-        EARLY_STOPPING_PERIOD = 20
+        EARLY_STOPPING_PERIOD = 25
  
         self.params = {
             'batch_size':BATCH_SIZE,
@@ -391,7 +390,6 @@ class train_hparameters_ati(HParams):
 
             'checkpoints_to_keep':CHECKPOINTS_TO_KEEP,
             'reporting_freq':0.25,
-            'num_parallel_calls':NUM_PARALLEL_CALLS,
 
             'train_monte_carlo_samples':1,
             'data_dir': DATA_DIR,
@@ -408,7 +406,8 @@ class train_hparameters_ati(HParams):
 
             'feature_start_date':feature_start_date,
             'target_start_date':target_start_date,
-            'objective':self.objective
+            'objective':self.objective,
+            'parallel_calls':self.parallel_calls
         }
 
 class test_hparameters_ati(HParams):

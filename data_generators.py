@@ -81,8 +81,7 @@ class Generator():
         # Retrieving information on temporal length of  dataset        
         with Dataset(self.fp, "r+", format="NETCDF4") as ds:
             self.data_len = ds.dimensions['time'].size
-        #self.data_len = Dataset(self.fp, "r+", format="NETCDF4").dimensions['time'].size
-        
+                
     def yield_all(self):
         pass
 
@@ -195,6 +194,7 @@ class Generator():
 
         li_boundaries = list( it.product( li_range_h_pairs, li_range_w_pairs ) )
 
+        # A list of points on grid to remove representing non-land (water) surface on a UK part
         boundaries_to_remove = [ ([0,16],[0,16]), ([0,16],[4,20]), ([0,16],[8,24]), ([0,16],[12,28]), ([0,16],[16,32]), ([0,16],[20,36]), ([0,16],[24,40]), ([0,16],[28,44]),  ([0,16],[32,48]),                           ([0,16],[64,80]),([0,16],[68,84]),([0,16],[72,88]), ([0,16],[76,92]), ([0,16],[80,96]), ([0,16],[84,100]), ([0,16],[88,104]),([0,16],[92,108]),([0,16],[96,112]), ([0,16],[100,116]),([0,16],[104,120]),([0,16],[108,124]), ([0,16],[112,128]), ([0,16],[116,132]), ([0,16],[120,136]), ([0,16],[124,140]),
                                 ([4,20],[0,16]), ([4,20],[4,20]), ([4,20],[8,24]), ([4,20],[12,28]), ([4,20],[16,32]), ([4,20],[20,36]), ([4,20],[24,40]), ([4,20],[28,44]),  ([4,20],[32,48]),                             ([4,20],[76,92]), ([4,20],[80,96]), ([4,20],[84,100]),([4,20],[88,104]),([4,20],[92,108]),([4,20],[96,112]),([4,20],[100,116]), ([4,20],[104,120]),([4,20],[108,124]),([4,20],[112,128]), ([4,20],[116,132]), ([4,20],[120,136]), ([4,20],[124,140]),
                                    ([8,24],[0,16]), ([8,24],[4,20]), ([8,24],[8,24]), ([8,24],[12,28]),  ([8,24],[16,32]), ([8,24],[20,36]), ([8,24],[24,40]), ([8,24],[28,44]),  ([8,24],[32,48]),                                 ([8,24],[96,112]),([8,24],[100,116]),([8,24],[104,120]),([8,24],[108,124]),([8,24],[112,128]), ([8,24],[116,132]), ([8,24],[120,136]), ([8,24],[124,140]),
@@ -385,8 +385,6 @@ class Era5_Eobs():
         ds_feat = ds_feat.flat_map( lambda *window: tf.data.Dataset.zip( tuple([w.batch(self.t_params['lookback_feature']) for w in window ] ) ) )  # shape (lookback,h, w, 6)
         
         ds_feat = ds_feat.map( lambda arr_data, arr_mask: self.mf_normalize_mask( arr_data, arr_mask), num_parallel_calls= _num_parallel_calls) 
-
-        #ds_feat = ds_feat.map(lambda arr_data : tf.cast(arr_data, tf.float16), num_parallel_calls = _num_parallel_calls )
         # endregion
 
         # region - Preparing Eobs target_rain_data   
