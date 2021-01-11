@@ -180,6 +180,8 @@ def parse_arguments(s_dir=None):
     parser.add_argument('-ctsm_test','--ctsm_test', type=str, required=False, default=argparse.SUPPRESS, help="dataset for testing") 
 
     parser.add_argument('-obj','--objective', type=str, required=False, choices=['mse','r10mse'])
+
+    parser.add_argument('-pc','--parallel_calls', type=int, required=False)
        
     args_dict = vars(parser.parse_args() )
 

@@ -80,15 +80,15 @@ class model_TRUNET_hparameters(MParams):
         # region --- learning / convergence / regularlisation params
 
         REC_ADAM_PARAMS = {
-            "learning_rate":model_type_settings.get('lr_max',1e-4),   "warmup_proportion":0.65,
-            "min_lr":model_type_settings.get('lr_min',1e-5),         "beta_1":model_type_settings.get('b1',0.9),               "beta_2":model_type_settings.get('b2',0.9),
+            "learning_rate":model_type_settings.get('lr_max',5e-4),   "warmup_proportion":0.65,
+            "min_lr":model_type_settings.get('lr_min',5e-5),         "beta_1":model_type_settings.get('b1',0.9),               "beta_2":model_type_settings.get('b2',0.99),
             "amsgrad":True,         "decay":0.0008,              "epsilon":5e-8 } #Rectified Adam params  
         
-        clip_norm = model_type_settings.get('clip_norm',4.5)
+        clip_norm = model_type_settings.get('clip_norm',5.5)
 
         DROPOUT =   model_type_settings.get('do',0.35)
-        ido =       model_type_settings.get('ido',0.35) # Dropout for input into GRU
-        rdo =       model_type_settings.get('rdo',0.15) # Dropout for recurrent input into GRU
+        ido =       model_type_settings.get('ido',0.15) #model_type_settings.get('ido',0.35) # Dropout for input into GRU
+        rdo =       model_type_settings.get('rdo',0.35) # Dropout for recurrent input into GRU
         kernel_reg   = None  #regularlization for input to GRU
         recurrent_reg = None #regularlization for recurrent input to GRU
         bias_reg = tf.keras.regularizers.l2(0.0)
@@ -360,6 +360,7 @@ class train_hparameters_ati(HParams):
         self.batch_size = kwargs.get("batch_size",None)
         self.dd = kwargs.get("data_dir") 
         self.objective = kwargs.get("objective","mse")
+        self.parallel_calls = kwargs.get("parallel_calls",-1)
         
         # data formulation method
         self.custom_train_split_method = kwargs.get('ctsm') 
@@ -401,7 +402,6 @@ class train_hparameters_ati(HParams):
         BATCH_SIZE = self.batch_size
         # endregion
 
-        NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
         EPOCHS = kwargs.get('epochs',100)
         CHECKPOINTS_TO_KEEP = 1
 
@@ -424,7 +424,7 @@ class train_hparameters_ati(HParams):
         # endregion
         
         DATA_DIR = self.dd
-        EARLY_STOPPING_PERIOD = 20
+        EARLY_STOPPING_PERIOD = 25
  
         self.params = {
             'batch_size':BATCH_SIZE,
@@ -439,7 +439,6 @@ class train_hparameters_ati(HParams):
 
             'checkpoints_to_keep':CHECKPOINTS_TO_KEEP,
             'reporting_freq':0.25,
-            'num_parallel_calls':NUM_PARALLEL_CALLS,
 
             'train_monte_carlo_samples':1,
             'data_dir': DATA_DIR,
@@ -456,7 +455,8 @@ class train_hparameters_ati(HParams):
 
             'feature_start_date':feature_start_date,
             'target_start_date':target_start_date,
-            'objective':self.objective
+            'objective':self.objective,
+            'parallel_calls':self.parallel_calls
         }
 
 class test_hparameters_ati(HParams):
