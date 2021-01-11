@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from tensorflow.keras.layers import TimeDistributed, Conv2D, Dropout, MaxPooling2D, UpSampling2D
+from tensorflow.keras.layers import TimeDistributed, Conv2D, Dropout, MaxPooling2D, UpSampling2D, SpatialDropout2D
 import layers
 import layers_convgru2D
 import copy
@@ -15,6 +15,10 @@ def model_loader(t_params,m_params ):
     
     elif(model_name=="SimpleConvGRU"):
         model = SimpleConvGRU(t_params, m_params)
+    
+    elif(model_name=="UNET"):
+        model = UNET(t_params, m_params )
+
     return model
 
 class SimpleConvGRU(tf.keras.Model):
@@ -162,34 +166,39 @@ class UNET(tf.keras.Model):
             t_params (dict): params related to training/testing
             m_params ([type]): params related to model
         """        
-    #inputs = Input(input_size)
-    self.dc = np.asarray( [m_params['model_type_settings']['discrete_continuous']],dtype=np.bool )
+        super(UNET, self).__init__()
 
-    self.conv2d_1 = Conv2D( 80, 4, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')
-    self.pool_1 = MaxPooling2D(pool_size=(2, 2))
+        #inputs = Input(input_size)
+        self.dc = np.asarray( [m_params['model_type_settings']['discrete_continuous']],dtype=np.bool )
 
-    self.conv2d_2 = Conv2D(80, 4, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')
-    self.pool_2 = MaxPooling2D(pool_size=(2, 2))
-    
-    self.conv2d_3 = Conv2D(64, 4, activation='relu', padding = 'same', kernel_initializer = 'he_normal' ) 
-    self.pool_3 = MaxPooling2D(pool_size=(2, 2))
-    self.dropout_3 = SpatialDropout2D(0.5)
+        self.conv2d_1 = Conv2D( 80, 4, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')
+        self.pool_1 = MaxPooling2D(pool_size=(2, 2))
 
-    self.upsample_4 = UpSampling2D(size=(2,2))
-    self.conv2d_4 =  Conv2D(80, 4, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')
+        self.conv2d_2 = Conv2D(80, 4, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')
+        self.pool_2 = MaxPooling2D(pool_size=(2, 2))
+        
+        self.conv2d_3 = Conv2D(64, 4, activation='relu', padding = 'same', kernel_initializer = 'he_normal' ) 
+        self.pool_3 = MaxPooling2D(pool_size=(2, 2))
+        self.dropout_3 = SpatialDropout2D(0.5)
 
-    self.upsample_5 = UpSampling2D(size=(2,2))
-    self.conv2d_5 =  Conv2D(80, 4, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')
+        self.upsample_4 = UpSampling2D(size=(2,2))
+        self.conv2d_4 =  Conv2D(80, 4, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')
 
-    self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
-    self.output_activation_val = layers.CustomRelu_maker(t_params, dtype='float32')
-    
-    if m_params['model_type_settings']['discrete_continuous']:
-        self.output_activation_prob = tf.keras.layers.Activation('sigmoid', dtype='float32')
+        self.upsample_5 = UpSampling2D(size=(2,2))
+        self.conv2d_5 =  Conv2D(80, 4, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')
+
+        self.conv_2d_6val =  Conv2D(80, 4, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')
+        self.conv_2d_6prob =  Conv2D(80, 4, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')
+
+        self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
+        self.output_activation_val = layers.CustomRelu_maker(t_params, dtype='float32')
+        
+        if m_params['model_type_settings']['discrete_continuous']:
+            self.output_activation_prob = tf.keras.layers.Activation('sigmoid', dtype='float32')
     
 
     @tf.function
-    def call(self, _input, training=training):
+    def call(self, _input, training=False):
 
         x1 = self.conv2d_1(_input)
         x1 = self.pool_1(x1)
@@ -204,7 +213,7 @@ class UNET(tf.keras.Model):
 
         x4_up = self.upsample_4(drop3)
         x4 = self.conv2d_4( x4_up )
-        merge4 = self.tf.concat([drop3, x4], axis = 3)
+        merge4 = tf.concat([drop3, x4], axis = 3)
 
         x5_up = self.upsample_5(merge4)
         x5 = self.conv2d_5( x5_up )

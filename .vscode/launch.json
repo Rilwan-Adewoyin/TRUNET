@@ -23,6 +23,19 @@
             "args": ["-dd","./Data", "-sd","1979-01-02", "-ed","2019-07-04", "-lo", "['Cardiff','London','Birmingham','Glasgow','Truro','Manchester']", "-reg","False" ],
             "justMyCode": false,
             //"args": ["-dd","./Data", "-sd","1979-01-02", "-ed","2019-07-04", "-lo", "['Cardiff']", "-reg","True" ]
+          },
+
+          {
+            "type": "python",
+            "request": "launch",
+            "name": "UNET",
+            "program": "${file}",
+            "console": "internalConsole",
+            "args": ["-mn","UNET", "-dd","./Data/Rain_Data_Mar20", "-ctsm", "1979_2009_2014", "-bs", "3",
+                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout','location':['Cardiff','London','Birmingham','Glasgow','Truro','Manchester']}" ],
+            "justMyCode": false
+            
           }
     ]
 }
+

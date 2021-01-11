@@ -259,7 +259,7 @@ class Generator_mf(Generator):
         super(Generator_mf, self).__init__(**generator_params)
 
         self.vars_for_feature = vars_for_feature #['unknown_local_param_137_128', 'unknown_local_param_133_128', 'air_temperature', 'geopotential', 'x_wind', 'y_wind' ]       
-        self.seq_len = seq_len*25
+        self.seq_len = seq_len*25 if seq_len else 100
         self.start_idx = 0
         self.end_idx =0 
         #self.ds = Dataset(self.fp, "r", format="NETCDF4")
@@ -310,7 +310,7 @@ class Era5_Eobs():
         self.t_params = t_params
         self.m_params = m_params
 
-        self.time_sequential == m_params['time_sequential']
+        self.time_sequential = m_params['time_sequential']
 
         data_dir = self.t_params['data_dir']
 
@@ -320,7 +320,7 @@ class Era5_Eobs():
 
         # Create python generator for model field data 
         mf_fp = data_dir + "/" + self.t_params.get('mf_fn', "ana_input_intrp_linear.nc")
-        self.mf_data = Generator_mf(fp=mf_fp, vars_for_feature=self.t_params['vars_for_feature'], all_at_once=False, seq_len=self.t_params['lookback_feature'] )
+        self.mf_data = Generator_mf(fp=mf_fp, vars_for_feature=self.t_params['vars_for_feature'], all_at_once=False, seq_len=self.t_params.get('lookback_feature',None) )
 
         # Update information on the locations of interest to extract data from
         self.location_size_calc()
@@ -333,6 +333,8 @@ class Era5_Eobs():
         """        
         model_settings = self.m_params['model_type_settings']
         
+        # If noe time sequential then model is not operating on sequential time spans for a single location
+       
         if custom_location != None:
             self.li_loc = custom_location
         else:
@@ -341,6 +343,8 @@ class Era5_Eobs():
         self.loc_count = len( self.li_loc ) if \
                 self.li_loc != ["All"] else \
                     len( self.rain_data.get_locs_for_whole_map(self.m_params['region_grid_params']))
+        
+            
 
     def load_data_era5eobs(self, batch_count, start_date,_num_parallel_calls=-1, prefetch=-1):
         """Produces Tensorflow Datasets for the ERA5 and E-obs dataset
@@ -394,14 +398,15 @@ class Era5_Eobs():
         # Combining datasets
         ds = tf.data.Dataset.zip( (ds_feat, ds_tar) ) #( model_fields, (rain, rain_mask) ) 
         
-        if self.time_sequential == True:
-            ds, idx_loc_in_region = self.location_extractor( ds, self.li_loc, batch_count)
-            ds = ds.prefetch(prefetch)
-            return ds, idx_loc_in_region
+        #if self.time_sequential == True:
+        ds, idx_loc_in_region = self.location_extractor( ds, self.li_loc, batch_count  )
+        ds = ds.prefetch(prefetch)
+        return ds, idx_loc_in_region
         
-        else:
-            ds = ds.prefetch(prefetch)
-            return ds        
+        # else:
+        #     ds = ds.map( lambda mf, rain_mask: tuple( [tf.expand_dims(mf,0), tf.expand_dims(rain_mask[0],0), tf.expand_dims(rain_mask[1],0)] )  , num_parallel_calls= _num_parallel_calls)
+        #     ds = ds.prefetch(prefetch)
+        #     return ds, None        
 
     def get_start_idx(self, start_date):
         """ Returns two indexes
@@ -518,6 +523,5 @@ class Era5_Eobs():
             rain = rain[ h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
             rain_mask = rain_mask[ h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
             
-        
         return tf.expand_dims(mf,axis=0), tf.expand_dims(rain,axis=0), tf.expand_dims(rain_mask,axis=0) #Note: expand_dim for unbatch/batch compatibility
 # endregion

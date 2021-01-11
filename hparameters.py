@@ -45,23 +45,21 @@ class MParams(HParams):
         if not hasattr(self, 'params'):
             self.params = {}
 
-        if kwargs['model_name'] == "U-NET":
-            pass
-        else:
-            self.params.update(
-                {'region_grid_params':{
-                    'outer_box_dims':[16,16],
-                    'inner_box_dims':[4,4],
-                    'vertical_shift':4,
-                    'horizontal_shift':4,
-                    'input_image_shape':[100,140]}
-                }
-            )
+
+        self.params.update(
+            {'region_grid_params':{
+                'outer_box_dims':[16,16],
+                'inner_box_dims':[4,4],
+                'vertical_shift':4,
+                'horizontal_shift':4,
+                'input_image_shape':[100,140]}
+            }
+        )
+    
+        vertical_slides = (self.params['region_grid_params']['input_image_shape'][0] - self.params['region_grid_params']['outer_box_dims'][0] +1 )// self.params['region_grid_params']['vertical_shift']
+        horizontal_slides = (self.params['region_grid_params']['input_image_shape'][1] - self.params['region_grid_params']['outer_box_dims'][1] +1 ) // self.params['region_grid_params']['horizontal_shift']
         
-            vertical_slides = (self.params['region_grid_params']['input_image_shape'][0] - self.params['region_grid_params']['outer_box_dims'][0] +1 )// self.params['region_grid_params']['vertical_shift']
-            horizontal_slides = (self.params['region_grid_params']['input_image_shape'][1] - self.params['region_grid_params']['outer_box_dims'][1] +1 ) // self.params['region_grid_params']['horizontal_shift']
-            
-            self.params['region_grid_params'].update({'slides_v_h':[vertical_slides, horizontal_slides]})
+        self.params['region_grid_params'].update({'slides_v_h':[vertical_slides, horizontal_slides]})
 
 class model_TRUNET_hparameters(MParams):
     """Parameters Class for the TRUNET Encoder-Decoder model
@@ -322,10 +320,7 @@ class model_UNET_hparamaters(MParams):
         model_type_settings = kwargs.get('model_type_settings', {})        
         dropout = model_type_settings.get('do',0.2)
 
-        #region --- Data pipeline and optimizers
-        target_to_feature_time_ratio = 4
-        lookback_feature = 1*target_to_feature_time_ratio
-
+        
 
         REC_ADAM_PARAMS = {
             "learning_rate":model_type_settings.get('lr_max',2e-4),
@@ -350,15 +345,15 @@ class model_UNET_hparamaters(MParams):
             'lookahead_params':LOOKAHEAD_PARAMS,
             'clip_norm':model_type_settings.get('clip_norm',5.5),
 
-            "time_sequential": True
+            "time_sequential": False
         })
 
 class train_hparameters_ati(HParams):
     """ Parameters for testing """
     def __init__(self, **kwargs):
-        self.lookback_target = kwargs.get('lookback_target',None)
-        self.batch_size = kwargs.get("batch_size",None)
-        self.dd = kwargs.get("data_dir") 
+        self.lookback_target = kwargs.pop('lookback_target',1)
+        self.batch_size = kwargs.pop('batch_size')
+        self.dd = kwargs.get("data_dir",'./Data/Rain_Data_Mar20') 
         self.objective = kwargs.get("objective","mse")
         self.parallel_calls = kwargs.get("parallel_calls",-1)
         
@@ -368,8 +363,9 @@ class train_hparameters_ati(HParams):
         if self.custom_train_split_method == "4ds_10years":
             self.four_year_idx_train = kwargs['fyi_train'] #index for training set
 
-        kwargs.pop('batch_size')
-        kwargs.pop('lookback_target')
+    
+        
+        
         
         super( train_hparameters_ati, self).__init__(**kwargs)
 
@@ -418,7 +414,7 @@ class train_hparameters_ati(HParams):
         val_start_date = np.datetime64(dates_str[1],'D')
         val_end_date = (pd.Timestamp(dates_str[2]) - pd.DateOffset(seconds=1) ).to_numpy()
         
-        TRAIN_SET_SIZE_ELEMENTS = ( np.timedelta64(train_end_date - start_date,'D')  // WINDOW_SHIFT  ).astype(int) 
+        TRAIN_SET_SIZE_ELEMENTS = ( np.timedelta64(train_end_date - start_date,'D')).astype(int)  // WINDOW_SHIFT  
         VAL_SET_SIZE_ELEMENTS   = ( np.timedelta64(val_end_date - val_start_date,'D')  // WINDOW_SHIFT  ).astype(int)               
         
         # endregion
