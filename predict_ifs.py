@@ -135,7 +135,7 @@ def main(date_start_str, date_end_str, location, data_dir="./", rain_fall_stats=
 
     return True
     
-def ifs_pred_extractor( data_dir, target_start_date, target_end_date, location="London", region=False ):
+def ifs_pred_extractor( data_dir, target_start_date, target_end_date, location="London", region=False, return_daterange=True ):
     """
         This method extracts the IFS data from file. And performs any grouping/preproc neccesary. 
     """
@@ -164,7 +164,10 @@ def ifs_pred_extractor( data_dir, target_start_date, target_end_date, location="
 
     #If a location is passed, this extracts the single point ,representing a city, from the 100,140 map 
     ifs_preds_24hr = data_craft(ifs_preds_24hr, location, region)
-        
+    
+    if return_daterange:
+        return ifs_preds_24hr, pd.date_range(target_start_date, end=target_end_date, freq='D' ).astype('int64')//1e9
+
     return ifs_preds_24hr
 
 def true_rain_extractor(data_dir, target_start_date, target_end_date, location, region):

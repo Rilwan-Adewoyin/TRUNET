@@ -77,8 +77,7 @@ def main(m_params, start_counter=0):
 
         os.makedirs('hypertune',exist_ok=True)
         f_training =  open(f"hypertune/{m_params['model_name']}_train.txt","a")
-        # f_training2 =  open("hypertune/hypertune_train2.txt","w")
-        
+                
         f_testings =  [ open(f"hypertune/{m_params['model_name']}_test_{idx+1}.txt","a") for idx in range(3) ]
 
         for lr in lrs_max_min:
