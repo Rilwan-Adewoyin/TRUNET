@@ -34,29 +34,34 @@ class MParams(HParams):
     def __init__(self,**kwargs):
      
         # Parameters related the extraction of the 2D patches of data
-        self.regiongrid_param_adjustment()
+        self.regiongrid_param_adjustment(**kwargs)
 
         super(MParams,self).__init__(**kwargs)
                  
-    def regiongrid_param_adjustment(self):
+    def regiongrid_param_adjustment(self, **kwargs):
         """Creates a 'region_grid_params' dictionary containing
             information on the sizes and location of patches to be extracted
         """        
         if not hasattr(self, 'params'):
             self.params = {}
 
-        self.params.update(
-            {'region_grid_params':{
-                'outer_box_dims':[16,16],
-                'inner_box_dims':[4,4],
-                'vertical_shift':4,
-                'horizontal_shift':4,
-                'input_image_shape':[100,140]}
-            }
-        )
-        vertical_slides = (self.params['region_grid_params']['input_image_shape'][0] - self.params['region_grid_params']['outer_box_dims'][0] +1 )// self.params['region_grid_params']['vertical_shift']
-        horizontal_slides = (self.params['region_grid_params']['input_image_shape'][1] - self.params['region_grid_params']['outer_box_dims'][1] +1 ) // self.params['region_grid_params']['horizontal_shift']
-        self.params['region_grid_params'].update({'slides_v_h':[vertical_slides, horizontal_slides]})
+        if kwargs['model_name'] == "U-NET":
+            pass
+        else:
+            self.params.update(
+                {'region_grid_params':{
+                    'outer_box_dims':[16,16],
+                    'inner_box_dims':[4,4],
+                    'vertical_shift':4,
+                    'horizontal_shift':4,
+                    'input_image_shape':[100,140]}
+                }
+            )
+        
+            vertical_slides = (self.params['region_grid_params']['input_image_shape'][0] - self.params['region_grid_params']['outer_box_dims'][0] +1 )// self.params['region_grid_params']['vertical_shift']
+            horizontal_slides = (self.params['region_grid_params']['input_image_shape'][1] - self.params['region_grid_params']['outer_box_dims'][1] +1 ) // self.params['region_grid_params']['horizontal_shift']
+            
+            self.params['region_grid_params'].update({'slides_v_h':[vertical_slides, horizontal_slides]})
 
 class model_TRUNET_hparameters(MParams):
     """Parameters Class for the TRUNET Encoder-Decoder model
@@ -224,6 +229,8 @@ class model_TRUNET_hparameters(MParams):
             'rec_adam_params':REC_ADAM_PARAMS,
             'dropout':DROPOUT,
             'clip_norm':clip_norm ,
+
+            "time_sequential": True            
             
             } )
 
@@ -302,7 +309,48 @@ class model_SimpleConvGRU_hparamaters(MParams):
             'htune_version':model_type_settings.get('htune_version',0),
             'rec_adam_params':REC_ADAM_PARAMS,
             'lookahead_params':LOOKAHEAD_PARAMS,
-            'clip_norm':model_type_settings.get('clip_norm',5.5)
+            'clip_norm':model_type_settings.get('clip_norm',5.5),
+            "time_sequential": True
+        })
+
+class model_UNET_hparamaters(MParams):
+
+    def __init__(self, **kwargs):       
+        super(model_UNET_hparamaters, self).__init__(**kwargs)
+    
+    def _default_params(self,**kwargs):
+        model_type_settings = kwargs.get('model_type_settings', {})        
+        dropout = model_type_settings.get('do',0.2)
+
+        #region --- Data pipeline and optimizers
+        target_to_feature_time_ratio = 4
+        lookback_feature = 1*target_to_feature_time_ratio
+
+
+        REC_ADAM_PARAMS = {
+            "learning_rate":model_type_settings.get('lr_max',2e-4),
+            "warmup_proportion":0.65,
+            "min_lr":model_type_settings.get('lr_min',8e-5),
+            "amsgrad":True,
+            "decay":0.0008,
+            "epsilon":5e-8 } #Rectified Adam params
+        
+        LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }
+
+        # endregion
+        model_type_settings = kwargs.get('model_type_settings',{})
+
+        self.params.update( {
+            'model_name':'UNET',
+            'dropout': dropout,
+            
+            'model_type_settings':model_type_settings,
+
+            'rec_adam_params':REC_ADAM_PARAMS,
+            'lookahead_params':LOOKAHEAD_PARAMS,
+            'clip_norm':model_type_settings.get('clip_norm',5.5),
+
+            "time_sequential": True
         })
 
 class train_hparameters_ati(HParams):

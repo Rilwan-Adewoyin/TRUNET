@@ -138,6 +138,9 @@ def load_params(args_dict, train_test="train"):
         m_params = hparameters.model_SimpleConvGRU_hparamaters(**init_m_params, **args_dict)()
         init_t_params.update( { 'lookback_target': m_params['data_pipeline_params']['lookback_target'] } )
         init_t_params.update( { 'lookback_feature': m_params['data_pipeline_params']['lookback_feature']})
+
+    elif(args_dict['model_name']=="UNET"):
+        m_params = hparameters.model_SimpleConvGRU_hparamaters(**init_m_params, **args_dict)()
     
     if train_test == "train":
         t_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )

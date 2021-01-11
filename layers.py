@@ -269,7 +269,6 @@ class TRUNET_CGRU_Decoder_Layer(tf.keras.layers.Layer):
 		hidden_states_f, hidden_states_b = self.convGRU( inputs, training=training )
 		hidden_states = tf.concat( [hidden_states_f,hidden_states_b], axis=-1 ) 
 		return hidden_states
-
 # endregion
 
 

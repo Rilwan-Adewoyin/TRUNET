@@ -62,7 +62,7 @@ def is_compatible_with(self, other):
 tf.DType.is_compatible_with = is_compatible_with
 
 class WeatherModel():
-    """Handles the Training of the TRUNET model
+    """Handles the Training of the Deep Learning Weather model
 
         Example of how to use:
         WeatherModel = WeatherModel( t_params, m_params)
@@ -307,8 +307,11 @@ class WeatherModel():
     def train_step(self, feature, target, mask, bounds, _init):
         
         if _init==1.0:
-            inp_shape = [self.t_params['batch_size'], self.t_params['lookback_feature']] + self.m_params['region_grid_params']['outer_box_dims'] + [len(self.t_params['vars_for_feature'])]
-        
+            if.m_params['time_sequential'] == True:
+                inp_shape = [self.t_params['batch_size'], self.t_params['lookback_feature']] + self.m_params['region_grid_params']['outer_box_dims'] + [len(self.t_params['vars_for_feature'])]
+            else:
+                inp_shape = [self.t_params['batch_size'], 100, 140 + [len(self.t_params['vars_for_feature'])]
+
             _ = self.model( tf.zeros( inp_shape ,dtype=tf.float16), self.t_params['trainable'] ) #( bs, tar_seq_len, h, w)
             gradients = [ tf.zeros_like(t_var, dtype=tf.float32 ) for t_var in self.model.trainable_variables  ]
             self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
@@ -323,9 +326,10 @@ class WeatherModel():
                 preds = self.model( feature, self.t_params['trainable'] ) #( bs, tar_seq_len, h, w)
                 preds = tf.squeeze( preds,axis=[-1] )
 
-                preds   = cl.extract_central_region(preds, bounds)
-                mask    = cl.extract_central_region(mask, bounds)
-                target  = cl.extract_central_region(target, bounds)
+                if self.t_params['time_sequential'] == True:
+                    preds   = cl.extract_central_region(preds, bounds)
+                    mask    = cl.extract_central_region(mask, bounds)
+                    target  = cl.extract_central_region(target, bounds)
 
                 #Applying mask
                 preds_masked = tf.boolean_mask( preds, mask )
@@ -347,10 +351,11 @@ class WeatherModel():
                 preds, probs = tf.unstack(preds, axis=0) 
 
                 # extracting the central region of interest
-                preds   = cl.extract_central_region(preds, bounds)
-                probs   = cl.extract_central_region(probs, bounds)
-                mask    = cl.extract_central_region(mask, bounds)
-                target  = cl.extract_central_region(target, bounds)
+                if self.t_params['time_sequential'] == True:
+                    preds   = cl.extract_central_region(preds, bounds)
+                    probs   = cl.extract_central_region(probs, bounds)
+                    mask    = cl.extract_central_region(mask, bounds)
+                    target  = cl.extract_central_region(target, bounds)
 
                 # applying mask to predicted values
                 preds_masked    = tf.boolean_mask(preds, mask )
@@ -424,10 +429,11 @@ class WeatherModel():
             preds, probs = tf.unstack(preds, axis=0)
 
             # Extracting central region for evaluation
-            preds   = cl.extract_central_region(preds, bounds)
-            probs   = cl.extract_central_region(probs, bounds)
-            mask    = cl.extract_central_region(mask,  bounds)
-            target  = cl.extract_central_region(target,bounds)
+            if self.t_params['time_sequential'] == True:
+                preds   = cl.extract_central_region(preds, bounds)
+                probs   = cl.extract_central_region(probs, bounds)
+                mask    = cl.extract_central_region(mask,  bounds)
+                target  = cl.extract_central_region(target,bounds)
 
             # Applying masks to predictions
             preds_masked    = tf.boolean_mask( preds, mask )
