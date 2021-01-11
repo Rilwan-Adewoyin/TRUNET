@@ -259,7 +259,7 @@ class Generator_mf(Generator):
         self.vars_for_feature = vars_for_feature #['unknown_local_param_137_128', 'unknown_local_param_133_128', 'air_temperature', 'geopotential', 'x_wind', 'y_wind' ]       
         self.seq_len = seq_len*25
         self.start_idx = 0
-        self.end_idx =0
+        self.end_idx =0 
         #self.ds = Dataset(self.fp, "r", format="NETCDF4")
 
 
