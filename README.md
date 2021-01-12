@@ -86,7 +86,9 @@ Predictions will again be saved in the .Output/Predictions file.
 
 ## Data Download
 
-The data used for experiments related to the paper can be found at this link https://drive.google.com/file/d/1AUZc708aGrLAgjE8rK2lG2VTlP4XbxFq/view?usp=sharing. Users must extract the contents from the zip folder, into the root directory associated with their TRUNET repository.
+The preprocessed data used for experiments related to the paper can be found at this link https://drive.google.com/file/d/1AUZc708aGrLAgjE8rK2lG2VTlP4XbxFq/view?usp=sharing. Users must extract the contents from the zip folder, into the root directory associated with their TRUNET repository. This Data contains 6-hourly data for 6 model fields defined on a 100,140 grid over the UK for the years 1979 through to 2019.
+
+To download the preprocessed IFS precipitation data which forms a benchmark for our paper, please download the following datafile: https://drive.google.com/file/d/1N3VY8Vf-8_CM49IinKy5goFNC120YzaM/view?usp=sharing. This contains 12 hourly predictions for rainfall over the UK for the years 1979 through to 2020.
 
 **Problem**: 
 - When you try to download a file with .rar extension from google drive and you get access denied error. 
@@ -109,6 +111,12 @@ The data used for experiments related to the paper can be found at this link htt
 * xarray
 * netCDF4 (Note: netCDF4 must be imported before TensorFlow in scripts)
 * argparse
+
+# TODO: 
+- Add a requirements.txt
+- Make IFS data openly available
+- Dockerize whole solution with automatic downloads of data
+- Include a description of the IFS data
 
 ##License
 `TRU-NET: Precipitation Prediction` is licensed under the MIT License
