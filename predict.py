@@ -1,23 +1,30 @@
+from netCDF4 import Dataset, num2date
+from tensorflow.keras.mixed_precision import experimental as mixed_precision
+#from tensorflow.python.keras.mixed_precision import experimental as mixed_precision
+import tensorflow as tf
 from data_generators import Generator_rain
+import data_generators
+
 import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
-os.environ['CUDA_FORCE_PTX_JIT']="0"
+#os.environ['CUDA_FORCE_PTX_JIT']="0"
+import numpy as np
+
 import argparse
 import ast
 import itertools
 import json
-import math
 import sys
 import time
 import traceback
+import time
 
-import numpy as np
-import pandas as pd
-import tensorflow as tf
-from tensorflow.keras.mixed_precision import experimental as mixed_precision
 
-import data_generators
+
+#from tensorflow.python.keras.mixed_precision import experimental as mixed_precision
+
+
 import hparameters
 import models
 import utility_predict
@@ -32,9 +39,9 @@ try:
 except Exception as e:
     gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 
-tf.config.set_soft_device_placement(True)
+#tf.config.set_soft_device_placement(True)
 
-print(gpu_devices)
+# print(gpu_devices)
 for idx, gpu_name in enumerate(gpu_devices):
     tf.config.experimental.set_memory_growth(gpu_name, True)
 
@@ -92,12 +99,13 @@ class TestTruNet():
         
         self.test_batches = self.t_params['test_batches'] * self.era5_eobs.loc_count 
         
-        self.ds, self.idxs_loc_in_region = self.era5_eobs.load_data_era5eobs(batch_count=self.test_batches, start_date=self.t_params['start_date'], prefetch=-1)
+        self.ds, self.idxs_loc_in_region = self.era5_eobs.load_data_era5eobs(batch_count=self.test_batches, start_date=self.t_params['start_date'], 
+                                            _num_parallel_calls=self.t_params['parallel_calls'], prefetch=0 )
 
         # region ------ Setting up timestamps, datasets, iterables
         #self.buffer_size = self.test_batches 
 
-        self.buffer_size = self.test_batches // 10
+        self.buffer_size = self.test_batches
 
         self.li_predictions = [] #list of list of tensors, each list contain a set of (maybe stochastic) predictions for the corresponding ts
         li_timestamps = self.t_params['timestamps'] #flat list of timestamps from start of test day to end 
@@ -124,7 +132,7 @@ class TestTruNet():
                     
         cache_dir =  t_params['data_dir'] 
 
-        #os.makedirs(cache_dir, exist_ok=True)
+#        os.makedirs(cache_dir, exist_ok=True)
 
         self.ds = self.ds.cache(os.path.join(os.path.dirname(cache_dir),cache_suffix))
         
@@ -149,11 +157,9 @@ class TestTruNet():
         # region --- Generating predictions
         for batch in range(1, int(1+self.test_batches) ):
             
-            #continue
-
             # next batch of data
             idx, (feature, target, mask) = next(self.iter_test)
-            #continue
+            
             if m_params['time_sequential'] == False:
                 target = tf.expand_dims( target, -3)
                 mask = tf.expand_dims(mask, -3)
@@ -220,8 +226,8 @@ class TestTruNet():
             target_masked = cl.water_mask(target, mask, np.nan ) 
 
             #Combining the batch and seq_len dimensions into a timesteps dimension if they exists           
-            preds_reshaped      = tf.reshape( preds_masked,[-1] + preds_masked.shape.as_list()[ -3: ] )    #(timesteps, ... , samples)
-            targets_reshaped    = tf.reshape( target_masked,[-1] + target_masked.shape.as_list()[ -3: ] ) #(timesteps, ...)
+            preds_reshaped      = tf.reshape( preds_masked,[-1] + preds_masked.shape.as_list()[ -3: ] ).numpy()    #(timesteps, ... , samples)
+            targets_reshaped    = tf.reshape( target_masked,[-1] + target_masked.shape.as_list()[ -3: ] ).numpy()  #(timesteps, ...)
 
             self.li_predictions.append( preds_reshaped )
             self.li_true_values.append( targets_reshaped )
@@ -233,6 +239,7 @@ class TestTruNet():
 
         try:
             next(self.iter_test)
+
         except (tf.errors.OutOfRangeError, StopIteration, StopAsyncIteration) as e:
             pass
 

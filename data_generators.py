@@ -1,12 +1,12 @@
 from netCDF4 import Dataset, num2date
+import numpy as np
+import tensorflow as tf
+
 import glob
 import itertools as it
 import json
 import os
 import pickle
-
-import numpy as np
-import tensorflow as tf
 
 import utility
 

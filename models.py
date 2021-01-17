@@ -1,5 +1,5 @@
-import tensorflow as tf
 import numpy as np
+import tensorflow as tf
 from tensorflow.keras.layers import TimeDistributed, Conv2D, Dropout, MaxPooling2D, UpSampling2D, SpatialDropout2D, Conv2DTranspose, BatchNormalization
 import layers
 import layers_convgru2D
@@ -176,7 +176,7 @@ class UNET(tf.keras.Model):
         base_layers =64
 
 
-        self.conv2d_1 = Conv2D( base_layers, 3, activation = 'selu', padding = 'same', input_shape=( t_params['batch_size'] ,16, 16, 24) )
+        self.conv2d_1 = Conv2D( base_layers, 3, activation = 'selu', padding = 'same', input_shape=( t_params['batch_size'], 16, 16, 24) )
         self.conv2d_12 = Conv2D( base_layers, 3, activation = 'selu', padding = 'same',)
         self.bn_1 = BatchNormalization()
         
