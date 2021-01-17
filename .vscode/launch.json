@@ -31,8 +31,11 @@
             "name": "UNET",
             "program": "${file}",
             "console": "internalConsole",
-            "args": ["-mn","UNET", "-dd","./Data/Rain_Data_Mar20", "-ctsm", "1979_2009_2014", "-bs", "3",
-                "-mts", "{'stochastic':False,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout','location':['Cardiff','London','Birmingham','Glasgow','Truro','Manchester']}" ],
+            "args": ["-mn","UNET", "-dd","/media/Data3/akanni/Rain_Data_Mar20", "-ctsm", "1979_2009_2014", "-bs", "88",
+                "-mts", "{'stochastic':True,'stochastic_f_pass':1,'distr_type':'Normal','discrete_continuous':True,'var_model_type':'mc_dropout','location':['Cardiff','London','Glasgow','Birmingham','Lancaster','Manchester','Liverpool','Bradford','Edinburgh','Leeds','Dublin', 'Norwich', 'Truro', 'Newry','Plymouth','Bangor']}" ],
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "0,1",
+            },
             "justMyCode": false
             
           }

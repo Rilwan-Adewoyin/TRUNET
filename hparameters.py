@@ -45,7 +45,6 @@ class MParams(HParams):
         if not hasattr(self, 'params'):
             self.params = {}
 
-
         self.params.update(
             {'region_grid_params':{
                 'outer_box_dims':[16,16],
@@ -317,23 +316,23 @@ class model_UNET_hparamaters(MParams):
         super(model_UNET_hparamaters, self).__init__(**kwargs)
     
     def _default_params(self,**kwargs):
-        model_type_settings = kwargs.get('model_type_settings', {})        
-        dropout = model_type_settings.get('do',0.2)
+        model_type_settings = kwargs.get( 'model_type_settings', {} )        
+        dropout = model_type_settings.get('do',0.01)
 
         
 
         REC_ADAM_PARAMS = {
-            "learning_rate":model_type_settings.get('lr_max',2e-4),
+            "learning_rate":model_type_settings.get('lr_max',1e-4),
             "warmup_proportion":0.65,
-            "min_lr":model_type_settings.get('lr_min',8e-5),
+            "min_lr":model_type_settings.get('lr_min',1e-5),
             "amsgrad":True,
             "decay":0.0008,
-            "epsilon":5e-8 } #Rectified Adam params
+            "epsilon":1e-5 } #Rectified Adam params
         
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }
 
         # endregion
-        model_type_settings = kwargs.get('model_type_settings',{})
+        model_type_settings = kwargs.get( 'model_type_settings', {} )
 
         self.params.update( {
             'model_name':'UNET',
@@ -343,7 +342,7 @@ class model_UNET_hparamaters(MParams):
 
             'rec_adam_params':REC_ADAM_PARAMS,
             'lookahead_params':LOOKAHEAD_PARAMS,
-            'clip_norm':model_type_settings.get('clip_norm',5.5),
+            'clip_norm':model_type_settings.get('clip_norm',5.0 ),
 
             "time_sequential": False
         })
@@ -356,6 +355,7 @@ class train_hparameters_ati(HParams):
         self.dd = kwargs.get("data_dir",'./Data/Rain_Data_Mar20') 
         self.objective = kwargs.get("objective","mse")
         self.parallel_calls = kwargs.get("parallel_calls",-1)
+        self.epochs = kwargs.get("epochs",100)
         
         # data formulation method
         self.custom_train_split_method = kwargs.get('ctsm') 
@@ -398,7 +398,7 @@ class train_hparameters_ati(HParams):
         BATCH_SIZE = self.batch_size
         # endregion
 
-        EPOCHS = kwargs.get('epochs',100)
+        EPOCHS = self.epochs
         CHECKPOINTS_TO_KEEP = 1
 
         # region ---- data formulation strategies

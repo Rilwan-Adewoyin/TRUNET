@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from tensorflow.keras.layers import TimeDistributed, Conv2D, Dropout, MaxPooling2D, UpSampling2D, SpatialDropout2D
+from tensorflow.keras.layers import TimeDistributed, Conv2D, Dropout, MaxPooling2D, UpSampling2D, SpatialDropout2D, Conv2DTranspose, BatchNormalization
 import layers
 import layers_convgru2D
 import copy
@@ -109,7 +109,7 @@ class SimpleConvGRU(tf.keras.Model):
         """
         preds = []
         for count in tf.range(n_preds):
-            pred = self.call( inputs, training=True ) #shape ( batch_size, output_h, output_w, 1 ) or # (pred_count, bs, seq_len, h, w)
+            pred = self.call( inputs, training=training ) #shape ( batch_size, output_h, output_w, 1 ) or # (pred_count, bs, seq_len, h, w)
             preds.append( pred )
         
         return preds    
@@ -154,7 +154,7 @@ class TRUNET(tf.keras.Model):
         """
         preds = []
         for count in tf.range(n_preds):
-            pred = self.call( inputs, training=True ) #shape ( batch_size, output_h, output_w, 1 ) or # (pred_count, bs, seq_len, h, w)
+            pred = self.call( inputs, training=training ) #shape ( batch_size, output_h, output_w, 1 ) or # (pred_count, bs, seq_len, h, w)
             preds.append( pred )
         return preds
 
@@ -170,25 +170,46 @@ class UNET(tf.keras.Model):
 
         #inputs = Input(input_size)
         self.dc = np.asarray( [m_params['model_type_settings']['discrete_continuous']],dtype=np.bool )
+        self.dp = SpatialDropout2D(0.05)
+        self.pool = MaxPooling2D(pool_size=(2, 2), strides=2)
+        self.upsample = UpSampling2D(size=(2,2))
+        base_layers =64
 
-        self.conv2d_1 = Conv2D( 80, 4, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')
-        self.pool_1 = MaxPooling2D(pool_size=(2, 2))
 
-        self.conv2d_2 = Conv2D(80, 4, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')
-        self.pool_2 = MaxPooling2D(pool_size=(2, 2))
+        self.conv2d_1 = Conv2D( base_layers, 3, activation = 'selu', padding = 'same', input_shape=( t_params['batch_size'] ,16, 16, 24) )
+        self.conv2d_12 = Conv2D( base_layers, 3, activation = 'selu', padding = 'same',)
+        self.bn_1 = BatchNormalization()
         
-        self.conv2d_3 = Conv2D(64, 4, activation='relu', padding = 'same', kernel_initializer = 'he_normal' ) 
-        self.pool_3 = MaxPooling2D(pool_size=(2, 2))
-        self.dropout_3 = SpatialDropout2D(0.5)
+        self.conv2d_2 = Conv2D(2*base_layers, 3, activation = 'selu', padding = 'same',)
+        self.conv2d_22 = Conv2D(2*base_layers, 3, activation = 'selu', padding = 'same',)        
+        self.bn_2 = BatchNormalization()
+        
+        self.conv2d_3 = Conv2D(4*base_layers, 3, activation='selu', padding = 'same', )
+        self.conv2d_32 = Conv2D(4*base_layers, 3, activation = 'selu', padding = 'same') 
+        self.bn_3 = BatchNormalization()
+        
+        
+        self.conv2d_4 =  Conv2D(8*base_layers, 3, activation = 'selu', padding = 'same',)
+        self.conv2d_42 =  Conv2D(8*base_layers, 3, activation = 'selu', padding = 'same')
+        self.conv2d_4up =  Conv2DTranspose( 4*base_layers, 2, padding = 'same', strides=(2,2))
+        self.bn_4 = BatchNormalization()
 
-        self.upsample_4 = UpSampling2D(size=(2,2))
-        self.conv2d_4 =  Conv2D(80, 4, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')
+        self.conv2d_5 =  Conv2D(4*base_layers, 3, activation = 'selu', padding = 'same',)
+        self.conv2d_52 =  Conv2D(4*base_layers, 3, activation = 'selu', padding = 'same',)
+        self.conv2d_5up =  Conv2DTranspose( 2*base_layers, 2, padding = 'same', strides=(2,2))
+        self.bn_5 = BatchNormalization()
 
-        self.upsample_5 = UpSampling2D(size=(2,2))
-        self.conv2d_5 =  Conv2D(80, 4, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')
+        self.conv2d_6 =  Conv2D(2*base_layers, 3, activation = 'selu', padding = 'same',)
+        self.conv2d_62 =  Conv2D(2*base_layers, 3, activation = 'selu', padding = 'same',)
+        self.conv2d_6up =  Conv2DTranspose( base_layers, 2, padding = 'same', strides=(2,2) )
+        self.bn_6 = BatchNormalization()
 
-        self.conv_2d_6val =  Conv2D(80, 4, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')
-        self.conv_2d_6prob =  Conv2D(80, 4, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')
+        self.conv2d_7 =  Conv2D(base_layers, 3, activation = 'selu', padding = 'same',)
+        self.conv2d_72 =  Conv2D(base_layers, 3, activation = 'selu', padding = 'same',)
+        self.bn_7 = BatchNormalization()
+
+        self.conv_2d_8val =  Conv2D(1, 2, activation = 'relu', padding = 'same',use_bias=False)
+        self.conv_2d_8prob =  Conv2D(1, 2, activation = 'relu', padding = 'same',use_bias=False)
 
         self.float32_output = tf.keras.layers.Activation('linear', dtype='float32')
         self.output_activation_val = layers.CustomRelu_maker(t_params, dtype='float32')
@@ -201,36 +222,56 @@ class UNET(tf.keras.Model):
     def call(self, _input, training=False):
 
         x1 = self.conv2d_1(_input)
-        x1 = self.pool_1(x1)
+        x1 = self.conv2d_12(self.dp(x1,training=training))
+        #x1 = self.bn_1(x1)
+        x1_pool = self.pool(x1)
 
-        x2 = self.conv2d_2(x1)
-        x2 = self.pool_2(x2)
+        x2 = self.conv2d_2(self.dp(x1_pool,training=training))
+        x2 = self.conv2d_22(self.dp(x2, training=training))
+        #x2 = self.bn_2(x2)
+        x2_pool = self.pool(x2)
 
-        x3 = self.conv2d_3(x2)
-        x3 = self.pool_3(x3)
+        x3 = self.conv2d_3(self.dp(x2_pool,training=training))
+        x3 = self.conv2d_32(self.dp(x3,training=training))
+        #x3 = self.bn_3(x3)
+        x3_pool = self.pool(x3)
 
-        drop3 = self.dropout_3(x3, training=training)
 
-        x4_up = self.upsample_4(drop3)
-        x4 = self.conv2d_4( x4_up )
-        merge4 = tf.concat([drop3, x4], axis = 3)
+        x4 = self.conv2d_4( self.dp(x3_pool, training=training)  )
+        x4 = self.conv2d_42( self.dp(x4, training=training ) )
+        #x4 = self.bn_4(x4)
+        x4_up = self.conv2d_4up( x4 )
 
-        x5_up = self.upsample_5(merge4)
-        x5 = self.conv2d_5( x5_up )
-        merge5 = tf.concat([x2, x5], axis = 3)
+        merge5 = tf.concat( [x3, x4_up], axis = -1)
+        x5 = self.conv2d_5( self.dp(merge5,training=training) )
+        x5 = self.conv2d_52( self.dp(x5, training=training ))
+        #x5 = self.bn_5(x5)
+        x5_up = self.conv2d_5up( x5 )        
 
-        
-        x6_val = self.conv_2d_6val( merge5 )
-        outp = self.float32_output(x6_val)
-        outp = self.output_activation(x6_val)
+        merge6 = tf.concat( [x2, x5_up], axis = -1)
+        x6 = self.conv2d_6( self.dp(merge6,training=training) )
+        x6 = self.conv2d_62( self.dp(x6,training=training) )
+        #x6 = self.bn_6(x6)
+        x6_up = self.conv2d_6up( x6 ) 
+
+        merge7 = tf.concat( [x1,x6_up], axis = -1)
+        x7 = self.conv2d_7( self.dp(merge7,training=training ))
+        x7 = self.conv2d_72(self.dp(x7,training=training) )
+          
+
+        x8_val = self.conv_2d_8val( x7 )
+        outp_vals = self.float32_output(x8_val)
+        outp_vals = self.output_activation_val(outp_vals)
 
         if self.dc == True:
-            x6_prob = self.conv_2d_6prob( merge5 )
-            outp_prob = self.float32_output(x6_prob)
+            x8_prob = self.conv_2d_8prob( x7 )
+            outp_prob = self.float32_output(x8_prob)
             outp_prob = self.output_activation_prob(outp_prob)
                  
             outp = tf.stack([outp_vals, outp_prob],axis=0)
-            
+        else:
+            outp = outp_vals
+        
         return outp
 
     def predict( self, inputs, n_preds, training=True):
@@ -239,6 +280,10 @@ class UNET(tf.keras.Model):
         """
         preds = []
         for count in tf.range(n_preds):
-            pred = self.call( inputs, training=True ) #shape ( batch_size, time, output_h, output_w, 1 ) or # (pred_count, time, bs, seq_len, h, w)
+            # First dimension contains two if prob and pred are output
+            pred = self.call( inputs, training=training ) #shape ( (2) ,batch_size, output_h, output_w, 1 )
+            # new axis added for compatibility purposes
+            # predict.py script was designed to work with TRUNET & HCGRU models which produce an output of shape (pred_count, bs, seq_len, h, w, 1)
+            pred = tf.expand_dims( pred, axis=-4 )
             preds.append( pred )
         return preds

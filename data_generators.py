@@ -259,7 +259,7 @@ class Generator_mf(Generator):
         super(Generator_mf, self).__init__(**generator_params)
 
         self.vars_for_feature = vars_for_feature #['unknown_local_param_137_128', 'unknown_local_param_133_128', 'air_temperature', 'geopotential', 'x_wind', 'y_wind' ]       
-        self.seq_len = seq_len*25 if seq_len else 100
+        self.seq_len = seq_len*25 if seq_len else 1400
         self.start_idx = 0
         self.end_idx =0 
         #self.ds = Dataset(self.fp, "r", format="NETCDF4")
@@ -377,21 +377,28 @@ class Era5_Eobs():
                      output_shapes=( tf.TensorShape([None, None, None, None]),tf.TensorShape([None, None, None, None])) ) #(values, mask) 
         ds_feat = ds_feat.unbatch()
         
-        if self.time_sequential == True:
-            ds_feat = ds_feat.window(size = self.t_params['lookback_feature'], stride=1, shift=self.t_params['lookback_feature'], drop_remainder=True )
-            ds_feat = ds_feat.flat_map( lambda *window: tf.data.Dataset.zip( tuple([w.batch(self.t_params['lookback_feature']) for w in window ] ) ) )  # shape (lookback,h, w, 6)
+        if self.m_params['time_sequential'] == True:
+            ds_feat = ds_feat.window(size = self.t_params.get('lookback_feature',28) , stride=1, shift=self.t_params.get('lookback_feature',28) , drop_remainder=True )
+            ds_feat = ds_feat.flat_map( lambda *window: tf.data.Dataset.zip( tuple([w.batch(self.t_params.get('lookback_feature',28) ) for w in window ] ) ) )  # shape (lookback,h, w, 6)
+            ds_feat = ds_feat.map( lambda arr_data, arr_mask: self.mf_normalize_mask( arr_data, arr_mask), num_parallel_calls= _num_parallel_calls) 
+        else:
+            ds_feat = ds_feat.batch(4)
+            ds_feat = ds_feat.map( lambda arr_data, arr_mask: self.mf_normalize_mask( arr_data, arr_mask), num_parallel_calls= _num_parallel_calls) 
+            ds_feat = ds_feat.map( lambda arr_data: tf.reshape(tf.transpose(arr_data,[1,2,0,3]), [100,140,24])  , num_parallel_calls=_num_parallel_calls )
             
-        ds_feat = ds_feat.map( lambda arr_data, arr_mask: self.mf_normalize_mask( arr_data, arr_mask), num_parallel_calls= _num_parallel_calls) 
+        
         # endregion
 
         # region - Preparing Eobs target_rain_data   
         ds_tar = tf.data.Dataset.from_generator( self.rain_data, output_types=(tf.float32, tf.bool), output_shapes=( tf.TensorShape([None, None]), tf.TensorShape([ None, None])) ) # (values, mask) 
         ds_tar = ds_tar.skip(start_idx_tar)     #skipping to correct point
 
-        if self.time_sequential == True:
-            ds_tar = ds_tar.window(size = self.t_params['lookback_target'], stride=1, shift=self.t_params['window_shift'] , drop_remainder=True )
-            ds_tar = ds_tar.flat_map( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(self.t_params['lookback_target']) for w in window ] ) ) ) # shape (lookback,h, w)
-            
+        if self.m_params['time_sequential'] == True:
+            ds_tar = ds_tar.window(size = self.t_params.get('lookback_target',128) , stride=1, shift=self.t_params['window_shift'] , drop_remainder=True )
+            ds_tar = ds_tar.flat_map( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(self.t_params.get('lookback_target',128) ) for w in window ] ) ) ) # shape (lookback,h, w)
+        else:
+            ds_tar = ds_tar
+
         ds_tar = ds_tar.map( lambda _vals, _mask: self.mask_rain( _vals, _mask ), num_parallel_calls=_num_parallel_calls ) # (values, mask)
         # endregion
 
@@ -514,14 +521,10 @@ class Era5_Eobs():
         """
             idx_h,idx_w: refer to the top left right index for the square region of interest this includes the region which is removed after cropping to calculate the loss during train step
         """
-        if self.time_sequential == True:
-            mf = mf[ :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] , : ]
-            rain = rain[ :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
-            rain_mask = rain_mask[ :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
-        else:
-            mf = mf[ h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] , : ]
-            rain = rain[ h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
-            rain_mask = rain_mask[ h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
+    
+        mf = mf[ ..., h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] , : ]
+        rain = rain[ ..., h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
+        rain_mask = rain_mask[ ..., h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
             
         return tf.expand_dims(mf,axis=0), tf.expand_dims(rain,axis=0), tf.expand_dims(rain_mask,axis=0) #Note: expand_dim for unbatch/batch compatibility
 # endregion

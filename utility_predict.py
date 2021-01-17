@@ -23,12 +23,21 @@ def load_model(t_params, m_params):
 
     if(model_name=="TRUNET"):
         model = models.TRUNET(t_params, m_params)
+        inp_shape = [t_params['batch_size'], t_params['lookback_feature']] + m_params['region_grid_params']['outer_box_dims'] + [len(t_params['vars_for_feature'])]
+        init_inp = tf.zeros(inp_shape, dtype=tf.float16 )
+        model(init_inp, training=False )
+    
     elif(model_name=="SimpleConvGRU"):
         model = models.SimpleConvGRU(t_params,m_params)
-    
-    inp_shape = [t_params['batch_size'], t_params['lookback_feature']] + m_params['region_grid_params']['outer_box_dims'] + [len(t_params['vars_for_feature'])]
-    init_inp = tf.zeros(inp_shape, dtype=tf.float16 )
-    model(init_inp, training=False )
+        inp_shape = [t_params['batch_size'], t_params['lookback_feature']] + m_params['region_grid_params']['outer_box_dims'] + [len(t_params['vars_for_feature'])]
+        init_inp = tf.zeros(inp_shape, dtype=tf.float16 )
+        model(init_inp, training=False )
+
+    elif(model_name=="UNET"):
+        model = models.UNET(t_params,m_params)
+        inp_shape = [t_params['batch_size'] ] + m_params['region_grid_params']['outer_box_dims'] + [int(t_params['lookback_feature']*len(t_params['vars_for_feature']))]
+        init_inp = tf.zeros(inp_shape, dtype=tf.float16 )
+        model(init_inp, training=False )
 
     ckpt = tf.train.Checkpoint(model=model)
 
@@ -37,12 +46,14 @@ def load_model(t_params, m_params):
 
     best_checkpoint_path = df_checkpoint_scores['Checkpoint_Path'][0]
     checkpoint_code = "E"+str(df_checkpoint_scores['Epoch'][0])
-    status = ckpt.restore( best_checkpoint_path ).assert_existing_objects_matched()
+    
+    status = ckpt.restore( best_checkpoint_path ).expect_partial()
+
     print("Are weights empty after restoring from checkpoint?", model.weights == [] )
 
     return model, checkpoint_code
 
-def save_preds( t_params, m_params, li_preds, li_timestamps, li_truevalues, custom_test_loc=None ):
+def save_preds( t_params, m_params, li_preds, li_timestamps, li_truevalues, custom_test_loc=None, count=0 ):
     """Save predictions to file
 
         Args:
@@ -64,10 +75,14 @@ def save_preds( t_params, m_params, li_preds, li_timestamps, li_truevalues, cust
         fn = "_regional"
     else:
         fn = "local"
+    
+    if count >0:
+        fn += f"_chunk{count}"
 
-    if m_params['model_type_settings'].get( 'rain_thresh', 0.5) != 0.5:
-        fn += str( m_params['model_type_settings']['rain_thresh'] )
     fn += ".dat"
+
+    
+
 
     if(not os.path.exists(_path_pred) ):
         os.makedirs(_path_pred)

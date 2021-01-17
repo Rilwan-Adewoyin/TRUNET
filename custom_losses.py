@@ -68,14 +68,13 @@ def extract_central_region(tensor, bounds):
             tensor ([type]): 4d or 5d tensor
             bounds ([type]): bounds defining the vertices of the patch to be extracted for evaluation
     """
-    tensor = tensor[ :, :, bounds[0]:bounds[1],bounds[2]:bounds[3]  ]    
+    tensor = tensor[ ..., bounds[0]:bounds[1],bounds[2]:bounds[3]  ]     #(bs, h , w)
+    #tensor = tensor[ :, : , bounds[0]:bounds[1],bounds[2]:bounds[3]  ]
     return tensor
 
 def water_mask( tensor, mask, mask_val=np.nan):
     """Mask out values in tensor by with mask value=0.0
     """
-    #mask = tf.broadcast_to( mask, tensor.shape )
-
     tensor = tf.where(mask, tensor, mask_val)
 
     return tensor

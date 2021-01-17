@@ -8,13 +8,13 @@ import time
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-import tensorflow_probability as tfp
+
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Bidirectional
 from tensorflow.python.keras.utils import tf_utils
 from tensorflow.python.ops import clip_ops, math_ops, nn
-from tensorflow_probability import distributions as tfd
-from tensorflow_probability import layers as tfpl
+
+
 
 import layers_convgru2D
 import utility

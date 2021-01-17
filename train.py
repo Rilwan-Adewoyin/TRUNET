@@ -96,29 +96,29 @@ class WeatherModel():
             #This training records keeps track of the losses on each epoch
         try:
             self.df_training_info = pd.read_csv( "checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(m_params,t_params=self.t_params,htuning=m_params.get('htuning',False))), header=0, index_col=False) 
-            self.df_training_info = self.df_training_info[['Epoch','Train_loss','Train_mse','Train_R10mse','Val_loss','Val_mse','Val_R10mse','Checkpoint_Path','Last_Trained_Batch']]
+            self.df_training_info = self.df_training_info[['Epoch','Train_loss','Train_mse','Val_loss','Val_mse','Checkpoint_Path','Last_Trained_Batch']]
             self.start_epoch =  int(max([self.df_training_info['Epoch'][0]], default=0))
             last_batch = int( self.df_training_info.loc[self.df_training_info['Epoch']==self.start_epoch,'Last_Trained_Batch'].iloc[0] )
             if(last_batch in [-1, self.t_params['train_batches']] ):
                 self.start_epoch = self.start_epoch + 1
+                self.batches_to_skip = 0 
             else:
-                pass
-            self.batches_to_skip = 0
+                self.batches_to_skip = last_batch
             print("Recovered training records")
 
         except FileNotFoundError as e:
             #If no file found, then make new training records file
-            self.df_training_info = pd.DataFrame(columns=['Epoch','Train_loss','Train_mse','Train_R10mse','Val_loss','Val_mse','Val_R10mse','Checkpoint_Path','Last_Trained_Batch'] ) 
+            self.df_training_info = pd.DataFrame(columns=['Epoch','Train_loss','Train_mse','Val_loss','Val_mse','Checkpoint_Path','Last_Trained_Batch'] ) 
             self.batches_to_skip = 0
             self.start_epoch = 0
             print("Did not recover training records. Starting from scratch")
         # endregion
 
         # region ---- Defining Model / Optimizer / Losses / Metrics / Records / Checkpoints / Tensorboard 
-        gpus = tf.config.experimental.list_physical_devices('GPU')
-        #gpus_names = [gpu.name for gpu in gpus]
-        self.strategy = tf.distribute.MirroredStrategy( ) #OneDeviceStrategy(device="/GPU:0") # 
-        
+        devices = tf.config.get_visible_devices() #tf.config.experimental.list_physical_devices('GPU')
+        #gpus_names = [ device.name for device in devices if  device.device_type == "GPU" ]
+        #self.strategy = tf.distribute.MirroredStrategy( devices=gpus_names ) #OneDeviceStrategy(device="/GPU:0") # 
+        self.strategy = tf.distribute.MirroredStrategy( )
         assert self.t_params['batch_size'] % self.strategy.num_replicas_in_sync  == 0
         print("Number of Devices used in MirroredStrategy: {}".format(self.strategy.num_replicas_in_sync))
         with self.strategy.scope():   
@@ -129,8 +129,6 @@ class WeatherModel():
             
             #Optimizer
             optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*20) 
-            if self.m_params['model_type_settings'].get('SWA',False) == True:
-                optimizer = tfa.optimizers.SWA( optimizer, average_period = 6 )
 
             self.optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) 
                     
@@ -139,16 +137,15 @@ class WeatherModel():
             self.loss_agg_epoch = tf.keras.metrics.Mean(name="loss_agg_epoch")
 
             self.mse_agg_epoch = tf.keras.metrics.Mean(name='mse_agg_epoch')
-            self.r10mse_agg_epoch = tf.keras.metrics.Mean(name='r10mse_agg_epoch')
             
             self.loss_agg_val = tf.keras.metrics.Mean(name='loss_agg_val')
             self.mse_agg_val = tf.keras.metrics.Mean(name='mse_agg_val')
-            self.r10mse_agg_val = tf.keras.metrics.Mean(name='r10mse_agg_val')
-
+            
         #checkpoints  (For Epochs)
             #The CheckpointManagers can be called to serializae the weights within TRUNET
-        checkpoint_path_epoch = "checkpoints/{}/epoch".format(utility.model_name_mkr(m_params,t_params=self.t_params, htuning=m_params.get('htuning',False) ))
+        checkpoint_path_epoch = "./checkpoints/{}/epoch".format(utility.model_name_mkr(m_params,t_params=self.t_params, htuning=m_params.get('htuning',False) ))
         os.makedirs(checkpoint_path_epoch,exist_ok=True)
+        
         with self.strategy.scope():
             ckpt_epoch = tf.train.Checkpoint(model=self.model, optimizer=self.optimizer)
             self.ckpt_mngr_epoch = tf.train.CheckpointManager(ckpt_epoch, checkpoint_path_epoch, max_to_keep=self.t_params['checkpoints_to_keep'], keep_checkpoint_every_n_hours=None)    
@@ -160,6 +157,7 @@ class WeatherModel():
                     ckpt_epoch.restore(self.ckpt_mngr_epoch.latest_checkpoint).assert_consumed()            
                 except AssertionError as e:
                     ckpt_epoch.restore(self.ckpt_mngr_epoch.latest_checkpoint)              
+                print (' Restoring model from best checkpoint')
             else:
                 print (' Initializing model from scratch')
         
@@ -180,13 +178,13 @@ class WeatherModel():
         ds_val = _ds_train_val.skip(self.t_params['train_batches'] ).take(self.t_params['val_batches'])
 
         #TODO: undo cache
-        # ds_train = ds_train.cache('Data/data_cache/train'+cache_suffix ) 
-        # ds_val = ds_val.cache('Data/data_cache/val'+cache_suffix )
+        ds_train = ds_train.cache('Data/data_cache/train'+cache_suffix ) 
+        ds_val = ds_val.cache('Data/data_cache/val'+cache_suffix )
 
         ds_train = ds_train.unbatch().shuffle( self.t_params['batch_size']*int(self.t_params['train_batches']/5), reshuffle_each_iteration=True).batch(self.t_params['batch_size']) #.repeat(self.t_params['epochs']-self.start_epoch)
 
         ds_train_val = ds_train.concatenate(ds_val)
-        ds_train_val = ds_train_val.repeat(self.t_params['epochs']-self.start_epoch)
+        ds_train_val = ds_train_val.repeat(self.t_params.get('epochs',100)-self.start_epoch)
         self.ds_train_val = self.strategy.experimental_distribute_dataset(dataset=ds_train_val)
         self.iter_train_val = enumerate(self.ds_train_val)
 
@@ -206,17 +204,20 @@ class WeatherModel():
         bounds = cl.central_region_bounds(self.m_params['region_grid_params']) #list [ lower_h_bound[0], upper_h_bound[0], lower_w_bound[1], upper_w_bound[1] ]
         
         #Training for n epochs
+        #self.t_params['train_batches'] = self.t_params['train_batches'] if self.m_params['time_sequential'] else int(self.t_params['train_batches']*self.t_params['lookback_target'] )
+        #self.t_params['val_batches'] = self.t_params['val_batches'] if self.m_params['time_sequential'] else int(self.t_params['val_batches']*self.t_params['lookback_target'] )
+
         for epoch in range(self.start_epoch, int(self.t_params['epochs']) ):
             
             #region resetting metrics, losses, records, timers
             self.loss_agg_batch.reset_states()
             self.loss_agg_epoch.reset_states()
             self.mse_agg_epoch.reset_states()
-            self.r10mse_agg_epoch.reset_states()
+            
             
             self.loss_agg_val.reset_states()
             self.mse_agg_val.reset_states()
-            self.r10mse_agg_val.reset_states()
+            
             self.df_training_info = self.df_training_info.append( { 'Epoch':epoch, 'Last_Trained_Batch':0 }, ignore_index=True )
             
             start_epoch_train = time.time()
@@ -227,7 +228,7 @@ class WeatherModel():
             #endregion 
             
             # --- Training Loops
-            for batch in range(self.batches_to_skip+1, self.t_params['train_batches']+1):
+            for batch in range(self.batches_to_skip+1,self.t_params['train_batches'] +1):
                                
                 # get next set of training datums
                 idx, (feature, target, mask) = next(self.iter_train_val)
@@ -250,6 +251,7 @@ class WeatherModel():
                     # Updating record of the last batch to be operated on in training epoch
                     self.df_training_info.loc[ ( self.df_training_info['Epoch']==epoch) , ['Last_Trained_Batch'] ] = batch
                     self.df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(self.m_params,t_params=self.t_params, htuning=m_params.get('htuning',False) )), header=True, index=False )
+
 
                 li_losses = [self.loss_agg_batch.result()]
                 li_names = ['train_loss_batch']
@@ -292,13 +294,13 @@ class WeatherModel():
                     self.model.reset_states()
 
             # region - End of Epoch Reporting and Early iteration Callback
-            print("\tEpoch:{}\t Train Loss:{:.8f}\t Train MSE:{:.5f}\t Train R10 MSE:{:.5f} \t Val Loss:{:.5f}\t Val MSE:{:.5f}\t Val R10 MSE:{:.5f} \t Time:{:.5f}".format(epoch, self.loss_agg_epoch.result(), self.mse_agg_epoch.result(),
-                        self.r10mse_agg_epoch.result(), 
-                        self.loss_agg_val.result(), self.mse_agg_val.result(), self.r10mse_agg_val.result()  ,time.time()-start_epoch_train  ) )
+            print("\tEpoch:{}\t Train Loss:{:.8f}\t Train MSE:{:.5f}\t Val Loss:{:.5f}\t Val MSE:{:.5f}\t  Time:{:.5f}".format(epoch, self.loss_agg_epoch.result(), self.mse_agg_epoch.result(),
+                         
+                        self.loss_agg_val.result(), self.mse_agg_val.result()  ,time.time()-start_epoch_train  ) )
                     
             #utility.tensorboard_record( self.writer.as_default(), [self.loss_agg_val.result(), self.mse_agg_val.result()], ['Validation Loss', 'Validation MSE' ], epoch  )                    
             self.df_training_info = utility.update_checkpoints_epoch(self.df_training_info, epoch, self.loss_agg_epoch, self.loss_agg_val, self.ckpt_mngr_epoch, self.t_params, 
-                    self.m_params, self.mse_agg_epoch, self.r10mse_agg_epoch ,self.mse_agg_val, self.r10mse_agg_val, self.t_params['objective'] )
+                    self.m_params, self.mse_agg_epoch ,self.mse_agg_val,  self.t_params['objective'] )
             
             # Early Stop Callback 
             if epoch > ( max( self.df_training_info.loc[:, 'Epoch'], default=0 ) + self.t_params['early_stopping_period']) :
@@ -312,9 +314,11 @@ class WeatherModel():
     def train_step(self, feature, target, mask, bounds, _init):
         
         if _init==1.0:
-            
-            inp_shape = [self.t_params['batch_size'], self.t_params['lookback_feature']] + self.m_params['region_grid_params']['outer_box_dims'] + [len(self.t_params['vars_for_feature'])]
-            
+            if self.m_params['time_sequential'] == True:
+                inp_shape = [self.t_params['batch_size'], self.t_params['lookback_feature']] + self.m_params['region_grid_params']['outer_box_dims'] + [len(self.t_params['vars_for_feature'])]
+            else:
+                inp_shape = [self.t_params['batch_size'] ] + self.m_params['region_grid_params']['outer_box_dims'] + [ int(self.t_params['lookback_feature']*len(self.t_params['vars_for_feature'])) ]
+           
             _ = self.model( tf.zeros( inp_shape, dtype=tf.float16), self.t_params['trainable'] )    #( bs, tar_seq_len, h, w)
 
             gradients = [ tf.zeros_like(t_var, dtype=tf.float32 ) for t_var in self.model.trainable_variables  ]
@@ -397,8 +401,12 @@ class WeatherModel():
         # Metrics (batchwise, epoch)  
         self.loss_agg_batch( loss_to_optimize )
         self.loss_agg_epoch( loss_to_optimize )
-        self.mse_agg_epoch( metric_mse )        
-        self.r10mse_agg_epoch( cl.rNmse(target_masked, preds_masked, 10.0) )        
+        self.mse_agg_epoch( metric_mse )    
+        
+        val = cl.rNmse(target_masked, preds_masked, 10.0)
+
+        
+
         return gradients
                 
     def val_step(self, feature, target, mask, bounds):
@@ -465,21 +473,17 @@ class WeatherModel():
 
         self.loss_agg_val(loss)
         self.mse_agg_val(mse)
-        self.r10mse_agg_val( cl.rNmse(target_masked, preds_masked, 10.0) )
-
-            
+                    
         return True
     
     @tf.function
     def distributed_train_step(self, feature, target, mask, bounds, _init):
-        #gradients = self.strategy.run( self.train_step, args=(feature, target, mask, bounds, _init))
-        gradients = self.strategy.experimental_run_v2( self.train_step, args=(feature, target, mask, bounds, _init) )
+        gradients = self.strategy.run( self.train_step, args=(feature, target, mask, bounds, _init) )
         return gradients
     
     @tf.function
     def distributed_val_step(self, feature, target, mask, bounds):
-        #bool_completed = self.strategy.run( self.val_step, args=(feature, target, mask, bounds))
-        bool_completed = self.strategy.experimental_run_v2( self.val_step, args=(feature, target, mask, bounds))
+        bool_completed = self.strategy.run( self.val_step, args=(feature, target, mask, bounds))
         return bool_completed
 
 
