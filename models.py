@@ -13,17 +13,17 @@ def model_loader(t_params,m_params ):
     if(model_name=="TRUNET"):
         model = TRUNET(t_params, m_params)
     
-    elif(model_name=="SimpleConvGRU"):
-        model = SimpleConvGRU(t_params, m_params)
+    elif(model_name=="HCGRU"):
+        model = HCGRU(t_params, m_params)
     
     elif(model_name=="UNET"):
         model = UNET(t_params, m_params )
 
     return model
 
-class SimpleConvGRU(tf.keras.Model):
+class HCGRU(tf.keras.Model):
     def __init__(self, t_params, m_params):
-        super(SimpleConvGRU, self).__init__()
+        super(HCGRU, self).__init__()
 
         self.dc = np.asarray( [m_params['model_type_settings']['discrete_continuous']],dtype=np.bool )
         

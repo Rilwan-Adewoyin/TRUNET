@@ -139,7 +139,7 @@ def ifs_pred_extractor( data_dir, target_start_date, target_end_date, location="
     """
         This method extracts the IFS data from file. And performs any grouping/preproc neccesary. 
     """
-    ifs_fn = data_dir + "/IFS_precip_preds/ana_tp_1234.grib"
+    ifs_fn = data_dir + "/ifs_rainfall_preds_1979-2020.grib"
 
     str_start_date = "1979-01-02"
     str_end_date = '2019-12-31'

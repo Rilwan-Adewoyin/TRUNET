@@ -27,8 +27,8 @@ def load_model(t_params, m_params):
         init_inp = tf.zeros(inp_shape, dtype=tf.float16 )
         model(init_inp, training=False )
     
-    elif(model_name=="SimpleConvGRU"):
-        model = models.SimpleConvGRU(t_params,m_params)
+    elif(model_name=="HCGRU"):
+        model = models.HCGRU(t_params,m_params)
         inp_shape = [t_params['batch_size'], t_params['lookback_feature']] + m_params['region_grid_params']['outer_box_dims'] + [len(t_params['vars_for_feature'])]
         init_inp = tf.zeros(inp_shape, dtype=tf.float16 )
         model(init_inp, training=False )

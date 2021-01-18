@@ -230,11 +230,11 @@ class model_TRUNET_hparameters(MParams):
             
             } )
 
-class model_SimpleConvGRU_hparamaters(MParams):
+class model_HCGRU_hparamaters(MParams):
 
     def __init__(self, **kwargs):
                 
-        super(model_SimpleConvGRU_hparamaters, self).__init__(**kwargs)
+        super(model_HCGRU_hparamaters, self).__init__(**kwargs)
     
     def _default_params(self,**kwargs):
         model_type_settings = kwargs.get('model_type_settings', {})        
@@ -292,7 +292,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
         model_type_settings = kwargs.get('model_type_settings',{})
 
         self.params.update( {
-            'model_name':'SimpleConvGRU',
+            'model_name':'HCGRU',
             'layer_count':layer_count,
             'ConvGRU_layer_params':ConvGRU_layer_params,
             'conv1_layer_params':conv1_layer_params,
