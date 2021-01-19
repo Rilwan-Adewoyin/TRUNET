@@ -8,20 +8,20 @@ Keywords: TRU_NET, Downscaling, Cross Attention, Hierarchical GRU
 The instructions below include commands to enter in command line to get started quickly and train your own model that takes in model field data and outputs rain prediction: 
 
 1.  make directory on your computer where you want to create this project 
-  * mkdir Project_RainForecast && cd Project_RainForecast
-3.  Download / Fork the repository
-  * git clone https://github.com/Akanni96/TRUNET.git 
-  * mkdir TRUNET/Data
-4.  make python >3.6 virtual environment and install requirements
-  * python -m venv venv_trunet
-  * source venv_trunet/bin/activate
-  * pip3 install -r TRUNET/requirements.txt
-  * pip3 install tensorflow-gpu==2.3
-5.  Download and Extract preprocessed Data Files
-  * gdown https://drive.google.com/uc?id=1543TTVz6gAGjpZ4lTqyVX_r0aa3jJAbm
-  * unzip Data.zip -d Data
-6.  Train on 1979-2009, Predict 2009-2014, Evaluate Performance
-  * Use example codes in the following train, predict and Evaluate section
+  *  mkdir Project_RainForecast && cd Project_RainForecast
+2.  Download / Fork the repository
+  *  git clone https://github.com/Akanni96/TRUNET.git 
+  *  mkdir TRUNET/Data
+3.  make python >3.6 virtual environment and install requirements
+  *  python -m venv venv_trunet
+  *  source venv_trunet/bin/activate
+  *  pip3 install -r TRUNET/requirements.txt
+  *  pip3 install tensorflow-gpu==2.3
+4.  Download and Extract preprocessed Data Files
+  *  gdown https://drive.google.com/uc?id=1543TTVz6gAGjpZ4lTqyVX_r0aa3jJAbm
+  *  unzip Data.zip -d Data
+5.  Train on 1979-2009, Predict 2009-2014, Evaluate Performance
+  *  Use example codes in the following train, predict and Evaluate section
   
 #### train
 `python3 train.py -mn "TRUNET" -ctsm "1979_2009_2014" -mts "{'stochastic':False,'stochastic_f_pass':1,'discrete_continuous':True,'var_model_type':'mc_dropout','do':0.2,'ido':0.2,'rdo':0.3,'location':['London','Cardiff','Glasgow','Lancaster','Bradford','Manchester','Birmingham','Liverpool','Leeds','Edinburgh','Belfast','Dublin','LakeDistrict','Newry','Preston','Truro','Bangor','Plymouth','Norwich','StDavids','Swansea','Lisburn','Salford','Aberdeen','Stirling','Hull']}" -dd "./Data" -bs 64`
