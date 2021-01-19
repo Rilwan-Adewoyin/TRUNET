@@ -6,7 +6,6 @@ Output/
 __pycache__/
 model_params/
 saved_params/
-.vscode/
+.*/
 .ipynb_checkpoints/
-Data.7z/
 hypertune/

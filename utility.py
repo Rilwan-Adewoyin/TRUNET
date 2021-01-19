@@ -11,11 +11,10 @@ import copy
 import datetime
 import re
 import pickle
-from tensorflow.python.ops import variables as tf_variables
-
 
 # region - Reporting
-def update_checkpoints_epoch(df_training_info, epoch, train_loss_epoch, val_loss_epoch, ckpt_manager_epoch, t_params, m_params, train_metric_mse=None, val_metric_mse=None  ):
+def update_checkpoints_epoch(df_training_info, epoch, train_loss_epoch, val_loss_epoch, ckpt_manager_epoch, t_params, m_params, train_metric_mse=None,
+                                val_metric_mse=None,  objective="mse"  ):
     """Updates the checkpoint and epoch records associated with an instance of training
 
         Args:
@@ -35,8 +34,10 @@ def update_checkpoints_epoch(df_training_info, epoch, train_loss_epoch, val_loss
     # rm any pre-existing information from current epoch
     df_training_info = df_training_info[ df_training_info['Epoch'] != epoch ] 
     
+    minimized = ( val_loss_epoch.result().numpy() <= min( df_training_info.loc[ : ,'Val_loss' ], default= val_loss_epoch.result().numpy()+1 ) )
+
     # if new val_los_epoch is less than existing Val_loss then update, else return unedited df_training info
-    if( ( val_loss_epoch.result().numpy() < min( df_training_info.loc[ : ,'Val_loss' ], default= val_loss_epoch.result().numpy()+1 ) ) ):
+    if( minimized  ):
 
         print('Saving Checkpoint for epoch {}'.format(epoch)) 
         ckpt_save_path = ckpt_manager_epoch.save()
@@ -44,30 +45,30 @@ def update_checkpoints_epoch(df_training_info, epoch, train_loss_epoch, val_loss
         
         # Possibly removing old non top5 records from end of epoch
         if( len(df_training_info.index) >= t_params['checkpoints_to_keep'] ):
+            
             df_training_info = df_training_info.sort_values(by=['Val_loss'], ascending=True)
+
+
             df_training_info = df_training_info.iloc[:-1]
             df_training_info.reset_index(drop=True)
 
-        
-        if train_metric_mse==None:
-            df_training_info = df_training_info.append( other={ 'Epoch':epoch,'Train_loss':train_loss_epoch.result().numpy(), 'Val_loss':val_loss_epoch.result().numpy(),
-                                                            'Checkpoint_Path': ckpt_save_path, 'Last_Trained_Batch':-1}, ignore_index=True ) #A Train batch of -1 represents final batch of training step was completed
-        else:
-            df_training_info = df_training_info.append( other={ 'Epoch':epoch,'Train_loss':train_loss_epoch.result().numpy(), 'Train_mse':train_metric_mse.result().numpy(),
-                                                            'Val_loss':val_loss_epoch.result().numpy(),'Val_mse':val_metric_mse.result().numpy(),
-                                                            'Checkpoint_Path': ckpt_save_path, 'Last_Trained_Batch':-1
-                                                            }, ignore_index=True ) #A Train batch of -1 represents final batch of training step was completed
-            
+    
+        df_training_info = df_training_info.append( 
+            other={ 'Epoch':epoch,'Train_loss':train_loss_epoch.result().numpy(), 'Train_mse':train_metric_mse.result().numpy(),
+                'Val_loss':val_loss_epoch.result().numpy(),'Val_mse':val_metric_mse.result().numpy(),
+                'Checkpoint_Path': ckpt_save_path, 'Last_Trained_Batch':-1
+                }, ignore_index=True ) #A Train batch of -1 represents final batch of training step was completed
+
 
         print("\nTop {} Performance Scores".format(t_params['checkpoints_to_keep']))
+        
+        
         df_training_info = df_training_info.sort_values(by=['Val_loss'], ascending=True)[:t_params['checkpoints_to_keep']]
-        if train_metric_mse==None:
-            print(df_training_info[['Epoch','Val_loss']] )
-        else:
-            print(df_training_info[['Epoch','Train_loss','Train_mse','Val_loss','Val_mse']] )
 
-        df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(model_name_mkr(m_params, t_params=t_params)),
-                                    header=True, index=False, htuning=m_params.get('htuning',False) ) #saving df of scores                      
+        print(df_training_info[['Epoch','Train_loss','Train_mse','Val_loss','Val_mse']] )
+
+        df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(model_name_mkr(m_params, t_params=t_params,  htuning=m_params.get('htuning',False)),
+                                    header=True, index=False) ) #saving df of scores                      
     
     return df_training_info
 
@@ -121,16 +122,22 @@ def load_params(args_dict, train_test="train"):
         init_t_params.update( { 'lookback_target': m_params['data_pipeline_params']['lookback_target'] } )
         init_t_params.update( { 'lookback_feature': m_params['data_pipeline_params']['lookback_feature']})
 
-    elif(args_dict['model_name']=="SimpleConvGRU"):
-        m_params = hparameters.model_SimpleConvGRU_hparamaters(**init_m_params, **args_dict)()
+    elif(args_dict['model_name']=="HCGRU"):
+        m_params = hparameters.model_HCGRU_hparamaters(**init_m_params, **args_dict)()
         init_t_params.update( { 'lookback_target': m_params['data_pipeline_params']['lookback_target'] } )
         init_t_params.update( { 'lookback_feature': m_params['data_pipeline_params']['lookback_feature']})
-    
+
+    elif(args_dict['model_name']=="UNET"):
+        m_params = hparameters.model_UNET_hparamaters(**init_m_params, **args_dict)()
+        init_t_params.update( { 'lookback_target': 1 } )
+        init_t_params.update( { 'lookback_feature': 4 })
+
     if train_test == "train":
         t_params = hparameters.train_hparameters_ati( **{ **args_dict, **init_t_params} )
     else:
         t_params = hparameters.test_hparameters_ati( **{ **args_dict, **init_t_params} )
-        
+    
+    #if train_test == "train":
     save_model_settings( m_params, t_params() )
 
     return t_params(), m_params
@@ -161,8 +168,14 @@ def parse_arguments(s_dir=None):
     parser.add_argument('-ctsm','--ctsm', type=str, required=True, default="1979_1982_1983_1984", help="how to split dataset for training and validation") 
 
     parser.add_argument('-ctsm_test','--ctsm_test', type=str, required=False, default=argparse.SUPPRESS, help="dataset for testing") 
+
+    parser.add_argument('-pc','--parallel_calls', type=int, required=False, default=-1)
+
+    parser.add_argument('-ep','--epochs', default=100, type=int, required=False)
        
     args_dict = vars(parser.parse_args() )
+
+    args_dict['parallel_calls'] = None if args_dict['parallel_calls'] == 0 else args_dict['parallel_calls']
 
     return args_dict
 
@@ -176,12 +189,14 @@ def save_model_settings(m_params,t_params):
     """    
     f_dir = "saved_params/{}".format( model_name_mkr(m_params, t_params=t_params, htuning=m_params.get('htuning',False)) )
 
-    m_path = "m_params.json"
+    
     
     if t_params['trainable']==True:
         t_path = "train_params.json"
+        m_path = "m_params.json"
     else:
         t_path = "test_params.json"
+        m_path = "test_m_params.json"
 
     if not os.path.isdir(f_dir):
         os.makedirs( f_dir, exist_ok=True  )
@@ -223,8 +238,8 @@ def model_name_mkr(m_params, train_test="train", t_params={}, custom_test_loc=No
         Returns:
             [type]: [description]
     """    
-    
-    model_name = "{}_{}_{}_{}_{}".format( m_params['model_name'], m_params['model_type_settings']['var_model_type'],
+     
+    model_name = "{}_{}_{}_{}_{}".format( m_params['model_name'], m_params['model_type_settings'].get('var_model_type',''),
                         m_params['model_type_settings'].get('distr_type',"Normal"), 
                         str(m_params['model_type_settings']['discrete_continuous']),
                         "_".join(loc_name_shrtner(m_params['model_type_settings']['location']) ) )
@@ -253,6 +268,7 @@ def model_name_mkr(m_params, train_test="train", t_params={}, custom_test_loc=No
 
     
     # Addons
+    
     if m_params['model_type_settings'].get('attn_ablation',0) != 0:
         model_name = model_name + "_ablation" + str(m_params['model_type_settings']['attn_ablation'])
 
@@ -304,7 +320,7 @@ def location_getter(model_settings):
 
 # region data standardization
 
-@tf.function
+#@tf.function( experimental_relax_shapes=True )
 def standardize_ati(_array, shift, scale, reverse):
     
     if(reverse==False):

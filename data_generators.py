@@ -1,12 +1,12 @@
 from netCDF4 import Dataset, num2date
+import numpy as np
+import tensorflow as tf
+
 import glob
 import itertools as it
 import json
 import os
 import pickle
-
-import numpy as np
-import tensorflow as tf
 
 import utility
 
@@ -81,19 +81,19 @@ class Generator():
         # Retrieving information on temporal length of  dataset        
         with Dataset(self.fp, "r+", format="NETCDF4") as ds:
             self.data_len = ds.dimensions['time'].size
-        #self.data_len = Dataset(self.fp, "r+", format="NETCDF4").dimensions['time'].size
-        
+                
     def yield_all(self):
         pass
 
     def yield_iter(self):
         pass
     
-    def __call__(self):
+    def __call__(self, ):
         if(self.all_at_once):
             return self.yield_all()
         else:
             return self.yield_iter()
+
     
     def find_idxs_of_loc(self, loc="London"):
         """Returns the grid indexes on the 2D map of the UK which correspond to the location (loc) point
@@ -195,6 +195,7 @@ class Generator():
 
         li_boundaries = list( it.product( li_range_h_pairs, li_range_w_pairs ) )
 
+        # A list of points on grid to remove representing non-land (water) surface on a UK part
         boundaries_to_remove = [ ([0,16],[0,16]), ([0,16],[4,20]), ([0,16],[8,24]), ([0,16],[12,28]), ([0,16],[16,32]), ([0,16],[20,36]), ([0,16],[24,40]), ([0,16],[28,44]),  ([0,16],[32,48]),                           ([0,16],[64,80]),([0,16],[68,84]),([0,16],[72,88]), ([0,16],[76,92]), ([0,16],[80,96]), ([0,16],[84,100]), ([0,16],[88,104]),([0,16],[92,108]),([0,16],[96,112]), ([0,16],[100,116]),([0,16],[104,120]),([0,16],[108,124]), ([0,16],[112,128]), ([0,16],[116,132]), ([0,16],[120,136]), ([0,16],[124,140]),
                                 ([4,20],[0,16]), ([4,20],[4,20]), ([4,20],[8,24]), ([4,20],[12,28]), ([4,20],[16,32]), ([4,20],[20,36]), ([4,20],[24,40]), ([4,20],[28,44]),  ([4,20],[32,48]),                             ([4,20],[76,92]), ([4,20],[80,96]), ([4,20],[84,100]),([4,20],[88,104]),([4,20],[92,108]),([4,20],[96,112]),([4,20],[100,116]), ([4,20],[104,120]),([4,20],[108,124]),([4,20],[112,128]), ([4,20],[116,132]), ([4,20],[120,136]), ([4,20],[124,140]),
                                    ([8,24],[0,16]), ([8,24],[4,20]), ([8,24],[8,24]), ([8,24],[12,28]),  ([8,24],[16,32]), ([8,24],[20,36]), ([8,24],[24,40]), ([8,24],[28,44]),  ([8,24],[32,48]),                                 ([8,24],[96,112]),([8,24],[100,116]),([8,24],[104,120]),([8,24],[108,124]),([8,24],[112,128]), ([8,24],[116,132]), ([8,24],[120,136]), ([8,24],[124,140]),
@@ -241,6 +242,7 @@ class Generator_rain(Generator):
             mask = np.logical_not( np.ma.getmask(chunk) )
             yield data[ ::-1 , :], mask[::-1, :]
 
+
     def __call__(self):
         return self.yield_iter()
     
@@ -257,29 +259,23 @@ class Generator_mf(Generator):
         super(Generator_mf, self).__init__(**generator_params)
 
         self.vars_for_feature = vars_for_feature #['unknown_local_param_137_128', 'unknown_local_param_133_128', 'air_temperature', 'geopotential', 'x_wind', 'y_wind' ]       
-        self.seq_len = seq_len*25
+        self.seq_len = seq_len*25 if seq_len else 1400
         self.start_idx = 0
-        self.end_idx =0
+        self.end_idx =0 
         #self.ds = Dataset(self.fp, "r", format="NETCDF4")
 
 
     def yield_all(self):
         
         xr_gn = xr.open_dataset(self.fp, cache=False, decode_times=False, decode_cf=False)
-        #labels_to_drop = [ list( set(xr_gn.keys()) -set(self.vars_for_feature) ) ]
-        
-        #xr_gn.drop(labels=labels_to_drop)
+
         slice_t = slice( self.start_idx , self.end_idx )
         slice_h = slice(1,103-2 )
         slice_w = slice(2,144-2)
-
-        # li_marray = [ xr_gn[name].isel(time=_slice).to_masked_array(copy=False) for name in self.vars_for_feature ]       
-        # stacked_data = np.stack(li_marray, axis=-1)
         
         xr_gn =  xr_gn.isel(time=slice_t, latitude=slice_h, longitude=slice_w)
         
         return xr_gn
-
 
     def yield_iter(self):
         xr_gn = xr.open_dataset(self.fp, cache=False, decode_times=False, decode_cf=False)
@@ -287,10 +283,7 @@ class Generator_mf(Generator):
         idx = self.start_idx
         
         while idx < self.data_len:
-        #while _bool == True:
-            #idxs = arr_idxs[idx:idx+self.seq_len] 
-            
-            #next_marray = [ xr_gn[name].isel(time=idxs).to_masked_array() for name in self.vars_for_feature ]
+
             adj_seq_len = min(self.seq_len, self.data_len - idx )
 
             _slice = slice( idx , idx  + adj_seq_len)
@@ -304,12 +297,8 @@ class Generator_mf(Generator):
             stacked_masks = np.stack(_masks, axis=-1)
 
             idx += adj_seq_len
-            #if idx>self.data_len: _bool=False
-
+            
             yield stacked_data[ :, 1:-2, 2:-2, :], stacked_masks[ :, 1:-2 , 2:-2, :] #(100,140,6) 
-      
-    # def __call__(self):
-    #     return self.yield_iter()
 
 class Era5_Eobs():
 
@@ -321,15 +310,17 @@ class Era5_Eobs():
         self.t_params = t_params
         self.m_params = m_params
 
+        self.time_sequential = m_params['time_sequential']
+
         data_dir = self.t_params['data_dir']
 
         # Create python generator for rain data
-        fp_rain = data_dir+"/" + self.t_params.get('rain_fn',"rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc")
+        fp_rain = data_dir+"/" + self.t_params.get('rain_fn',"eobs_true_rainfall_197901-201907_uk.nc")
         self.rain_data = Generator_rain(fp=fp_rain, all_at_once=False)
 
         # Create python generator for model field data 
-        mf_fp = data_dir + "/" + self.t_params.get('mf_fn', "ana_input_intrp_linear.nc")
-        self.mf_data = Generator_mf(fp=mf_fp, vars_for_feature=self.t_params['vars_for_feature'], all_at_once=False, seq_len=self.t_params['lookback_feature'] )
+        mf_fp = data_dir + "/" + self.t_params.get('mf_fn', "model_fields_linearly_interpolated_1979-2019.nc")
+        self.mf_data = Generator_mf(fp=mf_fp, vars_for_feature=self.t_params['vars_for_feature'], all_at_once=False, seq_len=self.t_params.get('lookback_feature',None) )
 
         # Update information on the locations of interest to extract data from
         self.location_size_calc()
@@ -342,6 +333,8 @@ class Era5_Eobs():
         """        
         model_settings = self.m_params['model_type_settings']
         
+        # If noe time sequential then model is not operating on sequential time spans for a single location
+       
         if custom_location != None:
             self.li_loc = custom_location
         else:
@@ -350,6 +343,8 @@ class Era5_Eobs():
         self.loc_count = len( self.li_loc ) if \
                 self.li_loc != ["All"] else \
                     len( self.rain_data.get_locs_for_whole_map(self.m_params['region_grid_params']))
+        
+            
 
     def load_data_era5eobs(self, batch_count, start_date,_num_parallel_calls=-1, prefetch=-1):
         """Produces Tensorflow Datasets for the ERA5 and E-obs dataset
@@ -375,38 +370,50 @@ class Era5_Eobs():
         # Retreiving one index for each of the feature and target data. This index indicates the first value in the dataset to use
         start_idx_feat, start_idx_tar = self.get_start_idx(start_date)
         self.mf_data.start_idx = start_idx_feat
+
+        
         # region - Preparing feature model fields        
         ds_feat = tf.data.Dataset.from_generator( self.mf_data , output_types=(tf.float16, tf.bool),
                      output_shapes=( tf.TensorShape([None, None, None, None]),tf.TensorShape([None, None, None, None])) ) #(values, mask) 
         ds_feat = ds_feat.unbatch()
-        #ds_feat = ds_feat.skip(start_idx_feat) # Skipping forward to the correct time
         
-        ds_feat = ds_feat.window(size = self.t_params['lookback_feature'], stride=1, shift=self.t_params['lookback_feature'], drop_remainder=True )
-        ds_feat = ds_feat.flat_map( lambda *window: tf.data.Dataset.zip( tuple([w.batch(self.t_params['lookback_feature']) for w in window ] ) ) )  # shape (lookback,h, w, 6)
+        if self.m_params['time_sequential'] == True:
+            ds_feat = ds_feat.window(size = self.t_params.get('lookback_feature',28) , stride=1, shift=self.t_params.get('lookback_feature',28) , drop_remainder=True )
+            ds_feat = ds_feat.flat_map( lambda *window: tf.data.Dataset.zip( tuple([w.batch(self.t_params.get('lookback_feature',28) ) for w in window ] ) ) )  # shape (lookback,h, w, 6)
+            ds_feat = ds_feat.map( lambda arr_data, arr_mask: self.mf_normalize_mask( arr_data, arr_mask), num_parallel_calls= _num_parallel_calls) 
+        else:
+            ds_feat = ds_feat.batch(4)
+            ds_feat = ds_feat.map( lambda arr_data, arr_mask: self.mf_normalize_mask( arr_data, arr_mask), num_parallel_calls= _num_parallel_calls) 
+            ds_feat = ds_feat.map( lambda arr_data: tf.reshape(tf.transpose(arr_data,[1,2,0,3]), [100,140,24])  , num_parallel_calls=_num_parallel_calls )
+            
         
-        ds_feat = ds_feat.map( lambda arr_data, arr_mask: self.mf_normalize_mask( arr_data, arr_mask), num_parallel_calls= _num_parallel_calls) 
-
-        #ds_feat = ds_feat.map(lambda arr_data : tf.cast(arr_data, tf.float16), num_parallel_calls = _num_parallel_calls )
         # endregion
 
         # region - Preparing Eobs target_rain_data   
         ds_tar = tf.data.Dataset.from_generator( self.rain_data, output_types=(tf.float32, tf.bool), output_shapes=( tf.TensorShape([None, None]), tf.TensorShape([ None, None])) ) # (values, mask) 
         ds_tar = ds_tar.skip(start_idx_tar)     #skipping to correct point
 
-        ds_tar = ds_tar.window(size = self.t_params['lookback_target'], stride=1, shift=self.t_params['window_shift'] , drop_remainder=True )
-        ds_tar = ds_tar.flat_map( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(self.t_params['lookback_target']) for w in window ] ) ) ) # shape (lookback,h, w)
-        
+        if self.m_params['time_sequential'] == True:
+            ds_tar = ds_tar.window(size = self.t_params.get('lookback_target',128) , stride=1, shift=self.t_params['window_shift'] , drop_remainder=True )
+            ds_tar = ds_tar.flat_map( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(self.t_params.get('lookback_target',128) ) for w in window ] ) ) ) # shape (lookback,h, w)
+        else:
+            ds_tar = ds_tar
+
         ds_tar = ds_tar.map( lambda _vals, _mask: self.mask_rain( _vals, _mask ), num_parallel_calls=_num_parallel_calls ) # (values, mask)
         # endregion
 
         # Combining datasets
         ds = tf.data.Dataset.zip( (ds_feat, ds_tar) ) #( model_fields, (rain, rain_mask) ) 
         
-        ds, idx_loc_in_region = self.location_extractor( ds, self.li_loc, batch_count)
+        #if self.time_sequential == True:
+        ds, idx_loc_in_region = self.location_extractor( ds, self.li_loc, batch_count  )
         ds = ds.prefetch(prefetch)
-        
         return ds, idx_loc_in_region
-        #return ds.take(batch_count), idx_loc_in_region
+        
+        # else:
+        #     ds = ds.map( lambda mf, rain_mask: tuple( [tf.expand_dims(mf,0), tf.expand_dims(rain_mask[0],0), tf.expand_dims(rain_mask[1],0)] )  , num_parallel_calls= _num_parallel_calls)
+        #     ds = ds.prefetch(prefetch)
+        #     return ds, None        
 
     def get_start_idx(self, start_date):
         """ Returns two indexes
@@ -482,7 +489,7 @@ class Era5_Eobs():
             li_hw_idxs = [ self.rain_data.find_idx_of_loc_region( _loc, self.m_params['region_grid_params'] ) for _loc in locations ] #[ (h_idx,w_idx), ... ]
         
         # Creating seperate datasets for each location
-        li_ds = [ ds.map( lambda mf, rain, rmask : select_region(self, mf, rain, rmask, _idx[0], _idx[1]), num_parallel_calls=-1) for _idx in li_hw_idxs ]
+        li_ds = [ ds.map( lambda mf, rain, rmask : self.select_region(mf, rain, rmask, _idx[0], _idx[1]), num_parallel_calls=-1) for _idx in li_hw_idxs ]
         
         # Concatenating all datasets for each location
         batches_per_loc = int(batch_count/len(li_hw_idxs))
@@ -514,10 +521,10 @@ class Era5_Eobs():
         """
             idx_h,idx_w: refer to the top left right index for the square region of interest this includes the region which is removed after cropping to calculate the loss during train step
         """
-        mf = mf[ :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] , : ]
-        rain = rain[ :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
-        rain_mask = rain_mask[ :, h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
-        
-        
+    
+        mf = mf[ ..., h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] , : ]
+        rain = rain[ ..., h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
+        rain_mask = rain_mask[ ..., h_idxs[0]:h_idxs[1] , w_idxs[0]:w_idxs[1] ]
+            
         return tf.expand_dims(mf,axis=0), tf.expand_dims(rain,axis=0), tf.expand_dims(rain_mask,axis=0) #Note: expand_dim for unbatch/batch compatibility
 # endregion

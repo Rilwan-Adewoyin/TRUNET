@@ -6,7 +6,6 @@ import pandas as pd
 from datetime import datetime
 import pickle
 from functools import reduce
-from tensorflow.python.training.tracking import data_structures
 
 class HParams():
     """Inheritable class for the parameter classes
@@ -34,11 +33,11 @@ class MParams(HParams):
     def __init__(self,**kwargs):
      
         # Parameters related the extraction of the 2D patches of data
-        self.regiongrid_param_adjustment()
+        self.regiongrid_param_adjustment(**kwargs)
 
         super(MParams,self).__init__(**kwargs)
                  
-    def regiongrid_param_adjustment(self):
+    def regiongrid_param_adjustment(self, **kwargs):
         """Creates a 'region_grid_params' dictionary containing
             information on the sizes and location of patches to be extracted
         """        
@@ -54,8 +53,10 @@ class MParams(HParams):
                 'input_image_shape':[100,140]}
             }
         )
+    
         vertical_slides = (self.params['region_grid_params']['input_image_shape'][0] - self.params['region_grid_params']['outer_box_dims'][0] +1 )// self.params['region_grid_params']['vertical_shift']
         horizontal_slides = (self.params['region_grid_params']['input_image_shape'][1] - self.params['region_grid_params']['outer_box_dims'][1] +1 ) // self.params['region_grid_params']['horizontal_shift']
+        
         self.params['region_grid_params'].update({'slides_v_h':[vertical_slides, horizontal_slides]})
 
 class model_TRUNET_hparameters(MParams):
@@ -75,15 +76,15 @@ class model_TRUNET_hparameters(MParams):
         # region --- learning / convergence / regularlisation params
 
         REC_ADAM_PARAMS = {
-            "learning_rate":2e-3,   "warmup_proportion":0.65,
-            "min_lr":1e-3,         "beta_1":0.9,               "beta_2":0.99,
+            "learning_rate":model_type_settings.get('lr_max',5e-4),   "warmup_proportion":0.65,
+            "min_lr":model_type_settings.get('lr_min',5e-5),         "beta_1":model_type_settings.get('b1',0.9),               "beta_2":model_type_settings.get('b2',0.99),
             "amsgrad":True,         "decay":0.0008,              "epsilon":5e-8 } #Rectified Adam params  
-        clip_norm = 13.0
+        
+        clip_norm = model_type_settings.get('clip_norm',5.5)
 
-
-        DROPOUT =   model_type_settings.get('do',0.0)
-        ido =       model_type_settings.get('ido',0.0) # Dropout for input into GRU
-        rdo =       model_type_settings.get('rdo',0.0) # Dropout for recurrent input into GRU
+        DROPOUT =   model_type_settings.get('do',0.35)
+        ido =       model_type_settings.get('ido',0.15) #model_type_settings.get('ido',0.35) # Dropout for input into GRU
+        rdo =       model_type_settings.get('rdo',0.35) # Dropout for recurrent input into GRU
         kernel_reg   = None  #regularlization for input to GRU
         recurrent_reg = None #regularlization for recurrent input to GRU
         bias_reg = tf.keras.regularizers.l2(0.0)
@@ -113,7 +114,7 @@ class model_TRUNET_hparameters(MParams):
         attn_layers_count = enc_layer_count - 1
 
         # ConvGRU params
-        filters = 72 # no. of filters in all conv operations in ConvGRU units
+        filters = 64 #72  # no. of filters in all conv operations in ConvGRU units
 
 
         kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )             
@@ -202,9 +203,6 @@ class model_TRUNET_hparameters(MParams):
 
         # region --- OUTPUT_LAYER_PARAMS and Upscaling
         output_filters = [  int(  8*(((filters*2)/4)//8)), 1 ] 
-        
-        #output_filters = [  int(  8*(((filters*2)/3)//8)), 1 ] 
-
         output_kernel_size = [ (3,3), (3,3) ] 
         activations = ['relu','linear']
 
@@ -217,7 +215,8 @@ class model_TRUNET_hparameters(MParams):
         self.params.update( {
             'model_name':"TRUNET",
             'model_type_settings':model_type_settings,
-    
+            'htuning':model_type_settings.get('htuning',False),
+            'htune_version':model_type_settings.get('htune_version',0),
             'encoder_params':ENCODER_PARAMS,
             'decoder_params':DECODER_PARAMS,
             'output_layer_params':OUTPUT_LAYER_PARAMS,
@@ -225,19 +224,22 @@ class model_TRUNET_hparameters(MParams):
 
             'rec_adam_params':REC_ADAM_PARAMS,
             'dropout':DROPOUT,
-            'clip_norm':clip_norm,
+            'clip_norm':clip_norm ,
+
+            "time_sequential": True            
             
             } )
 
-class model_SimpleConvGRU_hparamaters(MParams):
+class model_HCGRU_hparamaters(MParams):
 
     def __init__(self, **kwargs):
-        #self.dc = kwargs.get('model_type_settings',{}).get('discrete_continuous',False)
-        self.stoc = kwargs.get('model_type_settings',{}).get('stochastic',False)
-        super(model_SimpleConvGRU_hparamaters, self).__init__(**kwargs)
+                
+        super(model_HCGRU_hparamaters, self).__init__(**kwargs)
     
     def _default_params(self,**kwargs):
-        dropout = kwargs.get('do',0.0)
+        model_type_settings = kwargs.get('model_type_settings', {})        
+
+        dropout = model_type_settings.get('do',0.2)
 
         #region --- ConvLayers
         layer_count = 4 
@@ -247,8 +249,8 @@ class model_SimpleConvGRU_hparamaters(MParams):
         kernel_sizes = [[4,4]]*layer_count
         paddings = ['same']*layer_count
         return_sequences = [True]*layer_count
-        input_dropout = [kwargs.get('ido',0.0) ]*layer_count #[0.0]*layer_count
-        recurrent_dropout = [ kwargs.get('rdo',0.0)]*layer_count #[0.0]*layer_count
+        input_dropout = [model_type_settings.get('ido',0.1) ]*layer_count #[0.0]*layer_count
+        recurrent_dropout = [ model_type_settings.get('rdo',0.35)]*layer_count #[0.0]*layer_count
 
         ConvGRU_layer_params = [ { 'filters':filters, 'kernel_size':ks , 'padding': ps,
                                 'return_sequences':rs, "dropout": dp , "recurrent_dropout":rdp,
@@ -275,9 +277,14 @@ class model_SimpleConvGRU_hparamaters(MParams):
 
 
         REC_ADAM_PARAMS = {
-            "learning_rate":kwargs.get('lr_max',8e-4),   "warmup_proportion":0.65,
-            "min_lr":kwargs.get('lr_min',5e-4),         "beta_1":kwargs.get('b1',0.9),  "beta_2":kwargs.get( 'b2',0.99),
-            "amsgrad":True,         "decay":0.0008,              "epsilon":5e-8 } #Rectified Adam params
+            "learning_rate":model_type_settings.get('lr_max',1e-3),
+            "warmup_proportion":0.65,
+            "min_lr":model_type_settings.get('lr_min',1e-4),
+            "beta_1":model_type_settings.get('b1',0.75),  
+            "beta_2":model_type_settings.get( 'b2',0.99),
+            "amsgrad":True,
+            "decay":0.0008,
+            "epsilon":5e-8 } #Rectified Adam params
         
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }
 
@@ -285,7 +292,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
         model_type_settings = kwargs.get('model_type_settings',{})
 
         self.params.update( {
-            'model_name':'SimpleConvGRU',
+            'model_name':'HCGRU',
             'layer_count':layer_count,
             'ConvGRU_layer_params':ConvGRU_layer_params,
             'conv1_layer_params':conv1_layer_params,
@@ -294,18 +301,60 @@ class model_SimpleConvGRU_hparamaters(MParams):
 
             'data_pipeline_params':DATA_PIPELINE_PARAMS,
             'model_type_settings':model_type_settings,
+            'htuning':model_type_settings.get('htuning',False),
+            'htune_version':model_type_settings.get('htune_version',0),
+            'rec_adam_params':REC_ADAM_PARAMS,
+            'lookahead_params':LOOKAHEAD_PARAMS,
+            'clip_norm':model_type_settings.get('clip_norm',5.5),
+            "time_sequential": True
+        })
+
+class model_UNET_hparamaters(MParams):
+
+    def __init__(self, **kwargs):       
+        super(model_UNET_hparamaters, self).__init__(**kwargs)
+    
+    def _default_params(self,**kwargs):
+        model_type_settings = kwargs.get( 'model_type_settings', {} )        
+        dropout = model_type_settings.get('do',0.01)
+
+        
+
+        REC_ADAM_PARAMS = {
+            "learning_rate":model_type_settings.get('lr_max',1e-4),
+            "warmup_proportion":0.65,
+            "min_lr":model_type_settings.get('lr_min',1e-5),
+            "amsgrad":True,
+            "decay":0.0008,
+            "epsilon":1e-5 } #Rectified Adam params
+        
+        LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }
+
+        
+        model_type_settings = kwargs.get( 'model_type_settings', {} )
+
+        self.params.update( {
+            'model_name':'UNET',
+            'dropout': dropout,
+            
+            'model_type_settings':model_type_settings,
 
             'rec_adam_params':REC_ADAM_PARAMS,
             'lookahead_params':LOOKAHEAD_PARAMS,
-            'clip_norm':6.5
+            'clip_norm':model_type_settings.get('clip_norm',5.0 ),
+
+            "time_sequential": False
         })
 
 class train_hparameters_ati(HParams):
     """ Parameters for testing """
     def __init__(self, **kwargs):
-        self.lookback_target = kwargs.get('lookback_target',None)
-        self.batch_size = kwargs.get("batch_size",None)
-        self.dd = kwargs.get("data_dir") 
+        self.lookback_target = kwargs.pop('lookback_target',1)
+        self.batch_size = kwargs.pop('batch_size')
+        self.dd = kwargs.get("data_dir",'./Data/Rain_Data_Mar20') 
+        self.objective = kwargs.get("objective","mse")
+        self.parallel_calls = kwargs.get("parallel_calls",-1)
+        self.epochs = kwargs.get("epochs",100)
         
         # data formulation method
         self.custom_train_split_method = kwargs.get('ctsm') 
@@ -313,8 +362,9 @@ class train_hparameters_ati(HParams):
         if self.custom_train_split_method == "4ds_10years":
             self.four_year_idx_train = kwargs['fyi_train'] #index for training set
 
-        kwargs.pop('batch_size')
-        kwargs.pop('lookback_target')
+    
+        
+        
         
         super( train_hparameters_ati, self).__init__(**kwargs)
 
@@ -347,9 +397,8 @@ class train_hparameters_ati(HParams):
         BATCH_SIZE = self.batch_size
         # endregion
 
-        NUM_PARALLEL_CALLS = tf.data.experimental.AUTOTUNE
-        EPOCHS = 500
-        CHECKPOINTS_TO_KEEP = 5
+        EPOCHS = self.epochs
+        CHECKPOINTS_TO_KEEP = 1
 
         # region ---- data formulation strategies
         target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D')
@@ -364,13 +413,13 @@ class train_hparameters_ati(HParams):
         val_start_date = np.datetime64(dates_str[1],'D')
         val_end_date = (pd.Timestamp(dates_str[2]) - pd.DateOffset(seconds=1) ).to_numpy()
         
-        TRAIN_SET_SIZE_ELEMENTS = ( np.timedelta64(train_end_date - start_date,'D')  // WINDOW_SHIFT  ).astype(int) 
+        TRAIN_SET_SIZE_ELEMENTS = ( np.timedelta64(train_end_date - start_date,'D')).astype(int)  // WINDOW_SHIFT  
         VAL_SET_SIZE_ELEMENTS   = ( np.timedelta64(val_end_date - val_start_date,'D')  // WINDOW_SHIFT  ).astype(int)               
         
         # endregion
         
         DATA_DIR = self.dd
-        EARLY_STOPPING_PERIOD = 20
+        EARLY_STOPPING_PERIOD = 25
  
         self.params = {
             'batch_size':BATCH_SIZE,
@@ -385,7 +434,6 @@ class train_hparameters_ati(HParams):
 
             'checkpoints_to_keep':CHECKPOINTS_TO_KEEP,
             'reporting_freq':0.25,
-            'num_parallel_calls':NUM_PARALLEL_CALLS,
 
             'train_monte_carlo_samples':1,
             'data_dir': DATA_DIR,
@@ -402,6 +450,8 @@ class train_hparameters_ati(HParams):
 
             'feature_start_date':feature_start_date,
             'target_start_date':target_start_date,
+            'objective':self.objective,
+            'parallel_calls':self.parallel_calls
         }
 
 class test_hparameters_ati(HParams):
@@ -409,7 +459,8 @@ class test_hparameters_ati(HParams):
     def __init__(self, **kwargs):
         self.lookback_target = kwargs['lookback_target']
         self.batch_size = kwargs.get("batch_size", 2)
-        
+        self.parallel_calls = kwargs.get('parallel_calls', -1)
+
         self.dd = kwargs.get('data_dir')
         self.custom_test_split_method = kwargs.get('ctsm_test')
         
@@ -508,5 +559,6 @@ class test_hparameters_ati(HParams):
 
             'feature_start_date':feature_start_date,
             'target_start_date':target_start_date,
+            'parallel_calls':self.parallel_calls
 
         }

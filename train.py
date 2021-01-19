@@ -61,13 +61,13 @@ def is_compatible_with(self, other):
                                 other.base_dtype.as_datatype_enum)
 tf.DType.is_compatible_with = is_compatible_with
 
-class TrainTruNet():
-    """Handles the Training of the TRUNET model
+class WeatherModel():
+    """Handles the Training of the Deep Learning Weather model
 
         Example of how to use:
-        traintrunet = TrainTruNet( t_params, m_params)
-        traintrunet.initialize_scheme_era5Eobs()    #Initializes datasets for ERA5 and Eobs
-        traintrunet.train_model()                   #Trains and saves model
+        WeatherModel = WeatherModel( t_params, m_params)
+        WeatherModel.initialize_scheme_era5Eobs()    #Initializes datasets for ERA5 and Eobs
+        WeatherModel.train_model()                   #Trains and saves model
     """    
     def __init__(self, t_params, m_params): 
         """Train the TRU_NET Model
@@ -101,9 +101,9 @@ class TrainTruNet():
             last_batch = int( self.df_training_info.loc[self.df_training_info['Epoch']==self.start_epoch,'Last_Trained_Batch'].iloc[0] )
             if(last_batch in [-1, self.t_params['train_batches']] ):
                 self.start_epoch = self.start_epoch + 1
+                self.batches_to_skip = 0 
             else:
-                pass
-            self.batches_to_skip = 0
+                self.batches_to_skip = last_batch
             print("Recovered training records")
 
         except FileNotFoundError as e:
@@ -115,11 +115,12 @@ class TrainTruNet():
         # endregion
 
         # region ---- Defining Model / Optimizer / Losses / Metrics / Records / Checkpoints / Tensorboard 
-                    
-        self.strategy = tf.distribute.MirroredStrategy() #OneDeviceStrategy(device="/GPU:0") # 
-        
+        devices = tf.config.get_visible_devices() #tf.config.experimental.list_physical_devices('GPU')
+        #gpus_names = [ device.name for device in devices if  device.device_type == "GPU" ]
+        #self.strategy = tf.distribute.MirroredStrategy( devices=gpus_names ) #OneDeviceStrategy(device="/GPU:0") # 
+        self.strategy = tf.distribute.MirroredStrategy( )
         assert self.t_params['batch_size'] % self.strategy.num_replicas_in_sync  == 0
-        print("Nuber of Devices used in MirroredStrategy: {}".format(self.strategy.num_replicas_in_sync))
+        print("Number of Devices used in MirroredStrategy: {}".format(self.strategy.num_replicas_in_sync))
         with self.strategy.scope():   
             #Model
             self.strategy_gpu_count = self.strategy.num_replicas_in_sync    
@@ -128,8 +129,6 @@ class TrainTruNet():
             
             #Optimizer
             optimizer = tfa.optimizers.RectifiedAdam( **self.m_params['rec_adam_params'], total_steps=self.t_params['train_batches']*20) 
-            if self.m_params['model_type_settings'].get('SWA',False) == True:
-                optimizer = tfa.optimizers.SWA( optimizer, average_period = 6 )
 
             self.optimizer = mixed_precision.LossScaleOptimizer( optimizer, loss_scale=tf.mixed_precision.experimental.DynamicLossScale() ) 
                     
@@ -141,25 +140,30 @@ class TrainTruNet():
             
             self.loss_agg_val = tf.keras.metrics.Mean(name='loss_agg_val')
             self.mse_agg_val = tf.keras.metrics.Mean(name='mse_agg_val')
-
+            
         #checkpoints  (For Epochs)
             #The CheckpointManagers can be called to serializae the weights within TRUNET
-        checkpoint_path_epoch = "checkpoints/{}/epoch".format(utility.model_name_mkr(m_params,t_params=self.t_params, htuning=m_params.get('htuning',False) ))
+        checkpoint_path_epoch = "./checkpoints/{}/epoch".format(utility.model_name_mkr(m_params,t_params=self.t_params, htuning=m_params.get('htuning',False) ))
         os.makedirs(checkpoint_path_epoch,exist_ok=True)
+        
         with self.strategy.scope():
             ckpt_epoch = tf.train.Checkpoint(model=self.model, optimizer=self.optimizer)
             self.ckpt_mngr_epoch = tf.train.CheckpointManager(ckpt_epoch, checkpoint_path_epoch, max_to_keep=self.t_params['checkpoints_to_keep'], keep_checkpoint_every_n_hours=None)    
         
             #restoring last checkpoint if it exists
-        if self.ckpt_mngr_epoch.latest_checkpoint: 
-            # compat: Initializing model and optimizer before restoring from checkpoint
-            ckpt_epoch.restore(self.ckpt_mngr_epoch.latest_checkpoint).assert_consumed()              
-        else:
-            print (' Initializing model from scratch')
+            if self.ckpt_mngr_epoch.latest_checkpoint: 
+                # compat: Initializing model and optimizer before restoring from checkpoint
+                try:
+                    ckpt_epoch.restore(self.ckpt_mngr_epoch.latest_checkpoint).assert_consumed()            
+                except AssertionError as e:
+                    ckpt_epoch.restore(self.ckpt_mngr_epoch.latest_checkpoint)              
+                print (' Restoring model from best checkpoint')
+            else:
+                print (' Initializing model from scratch')
         
         #Tensorboard
-        os.makedirs("log_tensboard/{}".format(utility.model_name_mkr(m_params, t_params=self.t_params, htuning=m_params.get('htuning',False) )), exist_ok=True ) 
-        self.writer = tf.summary.create_file_writer( "log_tensboard/{}".format(utility.model_name_mkr(m_params,t_params=self.t_params, htuning=m_params.get('htuning',False) ) ) )
+        os.makedirs("log_tensboard/{}".format(utility.model_name_mkr(m_params, t_params=self.t_params, htuning=self.m_params.get('htuning',False) )), exist_ok=True ) 
+        #self.writer = tf.summary.create_file_writer( "log_tensboard/{}".format(utility.model_name_mkr(m_params,t_params=self.t_params, htuning=self.m_params.get('htuning',False) ) ) )
         # endregion
         
         # region ---- Making Datasets
@@ -168,17 +172,19 @@ class TrainTruNet():
         cache_suffix = utility.cache_suffix_mkr( m_params, self.t_params )
         os.makedirs( './Data/data_cache/', exist_ok=True  )
 
-        _ds_train_val, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'] + self.t_params['val_batches'] , self.t_params['start_date'] )
+        _ds_train_val, _  = era5_eobs.load_data_era5eobs( self.t_params['train_batches'] + self.t_params['val_batches'] , self.t_params['start_date'], self.t_params['parallel_calls'] )
 
         ds_train = _ds_train_val.take(self.t_params['train_batches'] )
         ds_val = _ds_train_val.skip(self.t_params['train_batches'] ).take(self.t_params['val_batches'])
 
+        #TODO: undo cache
         ds_train = ds_train.cache('Data/data_cache/train'+cache_suffix ) 
         ds_val = ds_val.cache('Data/data_cache/val'+cache_suffix )
+
         ds_train = ds_train.unbatch().shuffle( self.t_params['batch_size']*int(self.t_params['train_batches']/5), reshuffle_each_iteration=True).batch(self.t_params['batch_size']) #.repeat(self.t_params['epochs']-self.start_epoch)
 
         ds_train_val = ds_train.concatenate(ds_val)
-        ds_train_val = ds_train_val.repeat(self.t_params['epochs']-self.start_epoch)
+        ds_train_val = ds_train_val.repeat(self.t_params.get('epochs',100)-self.start_epoch)
         self.ds_train_val = self.strategy.experimental_distribute_dataset(dataset=ds_train_val)
         self.iter_train_val = enumerate(self.ds_train_val)
 
@@ -198,6 +204,9 @@ class TrainTruNet():
         bounds = cl.central_region_bounds(self.m_params['region_grid_params']) #list [ lower_h_bound[0], upper_h_bound[0], lower_w_bound[1], upper_w_bound[1] ]
         
         #Training for n epochs
+        #self.t_params['train_batches'] = self.t_params['train_batches'] if self.m_params['time_sequential'] else int(self.t_params['train_batches']*self.t_params['lookback_target'] )
+        #self.t_params['val_batches'] = self.t_params['val_batches'] if self.m_params['time_sequential'] else int(self.t_params['val_batches']*self.t_params['lookback_target'] )
+
         for epoch in range(self.start_epoch, int(self.t_params['epochs']) ):
             
             #region resetting metrics, losses, records, timers
@@ -205,8 +214,10 @@ class TrainTruNet():
             self.loss_agg_epoch.reset_states()
             self.mse_agg_epoch.reset_states()
             
+            
             self.loss_agg_val.reset_states()
             self.mse_agg_val.reset_states()
+            
             self.df_training_info = self.df_training_info.append( { 'Epoch':epoch, 'Last_Trained_Batch':0 }, ignore_index=True )
             
             start_epoch_train = time.time()
@@ -217,7 +228,7 @@ class TrainTruNet():
             #endregion 
             
             # --- Training Loops
-            for batch in range(self.batches_to_skip+1, self.t_params['train_batches']+1):
+            for batch in range(self.batches_to_skip+1,self.t_params['train_batches'] +1):
                                
                 # get next set of training datums
                 idx, (feature, target, mask) = next(self.iter_train_val)
@@ -240,6 +251,7 @@ class TrainTruNet():
                     # Updating record of the last batch to be operated on in training epoch
                     self.df_training_info.loc[ ( self.df_training_info['Epoch']==epoch) , ['Last_Trained_Batch'] ] = batch
                     self.df_training_info.to_csv( path_or_buf="checkpoints/{}/checkpoint_scores.csv".format(utility.model_name_mkr(self.m_params,t_params=self.t_params, htuning=m_params.get('htuning',False) )), header=True, index=False )
+
 
                 li_losses = [self.loss_agg_batch.result()]
                 li_names = ['train_loss_batch']
@@ -282,12 +294,13 @@ class TrainTruNet():
                     self.model.reset_states()
 
             # region - End of Epoch Reporting and Early iteration Callback
-            print("\tEpoch:{}\t Train Loss:{:.8f}\t Train MSE:{:.5f}\t Val Loss:{:.5f}\t Val MSE:{:.5f}\t Time:{:.5f}".format(epoch, self.loss_agg_epoch.result(), self.mse_agg_epoch.result(), 
-                        self.loss_agg_val.result(), self.mse_agg_val.result(), time.time()-start_epoch_train  ) )
+            print("\tEpoch:{}\t Train Loss:{:.8f}\t Train MSE:{:.5f}\t Val Loss:{:.5f}\t Val MSE:{:.5f}\t  Time:{:.5f}".format(epoch, self.loss_agg_epoch.result(), self.mse_agg_epoch.result(),
+                         
+                        self.loss_agg_val.result(), self.mse_agg_val.result()  ,time.time()-start_epoch_train  ) )
                     
             #utility.tensorboard_record( self.writer.as_default(), [self.loss_agg_val.result(), self.mse_agg_val.result()], ['Validation Loss', 'Validation MSE' ], epoch  )                    
             self.df_training_info = utility.update_checkpoints_epoch(self.df_training_info, epoch, self.loss_agg_epoch, self.loss_agg_val, self.ckpt_mngr_epoch, self.t_params, 
-                    self.m_params, self.mse_agg_epoch, self.mse_agg_val )
+                    self.m_params, self.mse_agg_epoch ,self.mse_agg_val,  self.t_params['objective'] )
             
             # Early Stop Callback 
             if epoch > ( max( self.df_training_info.loc[:, 'Epoch'], default=0 ) + self.t_params['early_stopping_period']) :
@@ -301,9 +314,13 @@ class TrainTruNet():
     def train_step(self, feature, target, mask, bounds, _init):
         
         if _init==1.0:
-            inp_shape = [self.t_params['batch_size'], self.t_params['lookback_feature']] + self.m_params['region_grid_params']['outer_box_dims'] + [len(self.t_params['vars_for_feature'])]
-        
-            _ = self.model( tf.zeros( inp_shape ,dtype=tf.float16), self.t_params['trainable'] ) #( bs, tar_seq_len, h, w)
+            if self.m_params['time_sequential'] == True:
+                inp_shape = [self.t_params['batch_size'], self.t_params['lookback_feature']] + self.m_params['region_grid_params']['outer_box_dims'] + [len(self.t_params['vars_for_feature'])]
+            else:
+                inp_shape = [self.t_params['batch_size'] ] + self.m_params['region_grid_params']['outer_box_dims'] + [ int(self.t_params['lookback_feature']*len(self.t_params['vars_for_feature'])) ]
+           
+            _ = self.model( tf.zeros( inp_shape, dtype=tf.float16), self.t_params['trainable'] )    #( bs, tar_seq_len, h, w)
+
             gradients = [ tf.zeros_like(t_var, dtype=tf.float32 ) for t_var in self.model.trainable_variables  ]
             self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
             return [0]
@@ -317,6 +334,7 @@ class TrainTruNet():
                 preds = self.model( feature, self.t_params['trainable'] ) #( bs, tar_seq_len, h, w)
                 preds = tf.squeeze( preds,axis=[-1] )
 
+                
                 preds   = cl.extract_central_region(preds, bounds)
                 mask    = cl.extract_central_region(mask, bounds)
                 target  = cl.extract_central_region(target, bounds)
@@ -341,6 +359,7 @@ class TrainTruNet():
                 preds, probs = tf.unstack(preds, axis=0) 
 
                 # extracting the central region of interest
+            
                 preds   = cl.extract_central_region(preds, bounds)
                 probs   = cl.extract_central_region(probs, bounds)
                 mask    = cl.extract_central_region(mask, bounds)
@@ -375,13 +394,19 @@ class TrainTruNet():
             scaled_loss = self.optimizer.get_scaled_loss( loss_to_optimize_agg )
             scaled_gradients = tape.gradient( scaled_loss, self.model.trainable_variables )
             unscaled_gradients = self.optimizer.get_unscaled_gradients(scaled_gradients)
+             
             gradients, _ = tf.clip_by_global_norm( unscaled_gradients, clip_norm=self.m_params['clip_norm'] ) #gradient clipping
             self.optimizer.apply_gradients( zip(gradients, self.model.trainable_variables))
         
         # Metrics (batchwise, epoch)  
         self.loss_agg_batch( loss_to_optimize )
         self.loss_agg_epoch( loss_to_optimize )
-        self.mse_agg_epoch( metric_mse )        
+        self.mse_agg_epoch( metric_mse )    
+        
+        val = cl.rNmse(target_masked, preds_masked, 10.0)
+
+        
+
         return gradients
                 
     def val_step(self, feature, target, mask, bounds):
@@ -416,6 +441,7 @@ class TrainTruNet():
             preds, probs = tf.unstack(preds, axis=0)
 
             # Extracting central region for evaluation
+        
             preds   = cl.extract_central_region(preds, bounds)
             probs   = cl.extract_central_region(probs, bounds)
             mask    = cl.extract_central_region(mask,  bounds)
@@ -443,22 +469,21 @@ class TrainTruNet():
             loss = tf.reduce_mean(  tf.keras.backend.binary_crossentropy( labels_true, labels_pred, from_logits=False) )
 
             # Calculating conditinal continuous loss
-            loss    += cl.mse( preds_masked, target_masked, all_count )
+            loss    += cl.mse( target_masked, preds_masked, all_count )
 
         self.loss_agg_val(loss)
         self.mse_agg_val(mse)
+                    
         return True
     
     @tf.function
     def distributed_train_step(self, feature, target, mask, bounds, _init):
-        gradients = self.strategy.run( self.train_step, args=(feature, target, mask, bounds, _init))
-        #gradients = self.strategy.experimental_run_v2( self.train_step, args=(feature, target, mask, bounds, _init) )
+        gradients = self.strategy.run( self.train_step, args=(feature, target, mask, bounds, _init) )
         return gradients
     
     @tf.function
     def distributed_val_step(self, feature, target, mask, bounds):
         bool_completed = self.strategy.run( self.val_step, args=(feature, target, mask, bounds))
-        #bool_completed = self.strategy.experimental_run_v2( self.val_step, args=(feature, target, mask, bounds))
         return bool_completed
 
 
@@ -470,7 +495,7 @@ if __name__ == "__main__":
     t_params, m_params = utility.load_params(args_dict)
     
     # Initialize and  train model
-    train_tru_net = TrainTruNet(t_params, m_params)
-    train_tru_net.initialize_scheme_era5Eobs()
-    train_tru_net.train_model()
+    weather_model = WeatherModel(t_params, m_params)
+    weather_model.initialize_scheme_era5Eobs()
+    weather_model.train_model()
     

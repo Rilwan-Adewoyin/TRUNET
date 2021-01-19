@@ -27,6 +27,13 @@ def mse( obs, preds, count=None):
 
     return mse
 
+def rNmse(obs, preds , N):
+    rN_mask = tf.where( obs >= N, True, False )
+
+    mse =tf.keras.metrics.MSE( tf.boolean_mask( obs, rN_mask), tf.boolean_mask(preds, rN_mask)  )    
+
+    return mse
+
 def cond_rain(vals, probs, threshold=0.5):
     """
         If prob of event occuring is above 0.5 return predicted conditional event value,
@@ -61,14 +68,13 @@ def extract_central_region(tensor, bounds):
             tensor ([type]): 4d or 5d tensor
             bounds ([type]): bounds defining the vertices of the patch to be extracted for evaluation
     """
-    tensor = tensor[ :, :, bounds[0]:bounds[1],bounds[2]:bounds[3]  ]    
+    tensor = tensor[ ..., bounds[0]:bounds[1],bounds[2]:bounds[3]  ]     #(bs, h , w)
+    #tensor = tensor[ :, : , bounds[0]:bounds[1],bounds[2]:bounds[3]  ]
     return tensor
 
 def water_mask( tensor, mask, mask_val=np.nan):
     """Mask out values in tensor by with mask value=0.0
     """
-    #mask = tf.broadcast_to( mask, tensor.shape )
-
     tensor = tf.where(mask, tensor, mask_val)
 
     return tensor
