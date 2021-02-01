@@ -19,16 +19,16 @@ warnings.filterwarnings("ignore")
 """Example of how to use
 
     For Evaluation of IFS predictive scores between the periods 1987-10-20 till 1989-11-20, for the single points representing region Cardiff and London:
-        python3 evaluate.py -dd "./Data" -sd "1987-10-20" -ed "1989-11-20" -lo ["Cardiff","London"] -mth 3 
+        python3 predict_ifs.py -dd "./Data" -sd "1987-10-20" -ed "1989-11-20" -lo ["Cardiff","London"] -mth 3 
 
     For Evaluation of IFS predictive scores between the periods 1987-10-20 till 1989-11-20, for the regions representing region Cardiff and London:
-        python3 evaluate.py -dd "./Data" -sd "1987-10-20" -ed "1989-11-20" -lo ["Cardiff","London"] -reg True
+        python3 predict_ifs.py -dd "./Data" -sd "1987-10-20" -ed "1989-11-20" -lo ["Cardiff","London"] -reg True
 
     For Evaluation of IFS predictive scores between the periods 1988-10-20 till 2000-11-20, for the whole UK:
-        python3 evaluate.py -dd "./Data" -sd "1988-10-20" -ed "2000-11-20" -lo ["All"] -mth 3 -reg "False"
+        python3 predict_ifs.py -dd "./Data" -sd "1988-10-20" -ed "2000-11-20" -lo "['All']" 3 -reg "False"
 
     For infomration on the True rainfall statistics for London between the periods 2008-01-20 till 2015-11-20
-        python3 evaluate.py -dd "./Data" -sd "2008-01-20" -ed "2015-11-20" -lo ["London"] -mth 3 -rfs True -reg True
+        python3 predict_ifs.py -dd "./Data" -sd "2008-01-20" -ed "2015-11-20" -lo "['London']" -rfs True -reg True
         -This returns information such as Average Rainfall, Percentage of R10 Events and Average rainfall given an R10 event occurs.
 
 """
@@ -139,7 +139,7 @@ def ifs_pred_extractor( data_dir, target_start_date, target_end_date, location="
     """
         This method extracts the IFS data from file. And performs any grouping/preproc neccesary. 
     """
-    ifs_fn = data_dir + "/IFS_precip_preds/ana_tp_1234.grib"
+    ifs_fn = data_dir + "/ifs_rainfall_preds_1979-2020.grib"
 
     str_start_date = "1979-01-02"
     str_end_date = '2019-12-31'
@@ -179,7 +179,7 @@ def true_rain_extractor(data_dir, target_start_date, target_end_date, location, 
         raise ValueError("Invalid Datespan, please stick within range: {rain_start_date} to {rain_end_date}")
         
     #Extracting from NETCDF4 file 
-    fn_rain_Mar =   data_dir+ "/Rain_Data_Mar20/rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc"
+    fn_rain_Mar =   data_dir+ "/eobs_ture_rainfall_197901-201907_uk.nc"
     dataset_rain =  Dataset( fn_rain_Mar,'r', format="NETCDF4")
     data_rain =     dataset_rain.variables['rr'][:]
 

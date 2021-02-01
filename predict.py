@@ -153,7 +153,8 @@ class TestTruNet():
 
             # next batch of data
             idx, (feature, target, mask) = next(self.iter_test)
-            #continue
+            continue
+        
             if m_params['time_sequential'] == False:
                 target = tf.expand_dims( target, -3)
                 mask = tf.expand_dims(mask, -3)
