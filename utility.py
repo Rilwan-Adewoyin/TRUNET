@@ -11,8 +11,6 @@ import copy
 import datetime
 import re
 import pickle
-from tensorflow.python.ops import variables as tf_variables
-
 
 # region - Reporting
 def update_checkpoints_epoch(df_training_info, epoch, train_loss_epoch, val_loss_epoch, ckpt_manager_epoch, t_params, m_params, train_metric_mse=None,
@@ -124,8 +122,8 @@ def load_params(args_dict, train_test="train"):
         init_t_params.update( { 'lookback_target': m_params['data_pipeline_params']['lookback_target'] } )
         init_t_params.update( { 'lookback_feature': m_params['data_pipeline_params']['lookback_feature']})
 
-    elif(args_dict['model_name']=="SimpleConvGRU"):
-        m_params = hparameters.model_SimpleConvGRU_hparamaters(**init_m_params, **args_dict)()
+    elif(args_dict['model_name']=="HCGRU"):
+        m_params = hparameters.model_HCGRU_hparamaters(**init_m_params, **args_dict)()
         init_t_params.update( { 'lookback_target': m_params['data_pipeline_params']['lookback_target'] } )
         init_t_params.update( { 'lookback_feature': m_params['data_pipeline_params']['lookback_feature']})
 
@@ -171,11 +169,13 @@ def parse_arguments(s_dir=None):
 
     parser.add_argument('-ctsm_test','--ctsm_test', type=str, required=False, default=argparse.SUPPRESS, help="dataset for testing") 
 
-    parser.add_argument('-pc','--parallel_calls', type=int, required=False)
+    parser.add_argument('-pc','--parallel_calls', type=int, required=False, default=-1)
 
     parser.add_argument('-ep','--epochs', default=100, type=int, required=False)
        
     args_dict = vars(parser.parse_args() )
+
+    args_dict['parallel_calls'] = None if args_dict['parallel_calls'] == 0 else args_dict['parallel_calls']
 
     return args_dict
 

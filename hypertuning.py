@@ -22,7 +22,7 @@ def main(m_params, start_counter=0):
     param_dictionary = {} #Format is key:value = htune_number: dict containing variable params
 
     #defining hyperam range
-    if m_params['model_name'] == "SimpleConvGRU" :
+    if m_params['model_name'] == "HCGRU" :
         # Rectified Adam Parameters
         lrs_max_min = [ (1e-3, 1e-4), (1e-4,1e-5)] # minimum and maximum learning rate
         b1s = [0.75, 0.9]                            # beta 1
@@ -140,5 +140,5 @@ if __name__ == "__main__":
     
     main( args_dict )
 
-    #python3 hypertuning.py -mn "SimpleConvGRU" -mts "{}" -ctsm ""    
+    #python3 hypertuning.py -mn "HCGRU" -mts "{}" -ctsm ""    
     #python3 hypertuning.py -mn "TRUNET" -mts "{}" -ctsm ""    

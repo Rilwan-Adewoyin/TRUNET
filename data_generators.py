@@ -1,12 +1,12 @@
 from netCDF4 import Dataset, num2date
+import numpy as np
+import tensorflow as tf
+
 import glob
 import itertools as it
 import json
 import os
 import pickle
-
-import numpy as np
-import tensorflow as tf
 
 import utility
 
@@ -315,11 +315,11 @@ class Era5_Eobs():
         data_dir = self.t_params['data_dir']
 
         # Create python generator for rain data
-        fp_rain = data_dir+"/" + self.t_params.get('rain_fn',"rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_uk.nc")
+        fp_rain = data_dir+"/" + self.t_params.get('rain_fn',"eobs_true_rainfall_197901-201907_uk.nc")
         self.rain_data = Generator_rain(fp=fp_rain, all_at_once=False)
 
         # Create python generator for model field data 
-        mf_fp = data_dir + "/" + self.t_params.get('mf_fn', "ana_input_intrp_linear.nc")
+        mf_fp = data_dir + "/" + self.t_params.get('mf_fn', "model_fields_linearly_interpolated_1979-2019.nc")
         self.mf_data = Generator_mf(fp=mf_fp, vars_for_feature=self.t_params['vars_for_feature'], all_at_once=False, seq_len=self.t_params.get('lookback_feature',None) )
 
         # Update information on the locations of interest to extract data from

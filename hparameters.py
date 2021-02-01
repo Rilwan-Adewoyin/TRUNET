@@ -6,7 +6,6 @@ import pandas as pd
 from datetime import datetime
 import pickle
 from functools import reduce
-from tensorflow.python.training.tracking import data_structures
 
 class HParams():
     """Inheritable class for the parameter classes
@@ -115,7 +114,7 @@ class model_TRUNET_hparameters(MParams):
         attn_layers_count = enc_layer_count - 1
 
         # ConvGRU params
-        filters = 72 # no. of filters in all conv operations in ConvGRU units
+        filters = 64 #72  # no. of filters in all conv operations in ConvGRU units
 
 
         kernel_size_enc        = [ (4,4) ] * ( enc_layer_count )             
@@ -231,11 +230,11 @@ class model_TRUNET_hparameters(MParams):
             
             } )
 
-class model_SimpleConvGRU_hparamaters(MParams):
+class model_HCGRU_hparamaters(MParams):
 
     def __init__(self, **kwargs):
                 
-        super(model_SimpleConvGRU_hparamaters, self).__init__(**kwargs)
+        super(model_HCGRU_hparamaters, self).__init__(**kwargs)
     
     def _default_params(self,**kwargs):
         model_type_settings = kwargs.get('model_type_settings', {})        
@@ -293,7 +292,7 @@ class model_SimpleConvGRU_hparamaters(MParams):
         model_type_settings = kwargs.get('model_type_settings',{})
 
         self.params.update( {
-            'model_name':'SimpleConvGRU',
+            'model_name':'HCGRU',
             'layer_count':layer_count,
             'ConvGRU_layer_params':ConvGRU_layer_params,
             'conv1_layer_params':conv1_layer_params,
@@ -331,7 +330,7 @@ class model_UNET_hparamaters(MParams):
         
         LOOKAHEAD_PARAMS = { "sync_period":1 , "slow_step_size":0.99 }
 
-        # endregion
+        
         model_type_settings = kwargs.get( 'model_type_settings', {} )
 
         self.params.update( {
@@ -460,7 +459,8 @@ class test_hparameters_ati(HParams):
     def __init__(self, **kwargs):
         self.lookback_target = kwargs['lookback_target']
         self.batch_size = kwargs.get("batch_size", 2)
-        
+        self.parallel_calls = kwargs.get('parallel_calls', -1)
+
         self.dd = kwargs.get('data_dir')
         self.custom_test_split_method = kwargs.get('ctsm_test')
         
@@ -559,5 +559,6 @@ class test_hparameters_ati(HParams):
 
             'feature_start_date':feature_start_date,
             'target_start_date':target_start_date,
+            'parallel_calls':self.parallel_calls
 
         }
