@@ -356,7 +356,7 @@ class Era5_Eobs():
         
             
 
-    def load_data_era5eobs(self, batch_count, start_date,_num_parallel_calls=-1, prefetch=-1):
+    def load_data_era5eobs(self, batch_count, start_date,_num_parallel_calls=-1, prefetch=-1, drop_remainder=True):
         """Produces Tensorflow Datasets for the ERA5 and E-obs dataset
 
             Args:
@@ -388,7 +388,7 @@ class Era5_Eobs():
         ds_feat = ds_feat.unbatch()
         
         if self.m_params['time_sequential'] == True:
-            ds_feat = ds_feat.window(size = self.t_params.get('lookback_feature',28) , stride=1, shift=self.t_params.get('lookback_feature',28) , drop_remainder=True )
+            ds_feat = ds_feat.window(size = self.t_params.get('lookback_feature',28) , stride=1, shift=self.t_params.get('lookback_feature',28) , drop_remainder=drop_remainder )
             ds_feat = ds_feat.flat_map( lambda *window: tf.data.Dataset.zip( tuple([w.batch(self.t_params.get('lookback_feature',28) ) for w in window ] ) ) )  # shape (lookback,h, w, 6)
             ds_feat = ds_feat.map( lambda arr_data, arr_mask: self.mf_normalize_mask( arr_data, arr_mask), num_parallel_calls= _num_parallel_calls) 
         else:
@@ -404,7 +404,7 @@ class Era5_Eobs():
         ds_tar = ds_tar.skip(start_idx_tar)     #skipping to correct point
 
         if self.m_params['time_sequential'] == True:
-            ds_tar = ds_tar.window(size = self.t_params.get('lookback_target',128) , stride=1, shift=self.t_params['window_shift'] , drop_remainder=True )
+            ds_tar = ds_tar.window(size = self.t_params.get('lookback_target',128) , stride=1, shift=self.t_params['window_shift'] , drop_remainder=drop_remainder )
             ds_tar = ds_tar.flat_map( lambda *window: tf.data.Dataset.zip( tuple([ w.batch(self.t_params.get('lookback_target',128) ) for w in window ] ) ) ) # shape (lookback,h, w)
         else:
             ds_tar = ds_tar
