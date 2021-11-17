@@ -232,7 +232,7 @@ class Generator_rain(Generator):
         """
         with Dataset(self.fp, "r", format="NETCDF4",keepweakref=True) as ds:
             _data = ds.variables['rr'][:]
-            yield np.ma.getdata(_data), np.ma.getmask(_data)   
+            yield np.ma.getdata(_data)[::-1, :], np.logical_not( np.ma.getmask(_data) )[::-1,:]
             
     def yield_iter(self):
         """ Return data in chunks"""
@@ -275,7 +275,16 @@ class Generator_mf(Generator):
         
         xr_gn =  xr_gn.isel(time=slice_t, latitude=slice_h, longitude=slice_w)
         
-        return xr_gn
+        next_marray = [ xr_gn[name].to_masked_array(copy=False) for name in self.vars_for_feature ]
+
+        list_datamask = [(np.ma.getdata(_mar), np.ma.getmask(_mar)) for _mar in next_marray]
+            
+        _data, _masks = list(zip(*list_datamask))
+        _masks = [ np.logical_not(_mask_val) for _mask_val in _masks] 
+        stacked_data = np.stack(_data, axis=-1)
+        stacked_masks = np.stack(_masks, axis=-1)
+
+        yield stacked_data, stacked_masks #(T, 100,140,6) 
 
     def yield_iter(self):
         xr_gn = xr.open_dataset(self.fp, cache=False, decode_times=False, decode_cf=False)
