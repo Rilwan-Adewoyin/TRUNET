@@ -14,15 +14,136 @@ import xarray as xr
 
 
 """
-    Example of how to use
-    import Generators
+    #TODO: Simplify code to make it non dependent on tensorflow. Convert tparams and mparams into kwargs
 
-    rr_ens file 
-    _filename = "Data/Rain_Data/rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_djf_uk.nc"
-    rain_gen = Generator_rain(_filename, all_at_once=True)
-    datum = next(iter(grib_gen))
+    Below we provide an example of how to use our Tensorflow based Pipeline for extracting weather and rain data. 
+    The user can specify features such as location, time, batch/all at once.
+    The generator automatically aligns rain and model field data, and masks out non valid rain readings, normalizes data etc etc
+    
+    import data_generators
+    import utility
+    import hparameters
+    import pandas as pd
+    import numpy as np
+    
+    # Attributes to be Changed By User
+    li_locations = ['London']
+
+    start_date = "2006-03-10" #YYYY-MM-DD           #Start date for data you want to sample
+    end_date =  "2009-08-02"                        #End date for sampled data
+
+    batch_size = 4                                 # To prevent any memory issues
+    window_shift = 28                               # E.g. in order to load data as batches of 28 days of data
+
+    data_dir = "./Data/Rain_Data_Nov19"
+    rain_fn = "Rain_Data/rr_ens_mean_0.1deg_reg_v20.0e_197901-201907_djf_uk.nc"
+    mf_fn = "model_fields_linearly_interpolated_1979-2019.nc"
+
+    # Fixed ATTRIBUTES -- Do Not Change
+    ## File paths to data
+    ## Model fields to extract from model field dataset 
+    vars_for_feature = ['unknown_local_param_137_128', 'unknown_local_param_133_128', 'air_temperature', 'geopotential', 'x_wind', 'y_wind' ]
+    normalization_scales = {        "rain":4.69872+0.5,
+                                    "model_fields": np.array([6.805,
+                                                            0.001786,
+                                                              5.458,
+                                                              1678.2178,
+                                                                5.107268,
+                                                                4.764533]) 
+                                                #- unknown_local_param_137_128
+                                                # - unknown_local_param_133_128,  
+                                                # # - air_temperature, 
+                                                # # - geopotential
+                                                # - x_wind, 
+                                                # # - y_wind
+        }
+    normalization_shift = {
+                                "rain":2.844,
+                                "model_fields": np.array([15.442,
+                                                            0.003758,
+                                                            274.833,
+                                                            54309.66,
+                                                            3.08158,
+                                                            0.54810]) }
+    mask_fill_value = {
+                                    "rain":0.0,
+                                    "model_field":0.0 
+        }
+
+    ## Locations to extract
+    region_grid_params:{
+            'outer_box_dims':[16,16],
+            'inner_box_dims':[4,4],
+            'vertical_shift':4,
+            'horizontal_shift':4,
+            'input_image_shape':[100,140]}
+    vertical_slides = (self.params['region_grid_params']['input_image_shape'][0] - self.params['region_grid_params']['outer_box_dims'][0] +1 )// self.params['region_grid_params']['vertical_shift']
+    horizontal_slides = (self.params['region_grid_params']['input_image_shape'][1] - self.params['region_grid_params']['outer_box_dims'][1] +1 ) // self.params['region_grid_params']['horizontal_shift']
+    region_grid_params['slides_v_h'] = [vertical_slides, horizontal_slides]
+
+    ## Times 
+    target_start_date = np.datetime64('1950-01-01') + np.timedelta64(10592,'D') #E-obs records start from 1950 
+    feature_start_date = np.datetime64('1970-01-01') + np.timedelta64(78888, 'h') #ERA5 records start from 1979
+        
+    date_tss = pd.date_range( end=test_end_date, start=start_date, freq='D', normalize=True) #Timestamps for target rain
+    timestamps = list ( (date_tss - pd.Timestamp("1970-01-01") ) // pd.Timedelta('1s') )
+        
+    ## Data Format
+    all_at_once = True                              # False would make dataset come out in batches
+    batches = (( np.timedelta64(train_end_date - start_date,'D')).astype(int) // window_shift) //batch_size
+
+    ## Param Dictionaries
+    t_params = { 
+                'data_dir': data_dir,
+                'rain_fn':rain_fn,
+                'mf_fn':mf_fn,
+                
+                'batch_size':1,
+                'time_sequential:True,
+                
+                'li_locations':li_locations,
+
+                'start_date':start_date,
+                'parallel_calls':-1, 
+                'batches':batches,
+
+                'normalization_shift':normalization_shift,
+                'normalization_scales':normalization_scales,
+                'mask_fill_value':mask_fill_value}
+    
+    m_params = {
+        'time_sequential':True,
+        'region_grid_params':region_grid_params}
+
+    # Instatiate Dataloader
+    era5_eobs = data_generators.Era5_Eobs( t_params, m_params)
+    
+    # Sets up internal dataloader parameters for to extract from specific location(s)
+    era5_eobs.location_size_cal(tparams.get( 'li_locations', ['London'] ) )
+    
+    era5_eobs_gen = era5_eobs.load_data_era5eobs(  
+         t_params['batches'],
+         t_params['start_date'],
+         drop_remainder=False )
+    
+    era5_eobs_gen = era5_eobs_gen.take(t_params['batches'])
+        # format: ( (model_field, (rain_data, mask) ), idx_of_central_position )
+                                                # model_field : T x H x W x 4*6 #0th dim represents days. #3rd dim represents 6 features and four quarday-periods periods in a day
+                                                # rain_data : T x H x W # -> 0th dimension represents days
+                                                # idx_of_central_position:  2
+
+    
+    #OPTION 1: Extract Time Slices of data 
+    for datum in iter(era5_eobs_gen):
+        f(datum) = output
+    
+    # Option 2: Load Data all at once
+    all_data = list(iter(era5_eobs_gen))
+    ( model_fields, (rain_data, mask), idx_of_central_pos) = zip(*all_data)
+    
 
 """
+
 # region -- Era5_Eobs
 class Generator():
     """
