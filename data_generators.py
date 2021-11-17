@@ -324,7 +324,7 @@ class Era5_Eobs():
                             seq_len=self.t_params.get('lookback_feature',None) )
 
         # Update information on the locations of interest to extract data from
-        self.location_size_calc()
+        self.location_size_calc(self.t_params.get('li_locations',None))
 
     def location_size_calc(self, custom_location=None): 
         """ Updates list of locations to evaluate on
