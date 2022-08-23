@@ -79,7 +79,7 @@ mccabe==0.6.1
 mistune==0.8.4
 mpmath==1.1.0
 nbclient==0.5.1
-nbconvert==6.0.7
+nbconvert==6.5.1
 nbformat==5.0.8
 nest-asyncio==1.4.3
 netCDF4==1.5.3
