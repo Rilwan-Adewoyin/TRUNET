@@ -5,7 +5,7 @@ The Data used in this project is available at the following Google Drive link. U
 Keywords: TRU_NET, Downscaling, Cross Attention, Hierarchical GRU
 
 ## Getting Started / Recreate
-The instructions below include commands to enter in command line to get started quickly and train your own model that takes in model field data and outputs rain prediction. Note:As of 6th February 2022 please contact first author in order to get the data used for this project, Step 4 will not work. : 
+The instructions below include commands to enter in command line (linux) to get started quickly and train your own model that takes in model field data and outputs rain prediction. 
 
 1.  make directory on your computer where you want to create this project 
     *  mkdir Project_RainForecast && cd Project_RainForecast
@@ -17,10 +17,11 @@ The instructions below include commands to enter in command line to get started 
     *  source venv_trunet/bin/activate
     *  pip3 install -r TRUNET/requirements.txt
     *  pip3 install tensorflow-gpu==2.3
-4.  ~~Download and Extract preprocessed Data Files~~
-    *  ~~gdown https://drive.google.com/uc?id=1543TTVz6gAGjpZ4lTqyVX_r0aa3jJAbm~~
-    *  unzip Data.zip -d Data
-5.  Train on 1979-2009, Predict 2009-2014, Evaluate Performance
+4. Download and Extract preprocessed Data Files
+    *  gdown https://drive.google.com/file/d/1Xm4ZiKCrpOGZkoSmNmt_DrmOhSRNoEsv/view?usp=sharing
+    *  tar xf TRUNET.tar.xz
+    *  extract the two Data files, keeping the name the same
+7.  Train on 1979-2009, Predict 2009-2014, Evaluate Performance
     *  Use example codes in the following train, predict and Evaluate section
   
 #### train
