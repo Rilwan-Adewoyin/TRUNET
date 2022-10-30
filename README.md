@@ -95,6 +95,7 @@ IFS-ERA5 is the numerical weather system which is used as the baseline in our pa
 Predictions will again be saved in the .Output/Predictions file.
 
 ## Data Download
+[ignore the download links in this section, please refer to the 'Getting Started Section for Datadownload Section']
 The preprocessed data used for experiments related to the paper can be found at this link https://drive.google.com/file/d/1543TTVz6gAGjpZ4lTqyVX_r0aa3jJAbm/view?usp=sharing. Users must extract the contents from the zip folder, into the root directory associated with their TRUNET repository. This Data contains 6-hourly data for 6 model fields defined on a 100,140 grid over the UK for the years 1979 through to 2019. 
 
 * IFS rain predictions between 1979 and 2019 defined on a 102,142 grid over the UK
