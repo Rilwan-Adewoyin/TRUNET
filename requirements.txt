@@ -9,7 +9,7 @@ backcall==0.2.0
 bleach==3.2.1
 bz2file==0.98
 cachetools==3.1.1
-certifi==2019.11.28
+certifi==2022.12.7
 cffi==1.14.4
 cfgrib==0.9.8.5
 cftime==1.0.4.2
