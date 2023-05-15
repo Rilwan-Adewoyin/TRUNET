@@ -10,7 +10,7 @@ The instructions below include commands to enter in command line (linux) to get 
 1.  make directory on your computer where you want to create this project 
     *  mkdir Project_RainForecast && cd Project_RainForecast
 2.  Download / Fork the repository
-    *  git clone https://github.com/Akanni96/TRUNET.git 
+    *  git clone https://github.com/Rilwan-Adewoyin/TRUNET.git 
     *  mkdir TRUNET/Data
 3.  make python >3.6 virtual environment and install requirements
     *  python -m venv venv_trunet
